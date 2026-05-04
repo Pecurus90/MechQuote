@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List
 
 from app.core.database import get_db
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 def get_kpi(db: Session = Depends(get_db)):
     today = date.today()
     first_this = today.replace(day=1)
-    first_prev = (first_this - date.reserve(1)).replace(day=1)
+    first_prev = (first_this - timedelta(days=1)).replace(day=1)
 
     all_quotes = db.query(Quote).all()
     total_quotes = len(all_quotes)

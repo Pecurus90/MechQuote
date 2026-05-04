@@ -39,8 +39,8 @@ export default function MaterialsPage() {
 
   useEffect(() => { loadData() }, [])
 
-  const resetForm = () => {
-    setEditingId(null)
+  const resetForm = (isNew: boolean = false) => {
+    setEditingId(isNew ? 0 : null)
     setName('')
     setFamily('')
     setDensity('')
@@ -75,7 +75,7 @@ export default function MaterialsPage() {
       active,
     }
     try {
-      if (editingId) {
+      if (editingId && editingId > 0) {
         await api.put(`/materials/${editingId}`, payload)
       } else {
         await api.post('/materials', payload)
@@ -97,7 +97,7 @@ export default function MaterialsPage() {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Materials</h1>
-        <Button onClick={() => resetForm()}>
+        <Button onClick={() => resetForm(true)}>
           <Plus className="w-4 h-4 mr-1" /> Nuovo
         </Button>
       </div>

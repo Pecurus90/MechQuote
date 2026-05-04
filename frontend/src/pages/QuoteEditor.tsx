@@ -5,7 +5,21 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import PartList from '@/components/quotes/PartList'
 import MaterialSelector from '@/components/quotes/MaterialSelector'
+import PhaseEditor from '@/components/quotes/PhaseEditor'
 import api from '@/lib/api'
+
+interface Phase {
+  id?: number
+  sequence_number: number
+  phase_type: string
+  description: string
+  machine_id?: number
+  setup_hours: number
+  cycle_hours_per_part: number
+  fixed_cost: number
+  calculated_cost: number
+  customer_visible: boolean
+}
 
 interface Part {
   id?: number
@@ -19,6 +33,7 @@ interface Part {
   unit_price: number
   total_price: number
   total_cost: number
+  phases: Phase[]
 }
 
 interface Quote {
@@ -184,77 +199,85 @@ export default function QuoteEditor() {
         {/* Part Editor */}
         <div className="lg:col-span-2">
           {selectedPart ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Edit Part: {selectedPart.part_code}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Codice Parte</label>
-                    <Input
-                      value={selectedPart.part_code}
-                      onChange={e => updatePart('part_code', e.target.value)}
-                    />
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Edit Part: {selectedPart.part_code}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Codice Parte</label>
+                      <Input
+                        value={selectedPart.part_code}
+                        onChange={e => updatePart('part_code', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Revisione</label>
+                      <Input
+                        value={selectedPart.revision}
+                        onChange={e => updatePart('revision', e.target.value)}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium mb-1 block">Descrizione</label>
+                      <Input
+                        value={selectedPart.description || ''}
+                        onChange={e => updatePart('description', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Quantità</label>
+                      <Input
+                        type="number"
+                        value={selectedPart.quantity}
+                        onChange={e => updatePart('quantity', Number(e.target.value))}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Modalità</label>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={selectedPart.quote_mode}
+                        onChange={e => updatePart('quote_mode', e.target.value)}
+                      >
+                        <option value="manual">Manuale</option>
+                        <option value="dxf">2D DXF</option>
+                        <option value="step">3D STEP</option>
+                        <option value="mixed">Misto</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <MaterialSelector
+                        value={selectedPart.material_id}
+                        onChange={(id, mat) => {
+                          updatePart('material_id', id)
+                          updatePart('material_name', mat.name)
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Revisione</label>
-                    <Input
-                      value={selectedPart.revision}
-                      onChange={e => updatePart('revision', e.target.value)}
-                    />
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold mb-2">Riepilogo Costi</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <span>Costo Totale:</span>
+                      <span className="text-right font-medium">{selectedPart.total_cost?.toFixed(2) || '0.00'} €</span>
+                      <span>Prezzo Unitario:</span>
+                      <span className="text-right font-medium">{selectedPart.unit_price?.toFixed(2) || '0.00'} €</span>
+                      <span className="font-semibold">Totale Parte:</span>
+                      <span className="text-right font-bold">{selectedPart.total_price?.toFixed(2) || '0.00'} €</span>
+                    </div>
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-medium mb-1 block">Descrizione</label>
-                    <Input
-                      value={selectedPart.description || ''}
-                      onChange={e => updatePart('description', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Quantità</label>
-                    <Input
-                      type="number"
-                      value={selectedPart.quantity}
-                      onChange={e => updatePart('quantity', Number(e.target.value))}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Modalità</label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={selectedPart.quote_mode}
-                      onChange={e => updatePart('quote_mode', e.target.value)}
-                    >
-                      <option value="manual">Manuale</option>
-                      <option value="dxf">2D DXF</option>
-                      <option value="step">3D STEP</option>
-                      <option value="mixed">Misto</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <MaterialSelector
-                      value={selectedPart.material_id}
-                      onChange={(id, mat) => {
-                        updatePart('material_id', id)
-                        updatePart('material_name', mat.name)
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">Riepilogo Costi</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span>Costo Totale:</span>
-                    <span className="text-right font-medium">{selectedPart.total_cost?.toFixed(2) || '0.00'} €</span>
-                    <span>Prezzo Unitario:</span>
-                    <span className="text-right font-medium">{selectedPart.unit_price?.toFixed(2) || '0.00'} €</span>
-                    <span className="font-semibold">Totale Parte:</span>
-                    <span className="text-right font-bold">{selectedPart.total_price?.toFixed(2) || '0.00'} €</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <PhaseEditor
+                partId={selectedPart.id}
+                phases={selectedPart.phases || []}
+                onChange={(phases) => updatePart('phases', phases)}
+              />
+            </div>
           ) : (
             <Card>
               <CardContent className="p-8 text-center text-gray-500">

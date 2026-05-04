@@ -65,8 +65,7 @@ export default function MaterialsPage() {
 
   const handleSave = async () => {
     const payload = {
-      name,
-      family,
+      name, family,
       density_kg_dm3: Number(density),
       cost_per_kg: Number(cost),
       edm_coefficient: Number(edm),
@@ -141,12 +140,12 @@ export default function MaterialsPage() {
       )}
 
       {editingId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl bg-white shadow-xl">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>{editingId ? 'Modifica' : 'Nuovo'} Materiale</CardTitle>
-                <button onClick={resetForm} className="p-1 hover:bg-gray-100 rounded">
+                <CardTitle>{editingId && editingId > 0 ? 'Modifica' : 'Nuovo'} Materiale</CardTitle>
+                <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -188,7 +187,7 @@ export default function MaterialsPage() {
               </div>
               <div className="flex gap-2 mt-6">
                 <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
-                <Button variant="outline" onClick={resetForm}>Annulla</Button>
+                <Button variant="outline" onClick={() => resetForm()}>Annulla</Button>
               </div>
             </CardContent>
           </Card>

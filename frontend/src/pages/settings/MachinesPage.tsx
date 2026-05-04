@@ -64,8 +64,7 @@ export default function MachinesPage() {
 
   const handleSave = async () => {
     const payload = {
-      name,
-      machine_type: mtype,
+      name, machine_type: mtype,
       hourly_rate: Number(rate),
       setup_minimum_hours: Number(setup),
       active,
@@ -135,12 +134,12 @@ export default function MachinesPage() {
       )}
 
       {editingId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl bg-white shadow-xl">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>{editingId ? 'Modifica' : 'Nuovo'} Macchina</CardTitle>
-                <button onClick={resetForm} className="p-1 hover:bg-gray-100 rounded">
+                <CardTitle>{editingId && editingId > 0 ? 'Modifica' : 'Nuovo'} Macchina</CardTitle>
+                <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -179,7 +178,7 @@ export default function MachinesPage() {
               </div>
               <div className="flex gap-2 mt-6">
                 <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
-                <Button variant="outline" onClick={resetForm}>Annulla</Button>
+                <Button variant="outline" onClick={() => resetForm()}>Annulla</Button>
               </div>
             </CardContent>
           </Card>

@@ -7,6 +7,8 @@ import DashboardPage from '@/pages/DashboardPage'
 import AppLayout from '@/components/layout/AppLayout'
 import QuoteEditor from '@/pages/QuoteEditor'
 import SettingsPage from '@/pages/SettingsPage'
+import MaterialsPage from '@/pages/settings/MaterialsPage'
+import MachinesPage from '@/pages/settings/MachinesPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -40,8 +42,8 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="quotes/new" element={<QuoteEditor />} />
-        <Route path="settings/materials" element={<SettingsPage />} />
-        <Route path="settings/machines" element={<SettingsPage />} />
+        <Route path="settings/materials" element={<MaterialsPage />} />
+        <Route path="settings/machines" element={<MachinesPage />} />
         <Route path="settings/templates" element={<SettingsPage />} />
         <Route path="settings/treatments" element={<SettingsPage />} />
         <Route path="settings/suppliers" element={<SettingsPage />} />

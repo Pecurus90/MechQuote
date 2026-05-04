@@ -27,42 +27,65 @@ interface Machine {
 
 export default function MachinesPage() {
   const [machines, setMachines] = useState<Machine[]>([])
-  const [editing, setEditing] = useState<Machine | null>(null)
-  const [form, setForm] = useState<Partial<Machine>>({})
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [name, setName] = useState('')
+  const [mtype, setMtype] = useState('')
+  const [rate, setRate] = useState('')
+  const [setup, setSetup] = useState('')
+  const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
 
-  const fetchData = () => {
+  const loadData = () => {
     api.get('/machines').then(res => {
       setMachines(res.data)
       setLoading(false)
     })
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { loadData() }, [])
 
-  const handleSave = async () => {
-    try {
-      if (editing?.id) {
-        await api.put(`/machines/${editing.id}`, form)
-      } else {
-        await api.post('/machines', form)
-      }
-      setEditing(null)
-      setForm({})
-      fetchData()
-    } catch (e) { console.error(e) }
+  const resetForm = () => {
+    setEditingId(null)
+    setName('')
+    setMtype('')
+    setRate('')
+    setSetup('')
+    setActive(true)
   }
 
-  const handleEdit = (m: Machine) => {
-    setEditing(m)
-    setForm(m)
+  const startEdit = (m: Machine) => {
+    setEditingId(m.id)
+    setName(m.name)
+    setMtype(m.machine_type)
+    setRate(String(m.hourly_rate))
+    setSetup(String(m.setup_minimum_hours))
+    setActive(m.active)
+  }
+
+  const handleSave = async () => {
+    const payload = {
+      name,
+      machine_type: mtype,
+      hourly_rate: Number(rate),
+      setup_minimum_hours: Number(setup),
+      active,
+    }
+    try {
+      if (editingId) {
+        await api.put(`/machines/${editingId}`, payload)
+      } else {
+        await api.post('/machines', payload)
+      }
+      resetForm()
+      loadData()
+    } catch (e) { console.error(e) }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questa macchina?')) return
     try {
       await api.delete(`/machines/${id}`)
-      fetchData()
+      loadData()
     } catch (e) { console.error(e) }
   }
 
@@ -70,7 +93,7 @@ export default function MachinesPage() {
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Macchine</h1>
-        <Button onClick={() => { setEditing({} as Machine); setForm({ active: true, hourly_rate: 0, setup_minimum_hours: 0 }) }}>
+        <Button onClick={resetForm}>
           <Plus className="w-4 h-4 mr-1" /> Nuovo
         </Button>
       </div>
@@ -84,8 +107,6 @@ export default function MachinesPage() {
                   <th className="text-left p-3">Nome</th>
                   <th className="text-left p-3">Tipo</th>
                   <th className="text-right p-3">Tariffa €/h</th>
-                  <th className="text-right p-3">Setup min (h)</th>
-                  <th className="text-center p-3">Stato</th>
                   <th className="text-center p-3">Azioni</th>
                 </tr>
               </thead>
@@ -95,15 +116,9 @@ export default function MachinesPage() {
                     <td className="p-3 font-medium">{m.name}</td>
                     <td className="p-3">{MACHINE_TYPES.find(t => t.value === m.machine_type)?.label || m.machine_type}</td>
                     <td className="p-3 text-right">{m.hourly_rate}</td>
-                    <td className="p-3 text-right">{m.setup_minimum_hours}</td>
-                    <td className="p-3 text-center">
-                      <span className={`px-2 py-1 rounded text-xs ${m.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {m.active ? 'Attivo' : 'Inattivo'}
-                      </span>
-                    </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => handleEdit(m)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEdit(m)} className="p-1 hover:bg-gray-100 rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
                         <button onClick={() => handleDelete(m.id)} className="p-1 hover:bg-red-50 rounded">
@@ -119,13 +134,13 @@ export default function MachinesPage() {
         </Card>
       )}
 
-      {editing !== null && (
+      {editingId !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-2xl">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>{editing.id ? 'Modifica' : 'Nuovo'} Macchina</CardTitle>
-                <button onClick={() => { setEditing(null); setForm({}) }} className="p-1 hover:bg-gray-100 rounded">
+                <CardTitle>{editingId ? 'Modifica' : 'Nuovo'} Macchina</CardTitle>
+                <button onClick={resetForm} className="p-1 hover:bg-gray-100 rounded">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -134,14 +149,14 @@ export default function MachinesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Nome</label>
-                  <Input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} />
+                  <Input value={name} onChange={e => setName(e.target.value)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tipo</label>
                   <select
                     className="flex h-10 w-full rounded-md border px-3 text-sm"
-                    value={form.machine_type || ''}
-                    onChange={e => setForm({...form, machine_type: e.target.value})}
+                    value={mtype}
+                    onChange={e => setMtype(e.target.value)}
                   >
                     <option value="">Seleziona...</option>
                     {MACHINE_TYPES.map(t => (
@@ -151,20 +166,20 @@ export default function MachinesPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tariffa €/ora</label>
-                  <Input type="number" step="0.1" value={form.hourly_rate || ''} onChange={e => setForm({...form, hourly_rate: Number(e.target.value))} />
+                  <Input type="number" step="0.1" value={rate} onChange={e => setRate(e.target.value)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Setup minimo (h)</label>
-                  <Input type="number" step="0.1" value={form.setup_minimum_hours || ''} onChange={e => setForm({...form, setup_minimum_hours: Number(e.target.value))} />
+                  <Input type="number" step="0.1" value={setup} onChange={e => setSetup(e.target.value)} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.active ?? true} onChange={e => setForm({...form, active: e.target.checked})} />
+                  <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
                   <label className="text-sm">Attivo</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
                 <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
-                <Button variant="outline" onClick={() => { setEditing(null); setForm({}) }}>Annulla</Button>
+                <Button variant="outline" onClick={resetForm}>Annulla</Button>
               </div>
             </CardContent>
           </Card>

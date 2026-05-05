@@ -12,6 +12,8 @@ import MachinesPage from '@/pages/settings/MachinesPage'
 import SuppliersPage from '@/pages/settings/SuppliersPage'
 import TreatmentsPage from '@/pages/settings/TreatmentsPage'
 import CostRulesPage from '@/pages/settings/CostRulesPage'
+import PhaseTemplatesPage from '@/pages/settings/PhaseTemplatesPage'
+import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -47,13 +49,13 @@ export default function App() {
         <Route path="quotes/new" element={<QuoteEditor />} />
         <Route path="settings/materials" element={<MaterialsPage />} />
         <Route path="settings/machines" element={<MachinesPage />} />
-        <Route path="settings/templates" element={<SettingsPage />} />
+        <Route path="settings/templates" element={<PhaseTemplatesPage />} />
         <Route path="settings/treatments" element={<TreatmentsPage />} />
         <Route path="settings/suppliers" element={<SuppliersPage />} />
         <Route path="settings/cost-rules" element={<CostRulesPage />} />
         <Route path="settings/edm-rules" element={<SettingsPage />} />
         <Route path="settings/cnc-rules" element={<SettingsPage />} />
-        <Route path="settings/step-colors" element={<SettingsPage />} />
+        <Route path="settings/step-colors" element={<StepColorRulesPage />} />
         <Route path="settings/company" element={<SettingsPage />} />
         <Route path="settings/pdf" element={<SettingsPage />} />
         <Route path="settings/backup" element={<SettingsPage />} />

@@ -90,9 +90,20 @@ class PartUpdate(PartBase):
     pass
 
 
+class PartFileOut(BaseModel):
+    id: int
+    file_type: str
+    filename: str
+    path: str
+
+    class Config:
+        from_attributes = True
+
+
 class PartOut(PartBase):
     id: int
     quote_id: int
+    files: List[PartFileOut] = []
 
     class Config:
         from_attributes = True

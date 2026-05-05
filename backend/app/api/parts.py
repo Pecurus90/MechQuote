@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+import os
+import shutil
 
 from app.core.database import get_db
-from app.models import Part, ManufacturingPhase
+from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis
 from app.schemas import PartCreate, PartUpdate, PartOut
 
 router = APIRouter(prefix="/api", tags=["parts"])
@@ -82,3 +84,86 @@ def duplicate_part(part_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_part)
     return new_part
+
+
+@router.post("/parts/{part_id}/files")
+def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    part = db.query(Part).filter(Part.id == part_id).first()
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+
+    # Determine file type
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext == '.dxf':
+        file_type = 'dxf'
+    elif ext in ('.step', '.stp'):
+        file_type = 'step'
+    elif ext == '.pdf':
+        file_type = 'pdf'
+    elif ext in ('.png', '.jpg', '.jpeg', '.gif', '.bmp'):
+        file_type = 'image'
+    else:
+        file_type = 'other'
+
+    # Save file
+    os.makedirs("uploads", exist_ok=True)
+    file_path = f"uploads/part_{part_id}_{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Create PartFile record
+    part_file = PartFile(
+        part_id=part_id,
+        file_type=file_type,
+        filename=file.filename,
+        path=file_path,
+    )
+    db.add(part_file)
+    db.commit()
+    db.refresh(part_file)
+
+    # If DXF, run analysis
+    if file_type == 'dxf' and ext == '.dxf':
+        try:
+            import ezdxf
+            doc = ezdxf.readfile(file_path)
+            msp = doc.modelspace()
+            total_length = 0
+            profile_count = 0
+            for entity in msp:
+                if entity.dxftype() == 'LINE':
+                    total_length += entity.dxf.start.distance(entity.dxf.end)
+                    profile_count += 1
+                elif entity.dxftype() in ('CIRCLE', 'ARC', 'LWPOLYLINE', 'SPLINE'):
+                    profile_count += 1
+
+            # Save geometry analysis
+            geo = GeometryAnalysis(
+                part_id=part_id,
+                source_file_id=part_file.id,
+                dxf_total_length_mm=total_length,
+                dxf_profile_count=profile_count,
+                confidence_level='medium',
+            )
+            db.add(geo)
+            db.commit()
+        except Exception as e:
+            print(f"DXF analysis error: {e}")
+
+    return {"ok": True, "file_id": part_file.id, "path": file_path}
+
+
+@router.delete("/files/{file_id}")
+def delete_file(file_id: int, db: Session = Depends(get_db)):
+    from app.models import PartFile as PF
+    pf = db.query(PF).filter(PF.id == file_id).first()
+    if not pf:
+        raise HTTPException(status_code=404, detail="File not found")
+    # Delete physical file
+    try:
+        os.remove(pf.path)
+    except Exception:
+        pass
+    db.delete(pf)
+    db.commit()
+    return {"ok": True}

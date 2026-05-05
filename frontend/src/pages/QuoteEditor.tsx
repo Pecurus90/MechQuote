@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import PartList from '@/components/quotes/PartList'
 import MaterialSelector from '@/components/quotes/MaterialSelector'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
+import FileUpload from '@/components/quotes/FileUpload'
 import api from '@/lib/api'
 
 interface Phase {
@@ -21,6 +22,13 @@ interface Phase {
   customer_visible: boolean
 }
 
+interface UploadedFile {
+  id: number
+  file_type: string
+  filename: string
+  path: string
+}
+
 interface Part {
   id?: number
   part_code: string
@@ -34,6 +42,7 @@ interface Part {
   total_price: number
   total_cost: number
   phases: Phase[]
+  files?: UploadedFile[]
 }
 
 interface Quote {
@@ -302,6 +311,18 @@ export default function QuoteEditor() {
                 partId={selectedPart.id}
                 phases={selectedPart.phases || []}
                 onChange={(phases) => updatePart('phases', phases)}
+              />
+
+              <FileUpload
+                partId={selectedPart.id}
+                files={selectedPart.files || []}
+                onUploaded={() => {
+                  if (selectedPart.id) {
+                    api.get(`/parts/${selectedPart.id}`).then(res => {
+                      updatePart('files', res.data.files || [])
+                    })
+                  }
+                }}
               />
             </div>
           ) : (

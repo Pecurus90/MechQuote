@@ -9,6 +9,9 @@ import QuoteEditor from '@/pages/QuoteEditor'
 import SettingsPage from '@/pages/SettingsPage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import MachinesPage from '@/pages/settings/MachinesPage'
+import SuppliersPage from '@/pages/settings/SuppliersPage'
+import TreatmentsPage from '@/pages/settings/TreatmentsPage'
+import CostRulesPage from '@/pages/settings/CostRulesPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -45,9 +48,9 @@ export default function App() {
         <Route path="settings/materials" element={<MaterialsPage />} />
         <Route path="settings/machines" element={<MachinesPage />} />
         <Route path="settings/templates" element={<SettingsPage />} />
-        <Route path="settings/treatments" element={<SettingsPage />} />
-        <Route path="settings/suppliers" element={<SettingsPage />} />
-        <Route path="settings/cost-rules" element={<SettingsPage />} />
+        <Route path="settings/treatments" element={<TreatmentsPage />} />
+        <Route path="settings/suppliers" element={<SuppliersPage />} />
+        <Route path="settings/cost-rules" element={<CostRulesPage />} />
         <Route path="settings/edm-rules" element={<SettingsPage />} />
         <Route path="settings/cnc-rules" element={<SettingsPage />} />
         <Route path="settings/step-colors" element={<SettingsPage />} />

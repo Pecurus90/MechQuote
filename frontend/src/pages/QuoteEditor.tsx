@@ -164,6 +164,26 @@ export default function QuoteEditor() {
     } catch (e) { console.error('Error downloading PDF', e) }
   }
 
+  const [emailDialog, setEmailDialog] = useState(false)
+  const [emailRecipient, setEmailRecipient] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+
+  const sendEmail = async () => {
+    if (!quote.id || !emailRecipient) return
+    setSendingEmail(true)
+    try {
+      await api.post(`/quotes/${quote.id}/send-email`, { email: emailRecipient })
+      alert('Email inviata con successo!')
+      setEmailDialog(false)
+      setEmailRecipient('')
+    } catch (e) {
+      console.error('Error sending email', e)
+      alert('Errore nell\'invio dell\'email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -177,6 +197,9 @@ export default function QuoteEditor() {
               <Button variant="outline" onClick={() => downloadPdf('internal')}>
                 PDF Interno
               </Button>
+              <Button variant="outline" onClick={() => setEmailDialog(true)}>
+                Invia Email
+              </Button>
             </>
           )}
           <Button variant="outline" onClick={() => navigate('/dashboard')}>
@@ -184,6 +207,41 @@ export default function QuoteEditor() {
           </Button>
         </div>
       </div>
+
+      {/* Email Dialog */}
+      {emailDialog && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-full max-w-md bg-white shadow-xl">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Invia Preventivo via Email</CardTitle>
+                <button onClick={() => setEmailDialog(false)} className="p-1 hover:bg-gray-100 rounded">
+                  <span className="text-gray-500">✕</span>
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Email Cliente</label>
+                  <Input
+                    type="email"
+                    value={emailRecipient}
+                    onChange={e => setEmailRecipient(e.target.value)}
+                    placeholder="cliente@esempio.com"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={sendEmail} disabled={sendingEmail || !emailRecipient}>
+                    {sendingEmail ? 'Invio...' : 'Invia'}
+                  </Button>
+                  <Button variant="outline" onClick={() => setEmailDialog(false)}>Annulla</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quote Header */}
       <Card className="mb-6">

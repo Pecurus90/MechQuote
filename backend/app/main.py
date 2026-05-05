@@ -18,13 +18,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api import auth, quotes, parts, phases, settings, dashboard
+from app.api import auth, quotes, parts, phases, settings, dashboard, pdf
 app.include_router(auth.router)
 app.include_router(quotes.router)
 app.include_router(parts.router)
 app.include_router(phases.router)
 app.include_router(settings.router)
 app.include_router(dashboard.router)
+app.include_router(pdf.router)
 
 
 @app.get("/api/health")

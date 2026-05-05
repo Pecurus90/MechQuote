@@ -141,13 +141,39 @@ export default function QuoteEditor() {
     }))
   }
 
+  const downloadPdf = async (type: 'customer' | 'internal') => {
+    if (!quote.id) return
+    try {
+      const res = await api.get(`/quotes/${quote.id}/pdf/${type}`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `preventivo_${quote.quote_number}_${type}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (e) { console.error('Error downloading PDF', e) }
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Nuovo Preventivo</h1>
-        <Button variant="outline" onClick={() => navigate('/dashboard')}>
-          Torna alla Dashboard
-        </Button>
+        <h1 className="text-2xl font-bold">Nuovo Preventivo {quote.quote_number && `- ${quote.quote_number}`}</h1>
+        <div className="flex gap-2">
+          {quote.id && (
+            <>
+              <Button variant="outline" onClick={() => downloadPdf('customer')}>
+                PDF Cliente
+              </Button>
+              <Button variant="outline" onClick={() => downloadPdf('internal')}>
+                PDF Interno
+              </Button>
+            </>
+          )}
+          <Button variant="outline" onClick={() => navigate('/dashboard')}>
+            Torna alla Dashboard
+          </Button>
+        </div>
       </div>
 
       {/* Quote Header */}

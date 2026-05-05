@@ -5,7 +5,7 @@ from io import BytesIO
 import tempfile
 
 from app.core.database import get_db
-from app.models import Quote, Part, ManufacturingPhase, Material
+from app.models import Quote, Part, ManufacturingPhase, Material, CostRule
 
 router = APIRouter(prefix="/api", tags=["pdf"])
 
@@ -17,40 +17,51 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session):
 
     parts = db.query(Part).filter(Part.quote_id == quote_id).all()
 
-    html = """<!DOCTYPE html>
+    # Load company settings from cost rules
+    company_rules = db.query(CostRule).filter(CostRule.key.like('company_%')).all()
+    company = {r.key: r.value for r in company_rules}
+    company_name = company.get('company_name', 'MECHQUOTE')
+    company_address = company.get('company_address', 'Fratelli Dalla Via - Officina Meccanica di Precisione')
+    company_vat = company.get('company_vat', '')
+    company_phone = company.get('company_phone', '')
+    company_email = company.get('company_email', '')
+
+    html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-@page { margin: 2cm; }
-body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
-.header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 20px; }
-.company-name { font-size: 24px; font-weight: bold; color: #1e40af; }
-.company-desc { font-size: 12px; color: #666; }
-.quote-title { font-size: 20px; font-weight: bold; text-align: right; }
-.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
-.info-box { background: #f9fafb; padding: 15px; border-radius: 8px; }
-.info-label { font-size: 10px; color: #666; text-transform: uppercase; }
-.info-value { font-size: 14px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-th { background: #f3f4f6; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; color: #666; }
-td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
-.total-row { font-weight: bold; font-size: 14px; }
-.footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #666; }
-.phase-detail { font-size: 10px; color: #666; margin-top: 5px; }
-.badge { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 10px; }
+@page {{ margin: 2cm; }}
+body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
+.header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 20px; }}
+.company-name {{ font-size: 24px; font-weight: bold; color: #1e40af; }}
+.company-desc {{ font-size: 12px; color: #666; }}
+.quote-title {{ font-size: 20px; font-weight: bold; text-align: right; }}
+.info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }}
+.info-box {{ background: #f9fafb; padding: 15px; border-radius: 8px; }}
+.info-label {{ font-size: 10px; color: #666; text-transform: uppercase; }}
+.info-value {{ font-size: 14px; font-weight: bold; }}
+table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+th {{ background: #f3f4f6; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; color: #666; }}
+td {{ padding: 10px; border-bottom: 1px solid #e5e7eb; }}
+.total-row {{ font-weight: bold; font-size: 14px; }}
+.footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #666; }}
+.phase-detail {{ font-size: 10px; color: #666; margin-top: 5px; }}
+.badge {{ background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 10px; }}
 </style>
 </head>
 <body>
 <div class="header">
 <div>
-<div class="company-name">MECHQUOTE</div>
-<div class="company-desc">Fratelli Dalla Via</div>
-<div class="company-desc">Officina Meccanica di Precisione</div>
+<div class="company-name">{company_name}</div>
+<div class="company-desc">{company_address}</div>
+{company_vat and f'<div class="company-desc">P.IVA: {company_vat}</div>' or ''}
+{company_phone and f'<div class="company-desc">Tel: {company_phone}</div>' or ''}
+{company_email and f'<div class="company-desc">Email: {company_email}</div>' or ''}
 </div>
 <div>
 <div class="quote-title">PREVENTIVO</div>
-<div style="text-align: right; color: #666; margin-top: 5px;">""" + (quote.quote_number or "") + """</div>
+<div style="text-align: right; color: #666; margin-top: 5px;">{quote.quote_number or ""}</div>
 </div>
 </div>
 

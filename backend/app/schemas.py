@@ -3,6 +3,34 @@ from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 
 
+# --- Customer ---
+class CustomerBase(BaseModel):
+    name: str
+    vat_number: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    contact_person: Optional[str] = None
+    notes: Optional[str] = None
+    active: Optional[bool] = True
+
+
+class CustomerCreate(CustomerBase):
+    pass
+
+
+class CustomerUpdate(CustomerBase):
+    pass
+
+
+class CustomerOut(CustomerBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # --- Auth ---
 class UserLogin(BaseModel):
     username: str
@@ -22,6 +50,7 @@ class Token(BaseModel):
 
 # --- Quote ---
 class QuoteBase(BaseModel):
+    customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     customer_reference: Optional[str] = None
     date: Optional[date] = None
@@ -51,6 +80,7 @@ class QuoteOut(QuoteBase):
     created_at: datetime
     updated_at: datetime
     parts: List["PartOut"] = []
+    customer: Optional[CustomerOut] = None
 
     class Config:
         from_attributes = True

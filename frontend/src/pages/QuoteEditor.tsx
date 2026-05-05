@@ -48,9 +48,15 @@ interface Part {
 interface Quote {
   id?: number
   quote_number: string
+  customer_id?: number
   customer_name: string
   date: string
   parts: Part[]
+}
+
+interface Customer {
+  id: number
+  name: string
 }
 
 export default function QuoteEditor() {
@@ -61,21 +67,30 @@ export default function QuoteEditor() {
     date: new Date().toISOString().split('T')[0],
     parts: [],
   })
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(-1)
   const [loading, setLoading] = useState(false)
 
   const selectedPart = selectedPartIdx >= 0 ? quote.parts[selectedPartIdx] : null
+
+  useEffect(() => {
+    api.get('/customers', { params: { active_only: true } }).then(res => {
+      setCustomers(res.data)
+    }).catch(e => console.error('Error loading customers', e))
+  }, [])
 
   const saveQuote = async () => {
     setLoading(true)
     try {
       if (quote.id) {
         await api.put(`/quotes/${quote.id}`, {
+          customer_id: quote.customer_id,
           customer_name: quote.customer_name,
           date: quote.date,
         })
       } else {
         const res = await api.post('/quotes', {
+          customer_id: quote.customer_id,
           customer_name: quote.customer_name,
           date: quote.date,
         })
@@ -185,24 +200,24 @@ export default function QuoteEditor() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">Nuovo Preventivo {quote.quote_number && `- ${quote.quote_number}`}</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {quote.id && (
             <>
-              <Button variant="outline" onClick={() => downloadPdf('customer')}>
+              <Button variant="outline" onClick={() => downloadPdf('customer')} size="sm">
                 PDF Cliente
               </Button>
-              <Button variant="outline" onClick={() => downloadPdf('internal')}>
+              <Button variant="outline" onClick={() => downloadPdf('internal')} size="sm">
                 PDF Interno
               </Button>
-              <Button variant="outline" onClick={() => setEmailDialog(true)}>
+              <Button variant="outline" onClick={() => setEmailDialog(true)} size="sm">
                 Invia Email
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={() => navigate('/dashboard')}>
+          <Button variant="outline" onClick={() => navigate('/dashboard')} size="sm">
             Torna alla Dashboard
           </Button>
         </div>
@@ -258,12 +273,29 @@ export default function QuoteEditor() {
               <label className="text-sm font-medium mb-1 block">Data</label>
               <Input type="date" value={quote.date} onChange={e => setQuote({...quote, date: e.target.value})} />
             </div>
-            <div>
+            <div className="md:col-span-2 lg:col-span-1">
               <label className="text-sm font-medium mb-1 block">Cliente</label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={quote.customer_id || ''}
+                onChange={e => {
+                  const customerId = e.target.value ? Number(e.target.value) : undefined
+                  const customer = customers.find(c => c.id === customerId)
+                  setQuote({...quote, customer_id: customerId, customer_name: customer?.name || ''})
+                }}
+              >
+                <option value="">Seleziona cliente...</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="text-sm font-medium mb-1 block">Oppure nuovo cliente</label>
               <Input
                 placeholder="Nome cliente"
                 value={quote.customer_name}
-                onChange={e => setQuote({...quote, customer_name: e.target.value})}
+                onChange={e => setQuote({...quote, customer_id: undefined, customer_name: e.target.value})}
                 onBlur={saveQuote}
               />
             </div>

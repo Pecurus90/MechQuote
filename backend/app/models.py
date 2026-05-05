@@ -21,14 +21,34 @@ class User(Base):
         return f"<User {self.username}>"
 
 
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    vat_number = Column(String(50))
+    address = Column(Text)
+    phone = Column(String(50))
+    email = Column(String(100))
+    contact_person = Column(String(100))
+    notes = Column(Text)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    quotes = relationship("Quote", back_populates="customer")
+
+
 class Quote(Base):
     __tablename__ = "quotes"
 
     id = Column(Integer, primary_key=True, index=True)
     quote_number = Column(String(50), unique=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"))
     customer_name = Column(String(200))
     customer_reference = Column(String(200))
     date = Column(Date, server_default=func.now())
+
+    customer = relationship("Customer", back_populates="quotes")
     validity_days = Column(Integer, default=30)
     delivery_text = Column(String(200))
     currency = Column(String(10), default="EUR")

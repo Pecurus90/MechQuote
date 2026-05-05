@@ -14,6 +14,7 @@ import TreatmentsPage from '@/pages/settings/TreatmentsPage'
 import CostRulesPage from '@/pages/settings/CostRulesPage'
 import PhaseTemplatesPage from '@/pages/settings/PhaseTemplatesPage'
 import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
+import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -56,7 +57,7 @@ export default function App() {
         <Route path="settings/edm-rules" element={<SettingsPage />} />
         <Route path="settings/cnc-rules" element={<SettingsPage />} />
         <Route path="settings/step-colors" element={<StepColorRulesPage />} />
-        <Route path="settings/company" element={<SettingsPage />} />
+        <Route path="settings/company" element={<CompanySettingsPage />} />
         <Route path="settings/pdf" element={<SettingsPage />} />
         <Route path="settings/backup" element={<SettingsPage />} />
       </Route>

@@ -251,10 +251,7 @@ export default function QuoteEditor() {
           ))}
         </select>
         <Button size="sm" variant="outline" onClick={() => handlePdfClick('customer')}>
-          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF Cliente
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => handlePdfClick('internal')}>
-          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF Interno
+          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
         </Button>
         <Button size="sm" onClick={saveQuote} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1" /> {saving ? 'Salvo...' : 'Salva'}

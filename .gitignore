@@ -28,3 +28,4 @@ backend/uploads/*
 # Logs
 *.log
 .DS_Store
+clienti.csv

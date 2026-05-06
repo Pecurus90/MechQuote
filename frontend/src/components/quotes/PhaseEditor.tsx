@@ -34,6 +34,7 @@ interface Props {
 }
 
 const TREATMENT_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment'])
+const SUPPLIER_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment', 'external_supplier'])
 
 function calcPhase(phase: Phase, machines: Machine[], qty: number): Phase {
   const machine = machines.find(m => m.id === phase.machine_id)
@@ -340,9 +341,9 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
                         </div>
                       )}
 
-                      {suppliers.length > 0 && (
+                      {suppliers.length > 0 && SUPPLIER_PHASE_TYPES.has(phase.phase_type) && (
                         <div>
-                          <label className="text-xs font-medium text-gray-600">Fornitore esterno</label>
+                          <label className="text-xs font-medium text-gray-600">Fornitore</label>
                           <select
                             className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                             value={phase.supplier_id || ''}

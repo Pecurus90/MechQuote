@@ -94,13 +94,15 @@ export default function CustomersPage() {
     } catch (e) { console.error(e) }
   }
 
+  const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')
+
   const filtered = customers.filter(c => {
     if (!search) return true
-    const q = search.toLowerCase()
+    const q = normalize(search)
     return (
       String(c.customer_number).includes(q) ||
-      c.name.toLowerCase().includes(q) ||
-      (c.address || '').toLowerCase().includes(q)
+      normalize(c.name).includes(q) ||
+      normalize(c.address || '').includes(q)
     )
   })
 

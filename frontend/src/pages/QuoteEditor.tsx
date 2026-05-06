@@ -26,6 +26,7 @@ export default function QuoteEditor() {
   const [templates, setTemplates] = useState<{ id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean }[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
+  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [emailDialog, setEmailDialog] = useState(false)
 
@@ -61,7 +62,11 @@ export default function QuoteEditor() {
         parts: (q.parts || []).map((p: Part) => ({ ...p, phases: p.phases || [] })),
       })
       setLoading(false)
-    }).catch(() => navigate('/', { replace: true }))
+    }).catch((e) => {
+      const msg = e?.response?.data?.detail || e?.message || 'Errore sconosciuto'
+      setLoadError(`Impossibile caricare il preventivo: ${msg}`)
+      setLoading(false)
+    })
   }, [id])
 
   const updatePart = (idx: number, updates: Partial<Part>) => {
@@ -198,13 +203,18 @@ export default function QuoteEditor() {
       <QuoteWizard
         categories={categories}
         customers={customers}
-        materials={materials}
         onCreated={newId => navigate(`/quotes/${newId}`, { replace: true })}
       />
     )
   }
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Caricamento...</div>
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <p className="text-red-600 font-medium">{loadError}</p>
+      <button onClick={() => navigate('/')} className="text-sm text-blue-600 underline">Torna alla dashboard</button>
+    </div>
+  )
   if (!quote) return null
 
   const selectedPart = quote.parts[selectedPartIdx] ?? null

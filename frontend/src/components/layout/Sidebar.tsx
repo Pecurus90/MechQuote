@@ -1,12 +1,31 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Plus, Archive, Settings, ChevronDown, ChevronRight, FileText } from 'lucide-react'
+import {
+  LayoutDashboard, Plus, Archive, FileText,
+  Box, Cog, Layers, Ruler, Building2, FileText as FileTextIcon,
+  Palette, Tag, Users, Database, ChevronDown, ChevronRight
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+const navLinkClass = (isActive: boolean, small = false) =>
+  cn(
+    'flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors',
+    small ? 'text-xs' : 'text-sm',
+    isActive
+      ? 'bg-blue-50 text-blue-700 font-medium'
+      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+  )
 
 export default function Sidebar() {
   const location = useLocation()
   const isQuotesActive = location.pathname.startsWith('/quotes')
-  const [quotesOpen, setQuotesOpen] = useState(isQuotesActive)
+  const isSystemActive =
+    location.pathname.startsWith('/settings/customers') ||
+    location.pathname.startsWith('/settings/company') ||
+    location.pathname.startsWith('/settings/backup')
+
+  const [quotesOpen, setQuotesOpen] = useState(isQuotesActive || location.pathname.startsWith('/settings') && !isSystemActive)
+  const [systemOpen, setSystemOpen] = useState(isSystemActive)
 
   return (
     <aside className="w-60 bg-white border-r h-screen sticky top-0 flex flex-col shrink-0">
@@ -23,34 +42,25 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+
         {/* Dashboard */}
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) =>
-            cn(
-              'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors',
-              isActive
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            )
-          }
-        >
+        <NavLink to="/dashboard" className={({ isActive }) => navLinkClass(isActive)}>
           <LayoutDashboard className="w-4 h-4 shrink-0" />
           <span>Dashboard</span>
         </NavLink>
 
-        {/* Preventivazione — collassabile */}
+        {/* Preventivazione */}
         <div className="pt-1">
           <button
             onClick={() => setQuotesOpen(o => !o)}
             className={cn(
-              'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-sm transition-colors',
-              isQuotesActive
+              'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
+              (isQuotesActive || (location.pathname.startsWith('/settings') && !isSystemActive))
                 ? 'text-blue-700 font-medium'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             )}
           >
-            <span className="flex items-center gap-2.5">
+            <span className="flex items-center gap-2">
               <FileText className="w-4 h-4 shrink-0" />
               <span>Preventivazione</span>
             </span>
@@ -61,56 +71,97 @@ export default function Sidebar() {
           </button>
 
           {quotesOpen && (
-            <div className="mt-0.5 pl-3 border-l border-gray-100 ml-3 space-y-0.5">
-              <NavLink
-                to="/quotes/new"
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  )
-                }
-              >
+            <div className="mt-0.5 ml-3 pl-3 border-l border-gray-100 space-y-0.5">
+
+              <NavLink to="/quotes/new" className={({ isActive }) => navLinkClass(isActive, true)}>
                 <Plus className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-xs">Nuovo Preventivo</span>
+                <span>Nuovo Preventivo</span>
               </NavLink>
-              <NavLink
-                to="/quotes/archive"
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors',
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  )
-                }
-              >
+              <NavLink to="/quotes/archive" className={({ isActive }) => navLinkClass(isActive, true)}>
                 <Archive className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-xs">Archivio Preventivi</span>
+                <span>Archivio Preventivi</span>
+              </NavLink>
+
+              <p className="px-2 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Impostazioni
+              </p>
+
+              <NavLink to="/settings/materials" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Box className="w-3.5 h-3.5 shrink-0" />
+                <span>Materiali</span>
+              </NavLink>
+              <NavLink to="/settings/machines" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Cog className="w-3.5 h-3.5 shrink-0" />
+                <span>Macchine</span>
+              </NavLink>
+              <NavLink to="/settings/templates" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Layers className="w-3.5 h-3.5 shrink-0" />
+                <span>Template Fasi</span>
+              </NavLink>
+              <NavLink to="/settings/treatments" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Ruler className="w-3.5 h-3.5 shrink-0" />
+                <span>Trattamenti</span>
+              </NavLink>
+              <NavLink to="/settings/suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Fornitori</span>
+              </NavLink>
+              <NavLink to="/settings/cost-rules" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <FileTextIcon className="w-3.5 h-3.5 shrink-0" />
+                <span>Regole di Costo</span>
+              </NavLink>
+              <NavLink to="/settings/step-colors" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Palette className="w-3.5 h-3.5 shrink-0" />
+                <span>Colori STEP</span>
+              </NavLink>
+              <NavLink to="/settings/categories" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Tag className="w-3.5 h-3.5 shrink-0" />
+                <span>Categorie</span>
+              </NavLink>
+
+            </div>
+          )}
+        </div>
+
+        {/* Anagrafica e Sistema */}
+        <div className="pt-1">
+          <button
+            onClick={() => setSystemOpen(o => !o)}
+            className={cn(
+              'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
+              isSystemActive
+                ? 'text-blue-700 font-medium'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <Users className="w-4 h-4 shrink-0" />
+              <span>Anagrafica e Sistema</span>
+            </span>
+            {systemOpen
+              ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            }
+          </button>
+
+          {systemOpen && (
+            <div className="mt-0.5 ml-3 pl-3 border-l border-gray-100 space-y-0.5">
+              <NavLink to="/settings/customers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span>Clienti</span>
+              </NavLink>
+              <NavLink to="/settings/company" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Dati Azienda</span>
+              </NavLink>
+              <NavLink to="/settings/backup" className={({ isActive }) => navLinkClass(isActive, true)}>
+                <Database className="w-3.5 h-3.5 shrink-0" />
+                <span>Backup / Esporta</span>
               </NavLink>
             </div>
           )}
         </div>
 
-        {/* Impostazioni — link singolo */}
-        <div className="pt-1">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              )
-            }
-          >
-            <Settings className="w-4 h-4 shrink-0" />
-            <span>Impostazioni</span>
-          </NavLink>
-        </div>
       </nav>
     </aside>
   )

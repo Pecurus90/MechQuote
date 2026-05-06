@@ -2,11 +2,21 @@ import type { Part, Quote, Material } from '@/types'
 
 export function calcMaterialCost(part: Part, material: Material | undefined): number {
   if (!material) return part.material_cost || 0
+  const scrap = 1 + (material.default_scrap_percent || 10) / 100
+  // tondo: usa raw_diameter_mm + raw_z_mm come lunghezza
+  if (part.raw_diameter_mm) {
+    const r = part.raw_diameter_mm / 2
+    const l = part.raw_z_mm || 0
+    if (!r || !l) return part.material_cost || 0
+    const volDm3 = (Math.PI * r * r * l) / 1_000_000
+    const kg = volDm3 * material.density_kg_dm3
+    return Math.round(kg * material.cost_per_kg * scrap * 100) / 100
+  }
+  // prismatico
   const x = part.raw_x_mm || 0, y = part.raw_y_mm || 0, z = part.raw_z_mm || 0
   if (!x || !y || !z) return part.material_cost || 0
   const volDm3 = (x * y * z) / 1_000_000
   const kg = volDm3 * material.density_kg_dm3
-  const scrap = 1 + (material.default_scrap_percent || 10) / 100
   return Math.round(kg * material.cost_per_kg * scrap * 100) / 100
 }
 

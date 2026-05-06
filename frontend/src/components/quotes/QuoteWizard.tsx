@@ -100,7 +100,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto space-y-4">
+        <div className="max-w-5xl mx-auto space-y-4">
 
           {/* Sezione 1: Cliente + Codice */}
           <div className="bg-white rounded-xl border shadow-sm">
@@ -109,8 +109,8 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
             </div>
             <div className="p-5 grid grid-cols-2 gap-5">
               {/* Cliente — ricerca autocomplete */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Cliente</label>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-2">Cliente</label>
                 <div ref={customerRef} className="relative">
                   <Input
                     className="h-9 text-sm"
@@ -158,49 +158,35 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               {/* Codice preventivo */}
               <div>
                 <label className="text-xs font-medium text-gray-600 block mb-2">Codice Preventivo</label>
-                <div className="flex items-end gap-1.5 flex-wrap">
-                  <div>
-                    <p className="text-[10px] text-gray-400 mb-1">Cod. cliente</p>
-                    <Input
-                      className="w-16 text-center font-mono h-9 text-sm"
-                      maxLength={3}
-                      placeholder="240"
-                      value={form.customer_code}
-                      onChange={e => set('customer_code', e.target.value.replace(/\D/g, '').slice(0, 3))}
-                    />
-                  </div>
-                  <span className="text-gray-400 pb-2">-</span>
-                  <div>
-                    <p className="text-[10px] text-gray-400 mb-1">Anno</p>
-                    <Input
-                      className="w-12 text-center font-mono h-9 text-sm"
-                      maxLength={2}
-                      value={form.year}
-                      onChange={e => set('year', e.target.value.replace(/\D/g, '').slice(0, 2))}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 mb-1">Cat.</p>
-                    <select
-                      className="h-9 rounded-md border border-input bg-background px-2 text-sm font-mono w-20"
-                      value={form.category_code}
-                      onChange={e => set('category_code', e.target.value)}
-                    >
-                      {categories.map(c => (
-                        <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <span className="text-gray-400 pb-2">_</span>
-                  <div>
-                    <p className="text-[10px] text-gray-400 mb-1">Progressivo</p>
-                    <Input
-                      className="w-20 text-center font-mono h-9 text-sm"
-                      placeholder="001"
-                      value={form.progressive}
-                      onChange={e => set('progressive', e.target.value.replace(/\D/g, '').slice(0, 3))}
-                    />
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    className="w-16 text-center font-mono h-9 text-sm"
+                    maxLength={3}
+                    value={form.customer_code}
+                    onChange={e => set('customer_code', e.target.value.replace(/\D/g, '').slice(0, 3))}
+                  />
+                  <span className="text-gray-400">-</span>
+                  <Input
+                    className="w-12 text-center font-mono h-9 text-sm"
+                    maxLength={2}
+                    value={form.year}
+                    onChange={e => set('year', e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  />
+                  <select
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm font-mono w-32"
+                    value={form.category_code}
+                    onChange={e => set('category_code', e.target.value)}
+                  >
+                    {categories.map(c => (
+                      <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                    ))}
+                  </select>
+                  <span className="text-gray-400">_</span>
+                  <Input
+                    className="w-20 text-center font-mono h-9 text-sm"
+                    value={form.progressive}
+                    onChange={e => set('progressive', e.target.value.replace(/\D/g, '').slice(0, 3))}
+                  />
                 </div>
                 {quoteNumber && (
                   <p className="mt-2.5 text-sm font-mono font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg inline-block">

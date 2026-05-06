@@ -1,15 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
-import os
 
 from app.core.database import get_db
 from app.models import Quote, Part, ManufacturingPhase
-from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, SendEmailRequest
+from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut
 from app.services.calculation import recalculate_part
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
@@ -117,54 +112,3 @@ def delete_quote(quote_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.post("/{quote_id}/send-email")
-def send_quote_email(quote_id: int, req: SendEmailRequest, db: Session = Depends(get_db)):
-    quote = db.query(Quote).filter(Quote.id == quote_id).first()
-    if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
-
-    smtp_host = os.getenv('SMTP_HOST', 'smtp.gmail.com')
-    smtp_port = int(os.getenv('SMTP_PORT', '587'))
-    smtp_user = os.getenv('SMTP_USER', '')
-    smtp_pass = os.getenv('SMTP_PASS', '')
-    sender = os.getenv('SMTP_SENDER', smtp_user)
-
-    if not smtp_user or not smtp_pass:
-        raise HTTPException(status_code=500, detail="SMTP non configurato")
-
-    from app.api.pdf import generate_quote_pdf
-    pdf_path = generate_quote_pdf(quote_id, internal=False, db=db)
-
-    msg = MIMEMultipart()
-    msg['From'] = sender
-    msg['To'] = req.email
-    msg['Subject'] = f"Preventivo {quote.quote_number} - {quote.customer_name or ''}"
-
-    body = (
-        f"Gentile cliente,\n\n"
-        f"in allegato trova il preventivo {quote.quote_number}.\n\n"
-        f"Cordiali saluti,\nFratelli Dalla Via"
-    )
-    msg.attach(MIMEText(body, 'plain'))
-
-    with open(pdf_path, 'rb') as f:
-        attachment = MIMEApplication(f.read(), Name=f"preventivo_{quote.quote_number}.pdf")
-    attachment['Content-Disposition'] = f'attachment; filename="preventivo_{quote.quote_number}.pdf"'
-    msg.attach(attachment)
-
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Invio email fallito: {str(e)}")
-    finally:
-        try:
-            os.unlink(pdf_path)
-        except Exception:
-            pass
-
-    quote.status = 'sent'
-    db.commit()
-    return {"ok": True}

@@ -176,25 +176,24 @@ tr:last-child td {{ border-bottom: none; }}
     html += f'<div class="footer">Generato da MechQuote — {_esc(company_name)}</div>\n'
     html += "</body>\n</html>"
 
-    try:
-        import weasyprint
-        pdf_bytes = weasyprint.HTML(string=html).write_pdf()
-        suffix = "_interno" if internal else "_cliente"
-        tmp = tempfile.NamedTemporaryFile(
-            delete=False, suffix=suffix + ".pdf",
-            prefix=f"preventivo_{quote_id}_"
-        )
-        tmp.write(pdf_bytes)
-        tmp.close()
-        return tmp.name
-    except ImportError:
-        tmp = tempfile.NamedTemporaryFile(
-            delete=False, suffix=".html",
-            prefix=f"preventivo_{quote_id}_"
-        )
-        tmp.write(html.encode('utf-8'))
-        tmp.close()
-        return tmp.name
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content(html, wait_until="networkidle")
+        pdf_bytes = page.pdf(format="A4", margin={
+            "top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm"
+        })
+        browser.close()
+
+    suffix = "_interno" if internal else "_cliente"
+    tmp = tempfile.NamedTemporaryFile(
+        delete=False, suffix=suffix + ".pdf",
+        prefix=f"preventivo_{quote_id}_"
+    )
+    tmp.write(pdf_bytes)
+    tmp.close()
+    return tmp.name
 
 
 @router.get("/quotes/{quote_id}/pdf/customer")

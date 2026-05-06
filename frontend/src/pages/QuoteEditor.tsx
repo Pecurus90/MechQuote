@@ -6,11 +6,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import type { Material, Category, Customer, Part, Quote, Machine } from '@/types'
 import api from '@/lib/api'
-import { Trash2, Copy, FileDown, Mail, ChevronLeft, Save, Plus } from 'lucide-react'
+import { Trash2, Copy, FileDown, ChevronLeft, Save, Plus } from 'lucide-react'
 import { STATUS_LABELS } from '@/lib/constants'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
-import EmailDialog from '@/components/quotes/EmailDialog'
 import PartCard from '@/components/quotes/PartCard'
+import { validateQuote } from '@/lib/quoteValidation'
+import type { PartIssue } from '@/lib/quoteValidation'
 
 export default function QuoteEditor() {
   const { id } = useParams<{ id?: string }>()
@@ -28,7 +29,8 @@ export default function QuoteEditor() {
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [emailDialog, setEmailDialog] = useState(false)
+  const [validationIssues, setValidationIssues] = useState<PartIssue[] | null>(null)
+  const [pendingPdfType, setPendingPdfType] = useState<'customer' | 'internal' | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -191,11 +193,15 @@ export default function QuoteEditor() {
     } catch (e) { console.error(e) }
   }
 
-  const sendEmail = async (email: string) => {
-    if (!quote?.id) return
-    await api.post(`/quotes/${quote.id}/send-email`, { email })
-    alert('Email inviata con successo!')
-    setEmailDialog(false)
+  const handlePdfClick = (type: 'customer' | 'internal') => {
+    if (!quote) return
+    const issues = validateQuote(quote)
+    if (issues.length > 0) {
+      setValidationIssues(issues)
+      setPendingPdfType(type)
+    } else {
+      downloadPdf(type)
+    }
   }
 
   if (isNew) {
@@ -221,6 +227,7 @@ export default function QuoteEditor() {
   const total = calcQuoteTotal(quote)
   const partsSubtotal = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
+  const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-gray-50">
@@ -243,14 +250,11 @@ export default function QuoteEditor() {
             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
           ))}
         </select>
-        <Button size="sm" variant="outline" onClick={() => downloadPdf('customer')}>
+        <Button size="sm" variant="outline" onClick={() => handlePdfClick('customer')}>
           <FileDown className="w-3.5 h-3.5 mr-1" /> PDF Cliente
         </Button>
-        <Button size="sm" variant="outline" onClick={() => downloadPdf('internal')}>
+        <Button size="sm" variant="outline" onClick={() => handlePdfClick('internal')}>
           <FileDown className="w-3.5 h-3.5 mr-1" /> PDF Interno
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => setEmailDialog(true)}>
-          <Mail className="w-3.5 h-3.5 mr-1" /> Email
         </Button>
         <Button size="sm" onClick={saveQuote} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1" /> {saving ? 'Salvo...' : 'Salva'}
@@ -288,6 +292,9 @@ export default function QuoteEditor() {
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-sm font-mono font-medium text-gray-800 truncate">{part.part_code}</span>
                   <div className="flex items-center gap-1 shrink-0">
+                    {partsWithIssues.has(idx) && (
+                      <span className="text-amber-500 text-xs" title="Dati mancanti">⚠</span>
+                    )}
                     <button onClick={e => { e.stopPropagation(); duplicatePart(idx) }}
                       className="p-0.5 hover:text-blue-600 text-gray-300" title="Duplica">
                       <Copy className="w-3 h-3" />
@@ -424,13 +431,50 @@ export default function QuoteEditor() {
         </div>
       </div>
 
-      <EmailDialog
-        open={emailDialog}
-        onClose={() => setEmailDialog(false)}
-        onSend={async email => {
-          await sendEmail(email)
-        }}
-      />
+      {/* Validation modal */}
+      {validationIssues && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-5 py-4 border-b flex items-center gap-2">
+              <span className="text-amber-500 text-lg">⚠</span>
+              <h2 className="font-semibold text-gray-800">Preventivo incompleto</h2>
+            </div>
+            <div className="px-5 py-4 space-y-3 max-h-80 overflow-y-auto">
+              {validationIssues.map(({ partIdx, partCode, issues }) => (
+                <div key={partIdx}>
+                  <button
+                    onClick={() => { setSelectedPartIdx(partIdx); setValidationIssues(null) }}
+                    className="font-mono font-semibold text-blue-600 hover:underline text-sm"
+                  >
+                    {partCode}
+                  </button>
+                  <ul className="mt-1 space-y-0.5">
+                    {issues.map(issue => (
+                      <li key={issue} className="text-sm text-gray-600 flex items-start gap-1.5">
+                        <span className="text-gray-400 mt-0.5">•</span>
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              <p className="text-xs text-gray-400 pt-1">Clicca sul codice parte per navigare direttamente alla sezione.</p>
+            </div>
+            <div className="px-5 py-4 border-t flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setValidationIssues(null); setPendingPdfType(null) }}>
+                Annulla
+              </Button>
+              <Button size="sm" onClick={() => {
+                if (pendingPdfType) downloadPdf(pendingPdfType)
+                setValidationIssues(null)
+                setPendingPdfType(null)
+              }}>
+                Genera comunque →
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

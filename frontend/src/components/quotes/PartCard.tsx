@@ -1,8 +1,26 @@
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost } from '@/lib/quoteCalc'
 import type { Part, Material, Machine } from '@/types'
+
+type StockType = 'none' | 'round' | 'square'
+
+const IconRound = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
+    <ellipse cx="12" cy="7" rx="9" ry="3.5" />
+    <path d="M3 7v10c0 1.93 4.03 3.5 9 3.5s9-1.57 9-3.5V7" />
+  </svg>
+)
+
+const IconSquare = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
+    <path d="M4 6h12v12H4z" />
+    <path d="M8 2h12v12" />
+    <path d="M16 2l4 4M16 14l4-4M4 18l4 4M20 14v-8" />
+  </svg>
+)
 
 interface Supplier { id: number; name: string }
 interface PhaseTemplate { id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean }
@@ -22,13 +40,34 @@ interface Props {
 export default function PartCard({ part, machines, materials, suppliers = [], templates = [], globalMarginPercent, onUpdate, onSave, onPhasesChange }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
+  const inferStockType = (p: Part): StockType =>
+    p.raw_diameter_mm ? 'round' : (p.raw_x_mm || p.raw_y_mm) ? 'square' : 'none'
+
+  const [stockType, setStockType] = useState<StockType>(() => inferStockType(part))
+
+  useEffect(() => { setStockType(inferStockType(part)) }, [part.id])
+
   const handleMaterialChange = (matId: number | undefined) => {
     const material = materials.find(m => m.id === matId)
     const matCost = calcMaterialCost({ ...part, material_id: matId }, material)
     onUpdate({ material_id: matId, material_cost: matCost })
   }
 
-  const handleDimensionChange = (field: 'raw_x_mm' | 'raw_y_mm' | 'raw_z_mm', value: number) => {
+  const handleStockTypeChange = (type: StockType) => {
+    setStockType(type)
+    // pulisce i campi dimensione non pertinenti
+    const material = materials.find(m => m.id === part.material_id)
+    const cleared = type === 'round'
+      ? { raw_x_mm: undefined, raw_y_mm: undefined }
+      : type === 'square'
+        ? { raw_diameter_mm: undefined }
+        : { raw_x_mm: undefined, raw_y_mm: undefined, raw_z_mm: undefined, raw_diameter_mm: undefined }
+    const updated = { ...part, ...cleared }
+    const matCost = calcMaterialCost(updated, material)
+    onUpdate({ ...cleared, material_cost: matCost } as Partial<Part>)
+  }
+
+  const handleDimChange = (field: keyof Part, value: number) => {
     const updated = { ...part, [field]: value }
     const material = materials.find(m => m.id === part.material_id)
     const matCost = calcMaterialCost(updated, material)
@@ -71,8 +110,8 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             </div>
           </div>
 
-          {/* Riga 2: materiale e grezzo */}
-          <div className="flex items-end gap-3">
+          {/* Riga 2: materiale + tipo grezzo + dimensioni */}
+          <div className="flex items-end gap-3 flex-wrap">
             <div className="w-60 shrink-0">
               <label className="text-xs font-medium text-gray-600">Materiale</label>
               <select
@@ -87,39 +126,100 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 ))}
               </select>
             </div>
-            <div className="w-24 shrink-0">
-              <label className="text-xs font-medium text-gray-600">X grezzo (mm)</label>
-              <Input type="number" min={0} step={0.1} className="mt-1 h-8 text-sm"
-                value={part.raw_x_mm ?? ''}
-                onChange={e => handleDimensionChange('raw_x_mm', parseFloat(e.target.value) || 0)}
-                onBlur={onSave} />
+
+            {/* Tipo grezzo */}
+            <div className="shrink-0">
+              <label className="text-xs font-medium text-gray-600 block mb-1">Grezzo</label>
+              <div className="flex gap-1">
+                {([
+                  { type: 'none' as StockType, label: '—' },
+                  { type: 'round' as StockType, icon: <IconRound /> },
+                  { type: 'square' as StockType, icon: <IconSquare /> },
+                ]).map(opt => (
+                  <button
+                    key={opt.type}
+                    type="button"
+                    onClick={() => { handleStockTypeChange(opt.type); onSave() }}
+                    className={`h-8 px-2.5 rounded-md border text-sm flex items-center gap-1 transition-colors ${
+                      stockType === opt.type
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {opt.icon ?? opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="w-24 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Y grezzo (mm)</label>
-              <Input type="number" min={0} step={0.1} className="mt-1 h-8 text-sm"
-                value={part.raw_y_mm ?? ''}
-                onChange={e => handleDimensionChange('raw_y_mm', parseFloat(e.target.value) || 0)}
-                onBlur={onSave} />
-            </div>
-            <div className="w-24 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Z grezzo (mm)</label>
-              <Input type="number" min={0} step={0.1} className="mt-1 h-8 text-sm"
-                value={part.raw_z_mm ?? ''}
-                onChange={e => handleDimensionChange('raw_z_mm', parseFloat(e.target.value) || 0)}
-                onBlur={onSave} />
-            </div>
-            <div className="w-28 shrink-0">
+
+            {/* Dimensioni tondo */}
+            {stockType === 'round' && (
+              <>
+                <div className="shrink-0">
+                  <label className="text-xs font-medium text-gray-600">Ø (mm)</label>
+                  <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
+                    value={part.raw_diameter_mm ?? ''}
+                    onChange={e => handleDimChange('raw_diameter_mm', parseFloat(e.target.value) || 0)}
+                    onBlur={onSave} />
+                </div>
+                <div className="shrink-0">
+                  <label className="text-xs font-medium text-gray-600">Lungh. (mm)</label>
+                  <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
+                    value={part.raw_z_mm ?? ''}
+                    onChange={e => handleDimChange('raw_z_mm', parseFloat(e.target.value) || 0)}
+                    onBlur={onSave} />
+                </div>
+                {selectedMaterial && part.raw_diameter_mm && part.raw_z_mm && (
+                  <p className="text-xs text-gray-400 pb-1.5 whitespace-nowrap">
+                    {(() => {
+                      const r = part.raw_diameter_mm! / 2
+                      const kg = (Math.PI * r * r * part.raw_z_mm!) / 1_000_000 * selectedMaterial.density_kg_dm3
+                      return `~${kg.toFixed(3)} kg`
+                    })()}
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* Dimensioni prismatico */}
+            {stockType === 'square' && (
+              <>
+                <div className="shrink-0">
+                  <label className="text-xs font-medium text-gray-600">X (mm)</label>
+                  <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
+                    value={part.raw_x_mm ?? ''}
+                    onChange={e => handleDimChange('raw_x_mm', parseFloat(e.target.value) || 0)}
+                    onBlur={onSave} />
+                </div>
+                <div className="shrink-0">
+                  <label className="text-xs font-medium text-gray-600">Y (mm)</label>
+                  <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
+                    value={part.raw_y_mm ?? ''}
+                    onChange={e => handleDimChange('raw_y_mm', parseFloat(e.target.value) || 0)}
+                    onBlur={onSave} />
+                </div>
+                <div className="shrink-0">
+                  <label className="text-xs font-medium text-gray-600">Z (mm)</label>
+                  <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
+                    value={part.raw_z_mm ?? ''}
+                    onChange={e => handleDimChange('raw_z_mm', parseFloat(e.target.value) || 0)}
+                    onBlur={onSave} />
+                </div>
+                {selectedMaterial && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm && (
+                  <p className="text-xs text-gray-400 pb-1.5 whitespace-nowrap">
+                    {((part.raw_x_mm * part.raw_y_mm * part.raw_z_mm) / 1_000_000 * selectedMaterial.density_kg_dm3).toFixed(3)} kg
+                  </p>
+                )}
+              </>
+            )}
+
+            <div className="shrink-0">
               <label className="text-xs font-medium text-gray-600">Costo mat. (€)</label>
-              <Input type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
+              <Input type="number" min={0} step={0.01} className="mt-1 h-8 w-28 text-sm"
                 value={part.material_cost}
                 onChange={e => onUpdate({ material_cost: parseFloat(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
-            {selectedMaterial && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm && (
-              <p className="text-xs text-gray-400 pb-1.5 whitespace-nowrap">
-                {(((part.raw_x_mm * part.raw_y_mm * (part.raw_z_mm || 0)) / 1_000_000) * selectedMaterial.density_kg_dm3).toFixed(3)} kg
-              </p>
-            )}
           </div>
         </CardContent>
       </Card>

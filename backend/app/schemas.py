@@ -408,7 +408,3 @@ class MonthlyData(BaseModel):
     value: float
     year: int
 
-
-# --- Email ---
-class SendEmailRequest(BaseModel):
-    email: str

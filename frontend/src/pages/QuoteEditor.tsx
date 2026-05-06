@@ -24,7 +24,7 @@ export default function QuoteEditor() {
   const [categories, setCategories] = useState<Category[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([])
-  const [templates, setTemplates] = useState<{ id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean }[]>([])
+  const [templates, setTemplates] = useState<{ id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean; is_shared: boolean }[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
@@ -77,8 +77,9 @@ export default function QuoteEditor() {
   const updatePart = (idx: number, updates: Partial<Part>) => {
     setQuote(q => {
       if (!q) return q
+      const nParts = q.parts.length || 1
       const parts = q.parts.map((p, i) =>
-        i === idx ? calcPartTotals({ ...p, ...updates }, q.global_margin_percent) : p
+        i === idx ? calcPartTotals({ ...p, ...updates }, q.global_margin_percent, nParts) : p
       )
       return { ...q, parts }
     })
@@ -98,7 +99,10 @@ export default function QuoteEditor() {
         raw_x_mm: part.raw_x_mm,
         raw_y_mm: part.raw_y_mm,
         raw_z_mm: part.raw_z_mm,
+        raw_diameter_mm: part.raw_diameter_mm,
+        finished_weight_kg: part.finished_weight_kg,
         material_cost: part.material_cost,
+        material_delivery_cost: part.material_delivery_cost,
         margin_percent: part.margin_percent,
         minimum_price: part.minimum_price,
         total_cost: part.total_cost,
@@ -383,6 +387,7 @@ export default function QuoteEditor() {
               suppliers={suppliers}
               templates={templates}
               treatments={treatments}
+              nParts={quote.parts.length || 1}
               globalMarginPercent={quote.global_margin_percent}
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
               onSave={() => savePart(selectedPartIdx)}

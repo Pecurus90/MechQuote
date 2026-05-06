@@ -16,6 +16,7 @@ interface PhaseTemplate {
   fixed_cost: number
   variable_cost_per_part: number
   customer_visible: boolean
+  is_shared: boolean
   notes: string
 }
 
@@ -43,6 +44,7 @@ export default function PhaseTemplatesPage() {
   const [fixedCost, setFixedCost] = useState('0')
   const [variableCost, setVariableCost] = useState('0')
   const [customerVisible, setCustomerVisible] = useState(true)
+  const [isShared, setIsShared] = useState(false)
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -72,6 +74,7 @@ export default function PhaseTemplatesPage() {
     setFixedCost('0')
     setVariableCost('0')
     setCustomerVisible(true)
+    setIsShared(false)
     setNotes('')
   }
 
@@ -86,6 +89,7 @@ export default function PhaseTemplatesPage() {
     setFixedCost(String(t.fixed_cost || 0))
     setVariableCost(String(t.variable_cost_per_part || 0))
     setCustomerVisible(t.customer_visible)
+    setIsShared(t.is_shared ?? false)
     setNotes(t.notes || '')
   }
 
@@ -100,6 +104,7 @@ export default function PhaseTemplatesPage() {
       fixed_cost: Number(fixedCost),
       variable_cost_per_part: Number(variableCost),
       customer_visible: customerVisible,
+      is_shared: isShared,
       notes,
     }
     try {
@@ -141,6 +146,7 @@ export default function PhaseTemplatesPage() {
                   <th className="text-right p-3">Setup (h)</th>
                   <th className="text-right p-3">Ciclo (h)</th>
                   <th className="text-center p-3">Visibile</th>
+                  <th className="text-center p-3">Condivisa</th>
                   <th className="text-center p-3">Azioni</th>
                 </tr>
               </thead>
@@ -152,6 +158,9 @@ export default function PhaseTemplatesPage() {
                     <td className="p-3 text-right">{t.setup_hours}</td>
                     <td className="p-3 text-right">{t.cycle_hours_per_part}</td>
                     <td className="p-3 text-center">{t.customer_visible ? 'Sì' : 'No'}</td>
+                    <td className="p-3 text-center">
+                      {t.is_shared ? <span className="text-indigo-600 text-xs font-medium">↗ Sì</span> : <span className="text-gray-400 text-xs">No</span>}
+                    </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
                         <button onClick={() => startEdit(t)} className="p-1 hover:bg-gray-100 rounded">
@@ -240,6 +249,10 @@ export default function PhaseTemplatesPage() {
                 <div className="flex items-center gap-2">
                   <input type="checkbox" checked={customerVisible} onChange={e => setCustomerVisible(e.target.checked)} />
                   <label className="text-sm">Visibile al cliente</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={isShared} onChange={e => setIsShared(e.target.checked)} />
+                  <label className="text-sm">Condivisa (setup/fisso ÷ n° parti commessa)</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">

@@ -20,9 +20,10 @@ export function calcMaterialCost(part: Part, material: Material | undefined): nu
   return Math.round(kg * material.cost_per_kg * scrap * 100) / 100
 }
 
-export function calcPartTotals(part: Part, globalMargin: number): Part {
+export function calcPartTotals(part: Part, globalMargin: number, nParts = 1): Part {
   const phaseTotal = part.phases.reduce((s, p) => s + (p.calculated_cost || 0), 0)
-  const totalCost = Math.round(((part.material_cost || 0) + phaseTotal) * 100) / 100
+  const deliveryPerPiece = (part.material_delivery_cost || 0) / nParts
+  const totalCost = Math.round(((part.material_cost || 0) + deliveryPerPiece + phaseTotal) * 100) / 100
   const margin = part.margin_percent ?? globalMargin
   const minimum = part.minimum_price ?? 0
   const base = Math.max(totalCost, minimum)

@@ -22,6 +22,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
     progressive: '',
     quote_type: 'single' as 'single' | 'commessa',
     num_components: 2,
+    default_quantity: 1,
     global_margin_percent: 20,
     quote_date: new Date().toISOString().split('T')[0],
   })
@@ -77,6 +78,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
         quote_number: quoteNumber,
         quote_type: form.quote_type,
         num_components: form.quote_type === 'commessa' ? form.num_components : undefined,
+        default_quantity: form.default_quantity,
         customer_id: form.customer_id ? Number(form.customer_id) : undefined,
         customer_name: form.customer_name,
         global_margin_percent: form.global_margin_percent,
@@ -233,7 +235,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 </div>
               )}
 
-              <div className="flex gap-4 items-end">
+              <div className="flex gap-4 items-end flex-wrap">
                 <div>
                   <label className="text-xs font-medium text-gray-600">Data</label>
                   <Input type="date" className="mt-1 h-9 text-sm" value={form.quote_date}
@@ -244,6 +246,14 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                   <Input type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
                     value={form.global_margin_percent}
                     onChange={e => set('global_margin_percent', parseFloat(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">
+                    {form.quote_type === 'commessa' ? 'Qtà per componente' : 'Quantità pezzi'}
+                  </label>
+                  <Input type="number" min={1} className="mt-1 h-9 w-24 text-sm"
+                    value={form.default_quantity}
+                    onChange={e => set('default_quantity', parseInt(e.target.value) || 1)} />
                 </div>
               </div>
             </div>

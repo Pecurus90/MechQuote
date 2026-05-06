@@ -23,7 +23,7 @@ const IconSquare = () => (
 )
 
 interface Supplier { id: number; name: string }
-interface PhaseTemplate { id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean }
+interface PhaseTemplate { id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean; is_shared: boolean }
 
 interface Props {
   part: Part
@@ -32,13 +32,14 @@ interface Props {
   suppliers?: Supplier[]
   templates?: PhaseTemplate[]
   treatments?: Treatment[]
+  nParts?: number
   globalMarginPercent: number
   onUpdate: (updates: Partial<Part>) => void
   onSave: () => void
   onPhasesChange: (phases: Part['phases']) => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], templates = [], treatments = [], globalMarginPercent, onUpdate, onSave, onPhasesChange }: Props) {
+export default function PartCard({ part, machines, materials, suppliers = [], templates = [], treatments = [], nParts = 1, globalMarginPercent, onUpdate, onSave, onPhasesChange }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
@@ -222,6 +223,17 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 onBlur={onSave} />
             </div>
             <div className="shrink-0">
+              <label className="text-xs font-medium text-gray-600">Spediz. mat. (€)</label>
+              <Input type="number" min={0} step={0.5} className="mt-1 h-8 w-28 text-sm"
+                value={part.material_delivery_cost ?? ''}
+                placeholder="—"
+                onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0 })}
+                onBlur={onSave} />
+              {nParts > 1 && (part.material_delivery_cost || 0) > 0 && (
+                <p className="text-[10px] text-gray-400 mt-0.5">÷{nParts} parti</p>
+              )}
+            </div>
+            <div className="shrink-0">
               <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>
               <Input type="number" min={0} step={0.001} className="mt-1 h-8 w-28 text-sm"
                 value={part.finished_weight_kg ?? ''}
@@ -240,6 +252,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             partId={part.id}
             phases={part.phases}
             quantity={part.quantity}
+            nParts={nParts}
             machines={machines}
             suppliers={suppliers}
             templates={templates}

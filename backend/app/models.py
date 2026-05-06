@@ -93,6 +93,7 @@ class Part(Base):
     finished_weight_kg = Column(Float)
     raw_weight_kg = Column(Float)
     material_cost = Column(Float, default=0.0)
+    material_delivery_cost = Column(Float, default=0.0)
     margin_percent = Column(Float)
     minimum_price = Column(Float)
     rounding_rule = Column(String(20), default="none")
@@ -167,6 +168,7 @@ class ManufacturingPhase(Base):
     calculated_cost = Column(Float, default=0.0)
     margin_percent_override = Column(Float)
     customer_visible = Column(Boolean, default=True)
+    is_shared = Column(Boolean, default=False)
     internal_notes = Column(Text)
     customer_notes = Column(Text)
 
@@ -255,6 +257,7 @@ class PhaseTemplate(Base):
     fixed_cost = Column(Float, default=0.0)
     variable_cost_per_part = Column(Float, default=0.0)
     customer_visible = Column(Boolean, default=True)
+    is_shared = Column(Boolean, default=False)
     notes = Column(Text)
 
 

@@ -104,6 +104,7 @@ class PhaseBase(BaseModel):
     calculated_cost: Optional[float] = 0.0
     margin_percent_override: Optional[float] = None
     customer_visible: Optional[bool] = True
+    is_shared: Optional[bool] = False
     treatment_id: Optional[int] = None
     internal_notes: Optional[str] = None
     customer_notes: Optional[str] = None
@@ -168,6 +169,7 @@ class PartBase(BaseModel):
     finished_weight_kg: Optional[float] = None
     raw_weight_kg: Optional[float] = None
     material_cost: Optional[float] = 0.0
+    material_delivery_cost: Optional[float] = 0.0
     margin_percent: Optional[float] = None
     minimum_price: Optional[float] = None
     rounding_rule: Optional[str] = "none"
@@ -230,6 +232,7 @@ class QuoteBase(BaseModel):
 class QuoteCreate(QuoteBase):
     quote_number: Optional[str] = None
     num_components: Optional[int] = None
+    default_quantity: Optional[int] = 1
 
 
 class QuoteUpdate(QuoteBase):
@@ -354,6 +357,7 @@ class PhaseTemplateBase(BaseModel):
     fixed_cost: Optional[float] = 0.0
     variable_cost_per_part: Optional[float] = 0.0
     customer_visible: Optional[bool] = True
+    is_shared: Optional[bool] = False
     notes: Optional[str] = None
 
 

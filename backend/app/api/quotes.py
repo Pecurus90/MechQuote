@@ -37,7 +37,8 @@ def create_quote(data: QuoteCreate, db: Session = Depends(get_db)):
     from datetime import date as date_type
 
     num_components = data.num_components
-    quote_data = data.model_dump(exclude={"num_components"}, exclude_unset=True)
+    default_quantity = data.default_quantity or 1
+    quote_data = data.model_dump(exclude={"num_components", "default_quantity"}, exclude_unset=True)
 
     quote = Quote(**quote_data)
     if not quote.quote_date:
@@ -53,7 +54,7 @@ def create_quote(data: QuoteCreate, db: Session = Depends(get_db)):
             part = Part(
                 quote_id=quote.id,
                 part_code=f"{quote.quote_number}_{i:02d}",
-                quantity=1,
+                quantity=default_quantity,
                 quote_mode="manual",
             )
             db.add(part)
@@ -62,7 +63,7 @@ def create_quote(data: QuoteCreate, db: Session = Depends(get_db)):
         part = Part(
             quote_id=quote.id,
             part_code=quote.quote_number or "P01",
-            quantity=1,
+            quantity=default_quantity,
             quote_mode="manual",
         )
         db.add(part)

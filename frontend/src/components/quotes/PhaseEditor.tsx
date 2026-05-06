@@ -19,12 +19,14 @@ interface PhaseTemplate {
   fixed_cost: number
   variable_cost_per_part: number
   customer_visible: boolean
+  is_shared: boolean
 }
 
 interface Props {
   partId?: number
   phases: Phase[]
   quantity: number
+  nParts?: number
   machines: Machine[]
   suppliers?: Supplier[]
   templates?: PhaseTemplate[]
@@ -36,18 +38,19 @@ interface Props {
 const TREATMENT_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment'])
 const SUPPLIER_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment', 'external_supplier'])
 
-function calcPhase(phase: Phase, machines: Machine[], qty: number): Phase {
+function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): Phase {
   const machine = machines.find(m => m.id === phase.machine_id)
   const rate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
+  const divisor = qty * (phase.is_shared ? nParts : 1)
   const cost =
-    (phase.setup_hours || 0) * rate +
-    (phase.cycle_hours_per_part || 0) * qty * rate +
-    (phase.fixed_cost || 0) +
-    (phase.variable_cost_per_part || 0) * qty
-  return { ...phase, calculated_cost: Math.round(cost * 100) / 100 }
+    (phase.setup_hours || 0) * rate / divisor +
+    (phase.cycle_hours_per_part || 0) * rate +
+    (phase.fixed_cost || 0) / divisor +
+    (phase.variable_cost_per_part || 0)
+  return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, phases, quantity, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, onChange }: Props) {
+export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, onChange }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
 
@@ -58,7 +61,7 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
       const t = treatments.find(t => t.id === ph.treatment_id)
       if (!t) return ph
       const varCost = (t.cost_per_kg || 0) * (finishedWeightKg || 0)
-      return calcPhase({ ...ph, variable_cost_per_part: varCost }, machines, quantity)
+      return calcPhase({ ...ph, variable_cost_per_part: varCost }, machines, quantity, nParts)
     })
     const changed = updated.some((ph, i) => ph.variable_cost_per_part !== phases[i].variable_cost_per_part)
     if (changed) onChange(updated)
@@ -76,16 +79,17 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
       variable_cost_per_part: 0,
       calculated_cost: 0,
       customer_visible: true,
+      is_shared: false,
     }
     if (partId) {
       try {
         const res = await api.post(`/parts/${partId}/phases`, newPhase)
         const saved: Phase = res.data
-        onChange([...phases, calcPhase(saved, machines, quantity)])
+        onChange([...phases, calcPhase(saved, machines, quantity, nParts)])
         setExpandedIdx(phases.length)
       } catch (e) { console.error(e) }
     } else {
-      onChange([...phases, calcPhase(newPhase, machines, quantity)])
+      onChange([...phases, calcPhase(newPhase, machines, quantity, nParts)])
       setExpandedIdx(phases.length)
     }
   }
@@ -101,13 +105,13 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
 
   const updateField = (idx: number, field: keyof Phase, value: Phase[keyof Phase]) => {
     onChange(phases.map((p, i) =>
-      i !== idx ? p : calcPhase({ ...p, [field]: value }, machines, quantity)
+      i !== idx ? p : calcPhase({ ...p, [field]: value }, machines, quantity, nParts)
     ))
   }
 
   const updateMany = (idx: number, updates: Partial<Phase>) => {
     onChange(phases.map((p, i) =>
-      i !== idx ? p : calcPhase({ ...p, ...updates }, machines, quantity)
+      i !== idx ? p : calcPhase({ ...p, ...updates }, machines, quantity, nParts)
     ))
   }
 
@@ -149,15 +153,16 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
       variable_cost_per_part: tpl.variable_cost_per_part,
       calculated_cost: 0,
       customer_visible: tpl.customer_visible,
+      is_shared: tpl.is_shared,
     }
     if (partId) {
       try {
         const res = await api.post(`/parts/${partId}/phases`, newPhase)
-        onChange([...phases, calcPhase(res.data, machines, quantity)])
+        onChange([...phases, calcPhase(res.data, machines, quantity, nParts)])
         setExpandedIdx(phases.length)
       } catch (e) { console.error(e) }
     } else {
-      onChange([...phases, calcPhase(newPhase, machines, quantity)])
+      onChange([...phases, calcPhase(newPhase, machines, quantity, nParts)])
       setExpandedIdx(phases.length)
     }
   }
@@ -205,7 +210,7 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
               >
                 <option value="">Da template...</option>
                 {templates.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                  <option key={t.id} value={t.id}>{t.name}{t.is_shared ? ' ↗' : ''}</option>
                 ))}
               </select>
             )}
@@ -253,6 +258,9 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
                   <span className="flex-1 text-sm font-medium truncate">
                     {phaseLabel(phase.phase_type)}
                     {selectedTreatment && <span className="text-gray-400 font-normal"> — {selectedTreatment.name}</span>}
+                    {phase.is_shared && nParts > 1 && (
+                      <span className="ml-1 text-[10px] text-indigo-500 font-normal" title={`Condivisa tra ${nParts} parti`}>↗ ÷{nParts}</span>
+                    )}
                   </span>
                   {phase.description && !selectedTreatment && (
                     <span className="text-xs text-gray-400 truncate max-w-32">{phase.description}</span>
@@ -261,7 +269,7 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
                     <span className="text-amber-500 text-xs shrink-0" title={`Sotto il minimo: ${selectedTreatment!.minimum_cost.toFixed(2)} €`}>⚠</span>
                   )}
                   <span className="text-sm font-semibold text-blue-700 whitespace-nowrap">
-                    {phase.calculated_cost.toFixed(2)} €
+                    {phase.calculated_cost.toFixed(2)} €/pz
                   </span>
                   <button onClick={e => { e.stopPropagation(); removePhase(idx) }} className="p-1 hover:bg-red-50 rounded ml-1">
                     <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -370,7 +378,7 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
                       </div>
                     </div>
 
-                    {/* Row 2: Ore (solo per fasi non-trattamento) + Costi + Visibile */}
+                    {/* Row 2: Ore (solo per fasi non-trattamento) + Costi + Visibile + Condivisa */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {!isTreatment && (
                         <>
@@ -416,16 +424,29 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
                         ) : null}
                       </div>
 
-                      <div className="flex items-end pb-1 gap-2">
-                        <input
-                          type="checkbox"
-                          id={`vis-${idx}`}
-                          checked={phase.customer_visible}
-                          onChange={e => { updateField(idx, 'customer_visible', e.target.checked); savePhase(idx) }}
-                        />
-                        <label htmlFor={`vis-${idx}`} className="text-xs text-gray-600 cursor-pointer">
-                          Visibile al cliente
-                        </label>
+                      <div className="flex flex-col gap-2 justify-end pb-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`vis-${idx}`}
+                            checked={phase.customer_visible}
+                            onChange={e => { updateField(idx, 'customer_visible', e.target.checked); savePhase(idx) }}
+                          />
+                          <label htmlFor={`vis-${idx}`} className="text-xs text-gray-600 cursor-pointer">
+                            Visibile al cliente
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`shared-${idx}`}
+                            checked={phase.is_shared ?? false}
+                            onChange={e => { updateField(idx, 'is_shared', e.target.checked); savePhase(idx) }}
+                          />
+                          <label htmlFor={`shared-${idx}`} className="text-xs text-gray-600 cursor-pointer" title="Setup e costo fisso divisi per tutti i pezzi della commessa">
+                            Condivisa{nParts > 1 ? ` (÷${nParts} parti)` : ''}
+                          </label>
+                        </div>
                       </div>
                     </div>
 
@@ -458,23 +479,26 @@ export default function PhaseEditor({ partId, phases, quantity, machines, suppli
                       {(() => {
                         const machine = machines.find(m => m.id === phase.machine_id)
                         const rate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
+                        const divisor = quantity * (phase.is_shared ? nParts : 1)
                         if (isTreatment) {
+                          const sharedNote = phase.is_shared && nParts > 1 ? ` ÷${nParts} parti` : ''
                           return (
                             <span className="text-xs text-gray-400">
-                              Fisso: {(phase.fixed_cost || 0).toFixed(2)} € · Lavorazione: {((phase.variable_cost_per_part || 0) * quantity).toFixed(2)} €
+                              Fisso: {((phase.fixed_cost || 0) / divisor).toFixed(2)} €{sharedNote} · Lavorazione: {(phase.variable_cost_per_part || 0).toFixed(2)} €/pz
                             </span>
                           )
                         }
+                        const sharedNote = phase.is_shared && nParts > 1 ? ` ÷${nParts}` : ''
                         return (
                           <span className="text-xs text-gray-400">
                             Tariffa: {rate.toFixed(0)} €/h ·
-                            Setup: {((phase.setup_hours || 0) * rate).toFixed(2)} € ·
-                            Ciclo: {((phase.cycle_hours_per_part || 0) * quantity * rate).toFixed(2)} €
+                            Setup: {((phase.setup_hours || 0) * rate / divisor).toFixed(2)} € (÷{quantity}pz{sharedNote}) ·
+                            Ciclo: {((phase.cycle_hours_per_part || 0) * rate).toFixed(2)} €/pz
                           </span>
                         )
                       })()}
                       <span className="text-sm font-bold text-blue-700">
-                        = {phase.calculated_cost.toFixed(2)} €
+                        = {phase.calculated_cost.toFixed(2)} €/pz
                       </span>
                     </div>
                   </div>

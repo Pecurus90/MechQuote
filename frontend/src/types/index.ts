@@ -19,6 +19,7 @@ export interface Phase {
   machine_id?: number
   supplier_id?: number
   treatment_id?: number
+  is_shared?: boolean
   setup_hours: number
   cycle_hours_per_part: number
   fixed_cost: number
@@ -79,6 +80,7 @@ export interface Part {
   finished_weight_kg?: number
   raw_weight_kg?: number
   material_cost: number
+  material_delivery_cost?: number
   margin_percent?: number
   minimum_price?: number
   rounding_rule?: string

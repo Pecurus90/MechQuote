@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 
 interface Supplier {
@@ -52,6 +52,8 @@ export default function TreatmentsPage() {
   const [loading, setLoading] = useState(true)
   const [supForm, setSupForm] = useState<SupForm | null>(null)
   const [treatForm, setTreatForm] = useState<TreatForm | null>(null)
+  const [searchSup, setSearchSup] = useState('')
+  const [searchTreat, setSearchTreat] = useState('')
 
   const loadData = () => {
     Promise.all([api.get('/suppliers'), api.get('/treatments')]).then(([sRes, tRes]) => {
@@ -115,6 +117,14 @@ export default function TreatmentsPage() {
     active: t.active, notes: t.notes || '',
   })
 
+  const visibleSup = [...suppliers]
+    .sort((a, b) => a.name.localeCompare(b.name, 'it'))
+    .filter(s => !searchSup || s.name.toLowerCase().includes(searchSup.toLowerCase()) || (s.address || '').toLowerCase().includes(searchSup.toLowerCase()))
+
+  const visibleTreat = [...treatments]
+    .sort((a, b) => a.name.localeCompare(b.name, 'it'))
+    .filter(t => !searchTreat || t.name.toLowerCase().includes(searchTreat.toLowerCase()) || (t.treatment_type || '').toLowerCase().includes(searchTreat.toLowerCase()))
+
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
@@ -125,9 +135,15 @@ export default function TreatmentsPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-700">Fornitori trattamenti</h2>
-          <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
+            </div>
+            <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
+              <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
+            </Button>
+          </div>
         </div>
         <Card>
           <CardContent className="p-0">
@@ -141,10 +157,10 @@ export default function TreatmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {suppliers.length === 0 && (
-                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore</td></tr>
+                {visibleSup.length === 0 && (
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore trovato.</td></tr>
                 )}
-                {suppliers.map(s => (
+                {visibleSup.map(s => (
                   supForm?.id === s.id ? (
                     <tr key={s.id} className="border-b bg-blue-50">
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
@@ -198,9 +214,15 @@ export default function TreatmentsPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-700">Trattamenti</h2>
-          <Button size="sm" onClick={() => setTreatForm(emptyTreat())}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo trattamento
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={searchTreat} onChange={e => setSearchTreat(e.target.value)} className="pl-9 w-40" />
+            </div>
+            <Button size="sm" onClick={() => setTreatForm(emptyTreat())}>
+              <Plus className="w-4 h-4 mr-1" /> Nuovo trattamento
+            </Button>
+          </div>
         </div>
         <Card>
           <CardContent className="p-0">
@@ -217,7 +239,7 @@ export default function TreatmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {treatments.map(t => (
+                {visibleTreat.map(t => (
                   <tr key={t.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium truncate">{t.name}</td>
                     <td className="p-3 truncate">{t.treatment_type || '—'}</td>

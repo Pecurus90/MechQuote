@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 
 interface MaterialSupplier {
@@ -27,11 +27,9 @@ interface Material {
   material_supplier?: MaterialSupplier | null
 }
 
-// --- Supplier inline form state ---
 interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; active: boolean }
 const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', active: true })
 
-// --- Material modal form state ---
 interface MatForm {
   id: number | null; name: string; family: string; density: string; cost: string
   edm: string; cnc: string; scrap: string; active: boolean; supplier_id: string
@@ -42,9 +40,10 @@ export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
-
   const [supForm, setSupForm] = useState<SupplierForm | null>(null)
   const [matForm, setMatForm] = useState<MatForm | null>(null)
+  const [searchSup, setSearchSup] = useState('')
+  const [searchMat, setSearchMat] = useState('')
 
   const loadData = () => {
     Promise.all([api.get('/material-suppliers'), api.get('/materials')]).then(([sRes, mRes]) => {
@@ -56,15 +55,13 @@ export default function MaterialsPage() {
 
   useEffect(() => { loadData() }, [])
 
-  // --- Supplier CRUD ---
   const saveSupplier = async () => {
     if (!supForm) return
     const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), active: supForm.active }
     try {
       if (supForm.id) await api.put(`/material-suppliers/${supForm.id}`, payload)
       else await api.post('/material-suppliers', payload)
-      setSupForm(null)
-      loadData()
+      setSupForm(null); loadData()
     } catch (e) { console.error(e) }
   }
 
@@ -73,7 +70,6 @@ export default function MaterialsPage() {
     try { await api.delete(`/material-suppliers/${id}`); loadData() } catch (e) { console.error(e) }
   }
 
-  // --- Material CRUD ---
   const saveMaterial = async () => {
     if (!matForm) return
     const payload = {
@@ -86,8 +82,7 @@ export default function MaterialsPage() {
     try {
       if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
       else await api.post('/materials', payload)
-      setMatForm(null)
-      loadData()
+      setMatForm(null); loadData()
     } catch (e) { console.error(e) }
   }
 
@@ -104,6 +99,14 @@ export default function MaterialsPage() {
     supplier_id: m.supplier_id ? String(m.supplier_id) : '',
   })
 
+  const visibleSup = [...suppliers]
+    .sort((a, b) => a.name.localeCompare(b.name, 'it'))
+    .filter(s => !searchSup || s.name.toLowerCase().includes(searchSup.toLowerCase()) || (s.address || '').toLowerCase().includes(searchSup.toLowerCase()))
+
+  const visibleMat = [...materials]
+    .sort((a, b) => a.name.localeCompare(b.name, 'it'))
+    .filter(m => !searchMat || m.name.toLowerCase().includes(searchMat.toLowerCase()) || m.family.toLowerCase().includes(searchMat.toLowerCase()))
+
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
@@ -114,31 +117,37 @@ export default function MaterialsPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-700">Fornitori materiali</h2>
-          <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
+            </div>
+            <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
+              <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
+            </Button>
+          </div>
         </div>
         <Card>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3">Nome</th>
-                  <th className="text-left p-3">Indirizzo</th>
-                  <th className="text-right p-3">Spedizione (€)</th>
-                  <th className="text-center p-3">Azioni</th>
+                  <th className="text-left p-3 w-[28%]">Nome</th>
+                  <th className="text-left p-3 w-[43%]">Indirizzo</th>
+                  <th className="text-right p-3 w-[17%]">Spedizione (€)</th>
+                  <th className="text-center p-3 w-[12%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>
-                {suppliers.length === 0 && (
-                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore</td></tr>
+                {visibleSup.length === 0 && (
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore trovato.</td></tr>
                 )}
-                {suppliers.map(s => (
+                {visibleSup.map(s => (
                   supForm?.id === s.id ? (
                     <tr key={s.id} className="border-b bg-blue-50">
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
-                      <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
@@ -149,7 +158,7 @@ export default function MaterialsPage() {
                   ) : (
                     <tr key={s.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{s.name}</td>
-                      <td className="p-3 text-gray-500">{s.address || '—'}</td>
+                      <td className="p-3 text-gray-500 truncate">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
@@ -164,12 +173,11 @@ export default function MaterialsPage() {
                     </tr>
                   )
                 ))}
-                {/* New row */}
                 {supForm?.id === null && (
                   <tr className="border-b bg-blue-50">
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
-                    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
@@ -188,31 +196,40 @@ export default function MaterialsPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-700">Materiali</h2>
-          <Button size="sm" onClick={() => setMatForm(emptyMat())}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo materiale
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
+            </div>
+            <Button size="sm" onClick={() => setMatForm(emptyMat())}>
+              <Plus className="w-4 h-4 mr-1" /> Nuovo materiale
+            </Button>
+          </div>
         </div>
         <Card>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3">Nome</th>
-                  <th className="text-left p-3">Famiglia</th>
-                  <th className="text-right p-3">Densità (kg/dm³)</th>
-                  <th className="text-right p-3">Costo €/kg</th>
-                  <th className="text-left p-3">Fornitore</th>
-                  <th className="text-center p-3">Azioni</th>
+                  <th className="text-left p-3 w-[22%]">Nome</th>
+                  <th className="text-left p-3 w-[16%]">Famiglia</th>
+                  <th className="text-right p-3 w-[14%]">Densità (kg/dm³)</th>
+                  <th className="text-right p-3 w-[12%]">Costo €/kg</th>
+                  <th className="text-left p-3 w-[24%]">Fornitore</th>
+                  <th className="text-center p-3 w-[12%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>
-                {materials.map(m => (
+                {visibleMat.length === 0 && (
+                  <tr><td colSpan={6} className="p-4 text-center text-gray-400 text-xs">Nessun materiale trovato.</td></tr>
+                )}
+                {visibleMat.map(m => (
                   <tr key={m.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{m.name}</td>
-                    <td className="p-3">{m.family}</td>
+                    <td className="p-3 font-medium truncate">{m.name}</td>
+                    <td className="p-3 truncate">{m.family}</td>
                     <td className="p-3 text-right">{m.density_kg_dm3}</td>
                     <td className="p-3 text-right">{m.cost_per_kg}</td>
-                    <td className="p-3 text-gray-500 text-xs">{m.material_supplier?.name || '—'}</td>
+                    <td className="p-3 text-gray-500 text-xs truncate">{m.material_supplier?.name || '—'}</td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
                         <button onClick={() => startEditMat(m)} className="p-1 hover:bg-gray-100 rounded">
@@ -277,7 +294,7 @@ export default function MaterialsPage() {
                     onChange={e => setMatForm(f => f ? { ...f, supplier_id: e.target.value } : f)}
                   >
                     <option value="">Nessun fornitore</option>
-                    {suppliers.map(s => (
+                    {[...suppliers].sort((a, b) => a.name.localeCompare(b.name, 'it')).map(s => (
                       <option key={s.id} value={s.id}>{s.name} — {s.shipping_cost.toFixed(2)} € spedizione</option>
                     ))}
                   </select>

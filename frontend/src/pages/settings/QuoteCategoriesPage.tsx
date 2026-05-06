@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react'
 
 interface Category {
   id: number
@@ -13,11 +13,7 @@ interface Category {
   sort_order: number
 }
 
-interface EditRow {
-  code: string
-  name: string
-  sort_order: number
-}
+interface EditRow { code: string; name: string; sort_order: number }
 
 export default function QuoteCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -26,15 +22,13 @@ export default function QuoteCategoriesPage() {
   const [editRow, setEditRow] = useState<EditRow>({ code: '', name: '', sort_order: 0 })
   const [newRow, setNewRow] = useState<EditRow>({ code: '', name: '', sort_order: 0 })
   const [showNew, setShowNew] = useState(false)
+  const [search, setSearch] = useState('')
 
   useEffect(() => { load() }, [])
 
   const load = () => {
     setLoading(true)
-    api.get('/quote-categories').then(res => {
-      setCategories(res.data)
-      setLoading(false)
-    })
+    api.get('/quote-categories').then(res => { setCategories(res.data); setLoading(false) })
   }
 
   const startEdit = (cat: Category) => {
@@ -44,47 +38,53 @@ export default function QuoteCategoriesPage() {
 
   const saveEdit = async (id: number) => {
     await api.put(`/quote-categories/${id}`, editRow)
-    setEditingId(null)
-    load()
+    setEditingId(null); load()
   }
 
   const deleteCategory = async (id: number) => {
     if (!confirm('Eliminare questa categoria?')) return
-    await api.delete(`/quote-categories/${id}`)
-    load()
+    await api.delete(`/quote-categories/${id}`); load()
   }
 
   const createCategory = async () => {
     if (!newRow.code || !newRow.name) return
     await api.post('/quote-categories', newRow)
-    setNewRow({ code: '', name: '', sort_order: 0 })
-    setShowNew(false)
-    load()
+    setNewRow({ code: '', name: '', sort_order: 0 }); setShowNew(false); load()
   }
 
+  const visible = categories.filter(c =>
+    !search || c.code.toLowerCase().includes(search.toLowerCase()) || c.name.toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-8 max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categorie Preventivo</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Le lettere delle categorie appaiono nel codice preventivo (es. 240-26<strong>A</strong>_001)
+          <h1 className="text-2xl font-bold">Categorie Preventivo</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            La lettera appare nel codice preventivo (es. 240-26<strong>A</strong>_001)
           </p>
         </div>
-        <Button onClick={() => setShowNew(true)} disabled={showNew}>
-          <Plus className="w-4 h-4 mr-1.5" /> Nuova Categoria
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-40" />
+          </div>
+          <Button size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
+            <Plus className="w-4 h-4 mr-1" /> Nuova
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
+          <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 font-medium text-gray-600 w-20">Codice</th>
+                <th className="text-left p-3 w-[18%] font-medium text-gray-600">Codice</th>
                 <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
-                <th className="text-center p-3 font-medium text-gray-600 w-24">Ordine</th>
-                <th className="text-center p-3 font-medium text-gray-600 w-24">Azioni</th>
+                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Ordine</th>
+                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
@@ -92,32 +92,21 @@ export default function QuoteCategoriesPage() {
                 <tr><td colSpan={4} className="p-4 text-center text-gray-400">Caricamento...</td></tr>
               ) : (
                 <>
-                  {categories.map(cat => (
+                  {visible.map(cat => (
                     <tr key={cat.id} className="border-b hover:bg-gray-50">
                       {editingId === cat.id ? (
                         <>
                           <td className="p-2">
-                            <Input
-                              className="h-8 text-sm font-mono w-16"
-                              value={editRow.code}
-                              maxLength={5}
-                              onChange={e => setEditRow(r => ({ ...r, code: e.target.value.toUpperCase() }))}
-                            />
+                            <Input className="h-8 text-sm font-mono" value={editRow.code} maxLength={5}
+                              onChange={e => setEditRow(r => ({ ...r, code: e.target.value.toUpperCase() }))} />
                           </td>
                           <td className="p-2">
-                            <Input
-                              className="h-8 text-sm"
-                              value={editRow.name}
-                              onChange={e => setEditRow(r => ({ ...r, name: e.target.value }))}
-                            />
+                            <Input className="h-8 text-sm" value={editRow.name}
+                              onChange={e => setEditRow(r => ({ ...r, name: e.target.value }))} />
                           </td>
                           <td className="p-2 text-center">
-                            <Input
-                              type="number"
-                              className="h-8 text-sm w-16 mx-auto"
-                              value={editRow.sort_order}
-                              onChange={e => setEditRow(r => ({ ...r, sort_order: parseInt(e.target.value) || 0 }))}
-                            />
+                            <Input type="number" className="h-8 text-sm w-16 mx-auto" value={editRow.sort_order}
+                              onChange={e => setEditRow(r => ({ ...r, sort_order: parseInt(e.target.value) || 0 }))} />
                           </td>
                           <td className="p-2 text-center">
                             <button onClick={() => saveEdit(cat.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
@@ -146,35 +135,20 @@ export default function QuoteCategoriesPage() {
                     </tr>
                   ))}
 
-                  {/* New row */}
                   {showNew && (
                     <tr className="border-b bg-blue-50">
                       <td className="p-2">
-                        <Input
-                          className="h-8 text-sm font-mono w-16"
-                          placeholder="H"
-                          maxLength={5}
-                          value={newRow.code}
-                          onChange={e => setNewRow(r => ({ ...r, code: e.target.value.toUpperCase() }))}
-                          autoFocus
-                        />
+                        <Input className="h-8 text-sm font-mono" placeholder="H" maxLength={5}
+                          value={newRow.code} onChange={e => setNewRow(r => ({ ...r, code: e.target.value.toUpperCase() }))} autoFocus />
                       </td>
                       <td className="p-2">
-                        <Input
-                          className="h-8 text-sm"
-                          placeholder="Nome categoria"
-                          value={newRow.name}
+                        <Input className="h-8 text-sm" placeholder="Nome categoria" value={newRow.name}
                           onChange={e => setNewRow(r => ({ ...r, name: e.target.value }))}
-                          onKeyDown={e => e.key === 'Enter' && createCategory()}
-                        />
+                          onKeyDown={e => e.key === 'Enter' && createCategory()} />
                       </td>
                       <td className="p-2 text-center">
-                        <Input
-                          type="number"
-                          className="h-8 text-sm w-16 mx-auto"
-                          value={newRow.sort_order}
-                          onChange={e => setNewRow(r => ({ ...r, sort_order: parseInt(e.target.value) || 0 }))}
-                        />
+                        <Input type="number" className="h-8 text-sm w-16 mx-auto" value={newRow.sort_order}
+                          onChange={e => setNewRow(r => ({ ...r, sort_order: parseInt(e.target.value) || 0 }))} />
                       </td>
                       <td className="p-2 text-center">
                         <button onClick={createCategory} className="p-1 text-green-600 hover:bg-green-100 rounded mr-1">
@@ -188,12 +162,8 @@ export default function QuoteCategoriesPage() {
                     </tr>
                   )}
 
-                  {categories.length === 0 && !showNew && (
-                    <tr>
-                      <td colSpan={4} className="p-6 text-center text-gray-400">
-                        Nessuna categoria. Clicca "Nuova Categoria" per aggiungerne una.
-                      </td>
-                    </tr>
+                  {visible.length === 0 && !showNew && (
+                    <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessuna categoria trovata.</td></tr>
                   )}
                 </>
               )}

@@ -142,7 +142,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     const shippingCost = t.supplier?.shipping_cost || 0
     updateMany(idx, {
       treatment_id: treatmentId,
-      fixed_cost: (t.fixed_cost || 0) + shippingCost,
+      fixed_cost: shippingCost,
       variable_cost_per_part: varCost,
       description: phase.description || t.name,
       supplier_id: t.supplier_id ?? phase.supplier_id,

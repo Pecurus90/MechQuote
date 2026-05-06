@@ -14,7 +14,7 @@ def list_customers(db: Session = Depends(get_db), active_only: bool = False):
     query = db.query(Customer)
     if active_only:
         query = query.filter(Customer.active == True)
-    return query.all()
+    return query.order_by(Customer.customer_number).all()
 
 
 @router.post("", response_model=CustomerOut)

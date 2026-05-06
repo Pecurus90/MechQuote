@@ -7,17 +7,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import QuoteEditor from '@/pages/QuoteEditor'
 import QuoteArchivePage from '@/pages/QuoteArchivePage'
 import NewQuotePage from '@/pages/NewQuotePage'
-import MaterialsPage from '@/pages/settings/MaterialsPage'
-import MachinesPage from '@/pages/settings/MachinesPage'
-import SuppliersPage from '@/pages/settings/SuppliersPage'
-import TreatmentsPage from '@/pages/settings/TreatmentsPage'
-import CostRulesPage from '@/pages/settings/CostRulesPage'
-import PhaseTemplatesPage from '@/pages/settings/PhaseTemplatesPage'
-import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
-import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
-import CustomersPage from '@/pages/settings/CustomersPage'
-import BackupSettingsPage from '@/pages/settings/BackupSettingsPage'
-import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
+import SettingsPage from '@/pages/SettingsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -51,17 +41,8 @@ export default function App() {
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
-        <Route path="settings/materials" element={<MaterialsPage />} />
-        <Route path="settings/machines" element={<MachinesPage />} />
-        <Route path="settings/templates" element={<PhaseTemplatesPage />} />
-        <Route path="settings/treatments" element={<TreatmentsPage />} />
-        <Route path="settings/suppliers" element={<SuppliersPage />} />
-        <Route path="settings/cost-rules" element={<CostRulesPage />} />
-        <Route path="settings/step-colors" element={<StepColorRulesPage />} />
-        <Route path="settings/company" element={<CompanySettingsPage />} />
-        <Route path="settings/customers" element={<CustomersPage />} />
-        <Route path="settings/backup" element={<BackupSettingsPage />} />
-        <Route path="settings/categories" element={<QuoteCategoriesPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings/*" element={<Navigate to="/settings" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

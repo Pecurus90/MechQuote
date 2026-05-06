@@ -1,3 +1,19 @@
+export interface MaterialSupplier {
+  id: number
+  name: string
+  address?: string | null
+  shipping_cost: number
+  active: boolean
+}
+
+export interface TreatmentSupplier {
+  id: number
+  name: string
+  address?: string | null
+  shipping_cost: number
+  active: boolean
+}
+
 export interface Treatment {
   id: number
   name: string
@@ -7,6 +23,8 @@ export interface Treatment {
   cost_per_part: number
   minimum_cost: number
   supplier_id: number | null
+  treatment_supplier_id?: number | null
+  treatment_supplier?: TreatmentSupplier | null
   active: boolean
   notes: string | null
 }
@@ -43,6 +61,8 @@ export interface Material {
   density_kg_dm3: number
   cost_per_kg: number
   default_scrap_percent: number
+  supplier_id?: number | null
+  material_supplier?: MaterialSupplier | null
 }
 
 export interface Category {

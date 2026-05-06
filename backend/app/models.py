@@ -180,6 +180,26 @@ class ManufacturingPhase(Base):
     treatment = relationship("Treatment")
 
 
+class MaterialSupplier(Base):
+    __tablename__ = "material_suppliers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    address = Column(Text)
+    shipping_cost = Column(Float, default=0.0)
+    active = Column(Boolean, default=True)
+
+
+class TreatmentSupplier(Base):
+    __tablename__ = "treatment_suppliers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    address = Column(Text)
+    shipping_cost = Column(Float, default=0.0)
+    active = Column(Boolean, default=True)
+
+
 class Material(Base):
     __tablename__ = "materials"
 
@@ -193,6 +213,9 @@ class Material(Base):
     default_scrap_percent = Column(Float, default=10.0)
     active = Column(Boolean, default=True)
     notes = Column(Text)
+    supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
+
+    material_supplier = relationship("MaterialSupplier")
 
 
 class Machine(Base):
@@ -219,10 +242,12 @@ class Treatment(Base):
     cost_per_surface_area = Column(Float, default=0.0)
     minimum_cost = Column(Float, default=0.0)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
+    treatment_supplier_id = Column(Integer, ForeignKey("treatment_suppliers.id"), nullable=True)
     active = Column(Boolean, default=True)
     notes = Column(Text)
 
     supplier = relationship("Supplier")
+    treatment_supplier = relationship("TreatmentSupplier")
 
 
 class Supplier(Base):

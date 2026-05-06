@@ -52,7 +52,8 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
   const handleMaterialChange = (matId: number | undefined) => {
     const material = materials.find(m => m.id === matId)
     const matCost = calcMaterialCost({ ...part, material_id: matId }, material)
-    onUpdate({ material_id: matId, material_cost: matCost })
+    const deliveryCost = material?.material_supplier?.shipping_cost ?? part.material_delivery_cost ?? 0
+    onUpdate({ material_id: matId, material_cost: matCost, material_delivery_cost: deliveryCost })
   }
 
   const handleStockTypeChange = (type: StockType) => {
@@ -229,6 +230,9 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 placeholder="—"
                 onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0 })}
                 onBlur={onSave} />
+              {selectedMaterial?.material_supplier && (
+                <p className="text-[10px] text-gray-400 mt-0.5">{selectedMaterial.material_supplier.name}</p>
+              )}
               {nParts > 1 && (part.material_delivery_cost || 0) > 0 && (
                 <p className="text-[10px] text-gray-400 mt-0.5">÷{nParts} parti</p>
               )}

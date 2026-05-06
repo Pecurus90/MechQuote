@@ -55,6 +55,8 @@ def _run_migrations():
         "ALTER TABLE manufacturing_phases ADD COLUMN is_shared INTEGER DEFAULT 0",
         "ALTER TABLE phase_templates ADD COLUMN is_shared INTEGER DEFAULT 0",
         "ALTER TABLE parts ADD COLUMN material_delivery_cost FLOAT DEFAULT 0.0",
+        "ALTER TABLE materials ADD COLUMN supplier_id INTEGER REFERENCES material_suppliers(id)",
+        "ALTER TABLE treatments ADD COLUMN treatment_supplier_id INTEGER REFERENCES treatment_suppliers(id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

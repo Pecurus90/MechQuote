@@ -130,9 +130,10 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     const t = treatments.find(t => t.id === treatmentId)
     if (!t) return
     const varCost = (t.cost_per_kg || 0) * (finishedWeightKg || 0)
+    const shippingCost = t.treatment_supplier?.shipping_cost || 0
     updateMany(idx, {
       treatment_id: treatmentId,
-      fixed_cost: t.fixed_cost || 0,
+      fixed_cost: (t.fixed_cost || 0) + shippingCost,
       variable_cost_per_part: varCost,
       description: phase.description || t.name,
       supplier_id: t.supplier_id ?? phase.supplier_id,
@@ -482,8 +483,10 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         const divisor = quantity * (phase.is_shared ? nParts : 1)
                         if (isTreatment) {
                           const sharedNote = phase.is_shared && nParts > 1 ? ` ÷${nParts} parti` : ''
+                          const treatSupplierName = selectedTreatment?.treatment_supplier?.name
                           return (
                             <span className="text-xs text-gray-400">
+                              {treatSupplierName && <span className="mr-2 text-indigo-400">{treatSupplierName}</span>}
                               Fisso: {((phase.fixed_cost || 0) / divisor).toFixed(2)} €{sharedNote} · Lavorazione: {(phase.variable_cost_per_part || 0).toFixed(2)} €/pz
                             </span>
                           )

@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
 import api from '@/lib/api'
+
+interface TreatmentSupplier {
+  id: number
+  name: string
+  address: string | null
+  shipping_cost: number
+  active: boolean
+}
 
 interface Treatment {
   id: number
@@ -14,121 +22,184 @@ interface Treatment {
   cost_per_part: number
   cost_per_surface_area: number
   minimum_cost: number
-  supplier_id: number | null
-  supplier_name?: string
+  treatment_supplier_id: number | null
+  treatment_supplier?: TreatmentSupplier | null
   active: boolean
   notes: string
 }
 
-interface Supplier {
-  id: number
-  name: string
+interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; active: boolean }
+const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', active: true })
+
+interface TreatForm {
+  id: number | null; name: string; treatmentType: string; fixedCost: string
+  costPerKg: string; costPerPart: string; costPerSurface: string; minimumCost: string
+  treatmentSupplierId: string; active: boolean; notes: string
 }
+const emptyTreat = (): TreatForm => ({
+  id: null, name: '', treatmentType: '', fixedCost: '0', costPerKg: '0',
+  costPerPart: '0', costPerSurface: '0', minimumCost: '0',
+  treatmentSupplierId: '', active: true, notes: '',
+})
 
 export default function TreatmentsPage() {
+  const [suppliers, setSuppliers] = useState<TreatmentSupplier[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [name, setName] = useState('')
-  const [treatmentType, setTreatmentType] = useState('')
-  const [fixedCost, setFixedCost] = useState('0')
-  const [costPerKg, setCostPerKg] = useState('0')
-  const [costPerPart, setCostPerPart] = useState('0')
-  const [costPerSurface, setCostPerSurface] = useState('0')
-  const [minimumCost, setMinimumCost] = useState('0')
-  const [supplierId, setSupplierId] = useState('')
-  const [active, setActive] = useState(true)
-  const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
+  const [supForm, setSupForm] = useState<SupplierForm | null>(null)
+  const [treatForm, setTreatForm] = useState<TreatForm | null>(null)
 
   const loadData = () => {
-    Promise.all([
-      api.get('/treatments'),
-      api.get('/suppliers'),
-    ]).then(([treatRes, supRes]) => {
-      const supMap = new Map(supRes.data.map((s: Supplier) => [s.id, s.name]))
-      const treatmentsWithSupplier = treatRes.data.map((t: Treatment) => ({
-        ...t,
-        supplier_name: t.supplier_id ? supMap.get(t.supplier_id) || '-' : '-',
-      }))
-      setTreatments(treatmentsWithSupplier)
-      setSuppliers(supRes.data)
+    Promise.all([api.get('/treatment-suppliers'), api.get('/treatments')]).then(([sRes, tRes]) => {
+      setSuppliers(sRes.data)
+      setTreatments(tRes.data)
       setLoading(false)
     })
   }
 
   useEffect(() => { loadData() }, [])
 
-  const resetForm = (isNew: boolean = false) => {
-    setEditingId(isNew ? 0 : null)
-    setName('')
-    setTreatmentType('')
-    setFixedCost('0')
-    setCostPerKg('0')
-    setCostPerPart('0')
-    setCostPerSurface('0')
-    setMinimumCost('0')
-    setSupplierId('')
-    setActive(true)
-    setNotes('')
+  // --- Supplier CRUD ---
+  const saveSupplier = async () => {
+    if (!supForm) return
+    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), active: supForm.active }
+    try {
+      if (supForm.id) await api.put(`/treatment-suppliers/${supForm.id}`, payload)
+      else await api.post('/treatment-suppliers', payload)
+      setSupForm(null)
+      loadData()
+    } catch (e) { console.error(e) }
   }
 
-  const startEdit = (t: Treatment) => {
-    setEditingId(t.id)
-    setName(t.name)
-    setTreatmentType(t.treatment_type || '')
-    setFixedCost(String(t.fixed_cost || 0))
-    setCostPerKg(String(t.cost_per_kg || 0))
-    setCostPerPart(String(t.cost_per_part || 0))
-    setCostPerSurface(String(t.cost_per_surface_area || 0))
-    setMinimumCost(String(t.minimum_cost || 0))
-    setSupplierId(t.supplier_id ? String(t.supplier_id) : '')
-    setActive(t.active)
-    setNotes(t.notes || '')
+  const deleteSupplier = async (id: number) => {
+    if (!confirm('Eliminare questo fornitore?')) return
+    try { await api.delete(`/treatment-suppliers/${id}`); loadData() } catch (e) { console.error(e) }
   }
 
-  const handleSave = async () => {
+  // --- Treatment CRUD ---
+  const saveTreatment = async () => {
+    if (!treatForm) return
     const payload = {
-      name,
-      treatment_type: treatmentType,
-      fixed_cost: Number(fixedCost),
-      cost_per_kg: Number(costPerKg),
-      cost_per_part: Number(costPerPart),
-      cost_per_surface_area: Number(costPerSurface),
-      minimum_cost: Number(minimumCost),
-      supplier_id: supplierId ? Number(supplierId) : null,
-      active,
-      notes,
+      name: treatForm.name,
+      treatment_type: treatForm.treatmentType,
+      fixed_cost: Number(treatForm.fixedCost),
+      cost_per_kg: Number(treatForm.costPerKg),
+      cost_per_part: Number(treatForm.costPerPart),
+      cost_per_surface_area: Number(treatForm.costPerSurface),
+      minimum_cost: Number(treatForm.minimumCost),
+      treatment_supplier_id: treatForm.treatmentSupplierId ? Number(treatForm.treatmentSupplierId) : null,
+      active: treatForm.active,
+      notes: treatForm.notes,
     }
     try {
-      if (editingId && editingId > 0) {
-        await api.put(`/treatments/${editingId}`, payload)
-      } else {
-        await api.post('/treatments', payload)
-      }
-      resetForm()
+      if (treatForm.id) await api.put(`/treatments/${treatForm.id}`, payload)
+      else await api.post('/treatments', payload)
+      setTreatForm(null)
       loadData()
     } catch (e) { console.error(e) }
   }
 
-  const handleDelete = async (id: number) => {
+  const deleteTreatment = async (id: number) => {
     if (!confirm('Eliminare questo trattamento?')) return
-    try {
-      await api.delete(`/treatments/${id}`)
-      loadData()
-    } catch (e) { console.error(e) }
+    try { await api.delete(`/treatments/${id}`); loadData() } catch (e) { console.error(e) }
   }
+
+  const startEditTreat = (t: Treatment) => setTreatForm({
+    id: t.id, name: t.name, treatmentType: t.treatment_type || '',
+    fixedCost: String(t.fixed_cost || 0), costPerKg: String(t.cost_per_kg || 0),
+    costPerPart: String(t.cost_per_part || 0), costPerSurface: String(t.cost_per_surface_area || 0),
+    minimumCost: String(t.minimum_cost || 0),
+    treatmentSupplierId: t.treatment_supplier_id ? String(t.treatment_supplier_id) : '',
+    active: t.active, notes: t.notes || '',
+  })
+
+  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Trattamenti</h1>
-        <Button onClick={() => resetForm(true)}>
-          <Plus className="w-4 h-4 mr-1" /> Nuovo
-        </Button>
-      </div>
+    <div className="p-8 max-w-5xl mx-auto space-y-8">
+      <h1 className="text-2xl font-bold">Trattamenti</h1>
 
-      {loading ? <p>Caricamento...</p> : (
+      {/* ── Fornitori trattamenti ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-gray-700">Fornitori trattamenti</h2>
+          <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
+            <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left p-3">Nome</th>
+                  <th className="text-left p-3">Indirizzo</th>
+                  <th className="text-right p-3">Spedizione (€)</th>
+                  <th className="text-center p-3">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suppliers.length === 0 && (
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore</td></tr>
+                )}
+                {suppliers.map(s => (
+                  supForm?.id === s.id ? (
+                    <tr key={s.id} className="border-b bg-blue-50">
+                      <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input className="h-8 text-sm" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                      <td className="p-2 text-center">
+                        <div className="flex gap-1 justify-center">
+                          <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
+                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-medium">{s.name}</td>
+                      <td className="p-3 text-gray-500">{s.address || '—'}</td>
+                      <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
+                      <td className="p-3 text-center">
+                        <div className="flex gap-2 justify-center">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                            <Pencil className="w-4 h-4 text-blue-600" />
+                          </button>
+                          <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                ))}
+                {supForm?.id === null && (
+                  <tr className="border-b bg-blue-50">
+                    <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                    <td className="p-2 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
+                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Trattamenti ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-gray-700">Trattamenti</h2>
+          <Button size="sm" onClick={() => setTreatForm(emptyTreat())}>
+            <Plus className="w-4 h-4 mr-1" /> Nuovo trattamento
+          </Button>
+        </div>
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
@@ -136,9 +207,10 @@ export default function TreatmentsPage() {
                 <tr>
                   <th className="text-left p-3">Nome</th>
                   <th className="text-left p-3">Tipo</th>
-                  <th className="text-right p-3">Costo Fisso</th>
+                  <th className="text-right p-3">Fisso (€)</th>
+                  <th className="text-right p-3">€/kg</th>
+                  <th className="text-right p-3">Min (€)</th>
                   <th className="text-left p-3">Fornitore</th>
-                  <th className="text-center p-3">Attivo</th>
                   <th className="text-center p-3">Azioni</th>
                 </tr>
               </thead>
@@ -146,16 +218,21 @@ export default function TreatmentsPage() {
                 {treatments.map(t => (
                   <tr key={t.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium">{t.name}</td>
-                    <td className="p-3">{t.treatment_type || '-'}</td>
-                    <td className="p-3 text-right">{t.fixed_cost} €</td>
-                    <td className="p-3">{t.supplier_name || '-'}</td>
-                    <td className="p-3 text-center">{t.active ? 'Sì' : 'No'}</td>
+                    <td className="p-3">{t.treatment_type || '—'}</td>
+                    <td className="p-3 text-right">{t.fixed_cost.toFixed(2)}</td>
+                    <td className="p-3 text-right">{t.cost_per_kg.toFixed(2)}</td>
+                    <td className="p-3 text-right">{t.minimum_cost.toFixed(2)}</td>
+                    <td className="p-3 text-xs text-gray-500">
+                      {t.treatment_supplier
+                        ? <span>{t.treatment_supplier.name} <span className="text-gray-400">+{t.treatment_supplier.shipping_cost.toFixed(2)} €</span></span>
+                        : '—'}
+                    </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => startEdit(t)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEditTreat(t)} className="p-1 hover:bg-gray-100 rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
-                        <button onClick={() => handleDelete(t.id)} className="p-1 hover:bg-red-50 rounded">
+                        <button onClick={() => deleteTreatment(t.id)} className="p-1 hover:bg-red-50 rounded">
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </button>
                       </div>
@@ -166,70 +243,68 @@ export default function TreatmentsPage() {
             </table>
           </CardContent>
         </Card>
-      )}
+      </section>
 
-      {editingId !== null && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+      {/* Treatment modal */}
+      {treatForm && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <Card className="w-full max-w-2xl bg-white shadow-xl">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>{editingId && editingId > 0 ? 'Modifica' : 'Nuovo'} Trattamento</CardTitle>
-                <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent>
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <h3 className="font-semibold">{treatForm.id ? 'Modifica' : 'Nuovo'} Trattamento</h3>
+              <button onClick={() => setTreatForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+            </div>
+            <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Nome</label>
-                  <Input value={name} onChange={e => setName(e.target.value)} />
+                  <Input value={treatForm.name} onChange={e => setTreatForm(f => f ? { ...f, name: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tipo</label>
-                  <Input value={treatmentType} onChange={e => setTreatmentType(e.target.value)} placeholder="Es. Zincatura, Anodizzazione" />
+                  <Input value={treatForm.treatmentType} placeholder="Es. Zincatura, Anodizzazione" onChange={e => setTreatForm(f => f ? { ...f, treatmentType: e.target.value } : f)} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Costo Fisso (€)</label>
-                  <Input type="number" step="0.01" value={fixedCost} onChange={e => setFixedCost(e.target.value)} />
+                  <label className="text-sm font-medium">Costo fisso trattamento (€)</label>
+                  <Input type="number" step="0.01" value={treatForm.fixedCost} onChange={e => setTreatForm(f => f ? { ...f, fixedCost: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Costo per kg (€)</label>
-                  <Input type="number" step="0.01" value={costPerKg} onChange={e => setCostPerKg(e.target.value)} />
+                  <Input type="number" step="0.01" value={treatForm.costPerKg} onChange={e => setTreatForm(f => f ? { ...f, costPerKg: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Costo per parte (€)</label>
-                  <Input type="number" step="0.01" value={costPerPart} onChange={e => setCostPerPart(e.target.value)} />
+                  <Input type="number" step="0.01" value={treatForm.costPerPart} onChange={e => setTreatForm(f => f ? { ...f, costPerPart: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Costo minimo (€)</label>
-                  <Input type="number" step="0.01" value={minimumCost} onChange={e => setMinimumCost(e.target.value)} />
+                  <Input type="number" step="0.01" value={treatForm.minimumCost} onChange={e => setTreatForm(f => f ? { ...f, minimumCost: e.target.value } : f)} />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-sm font-medium">Fornitore</label>
+                  <label className="text-sm font-medium">Fornitore trattamento</label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={supplierId}
-                    onChange={e => setSupplierId(e.target.value)}
+                    value={treatForm.treatmentSupplierId}
+                    onChange={e => setTreatForm(f => f ? { ...f, treatmentSupplierId: e.target.value } : f)}
                   >
-                    <option value="">Seleziona fornitore...</option>
+                    <option value="">Nessun fornitore</option>
                     {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>{s.name} — spedizione {s.shipping_cost.toFixed(2)} €</option>
                     ))}
                   </select>
+                  <p className="text-[10px] text-gray-400 mt-1">La spedizione del fornitore si somma al costo fisso quando si seleziona il trattamento in un ciclo</p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <label className="text-sm font-medium">Note</label>
-                  <Input value={notes} onChange={e => setNotes(e.target.value)} />
+                  <Input value={treatForm.notes} onChange={e => setTreatForm(f => f ? { ...f, notes: e.target.value } : f)} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
+                  <input type="checkbox" checked={treatForm.active} onChange={e => setTreatForm(f => f ? { ...f, active: e.target.checked } : f)} />
                   <label className="text-sm">Attivo</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
-                <Button variant="outline" onClick={() => resetForm()}>Annulla</Button>
+                <Button onClick={saveTreatment}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <Button variant="outline" onClick={() => setTreatForm(null)}>Annulla</Button>
               </div>
             </CardContent>
           </Card>

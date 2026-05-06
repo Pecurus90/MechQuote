@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
 import api from '@/lib/api'
+
+interface MaterialSupplier {
+  id: number
+  name: string
+  address: string | null
+  shipping_cost: number
+  active: boolean
+}
 
 interface Material {
   id: number
@@ -15,93 +23,175 @@ interface Material {
   cnc_machinability_coefficient: number
   default_scrap_percent: number
   active: boolean
+  supplier_id: number | null
+  material_supplier?: MaterialSupplier | null
 }
 
+// --- Supplier inline form state ---
+interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; active: boolean }
+const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', active: true })
+
+// --- Material modal form state ---
+interface MatForm {
+  id: number | null; name: string; family: string; density: string; cost: string
+  edm: string; cnc: string; scrap: string; active: boolean; supplier_id: string
+}
+const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', active: true, supplier_id: '' })
+
 export default function MaterialsPage() {
+  const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [name, setName] = useState('')
-  const [family, setFamily] = useState('')
-  const [density, setDensity] = useState('')
-  const [cost, setCost] = useState('')
-  const [edm, setEdm] = useState('1.0')
-  const [cnc, setCnc] = useState('1.0')
-  const [scrap, setScrap] = useState('10')
-  const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
 
+  const [supForm, setSupForm] = useState<SupplierForm | null>(null)
+  const [matForm, setMatForm] = useState<MatForm | null>(null)
+
   const loadData = () => {
-    api.get('/materials').then(res => {
-      setMaterials(res.data)
+    Promise.all([api.get('/material-suppliers'), api.get('/materials')]).then(([sRes, mRes]) => {
+      setSuppliers(sRes.data)
+      setMaterials(mRes.data)
       setLoading(false)
     })
   }
 
   useEffect(() => { loadData() }, [])
 
-  const resetForm = (isNew: boolean = false) => {
-    setEditingId(isNew ? 0 : null)
-    setName('')
-    setFamily('')
-    setDensity('')
-    setCost('')
-    setEdm('1.0')
-    setCnc('1.0')
-    setScrap('10')
-    setActive(true)
+  // --- Supplier CRUD ---
+  const saveSupplier = async () => {
+    if (!supForm) return
+    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), active: supForm.active }
+    try {
+      if (supForm.id) await api.put(`/material-suppliers/${supForm.id}`, payload)
+      else await api.post('/material-suppliers', payload)
+      setSupForm(null)
+      loadData()
+    } catch (e) { console.error(e) }
   }
 
-  const startEdit = (m: Material) => {
-    setEditingId(m.id)
-    setName(m.name)
-    setFamily(m.family)
-    setDensity(String(m.density_kg_dm3))
-    setCost(String(m.cost_per_kg))
-    setEdm(String(m.edm_coefficient))
-    setCnc(String(m.cnc_machinability_coefficient))
-    setScrap(String(m.default_scrap_percent))
-    setActive(m.active)
+  const deleteSupplier = async (id: number) => {
+    if (!confirm('Eliminare questo fornitore?')) return
+    try { await api.delete(`/material-suppliers/${id}`); loadData() } catch (e) { console.error(e) }
   }
 
-  const handleSave = async () => {
+  // --- Material CRUD ---
+  const saveMaterial = async () => {
+    if (!matForm) return
     const payload = {
-      name, family,
-      density_kg_dm3: Number(density),
-      cost_per_kg: Number(cost),
-      edm_coefficient: Number(edm),
-      cnc_machinability_coefficient: Number(cnc),
-      default_scrap_percent: Number(scrap),
-      active,
+      name: matForm.name, family: matForm.family,
+      density_kg_dm3: Number(matForm.density), cost_per_kg: Number(matForm.cost),
+      edm_coefficient: Number(matForm.edm), cnc_machinability_coefficient: Number(matForm.cnc),
+      default_scrap_percent: Number(matForm.scrap), active: matForm.active,
+      supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
     }
     try {
-      if (editingId && editingId > 0) {
-        await api.put(`/materials/${editingId}`, payload)
-      } else {
-        await api.post('/materials', payload)
-      }
-      resetForm()
+      if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
+      else await api.post('/materials', payload)
+      setMatForm(null)
       loadData()
     } catch (e) { console.error(e) }
   }
 
-  const handleDelete = async (id: number) => {
+  const deleteMaterial = async (id: number) => {
     if (!confirm('Eliminare questo materiale?')) return
-    try {
-      await api.delete(`/materials/${id}`)
-      loadData()
-    } catch (e) { console.error(e) }
+    try { await api.delete(`/materials/${id}`); loadData() } catch (e) { console.error(e) }
   }
+
+  const startEditMat = (m: Material) => setMatForm({
+    id: m.id, name: m.name, family: m.family,
+    density: String(m.density_kg_dm3), cost: String(m.cost_per_kg),
+    edm: String(m.edm_coefficient), cnc: String(m.cnc_machinability_coefficient),
+    scrap: String(m.default_scrap_percent), active: m.active,
+    supplier_id: m.supplier_id ? String(m.supplier_id) : '',
+  })
+
+  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Materials</h1>
-        <Button onClick={() => resetForm(true)}>
-          <Plus className="w-4 h-4 mr-1" /> Nuovo
-        </Button>
-      </div>
+    <div className="p-8 max-w-5xl mx-auto space-y-8">
+      <h1 className="text-2xl font-bold">Materiali</h1>
 
-      {loading ? <p>Caricamento...</p> : (
+      {/* ── Fornitori materiali ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-gray-700">Fornitori materiali</h2>
+          <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
+            <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left p-3">Nome</th>
+                  <th className="text-left p-3">Indirizzo</th>
+                  <th className="text-right p-3">Spedizione (€)</th>
+                  <th className="text-center p-3">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suppliers.length === 0 && (
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore</td></tr>
+                )}
+                {suppliers.map(s => (
+                  supForm?.id === s.id ? (
+                    <tr key={s.id} className="border-b bg-blue-50">
+                      <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input className="h-8 text-sm" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                      <td className="p-2 text-center">
+                        <div className="flex gap-1 justify-center">
+                          <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
+                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-medium">{s.name}</td>
+                      <td className="p-3 text-gray-500">{s.address || '—'}</td>
+                      <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
+                      <td className="p-3 text-center">
+                        <div className="flex gap-2 justify-center">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                            <Pencil className="w-4 h-4 text-blue-600" />
+                          </button>
+                          <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                ))}
+                {/* New row */}
+                {supForm?.id === null && (
+                  <tr className="border-b bg-blue-50">
+                    <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                    <td className="p-2 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
+                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Materiali ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-gray-700">Materiali</h2>
+          <Button size="sm" onClick={() => setMatForm(emptyMat())}>
+            <Plus className="w-4 h-4 mr-1" /> Nuovo materiale
+          </Button>
+        </div>
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
@@ -109,8 +199,9 @@ export default function MaterialsPage() {
                 <tr>
                   <th className="text-left p-3">Nome</th>
                   <th className="text-left p-3">Famiglia</th>
-                  <th className="text-right p-3">Densità</th>
+                  <th className="text-right p-3">Densità (kg/dm³)</th>
                   <th className="text-right p-3">Costo €/kg</th>
+                  <th className="text-left p-3">Fornitore</th>
                   <th className="text-center p-3">Azioni</th>
                 </tr>
               </thead>
@@ -121,12 +212,13 @@ export default function MaterialsPage() {
                     <td className="p-3">{m.family}</td>
                     <td className="p-3 text-right">{m.density_kg_dm3}</td>
                     <td className="p-3 text-right">{m.cost_per_kg}</td>
+                    <td className="p-3 text-gray-500 text-xs">{m.material_supplier?.name || '—'}</td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => startEdit(m)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEditMat(m)} className="p-1 hover:bg-gray-100 rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
-                        <button onClick={() => handleDelete(m.id)} className="p-1 hover:bg-red-50 rounded">
+                        <button onClick={() => deleteMaterial(m.id)} className="p-1 hover:bg-red-50 rounded">
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </button>
                       </div>
@@ -137,57 +229,67 @@ export default function MaterialsPage() {
             </table>
           </CardContent>
         </Card>
-      )}
+      </section>
 
-      {editingId !== null && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+      {/* Material modal */}
+      {matForm && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <Card className="w-full max-w-2xl bg-white shadow-xl">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>{editingId && editingId > 0 ? 'Modifica' : 'Nuovo'} Materiale</CardTitle>
-                <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent>
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <h3 className="font-semibold">{matForm.id ? 'Modifica' : 'Nuovo'} Materiale</h3>
+              <button onClick={() => setMatForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+            </div>
+            <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Nome</label>
-                  <Input value={name} onChange={e => setName(e.target.value)} />
+                  <Input value={matForm.name} onChange={e => setMatForm(f => f ? { ...f, name: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Famiglia</label>
-                  <Input value={family} onChange={e => setFamily(e.target.value)} />
+                  <Input value={matForm.family} onChange={e => setMatForm(f => f ? { ...f, family: e.target.value } : f)} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Densità</label>
-                  <Input type="number" step="0.01" value={density} onChange={e => setDensity(e.target.value)} />
+                  <label className="text-sm font-medium">Densità (kg/dm³)</label>
+                  <Input type="number" step="0.01" value={matForm.density} onChange={e => setMatForm(f => f ? { ...f, density: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Costo €/kg</label>
-                  <Input type="number" step="0.01" value={cost} onChange={e => setCost(e.target.value)} />
+                  <Input type="number" step="0.01" value={matForm.cost} onChange={e => setMatForm(f => f ? { ...f, cost: e.target.value } : f)} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">EDM Coeff</label>
-                  <Input type="number" step="0.1" value={edm} onChange={e => setEdm(e.target.value)} />
+                  <label className="text-sm font-medium">EDM Coeff.</label>
+                  <Input type="number" step="0.1" value={matForm.edm} onChange={e => setMatForm(f => f ? { ...f, edm: e.target.value } : f)} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">CNC Coeff</label>
-                  <Input type="number" step="0.1" value={cnc} onChange={e => setCnc(e.target.value)} />
+                  <label className="text-sm font-medium">CNC Coeff. lavorabilità</label>
+                  <Input type="number" step="0.1" value={matForm.cnc} onChange={e => setMatForm(f => f ? { ...f, cnc: e.target.value } : f)} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Scrap %</label>
-                  <Input type="number" step="0.1" value={scrap} onChange={e => setScrap(e.target.value)} />
+                  <label className="text-sm font-medium">Sfrido %</label>
+                  <Input type="number" step="0.5" value={matForm.scrap} onChange={e => setMatForm(f => f ? { ...f, scrap: e.target.value } : f)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Fornitore materiale</label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={matForm.supplier_id}
+                    onChange={e => setMatForm(f => f ? { ...f, supplier_id: e.target.value } : f)}
+                  >
+                    <option value="">Nessun fornitore</option>
+                    {suppliers.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} — {s.shipping_cost.toFixed(2)} € spedizione</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
+                  <input type="checkbox" checked={matForm.active} onChange={e => setMatForm(f => f ? { ...f, active: e.target.checked } : f)} />
                   <label className="text-sm">Attivo</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
-                <Button variant="outline" onClick={() => resetForm()}>Annulla</Button>
+                <Button onClick={saveMaterial}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <Button variant="outline" onClick={() => setMatForm(null)}>Annulla</Button>
               </div>
             </CardContent>
           </Card>

@@ -126,6 +126,52 @@ class PhaseOut(PhaseBase):
         from_attributes = True
 
 
+# --- MaterialSupplier ---
+class MaterialSupplierBase(BaseModel):
+    name: str
+    address: Optional[str] = None
+    shipping_cost: Optional[float] = 0.0
+    active: Optional[bool] = True
+
+
+class MaterialSupplierCreate(MaterialSupplierBase):
+    pass
+
+
+class MaterialSupplierUpdate(MaterialSupplierBase):
+    pass
+
+
+class MaterialSupplierOut(MaterialSupplierBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+# --- TreatmentSupplier ---
+class TreatmentSupplierBase(BaseModel):
+    name: str
+    address: Optional[str] = None
+    shipping_cost: Optional[float] = 0.0
+    active: Optional[bool] = True
+
+
+class TreatmentSupplierCreate(TreatmentSupplierBase):
+    pass
+
+
+class TreatmentSupplierUpdate(TreatmentSupplierBase):
+    pass
+
+
+class TreatmentSupplierOut(TreatmentSupplierBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 # --- Material ---
 class MaterialBase(BaseModel):
     name: str
@@ -137,6 +183,7 @@ class MaterialBase(BaseModel):
     default_scrap_percent: Optional[float] = 10.0
     active: Optional[bool] = True
     notes: Optional[str] = None
+    supplier_id: Optional[int] = None
 
 
 class MaterialCreate(MaterialBase):
@@ -149,6 +196,7 @@ class MaterialUpdate(MaterialBase):
 
 class MaterialOut(MaterialBase):
     id: int
+    material_supplier: Optional[MaterialSupplierOut] = None
 
     class Config:
         from_attributes = True
@@ -286,6 +334,7 @@ class TreatmentBase(BaseModel):
     cost_per_surface_area: Optional[float] = 0.0
     minimum_cost: Optional[float] = 0.0
     supplier_id: Optional[int] = None
+    treatment_supplier_id: Optional[int] = None
     active: Optional[bool] = True
     notes: Optional[str] = None
 
@@ -300,6 +349,7 @@ class TreatmentUpdate(TreatmentBase):
 
 class TreatmentOut(TreatmentBase):
     id: int
+    treatment_supplier: Optional[TreatmentSupplierOut] = None
 
     class Config:
         from_attributes = True

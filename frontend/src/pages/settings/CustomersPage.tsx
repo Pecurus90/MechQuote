@@ -151,8 +151,20 @@ export default function CustomersPage() {
                     <tr key={c.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-mono font-medium text-gray-700">{c.customer_number}</td>
                       <td className="p-3 font-medium">{c.name}</td>
-                      <td className="p-3 text-gray-500 max-w-xs truncate">{c.address || '—'}</td>
-                      <td className="p-3 text-gray-500">{c.email || '—'}</td>
+                      <td className="p-3 text-gray-500 max-w-xs">
+                        {c.address
+                          ? <a href={`https://maps.google.com/?q=${encodeURIComponent(c.address)}`}
+                               target="_blank" rel="noopener noreferrer"
+                               className="text-blue-600 hover:underline truncate block">
+                              {c.address}
+                            </a>
+                          : '—'}
+                      </td>
+                      <td className="p-3 text-gray-500">
+                        {c.email
+                          ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a>
+                          : '—'}
+                      </td>
                       <td className="p-3 text-gray-500">{c.phone || '—'}</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-1.5 justify-center">

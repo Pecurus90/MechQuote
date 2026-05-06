@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, field_validator
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -36,6 +37,21 @@ class CustomerBase(BaseModel):
     contact_person: Optional[str] = None
     notes: Optional[str] = None
     active: Optional[bool] = True
+
+    @field_validator('phone', mode='before')
+    @classmethod
+    def normalize_phone(cls, v):
+        if not v:
+            return v
+        s = str(v).strip()
+        if not re.search(r'\d', s):
+            return None
+        s = re.sub(r'^\+\s*39\s*', '', s)
+        s = s.replace('(', '').replace(')', '')
+        s = re.sub(r'\s*int\.?\s*\d+.*$', '', s, flags=re.IGNORECASE)
+        s = s.replace('-', ' ').replace('/', ' ').replace('.', ' ')
+        s = re.sub(r'\s+', ' ', s).strip()
+        return s or None
 
 
 class CustomerCreate(CustomerBase):

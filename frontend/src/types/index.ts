@@ -1,3 +1,16 @@
+export interface Treatment {
+  id: number
+  name: string
+  treatment_type: string | null
+  fixed_cost: number
+  cost_per_kg: number
+  cost_per_part: number
+  minimum_cost: number
+  supplier_id: number | null
+  active: boolean
+  notes: string | null
+}
+
 export interface Phase {
   id?: number
   sequence_number: number
@@ -5,6 +18,7 @@ export interface Phase {
   description: string
   machine_id?: number
   supplier_id?: number
+  treatment_id?: number
   setup_hours: number
   cycle_hours_per_part: number
   fixed_cost: number

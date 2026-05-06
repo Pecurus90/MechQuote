@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost } from '@/lib/quoteCalc'
-import type { Part, Material, Machine } from '@/types'
+import type { Part, Material, Machine, Treatment } from '@/types'
 
 type StockType = 'none' | 'round' | 'square'
 
@@ -31,13 +31,14 @@ interface Props {
   materials: Material[]
   suppliers?: Supplier[]
   templates?: PhaseTemplate[]
+  treatments?: Treatment[]
   globalMarginPercent: number
   onUpdate: (updates: Partial<Part>) => void
   onSave: () => void
   onPhasesChange: (phases: Part['phases']) => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], templates = [], globalMarginPercent, onUpdate, onSave, onPhasesChange }: Props) {
+export default function PartCard({ part, machines, materials, suppliers = [], templates = [], treatments = [], globalMarginPercent, onUpdate, onSave, onPhasesChange }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
@@ -220,6 +221,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 onChange={e => onUpdate({ material_cost: parseFloat(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
+            <div className="shrink-0">
+              <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>
+              <Input type="number" min={0} step={0.001} className="mt-1 h-8 w-28 text-sm"
+                value={part.finished_weight_kg ?? ''}
+                placeholder="—"
+                onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0 })}
+                onBlur={onSave} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -234,6 +243,8 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             machines={machines}
             suppliers={suppliers}
             templates={templates}
+            treatments={treatments}
+            finishedWeightKg={part.finished_weight_kg}
             onChange={onPhasesChange}
           />
         </div>

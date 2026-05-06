@@ -170,9 +170,12 @@ class ManufacturingPhase(Base):
     internal_notes = Column(Text)
     customer_notes = Column(Text)
 
+    treatment_id = Column(Integer, ForeignKey("treatments.id"), nullable=True)
+
     part = relationship("Part", back_populates="phases")
     machine = relationship("Machine")
     supplier = relationship("Supplier")
+    treatment = relationship("Treatment")
 
 
 class Material(Base):

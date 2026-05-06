@@ -104,6 +104,7 @@ class PhaseBase(BaseModel):
     calculated_cost: Optional[float] = 0.0
     margin_percent_override: Optional[float] = None
     customer_visible: Optional[bool] = True
+    treatment_id: Optional[int] = None
     internal_notes: Optional[str] = None
     customer_notes: Optional[str] = None
 

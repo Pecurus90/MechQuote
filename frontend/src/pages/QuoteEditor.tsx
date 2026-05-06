@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
-import type { Material, Category, Customer, Part, Quote, Machine } from '@/types'
+import type { Material, Category, Customer, Part, Quote, Machine, Treatment } from '@/types'
 import api from '@/lib/api'
 import { Trash2, Copy, FileDown, ChevronLeft, Save, Plus } from 'lucide-react'
 import { STATUS_LABELS } from '@/lib/constants'
@@ -25,6 +25,7 @@ export default function QuoteEditor() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([])
   const [templates, setTemplates] = useState<{ id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean }[]>([])
+  const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState('')
@@ -40,13 +41,15 @@ export default function QuoteEditor() {
       api.get('/customers'),
       api.get('/suppliers'),
       api.get('/phase-templates'),
-    ]).then(([m, mat, cat, cust, sup, tpl]) => {
+      api.get('/treatments'),
+    ]).then(([m, mat, cat, cust, sup, tpl, tr]) => {
       setMachines(m.data)
       setMaterials(mat.data)
       setCategories(cat.data)
       setCustomers(cust.data)
       setSuppliers(sup.data)
       setTemplates(tpl.data)
+      setTreatments(tr.data.filter((t: Treatment) => t.active))
     })
   }, [])
 
@@ -379,6 +382,7 @@ export default function QuoteEditor() {
               materials={materials}
               suppliers={suppliers}
               templates={templates}
+              treatments={treatments}
               globalMarginPercent={quote.global_margin_percent}
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
               onSave={() => savePart(selectedPartIdx)}

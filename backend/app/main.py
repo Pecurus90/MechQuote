@@ -51,6 +51,7 @@ def _run_migrations():
         "ALTER TABLE quotes ADD COLUMN validity_days INTEGER DEFAULT 30",
         "ALTER TABLE quotes ADD COLUMN delivery_text VARCHAR(200)",
         "ALTER TABLE quotes ADD COLUMN customer_reference VARCHAR(200)",
+        "ALTER TABLE manufacturing_phases ADD COLUMN treatment_id INTEGER REFERENCES treatments(id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

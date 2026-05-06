@@ -233,9 +233,9 @@ export default function TreatmentsPage() {
                   <th className="text-left p-3 w-[14%]">Tipo</th>
                   <th className="text-right p-3 w-[11%]">€/kg</th>
                   <th className="text-right p-3 w-[11%]">Min (€)</th>
-                  <th className="text-right p-3 w-[14%]">Soglia (kg)</th>
-                  <th className="text-left p-3 w-[18%]">Fornitore</th>
-                  <th className="text-center p-3 w-[10%]">Azioni</th>
+                  <th className="text-right p-3 w-[11%]">Soglia (kg)</th>
+                  <th className="text-left p-3 w-[20%]">Fornitore</th>
+                  <th className="text-center p-3 w-[11%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>

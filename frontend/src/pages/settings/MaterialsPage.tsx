@@ -212,11 +212,11 @@ export default function MaterialsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left p-3 w-[22%]">Nome</th>
-                  <th className="text-left p-3 w-[16%]">Famiglia</th>
-                  <th className="text-right p-3 w-[14%]">Densità (kg/dm³)</th>
-                  <th className="text-right p-3 w-[12%]">Costo €/kg</th>
-                  <th className="text-left p-3 w-[24%]">Fornitore</th>
-                  <th className="text-center p-3 w-[12%]">Azioni</th>
+                  <th className="text-left p-3 w-[17%]">Famiglia</th>
+                  <th className="text-right p-3 w-[15%]">Densità (kg/dm³)</th>
+                  <th className="text-right p-3 w-[15%]">Costo €/kg</th>
+                  <th className="text-left p-3 w-[20%]">Fornitore</th>
+                  <th className="text-center p-3 w-[11%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>

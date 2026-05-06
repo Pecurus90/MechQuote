@@ -246,6 +246,7 @@ class Supplier(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     supplier_type = Column(String(50))
+    address = Column(Text, nullable=True)
     shipping_cost = Column(Float, default=0.0)
     notes = Column(Text)
     active = Column(Boolean, default=True)

@@ -9,7 +9,6 @@ import QuoteArchivePage from '@/pages/QuoteArchivePage'
 import NewQuotePage from '@/pages/NewQuotePage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import MachinesPage from '@/pages/settings/MachinesPage'
-import SuppliersPage from '@/pages/settings/SuppliersPage'
 import TreatmentsPage from '@/pages/settings/TreatmentsPage'
 import CostRulesPage from '@/pages/settings/CostRulesPage'
 import PhaseTemplatesPage from '@/pages/settings/PhaseTemplatesPage'
@@ -55,7 +54,6 @@ export default function App() {
         <Route path="settings/machines" element={<MachinesPage />} />
         <Route path="settings/templates" element={<PhaseTemplatesPage />} />
         <Route path="settings/treatments" element={<TreatmentsPage />} />
-        <Route path="settings/suppliers" element={<SuppliersPage />} />
         <Route path="settings/cost-rules" element={<CostRulesPage />} />
         <Route path="settings/step-colors" element={<StepColorRulesPage />} />
         <Route path="settings/company" element={<CompanySettingsPage />} />

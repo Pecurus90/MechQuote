@@ -57,6 +57,7 @@ def _run_migrations():
         "ALTER TABLE parts ADD COLUMN material_delivery_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE materials ADD COLUMN supplier_id INTEGER REFERENCES material_suppliers(id)",
         "ALTER TABLE suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0.0",
+        "ALTER TABLE suppliers ADD COLUMN address TEXT",
         "ALTER TABLE treatments ADD COLUMN minimum_weight_kg FLOAT",
     ]
     with engine.connect() as conn:

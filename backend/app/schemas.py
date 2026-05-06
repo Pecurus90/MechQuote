@@ -306,6 +306,7 @@ class MachineOut(MachineBase):
 class SupplierBase(BaseModel):
     name: str
     supplier_type: Optional[str] = None
+    address: Optional[str] = None
     shipping_cost: Optional[float] = 0.0
     notes: Optional[str] = None
     active: Optional[bool] = True

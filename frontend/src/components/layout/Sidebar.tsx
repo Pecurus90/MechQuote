@@ -102,10 +102,6 @@ export default function Sidebar() {
                 <Ruler className="w-3.5 h-3.5 shrink-0" />
                 <span>Trattamenti</span>
               </NavLink>
-              <NavLink to="/settings/suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
-                <Building2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Fornitori</span>
-              </NavLink>
               <NavLink to="/settings/cost-rules" className={({ isActive }) => navLinkClass(isActive, true)}>
                 <FileTextIcon className="w-3.5 h-3.5 shrink-0" />
                 <span>Regole di Costo</span>

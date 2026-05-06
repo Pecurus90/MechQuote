@@ -9,6 +9,7 @@ interface Supplier {
   id: number
   name: string
   supplier_type: string | null
+  address: string | null
   shipping_cost: number
   active: boolean
 }
@@ -26,8 +27,8 @@ interface Treatment {
   notes: string
 }
 
-interface SupForm { id: number | null; name: string; supplierType: string; shippingCost: string; active: boolean }
-const emptySupplier = (): SupForm => ({ id: null, name: '', supplierType: '', shippingCost: '0', active: true })
+interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string; active: boolean }
+const emptySupplier = (): SupForm => ({ id: null, name: '', supplierType: '', address: '', shippingCost: '0', active: true })
 
 interface TreatForm {
   id: number | null
@@ -65,7 +66,7 @@ export default function TreatmentsPage() {
   // --- Supplier CRUD ---
   const saveSupplier = async () => {
     if (!supForm) return
-    const payload = { name: supForm.name, supplier_type: supForm.supplierType || null, shipping_cost: Number(supForm.shippingCost), active: supForm.active }
+    const payload = { name: supForm.name, supplier_type: supForm.supplierType || null, address: supForm.address || null, shipping_cost: Number(supForm.shippingCost), active: supForm.active }
     try {
       if (supForm.id) await api.put(`/suppliers/${supForm.id}`, payload)
       else await api.post('/suppliers', payload)
@@ -130,13 +131,13 @@ export default function TreatmentsPage() {
         </div>
         <Card>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3">Nome</th>
-                  <th className="text-left p-3">Tipo</th>
-                  <th className="text-right p-3">Spedizione (€)</th>
-                  <th className="text-center p-3">Azioni</th>
+                  <th className="text-left p-3 w-[28%]">Nome</th>
+                  <th className="text-left p-3 w-[33%]">Indirizzo</th>
+                  <th className="text-right p-3 w-[22%]">Spedizione (€)</th>
+                  <th className="text-center p-3 w-[17%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,8 +148,8 @@ export default function TreatmentsPage() {
                   supForm?.id === s.id ? (
                     <tr key={s.id} className="border-b bg-blue-50">
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
-                      <td className="p-2"><Input className="h-8 text-sm" placeholder="Es. Zincatura" value={supForm.supplierType} onChange={e => setSupForm(f => f ? { ...f, supplierType: e.target.value } : f)} /></td>
-                      <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shippingCost} onChange={e => setSupForm(f => f ? { ...f, shippingCost: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shippingCost} onChange={e => setSupForm(f => f ? { ...f, shippingCost: e.target.value } : f)} /></td>
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
@@ -159,11 +160,11 @@ export default function TreatmentsPage() {
                   ) : (
                     <tr key={s.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{s.name}</td>
-                      <td className="p-3 text-gray-500">{s.supplier_type || '—'}</td>
+                      <td className="p-3 text-gray-500">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', shippingCost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -177,8 +178,8 @@ export default function TreatmentsPage() {
                 {supForm?.id === null && (
                   <tr className="border-b bg-blue-50">
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
-                    <td className="p-2"><Input className="h-8 text-sm" placeholder="Es. Zincatura" value={supForm.supplierType} onChange={e => setSupForm(f => f ? { ...f, supplierType: e.target.value } : f)} /></td>
-                    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-24 ml-auto" value={supForm.shippingCost} onChange={e => setSupForm(f => f ? { ...f, shippingCost: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shippingCost} onChange={e => setSupForm(f => f ? { ...f, shippingCost: e.target.value } : f)} /></td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
@@ -203,27 +204,27 @@ export default function TreatmentsPage() {
         </div>
         <Card>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
+            <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3">Nome</th>
-                  <th className="text-left p-3">Tipo</th>
-                  <th className="text-right p-3">€/kg</th>
-                  <th className="text-right p-3">Min (€)</th>
-                  <th className="text-right p-3">Soglia (kg)</th>
-                  <th className="text-left p-3">Fornitore</th>
-                  <th className="text-center p-3">Azioni</th>
+                  <th className="text-left p-3 w-[22%]">Nome</th>
+                  <th className="text-left p-3 w-[14%]">Tipo</th>
+                  <th className="text-right p-3 w-[11%]">€/kg</th>
+                  <th className="text-right p-3 w-[11%]">Min (€)</th>
+                  <th className="text-right p-3 w-[14%]">Soglia (kg)</th>
+                  <th className="text-left p-3 w-[18%]">Fornitore</th>
+                  <th className="text-center p-3 w-[10%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {treatments.map(t => (
                   <tr key={t.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{t.name}</td>
-                    <td className="p-3">{t.treatment_type || '—'}</td>
+                    <td className="p-3 font-medium truncate">{t.name}</td>
+                    <td className="p-3 truncate">{t.treatment_type || '—'}</td>
                     <td className="p-3 text-right">{t.cost_per_kg.toFixed(2)}</td>
                     <td className="p-3 text-right">{t.minimum_cost.toFixed(2)}</td>
                     <td className="p-3 text-right text-gray-500">{t.minimum_weight_kg != null ? `< ${t.minimum_weight_kg} kg` : '—'}</td>
-                    <td className="p-3 text-xs text-gray-500">
+                    <td className="p-3 text-xs text-gray-500 truncate">
                       {t.supplier
                         ? <span>{t.supplier.name}{t.supplier.shipping_cost > 0 && <span className="text-gray-400"> +{t.supplier.shipping_cost.toFixed(2)} €</span>}</span>
                         : '—'}
@@ -289,9 +290,7 @@ export default function TreatmentsPage() {
                   >
                     <option value="">Nessun fornitore</option>
                     {suppliers.filter(s => s.active).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}{s.shipping_cost > 0 ? ` — spedizione ${s.shipping_cost.toFixed(2)} €` : ''}
-                      </option>
+                      <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </div>

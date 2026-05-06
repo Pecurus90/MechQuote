@@ -149,28 +149,6 @@ class MaterialSupplierOut(MaterialSupplierBase):
         from_attributes = True
 
 
-# --- TreatmentSupplier ---
-class TreatmentSupplierBase(BaseModel):
-    name: str
-    address: Optional[str] = None
-    shipping_cost: Optional[float] = 0.0
-    active: Optional[bool] = True
-
-
-class TreatmentSupplierCreate(TreatmentSupplierBase):
-    pass
-
-
-class TreatmentSupplierUpdate(TreatmentSupplierBase):
-    pass
-
-
-class TreatmentSupplierOut(TreatmentSupplierBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
 
 # --- Material ---
 class MaterialBase(BaseModel):
@@ -324,41 +302,11 @@ class MachineOut(MachineBase):
         from_attributes = True
 
 
-# --- Treatment ---
-class TreatmentBase(BaseModel):
-    name: str
-    treatment_type: Optional[str] = None
-    fixed_cost: Optional[float] = 0.0
-    cost_per_kg: Optional[float] = 0.0
-    cost_per_part: Optional[float] = 0.0
-    cost_per_surface_area: Optional[float] = 0.0
-    minimum_cost: Optional[float] = 0.0
-    supplier_id: Optional[int] = None
-    treatment_supplier_id: Optional[int] = None
-    active: Optional[bool] = True
-    notes: Optional[str] = None
-
-
-class TreatmentCreate(TreatmentBase):
-    pass
-
-
-class TreatmentUpdate(TreatmentBase):
-    pass
-
-
-class TreatmentOut(TreatmentBase):
-    id: int
-    treatment_supplier: Optional[TreatmentSupplierOut] = None
-
-    class Config:
-        from_attributes = True
-
-
 # --- Supplier ---
 class SupplierBase(BaseModel):
     name: str
     supplier_type: Optional[str] = None
+    shipping_cost: Optional[float] = 0.0
     notes: Optional[str] = None
     active: Optional[bool] = True
 
@@ -373,6 +321,37 @@ class SupplierUpdate(SupplierBase):
 
 class SupplierOut(SupplierBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+# --- Treatment ---
+class TreatmentBase(BaseModel):
+    name: str
+    treatment_type: Optional[str] = None
+    fixed_cost: Optional[float] = 0.0
+    cost_per_kg: Optional[float] = 0.0
+    cost_per_part: Optional[float] = 0.0
+    cost_per_surface_area: Optional[float] = 0.0
+    minimum_cost: Optional[float] = 0.0
+    minimum_weight_kg: Optional[float] = None
+    supplier_id: Optional[int] = None
+    active: Optional[bool] = True
+    notes: Optional[str] = None
+
+
+class TreatmentCreate(TreatmentBase):
+    pass
+
+
+class TreatmentUpdate(TreatmentBase):
+    pass
+
+
+class TreatmentOut(TreatmentBase):
+    id: int
+    supplier: Optional[SupplierOut] = None
 
     class Config:
         from_attributes = True

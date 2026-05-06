@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.models import (
     Material, Machine, Treatment, Supplier, CostRule,
     PhaseTemplate, StepColorRule, QuoteCategory,
-    MaterialSupplier, TreatmentSupplier,
+    MaterialSupplier,
 )
 from app.schemas import (
     MaterialCreate, MaterialUpdate, MaterialOut,
@@ -18,7 +18,6 @@ from app.schemas import (
     StepColorRuleCreate, StepColorRuleBase, StepColorRuleOut,
     QuoteCategoryCreate, QuoteCategoryUpdate, QuoteCategoryOut,
     MaterialSupplierCreate, MaterialSupplierUpdate, MaterialSupplierOut,
-    TreatmentSupplierCreate, TreatmentSupplierUpdate, TreatmentSupplierOut,
 )
 
 router = APIRouter(prefix="/api", tags=["settings"])
@@ -170,47 +169,10 @@ def delete_machine(mid: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-# --- Treatment Suppliers ---
-@router.get("/treatment-suppliers", response_model=List[TreatmentSupplierOut])
-def list_treatment_suppliers(db: Session = Depends(get_db)):
-    return db.query(TreatmentSupplier).order_by(TreatmentSupplier.name).all()
-
-
-@router.post("/treatment-suppliers", response_model=TreatmentSupplierOut)
-def create_treatment_supplier(data: TreatmentSupplierCreate, db: Session = Depends(get_db)):
-    s = TreatmentSupplier(**data.model_dump())
-    db.add(s)
-    db.commit()
-    db.refresh(s)
-    return s
-
-
-@router.put("/treatment-suppliers/{sid}", response_model=TreatmentSupplierOut)
-def update_treatment_supplier(sid: int, data: TreatmentSupplierUpdate, db: Session = Depends(get_db)):
-    s = db.query(TreatmentSupplier).filter(TreatmentSupplier.id == sid).first()
-    if not s:
-        raise HTTPException(404, "Not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(s, k, v)
-    db.commit()
-    db.refresh(s)
-    return s
-
-
-@router.delete("/treatment-suppliers/{sid}")
-def delete_treatment_supplier(sid: int, db: Session = Depends(get_db)):
-    s = db.query(TreatmentSupplier).filter(TreatmentSupplier.id == sid).first()
-    if not s:
-        raise HTTPException(404, "Not found")
-    db.delete(s)
-    db.commit()
-    return {"ok": True}
-
-
 # --- Treatments ---
 @router.get("/treatments", response_model=List[TreatmentOut])
 def list_treatments(db: Session = Depends(get_db)):
-    return db.query(Treatment).options(joinedload(Treatment.treatment_supplier)).all()
+    return db.query(Treatment).options(joinedload(Treatment.supplier)).all()
 
 
 @router.post("/treatments", response_model=TreatmentOut)
@@ -218,7 +180,7 @@ def create_treatment(data: TreatmentCreate, db: Session = Depends(get_db)):
     t = Treatment(**data.model_dump())
     db.add(t)
     db.commit()
-    return db.query(Treatment).options(joinedload(Treatment.treatment_supplier)).filter(Treatment.id == t.id).first()
+    return db.query(Treatment).options(joinedload(Treatment.supplier)).filter(Treatment.id == t.id).first()
 
 
 @router.put("/treatments/{tid}", response_model=TreatmentOut)
@@ -229,7 +191,7 @@ def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(t, k, v)
     db.commit()
-    return db.query(Treatment).options(joinedload(Treatment.treatment_supplier)).filter(Treatment.id == tid).first()
+    return db.query(Treatment).options(joinedload(Treatment.supplier)).filter(Treatment.id == tid).first()
 
 
 @router.delete("/treatments/{tid}")

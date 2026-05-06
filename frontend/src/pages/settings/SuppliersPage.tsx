@@ -9,6 +9,7 @@ interface Supplier {
   id: number
   name: string
   supplier_type: string
+  shipping_cost: number
   notes: string
   active: boolean
 }
@@ -18,6 +19,7 @@ export default function SuppliersPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [name, setName] = useState('')
   const [supplierType, setSupplierType] = useState('')
+  const [shippingCost, setShippingCost] = useState('0')
   const [notes, setNotes] = useState('')
   const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -35,6 +37,7 @@ export default function SuppliersPage() {
     setEditingId(isNew ? 0 : null)
     setName('')
     setSupplierType('')
+    setShippingCost('0')
     setNotes('')
     setActive(true)
   }
@@ -43,12 +46,13 @@ export default function SuppliersPage() {
     setEditingId(s.id)
     setName(s.name)
     setSupplierType(s.supplier_type)
+    setShippingCost(String(s.shipping_cost || 0))
     setNotes(s.notes || '')
     setActive(s.active)
   }
 
   const handleSave = async () => {
-    const payload = { name, supplier_type: supplierType, notes, active }
+    const payload = { name, supplier_type: supplierType, shipping_cost: Number(shippingCost), notes, active }
     try {
       if (editingId && editingId > 0) {
         await api.put(`/suppliers/${editingId}`, payload)
@@ -85,8 +89,8 @@ export default function SuppliersPage() {
                 <tr>
                   <th className="text-left p-3">Nome</th>
                   <th className="text-left p-3">Tipo</th>
+                  <th className="text-right p-3">Spedizione (€)</th>
                   <th className="text-left p-3">Note</th>
-                  <th className="text-center p-3">Attivo</th>
                   <th className="text-center p-3">Azioni</th>
                 </tr>
               </thead>
@@ -95,6 +99,7 @@ export default function SuppliersPage() {
                   <tr key={s.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium">{s.name}</td>
                     <td className="p-3">{s.supplier_type || '-'}</td>
+                    <td className="p-3 text-right font-mono">{(s.shipping_cost || 0).toFixed(2)}</td>
                     <td className="p-3">{s.notes || '-'}</td>
                     <td className="p-3 text-center">{s.active ? 'Sì' : 'No'}</td>
                     <td className="p-3 text-center">
@@ -135,6 +140,10 @@ export default function SuppliersPage() {
                 <div>
                   <label className="text-sm font-medium">Tipo</label>
                   <Input value={supplierType} onChange={e => setSupplierType(e.target.value)} placeholder="Es. Lavorazioni, Trattamenti" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Costo spedizione (€)</label>
+                  <Input type="number" step="0.5" min="0" value={shippingCost} onChange={e => setShippingCost(e.target.value)} />
                 </div>
                 <div className="col-span-2">
                   <label className="text-sm font-medium">Note</label>

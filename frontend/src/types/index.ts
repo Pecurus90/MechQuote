@@ -6,14 +6,6 @@ export interface MaterialSupplier {
   active: boolean
 }
 
-export interface TreatmentSupplier {
-  id: number
-  name: string
-  address?: string | null
-  shipping_cost: number
-  active: boolean
-}
-
 export interface Treatment {
   id: number
   name: string
@@ -22,9 +14,9 @@ export interface Treatment {
   cost_per_kg: number
   cost_per_part: number
   minimum_cost: number
+  minimum_weight_kg?: number | null
   supplier_id: number | null
-  treatment_supplier_id?: number | null
-  treatment_supplier?: TreatmentSupplier | null
+  supplier?: { id: number; name: string; shipping_cost: number } | null
   active: boolean
   notes: string | null
 }

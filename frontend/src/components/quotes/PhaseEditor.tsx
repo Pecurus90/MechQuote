@@ -38,6 +38,15 @@ interface Props {
 const TREATMENT_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment'])
 const SUPPLIER_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment', 'external_supplier'])
 
+function calcTreatmentVarCost(t: Treatment, finishedWeightKg: number | undefined, qty: number): number {
+  const weight = finishedWeightKg || 0
+  const totalBatchWeight = weight * qty
+  const belowThreshold = t.minimum_weight_kg != null && t.minimum_weight_kg > 0 && totalBatchWeight < t.minimum_weight_kg
+  return belowThreshold
+    ? (t.minimum_cost || 0) / Math.max(qty, 1)
+    : (t.cost_per_kg || 0) * weight
+}
+
 function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): Phase {
   const machine = machines.find(m => m.id === phase.machine_id)
   const rate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
@@ -60,7 +69,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
       if (!ph.treatment_id) return ph
       const t = treatments.find(t => t.id === ph.treatment_id)
       if (!t) return ph
-      const varCost = (t.cost_per_kg || 0) * (finishedWeightKg || 0)
+      const varCost = calcTreatmentVarCost(t, finishedWeightKg, quantity)
       return calcPhase({ ...ph, variable_cost_per_part: varCost }, machines, quantity, nParts)
     })
     const changed = updated.some((ph, i) => ph.variable_cost_per_part !== phases[i].variable_cost_per_part)
@@ -129,8 +138,8 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     }
     const t = treatments.find(t => t.id === treatmentId)
     if (!t) return
-    const varCost = (t.cost_per_kg || 0) * (finishedWeightKg || 0)
-    const shippingCost = t.treatment_supplier?.shipping_cost || 0
+    const varCost = calcTreatmentVarCost(t, finishedWeightKg, quantity)
+    const shippingCost = t.supplier?.shipping_cost || 0
     updateMany(idx, {
       treatment_id: treatmentId,
       fixed_cost: (t.fixed_cost || 0) + shippingCost,
@@ -231,7 +240,12 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
           {phases.map((phase, idx) => {
             const isTreatment = TREATMENT_PHASE_TYPES.has(phase.phase_type)
             const selectedTreatment = treatments.find(t => t.id === phase.treatment_id)
+            const totalBatchWeight = (finishedWeightKg || 0) * quantity
+            const weightThresholdActive = selectedTreatment?.minimum_weight_kg != null &&
+              selectedTreatment.minimum_weight_kg > 0 &&
+              totalBatchWeight < selectedTreatment.minimum_weight_kg
             const showMinWarning = isTreatment && selectedTreatment &&
+              !weightThresholdActive &&
               selectedTreatment.minimum_cost > 0 &&
               (phase.variable_cost_per_part * quantity) < selectedTreatment.minimum_cost
 
@@ -341,6 +355,11 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                           </select>
                           {!finishedWeightKg && phase.treatment_id && (
                             <p className="text-[10px] text-amber-600 mt-0.5">⚠ Inserisci il peso finito nella scheda pezzo</p>
+                          )}
+                          {weightThresholdActive && (
+                            <p className="text-[10px] text-amber-600 mt-0.5">
+                              ⚠ Lotto sotto soglia ({totalBatchWeight.toFixed(2)} kg {'<'} {selectedTreatment!.minimum_weight_kg} kg) — costo minimo applicato
+                            </p>
                           )}
                           {showMinWarning && (
                             <p className="text-[10px] text-amber-600 mt-0.5">
@@ -483,10 +502,11 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         const divisor = quantity * (phase.is_shared ? nParts : 1)
                         if (isTreatment) {
                           const sharedNote = phase.is_shared && nParts > 1 ? ` ÷${nParts} parti` : ''
-                          const treatSupplierName = selectedTreatment?.treatment_supplier?.name
+                          const treatSupplierName = selectedTreatment?.supplier?.name
                           return (
                             <span className="text-xs text-gray-400">
                               {treatSupplierName && <span className="mr-2 text-indigo-400">{treatSupplierName}</span>}
+                              {weightThresholdActive && <span className="mr-2 text-amber-500">minimo lotto {'<'}{selectedTreatment!.minimum_weight_kg} kg</span>}
                               Fisso: {((phase.fixed_cost || 0) / divisor).toFixed(2)} €{sharedNote} · Lavorazione: {(phase.variable_cost_per_part || 0).toFixed(2)} €/pz
                             </span>
                           )

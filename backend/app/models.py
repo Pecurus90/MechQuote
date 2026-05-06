@@ -190,15 +190,6 @@ class MaterialSupplier(Base):
     active = Column(Boolean, default=True)
 
 
-class TreatmentSupplier(Base):
-    __tablename__ = "treatment_suppliers"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
-    address = Column(Text)
-    shipping_cost = Column(Float, default=0.0)
-    active = Column(Boolean, default=True)
-
 
 class Material(Base):
     __tablename__ = "materials"
@@ -241,13 +232,12 @@ class Treatment(Base):
     cost_per_part = Column(Float, default=0.0)
     cost_per_surface_area = Column(Float, default=0.0)
     minimum_cost = Column(Float, default=0.0)
+    minimum_weight_kg = Column(Float, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
-    treatment_supplier_id = Column(Integer, ForeignKey("treatment_suppliers.id"), nullable=True)
     active = Column(Boolean, default=True)
     notes = Column(Text)
 
     supplier = relationship("Supplier")
-    treatment_supplier = relationship("TreatmentSupplier")
 
 
 class Supplier(Base):
@@ -256,6 +246,7 @@ class Supplier(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     supplier_type = Column(String(50))
+    shipping_cost = Column(Float, default=0.0)
     notes = Column(Text)
     active = Column(Boolean, default=True)
 

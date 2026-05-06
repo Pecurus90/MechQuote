@@ -1,0 +1,206 @@
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import api from '@/lib/api'
+import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+
+interface Category {
+  id: number
+  code: string
+  name: string
+  active: boolean
+  sort_order: number
+}
+
+interface EditRow {
+  code: string
+  name: string
+  sort_order: number
+}
+
+export default function QuoteCategoriesPage() {
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editRow, setEditRow] = useState<EditRow>({ code: '', name: '', sort_order: 0 })
+  const [newRow, setNewRow] = useState<EditRow>({ code: '', name: '', sort_order: 0 })
+  const [showNew, setShowNew] = useState(false)
+
+  useEffect(() => { load() }, [])
+
+  const load = () => {
+    setLoading(true)
+    api.get('/quote-categories').then(res => {
+      setCategories(res.data)
+      setLoading(false)
+    })
+  }
+
+  const startEdit = (cat: Category) => {
+    setEditingId(cat.id)
+    setEditRow({ code: cat.code, name: cat.name, sort_order: cat.sort_order })
+  }
+
+  const saveEdit = async (id: number) => {
+    await api.put(`/quote-categories/${id}`, editRow)
+    setEditingId(null)
+    load()
+  }
+
+  const deleteCategory = async (id: number) => {
+    if (!confirm('Eliminare questa categoria?')) return
+    await api.delete(`/quote-categories/${id}`)
+    load()
+  }
+
+  const createCategory = async () => {
+    if (!newRow.code || !newRow.name) return
+    await api.post('/quote-categories', newRow)
+    setNewRow({ code: '', name: '', sort_order: 0 })
+    setShowNew(false)
+    load()
+  }
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Categorie Preventivo</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Le lettere delle categorie appaiono nel codice preventivo (es. 240-26<strong>A</strong>_001)
+          </p>
+        </div>
+        <Button onClick={() => setShowNew(true)} disabled={showNew}>
+          <Plus className="w-4 h-4 mr-1.5" /> Nuova Categoria
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left p-3 font-medium text-gray-600 w-20">Codice</th>
+                <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
+                <th className="text-center p-3 font-medium text-gray-600 w-24">Ordine</th>
+                <th className="text-center p-3 font-medium text-gray-600 w-24">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="p-4 text-center text-gray-400">Caricamento...</td></tr>
+              ) : (
+                <>
+                  {categories.map(cat => (
+                    <tr key={cat.id} className="border-b hover:bg-gray-50">
+                      {editingId === cat.id ? (
+                        <>
+                          <td className="p-2">
+                            <Input
+                              className="h-8 text-sm font-mono w-16"
+                              value={editRow.code}
+                              maxLength={5}
+                              onChange={e => setEditRow(r => ({ ...r, code: e.target.value.toUpperCase() }))}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              className="h-8 text-sm"
+                              value={editRow.name}
+                              onChange={e => setEditRow(r => ({ ...r, name: e.target.value }))}
+                            />
+                          </td>
+                          <td className="p-2 text-center">
+                            <Input
+                              type="number"
+                              className="h-8 text-sm w-16 mx-auto"
+                              value={editRow.sort_order}
+                              onChange={e => setEditRow(r => ({ ...r, sort_order: parseInt(e.target.value) || 0 }))}
+                            />
+                          </td>
+                          <td className="p-2 text-center">
+                            <button onClick={() => saveEdit(cat.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 font-mono font-bold text-blue-700">{cat.code}</td>
+                          <td className="p-3">{cat.name}</td>
+                          <td className="p-3 text-center text-gray-400">{cat.sort_order}</td>
+                          <td className="p-3 text-center">
+                            <button onClick={() => startEdit(cat)} className="p-1 text-gray-400 hover:text-blue-600 rounded mr-1">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => deleteCategory(cat.id)} className="p-1 text-gray-400 hover:text-red-500 rounded">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+
+                  {/* New row */}
+                  {showNew && (
+                    <tr className="border-b bg-blue-50">
+                      <td className="p-2">
+                        <Input
+                          className="h-8 text-sm font-mono w-16"
+                          placeholder="H"
+                          maxLength={5}
+                          value={newRow.code}
+                          onChange={e => setNewRow(r => ({ ...r, code: e.target.value.toUpperCase() }))}
+                          autoFocus
+                        />
+                      </td>
+                      <td className="p-2">
+                        <Input
+                          className="h-8 text-sm"
+                          placeholder="Nome categoria"
+                          value={newRow.name}
+                          onChange={e => setNewRow(r => ({ ...r, name: e.target.value }))}
+                          onKeyDown={e => e.key === 'Enter' && createCategory()}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <Input
+                          type="number"
+                          className="h-8 text-sm w-16 mx-auto"
+                          value={newRow.sort_order}
+                          onChange={e => setNewRow(r => ({ ...r, sort_order: parseInt(e.target.value) || 0 }))}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <button onClick={createCategory} className="p-1 text-green-600 hover:bg-green-100 rounded mr-1">
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => { setShowNew(false); setNewRow({ code: '', name: '', sort_order: 0 }) }}
+                          className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+
+                  {categories.length === 0 && !showNew && (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-gray-400">
+                        Nessuna categoria. Clicca "Nuova Categoria" per aggiungerne una.
+                      </td>
+                    </tr>
+                  )}
+                </>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 import os
 import shutil
@@ -7,6 +7,7 @@ import shutil
 from app.core.database import get_db
 from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis
 from app.schemas import PartCreate, PartUpdate, PartOut
+from app.services.calculation import recalculate_part
 
 router = APIRouter(prefix="/api", tags=["parts"])
 
@@ -17,12 +18,21 @@ def add_part(quote_id: int, data: PartCreate, db: Session = Depends(get_db)):
     db.add(part)
     db.commit()
     db.refresh(part)
-    return part
+    recalculate_part(part.id, db)
+    return db.query(Part).options(
+        joinedload(Part.phases),
+        joinedload(Part.material),
+        joinedload(Part.files),
+    ).filter(Part.id == part.id).first()
 
 
 @router.get("/parts/{part_id}", response_model=PartOut)
 def get_part(part_id: int, db: Session = Depends(get_db)):
-    part = db.query(Part).filter(Part.id == part_id).first()
+    part = db.query(Part).options(
+        joinedload(Part.phases),
+        joinedload(Part.material),
+        joinedload(Part.files),
+    ).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
     return part
@@ -36,7 +46,12 @@ def update_part(part_id: int, data: PartUpdate, db: Session = Depends(get_db)):
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(part, key, value)
     db.commit()
-    db.refresh(part)
+    recalculate_part(part_id, db)
+    part = db.query(Part).options(
+        joinedload(Part.phases),
+        joinedload(Part.material),
+        joinedload(Part.files),
+    ).filter(Part.id == part_id).first()
     return part
 
 
@@ -52,12 +67,13 @@ def delete_part(part_id: int, db: Session = Depends(get_db)):
 
 @router.post("/parts/{part_id}/duplicate", response_model=PartOut)
 def duplicate_part(part_id: int, db: Session = Depends(get_db)):
-    part = db.query(Part).filter(Part.id == part_id).first()
+    part = db.query(Part).options(joinedload(Part.phases)).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
+
     new_part = Part(
         quote_id=part.quote_id,
-        part_code=part.part_code + "_copy",
+        part_code=part.part_code + "_copia",
         revision=part.revision,
         description=part.description,
         quantity=part.quantity,
@@ -67,8 +83,6 @@ def duplicate_part(part_id: int, db: Session = Depends(get_db)):
         raw_y_mm=part.raw_y_mm,
         raw_z_mm=part.raw_z_mm,
         raw_diameter_mm=part.raw_diameter_mm,
-        finished_weight_kg=part.finished_weight_kg,
-        raw_weight_kg=part.raw_weight_kg,
         material_cost=part.material_cost,
         margin_percent=part.margin_percent,
         minimum_price=part.minimum_price,
@@ -76,14 +90,37 @@ def duplicate_part(part_id: int, db: Session = Depends(get_db)):
         confidence_level=part.confidence_level,
         customer_notes=part.customer_notes,
         internal_notes=part.internal_notes,
-        total_cost=part.total_cost,
-        unit_price=part.unit_price,
-        total_price=part.total_price,
     )
     db.add(new_part)
     db.commit()
     db.refresh(new_part)
-    return new_part
+
+    # Copy phases
+    for ph in part.phases:
+        new_ph = ManufacturingPhase(
+            part_id=new_part.id,
+            sequence_number=ph.sequence_number,
+            phase_type=ph.phase_type,
+            description=ph.description,
+            machine_id=ph.machine_id,
+            supplier_id=ph.supplier_id,
+            setup_hours=ph.setup_hours,
+            cycle_hours_per_part=ph.cycle_hours_per_part,
+            fixed_cost=ph.fixed_cost,
+            variable_cost_per_part=ph.variable_cost_per_part,
+            hourly_rate_override=ph.hourly_rate_override,
+            customer_visible=ph.customer_visible,
+        )
+        db.add(new_ph)
+
+    db.commit()
+    recalculate_part(new_part.id, db)
+
+    return db.query(Part).options(
+        joinedload(Part.phases),
+        joinedload(Part.material),
+        joinedload(Part.files),
+    ).filter(Part.id == new_part.id).first()
 
 
 @router.post("/parts/{part_id}/files")
@@ -92,7 +129,6 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
-    # Determine file type
     ext = os.path.splitext(file.filename)[1].lower()
     if ext == '.dxf':
         file_type = 'dxf'
@@ -105,13 +141,11 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
     else:
         file_type = 'other'
 
-    # Save file
     os.makedirs("uploads", exist_ok=True)
     file_path = f"uploads/part_{part_id}_{file.filename}"
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Create PartFile record
     part_file = PartFile(
         part_id=part_id,
         file_type=file_type,
@@ -122,8 +156,7 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
     db.commit()
     db.refresh(part_file)
 
-    # If DXF, run analysis
-    if file_type == 'dxf' and ext == '.dxf':
+    if file_type == 'dxf':
         try:
             import ezdxf
             doc = ezdxf.readfile(file_path)
@@ -137,7 +170,6 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
                 elif entity.dxftype() in ('CIRCLE', 'ARC', 'LWPOLYLINE', 'SPLINE'):
                     profile_count += 1
 
-            # Save geometry analysis
             geo = GeometryAnalysis(
                 part_id=part_id,
                 source_file_id=part_file.id,
@@ -155,11 +187,9 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
 
 @router.delete("/files/{file_id}")
 def delete_file(file_id: int, db: Session = Depends(get_db)):
-    from app.models import PartFile as PF
-    pf = db.query(PF).filter(PF.id == file_id).first()
+    pf = db.query(PartFile).filter(PartFile.id == file_id).first()
     if not pf:
         raise HTTPException(status_code=404, detail="File not found")
-    # Delete physical file
     try:
         os.remove(pf.path)
     except Exception:

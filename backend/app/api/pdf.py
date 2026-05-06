@@ -1,30 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from io import BytesIO
 import tempfile
 
 from app.core.database import get_db
-from app.models import Quote, Part, ManufacturingPhase, Material, CostRule
+from app.models import Quote, Part, ManufacturingPhase, CostRule
 
 router = APIRouter(prefix="/api", tags=["pdf"])
 
 
-def generate_quote_pdf(quote_id: int, internal: bool, db: Session):
+def _esc(text) -> str:
+    """Minimal HTML escape to prevent injection in PDF."""
+    if text is None:
+        return ""
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
 
     parts = db.query(Part).filter(Part.quote_id == quote_id).all()
 
-    # Load company settings from cost rules
     company_rules = db.query(CostRule).filter(CostRule.key.like('company_%')).all()
     company = {r.key: r.value for r in company_rules}
-    company_name = company.get('company_name', 'MECHQUOTE')
-    company_address = company.get('company_address', 'Fratelli Dalla Via - Officina Meccanica di Precisione')
+    company_name = company.get('company_name', 'Fratelli Dalla Via')
+    company_address = company.get('company_address', 'Officina Meccanica di Precisione')
     company_vat = company.get('company_vat', '')
     company_phone = company.get('company_phone', '')
     company_email = company.get('company_email', '')
+
+    quote_date_str = str(quote.quote_date) if quote.quote_date else "-"
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -33,123 +40,158 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session):
 <style>
 @page {{ margin: 2cm; }}
 body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
-.header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 20px; }}
-.company-name {{ font-size: 24px; font-weight: bold; color: #1e40af; }}
-.company-desc {{ font-size: 12px; color: #666; }}
-.quote-title {{ font-size: 20px; font-weight: bold; text-align: right; }}
-.info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }}
-.info-box {{ background: #f9fafb; padding: 15px; border-radius: 8px; }}
-.info-label {{ font-size: 10px; color: #666; text-transform: uppercase; }}
-.info-value {{ font-size: 14px; font-weight: bold; }}
-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-th {{ background: #f3f4f6; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; color: #666; }}
-td {{ padding: 10px; border-bottom: 1px solid #e5e7eb; }}
-.total-row {{ font-weight: bold; font-size: 14px; }}
-.footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #666; }}
-.phase-detail {{ font-size: 10px; color: #666; margin-top: 5px; }}
-.badge {{ background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 10px; }}
+.header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 20px; }}
+.company-name {{ font-size: 22px; font-weight: bold; color: #1e40af; }}
+.company-info {{ font-size: 11px; color: #555; margin-top: 4px; }}
+.quote-title {{ font-size: 20px; font-weight: bold; text-align: right; color: #1e40af; }}
+.quote-number {{ text-align: right; color: #666; margin-top: 4px; font-size: 13px; }}
+.info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }}
+.info-box {{ background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; }}
+.info-label {{ font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }}
+.info-value {{ font-size: 13px; font-weight: 600; margin-top: 2px; }}
+table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
+th {{ background: #f3f4f6; padding: 9px 10px; text-align: left; font-size: 10px; text-transform: uppercase; color: #666; border-bottom: 2px solid #e5e7eb; }}
+td {{ padding: 9px 10px; border-bottom: 1px solid #f3f4f6; font-size: 12px; }}
+tr:last-child td {{ border-bottom: none; }}
+.total-section {{ text-align: right; margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; }}
+.total-label {{ font-size: 11px; color: #888; text-transform: uppercase; }}
+.total-value {{ font-size: 22px; font-weight: bold; color: #1e40af; }}
+.footer {{ margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #888; }}
+.badge {{ background: #dbeafe; color: #1e40af; padding: 2px 7px; border-radius: 4px; font-size: 10px; }}
+.cycle-detail {{ margin: 8px 0; padding: 10px; background: #f9fafb; border-radius: 4px; border-left: 3px solid #2563eb; }}
+.phase-row {{ font-size: 11px; padding: 3px 0; }}
 </style>
 </head>
 <body>
+
 <div class="header">
-<div>
-<div class="company-name">{company_name}</div>
-<div class="company-desc">{company_address}</div>
-{company_vat and f'<div class="company-desc">P.IVA: {company_vat}</div>' or ''}
-{company_phone and f'<div class="company-desc">Tel: {company_phone}</div>' or ''}
-{company_email and f'<div class="company-desc">Email: {company_email}</div>' or ''}
-</div>
-<div>
-<div class="quote-title">PREVENTIVO</div>
-<div style="text-align: right; color: #666; margin-top: 5px;">{quote.quote_number or ""}</div>
-</div>
+  <div>
+    <div class="company-name">{_esc(company_name)}</div>
+    <div class="company-info">{_esc(company_address)}</div>
+    {"<div class='company-info'>P.IVA: " + _esc(company_vat) + "</div>" if company_vat else ""}
+    {"<div class='company-info'>Tel: " + _esc(company_phone) + "</div>" if company_phone else ""}
+    {"<div class='company-info'>Email: " + _esc(company_email) + "</div>" if company_email else ""}
+  </div>
+  <div>
+    <div class="quote-title">PREVENTIVO</div>
+    <div class="quote-number">{_esc(quote.quote_number)}</div>
+    {"<div class='quote-number' style='color:#e53e3e;font-weight:bold;'>USO INTERNO</div>" if internal else ""}
+  </div>
 </div>
 
 <div class="info-grid">
-<div class="info-box">
-<div class="info-label">Cliente</div>
-<div class="info-value">""" + (quote.customer_name or "-") + """</div>
-<div class="info-label" style="margin-top: 10px;">Riferimento</div>
-<div class="info-value">""" + (quote.customer_reference or "-") + """</div>
+  <div class="info-box">
+    <div class="info-label">Cliente</div>
+    <div class="info-value">{_esc(quote.customer_name) or "-"}</div>
+    {"<div class='info-label' style='margin-top:8px;'>Rif. Cliente</div><div class='info-value'>" + _esc(quote.customer_reference) + "</div>" if quote.customer_reference else ""}
+  </div>
+  <div class="info-box">
+    <div class="info-label">Data</div>
+    <div class="info-value">{quote_date_str}</div>
+    <div class="info-label" style="margin-top:8px;">Validità</div>
+    <div class="info-value">{quote.validity_days or 30} giorni</div>
+    {"<div class='info-label' style='margin-top:8px;'>Consegna</div><div class='info-value'>" + _esc(quote.delivery_text) + "</div>" if quote.delivery_text else ""}
+  </div>
 </div>
-<div class="info-box">
-<div class="info-label">Data</div>
-<div class="info-value">""" + str(quote.date) + """</div>
-<div class="info-label" style="margin-top: 10px;">Validità</div>
-<div class="info-value">""" + str(quote.validity_days) + """ giorni</div>
-</div>
-</div>
-"""
 
-    html += """<table>
+<table>
 <thead>
 <tr>
-<th>Codice</th>
-<th>Descrizione</th>
-<th>Qtà</th>
-<th>Materiale</th>
+  <th>Codice</th>
+  <th>Descrizione</th>
+  <th>Qtà</th>
+  <th>Materiale</th>
 """
+
     if internal:
-        html += "<th>Costo</th>"
-    html += "<th>Prezzo Unit.</th><th>Totale</th></tr></thead><tbody>"
+        html += "  <th>Costo</th>\n  <th>Margine</th>\n"
+
+    html += "  <th>Prezzo Unit.</th>\n  <th>Totale</th>\n</tr>\n</thead>\n<tbody>\n"
 
     for part in parts:
         mat_name = part.material.name if part.material else "-"
-        html += "<tr>"
-        html += "<td>" + part.part_code + "</td>"
-        html += "<td>" + (part.description or "-") + "</td>"
-        html += "<td>" + str(part.quantity) + "</td>"
-        html += "<td>" + mat_name + "</td>"
+        html += "<tr>\n"
+        html += f"  <td><strong>{_esc(part.part_code)}</strong></td>\n"
+        html += f"  <td>{_esc(part.description) or '-'}</td>\n"
+        html += f"  <td>{part.quantity}</td>\n"
+        html += f"  <td>{_esc(mat_name)}</td>\n"
         if internal:
-            html += "<td>" + str(part.total_cost or 0) + " €</td>"
-        html += "<td>" + str(part.unit_price or 0) + " €</td>"
-        html += "<td class='total-row'>" + str(part.total_price or 0) + " €</td>"
-        html += "</tr>"
+            html += f"  <td>{part.total_cost or 0:.2f} €</td>\n"
+            margin = part.margin_percent or 20
+            html += f"  <td>{margin:.1f}%</td>\n"
+        html += f"  <td>{part.unit_price or 0:.2f} €</td>\n"
+        html += f"  <td><strong>{part.total_price or 0:.2f} €</strong></td>\n"
+        html += "</tr>\n"
 
-        if internal and part.id:
+        if internal:
             phases = db.query(ManufacturingPhase).filter(
                 ManufacturingPhase.part_id == part.id
             ).order_by(ManufacturingPhase.sequence_number).all()
             if phases:
-                html += '<tr><td colspan="7"><div style="margin: 10px 0; padding: 10px; background: #f9fafb; border-radius: 4px;">'
-                html += '<div style="font-weight: bold; margin-bottom: 5px;">Ciclo di Lavorazione:</div>'
+                colspan = 8
+                html += f'<tr><td colspan="{colspan}">\n'
+                html += '<div class="cycle-detail">\n'
+                html += '<strong style="font-size:11px;">Ciclo di lavorazione:</strong>\n'
                 for ph in phases:
-                    vis = "Visible" if ph.customer_visible else "Nascosto"
-                    html += '<div style="font-size: 11px; margin: 3px 0;">'
-                    html += '<span class="badge">' + str(ph.sequence_number) + '</span> '
-                    html += ph.phase_type + ' - ' + (ph.description or "") + ' '
-                    html += '(' + str(ph.calculated_cost) + ' €) [' + vis + ']'
-                    html += '</div>'
-                html += '</div></td></tr>'
+                    vis = "visibile" if ph.customer_visible else "nascosto"
+                    html += f'<div class="phase-row">'
+                    html += f'<span class="badge">{ph.sequence_number}</span> '
+                    html += f'{_esc(ph.phase_type)} — {_esc(ph.description)} '
+                    html += f'({ph.calculated_cost:.2f} €) [{vis}]'
+                    html += '</div>\n'
+                html += '</div></td></tr>\n'
 
-    html += "</tbody></table>"
+    html += "</tbody>\n</table>\n"
 
-    total = sum(p.total_price or 0 for p in parts)
-    html += '<div style="text-align: right; margin-top: 20px;">'
-    html += '<div style="font-size: 16px; font-weight: bold;">'
-    html += 'TOTALE PREVENTIVO: ' + str(round(total, 2)) + ' ' + (quote.currency or "EUR") + '</div></div>'
+    subtotal = sum(p.total_price or 0 for p in parts)
+    transport = quote.transport_cost or 0
+    packaging = quote.packaging_cost or 0
+    discount_pct = quote.global_discount_percent or 0
+    after_extras = subtotal + transport + packaging
+    discount_amount = after_extras * discount_pct / 100
+    total = round(after_extras - discount_amount, 2)
+
+    total_rows = ""
+    if transport:
+        total_rows += f'<div style="font-size:12px;color:#555;">Trasporto: {transport:.2f} {_esc(quote.currency) or "EUR"}</div>\n'
+    if packaging:
+        total_rows += f'<div style="font-size:12px;color:#555;">Imballaggio: {packaging:.2f} {_esc(quote.currency) or "EUR"}</div>\n'
+    if discount_pct:
+        total_rows += f'<div style="font-size:12px;color:#e53e3e;">Sconto {discount_pct:.1f}%: -{discount_amount:.2f} {_esc(quote.currency) or "EUR"}</div>\n'
+
+    html += f"""
+<div class="total-section">
+  {total_rows}
+  <div class="total-label">Totale Preventivo</div>
+  <div class="total-value">{total:.2f} {_esc(quote.currency) or 'EUR'}</div>
+</div>
+"""
 
     if quote.notes_customer:
-        html += '<div class="footer"><div style="font-weight: bold; margin-bottom: 5px;">Note per il cliente:</div>'
-        html += '<div>' + quote.notes_customer + '</div></div>'
+        html += f'<div class="footer"><strong>Note per il cliente:</strong><br>{_esc(quote.notes_customer)}</div>\n'
 
     if internal and quote.notes_internal:
-        html += '<div class="footer"><div style="font-weight: bold; margin-bottom: 5px;">Note interne:</div>'
-        html += '<div>' + quote.notes_internal + '</div></div>'
+        html += f'<div class="footer"><strong>Note interne:</strong><br>{_esc(quote.notes_internal)}</div>\n'
 
-    html += '<div class="footer">Preventivo generato da MechQuote - Fratelli Dalla Via</div>'
-    html += '</body></html>'
+    html += f'<div class="footer">Generato da MechQuote — {_esc(company_name)}</div>\n'
+    html += "</body>\n</html>"
 
     try:
         import weasyprint
         pdf_bytes = weasyprint.HTML(string=html).write_pdf()
-        suffix = "_internal" if internal else "_customer"
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix+".pdf", prefix="quote_"+str(quote_id)+"_")
+        suffix = "_interno" if internal else "_cliente"
+        tmp = tempfile.NamedTemporaryFile(
+            delete=False, suffix=suffix + ".pdf",
+            prefix=f"preventivo_{quote_id}_"
+        )
         tmp.write(pdf_bytes)
         tmp.close()
         return tmp.name
     except ImportError:
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".html", prefix="quote_"+str(quote_id)+"_")
+        tmp = tempfile.NamedTemporaryFile(
+            delete=False, suffix=".html",
+            prefix=f"preventivo_{quote_id}_"
+        )
         tmp.write(html.encode('utf-8'))
         tmp.close()
         return tmp.name
@@ -161,7 +203,7 @@ def get_customer_pdf(quote_id: int, db: Session = Depends(get_db)):
     return FileResponse(
         path=path,
         media_type='application/pdf',
-        filename="preventivo_"+str(quote_id)+"_cliente.pdf"
+        filename=f"preventivo_{quote_id}_cliente.pdf"
     )
 
 
@@ -171,5 +213,5 @@ def get_internal_pdf(quote_id: int, db: Session = Depends(get_db)):
     return FileResponse(
         path=path,
         media_type='application/pdf',
-        filename="preventivo_"+str(quote_id)+"_interno.pdf"
+        filename=f"preventivo_{quote_id}_interno.pdf"
     )

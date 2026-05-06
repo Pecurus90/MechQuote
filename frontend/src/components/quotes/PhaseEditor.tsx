@@ -1,64 +1,60 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '@/lib/api'
+import type { Phase, Machine } from '@/types'
+import { PHASE_TYPES } from '@/lib/constants'
 
-const PHASE_TYPES = [
-  { value: 'raw_material_cutting', label: 'Taglio materiale grezzo' },
-  { value: 'cnc_milling', label: 'Fresatura CNC' },
-  { value: 'cnc_turning', label: 'Tornitura CNC' },
-  { value: 'drilling', label: 'Foratura' },
-  { value: 'tapping', label: 'Maschiatura' },
-  { value: 'wire_edm', label: 'EDM a filo' },
-  { value: 'sinker_edm', label: 'EDM a tuffo' },
-  { value: 'grinding', label: 'Rettifica' },
-  { value: 'manual_operation', label: 'Operazione manuale' },
-  { value: 'heat_treatment', label: 'Trattamento termico' },
-  { value: 'surface_treatment', label: 'Trattamento superficiale' },
-  { value: 'quality_control', label: 'Controllo qualità' },
-  { value: 'external_supplier', label: 'Fornitore esterno' },
-  { value: 'packaging', label: 'Imballaggio' },
-  { value: 'transport', label: 'Trasporto' },
-  { value: 'custom_extra', label: 'Extra personalizzato' },
-]
-
-interface Phase {
-  id?: number
-  sequence_number: number
+interface Supplier { id: number; name: string }
+interface PhaseTemplate {
+  id: number
+  name: string
   phase_type: string
-  description: string
-  machine_id?: number
+  default_machine_id: number | null
+  default_supplier_id: number | null
   setup_hours: number
   cycle_hours_per_part: number
   fixed_cost: number
-  calculated_cost: number
+  variable_cost_per_part: number
   customer_visible: boolean
 }
 
 interface Props {
   partId?: number
   phases: Phase[]
+  quantity: number
+  machines: Machine[]
+  suppliers?: Supplier[]
+  templates?: PhaseTemplate[]
   onChange: (phases: Phase[]) => void
 }
 
-export default function PhaseEditor({ partId, phases, onChange }: Props) {
-  const [machines, setMachines] = useState<any[]>([])
+function calcPhase(phase: Phase, machines: Machine[], qty: number): Phase {
+  const machine = machines.find(m => m.id === phase.machine_id)
+  const rate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
+  const cost =
+    (phase.setup_hours || 0) * rate +
+    (phase.cycle_hours_per_part || 0) * qty * rate +
+    (phase.fixed_cost || 0) +
+    (phase.variable_cost_per_part || 0) * qty
+  return { ...phase, calculated_cost: Math.round(cost * 100) / 100 }
+}
+
+export default function PhaseEditor({ partId, phases, quantity, machines, suppliers = [], templates = [], onChange }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
-  useEffect(() => {
-    api.get('/machines').then(res => setMachines(res.data)).catch(() => {})
-  }, [])
-
   const addPhase = async () => {
+    const seq = phases.length > 0 ? Math.max(...phases.map(p => p.sequence_number)) + 10 : 10
     const newPhase: Phase = {
-      sequence_number: (phases.length + 1) * 10,
+      sequence_number: seq,
       phase_type: 'cnc_milling',
       description: '',
       setup_hours: 0.5,
       cycle_hours_per_part: 0.25,
       fixed_cost: 0,
+      variable_cost_per_part: 0,
       calculated_cost: 0,
       customer_visible: true,
     }
@@ -66,10 +62,13 @@ export default function PhaseEditor({ partId, phases, onChange }: Props) {
     if (partId) {
       try {
         const res = await api.post(`/parts/${partId}/phases`, newPhase)
-        onChange([...phases, res.data])
+        const saved: Phase = res.data
+        onChange([...phases, calcPhase(saved, machines, quantity)])
+        setExpandedIdx(phases.length)
       } catch (e) { console.error(e) }
     } else {
-      onChange([...phases, newPhase])
+      onChange([...phases, calcPhase(newPhase, machines, quantity)])
+      setExpandedIdx(phases.length)
     }
   }
 
@@ -78,126 +77,303 @@ export default function PhaseEditor({ partId, phases, onChange }: Props) {
     if (phase.id) {
       try { await api.delete(`/phases/${phase.id}`) } catch (e) { console.error(e) }
     }
-    onChange(phases.filter((_, i) => i !== idx))
+    const updated = phases.filter((_, i) => i !== idx)
+    onChange(updated)
+    if (expandedIdx === idx) setExpandedIdx(null)
   }
 
-  const updatePhase = (idx: number, field: string, value: any) => {
-    const updated = phases.map((p, i) => i === idx ? { ...p, [field]: value } : p)
+  const updateField = (idx: number, field: keyof Phase, value: Phase[keyof Phase]) => {
+    const updated = phases.map((p, i) => {
+      if (i !== idx) return p
+      return calcPhase({ ...p, [field]: value }, machines, quantity)
+    })
     onChange(updated)
   }
+
+  const savePhase = async (idx: number) => {
+    const phase = phases[idx]
+    if (!phase.id) return
+    try {
+      await api.put(`/phases/${phase.id}`, phase)
+    } catch (e) { console.error(e) }
+  }
+
+  const applyTemplate = async (tpl: PhaseTemplate) => {
+    const seq = phases.length > 0 ? Math.max(...phases.map(p => p.sequence_number)) + 10 : 10
+    const newPhase: Phase = {
+      sequence_number: seq,
+      phase_type: tpl.phase_type,
+      description: tpl.name,
+      machine_id: tpl.default_machine_id ?? undefined,
+      supplier_id: tpl.default_supplier_id ?? undefined,
+      setup_hours: tpl.setup_hours,
+      cycle_hours_per_part: tpl.cycle_hours_per_part,
+      fixed_cost: tpl.fixed_cost,
+      variable_cost_per_part: tpl.variable_cost_per_part,
+      calculated_cost: 0,
+      customer_visible: tpl.customer_visible,
+    }
+    if (partId) {
+      try {
+        const res = await api.post(`/parts/${partId}/phases`, newPhase)
+        const saved: Phase = res.data
+        onChange([...phases, calcPhase(saved, machines, quantity)])
+        setExpandedIdx(phases.length)
+      } catch (e) { console.error(e) }
+    } else {
+      onChange([...phases, calcPhase(newPhase, machines, quantity)])
+      setExpandedIdx(phases.length)
+    }
+  }
+
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+
+  const handleDragStart = (idx: number) => setDragIdx(idx)
+
+  const handleDrop = async (targetIdx: number) => {
+    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); return }
+    const reordered = [...phases]
+    const [moved] = reordered.splice(dragIdx, 1)
+    reordered.splice(targetIdx, 0, moved)
+    const updated = reordered.map((p, i) => ({ ...p, sequence_number: (i + 1) * 10 }))
+    onChange(updated)
+    setDragIdx(null)
+    if (partId) {
+      const ids = updated.filter(p => p.id).map(p => p.id as number)
+      try { await api.post(`/parts/${partId}/phases/reorder`, ids) } catch (e) { console.error(e) }
+    }
+  }
+
+  const phaseLabel = (type: string) =>
+    PHASE_TYPES.find(t => t.value === type)?.label || type
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Ciclo di Lavorazione</CardTitle>
-          <Button size="sm" onClick={addPhase}>
-            <Plus className="w-4 h-4 mr-1" /> Aggiungi Fase
-          </Button>
+        <div className="flex justify-between items-center gap-2 flex-wrap">
+          <CardTitle className="text-base">Ciclo di Lavorazione</CardTitle>
+          <div className="flex items-center gap-2">
+            {templates.length > 0 && (
+              <select
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                value=""
+                onChange={e => {
+                  const tpl = templates.find(t => t.id === Number(e.target.value))
+                  if (tpl) applyTemplate(tpl)
+                }}
+              >
+                <option value="">Da template...</option>
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
+            <Button size="sm" onClick={addPhase}>
+              <Plus className="w-4 h-4 mr-1" /> Aggiungi Fase
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+      <CardContent className="pt-0">
+        <div className="space-y-1.5">
+          {phases.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-6">
+              Nessuna fase. Clicca "Aggiungi Fase" per iniziare.
+            </p>
+          )}
           {phases.map((phase, idx) => (
-            <div key={idx} className="border rounded-lg overflow-hidden">
+            <div
+              key={phase.id ?? idx}
+              className={`border rounded-lg overflow-hidden ${dragIdx !== null && dragIdx !== idx ? 'border-dashed border-blue-300' : ''}`}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => handleDrop(idx)}
+            >
+              {/* Header row */}
               <div
-                className="flex items-center gap-2 p-3 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                className="flex items-center gap-2 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 select-none"
                 onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
               >
-                <GripVertical className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-mono w-8">{phase.sequence_number}</span>
-                <span className="flex-1 text-sm">
-                  {PHASE_TYPES.find(t => t.value === phase.phase_type)?.label || phase.phase_type}
+                <span
+                  className="shrink-0 cursor-grab"
+                  draggable
+                  onDragStart={e => { e.stopPropagation(); handleDragStart(idx) }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <GripVertical className="w-3.5 h-3.5 text-gray-400" />
                 </span>
-                <span className="text-sm font-medium">{phase.calculated_cost?.toFixed(2)} €</span>
-                <button onClick={(e) => { e.stopPropagation(); removePhase(idx) }} className="p-1 hover:bg-red-50 rounded">
-                  <Trash2 className="w-4 h-4 text-red-500" />
+                <span className="text-xs font-mono w-6 text-gray-400">{phase.sequence_number}</span>
+                <span className="flex-1 text-sm font-medium truncate">{phaseLabel(phase.phase_type)}</span>
+                {phase.description && (
+                  <span className="text-xs text-gray-400 truncate max-w-32">{phase.description}</span>
+                )}
+                <span className="text-sm font-semibold text-blue-700 whitespace-nowrap">
+                  {phase.calculated_cost.toFixed(2)} €
+                </span>
+                <button
+                  onClick={e => { e.stopPropagation(); removePhase(idx) }}
+                  className="p-1 hover:bg-red-50 rounded ml-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
                 </button>
-                {expandedIdx === idx ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                {expandedIdx === idx
+                  ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  : <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                }
               </div>
 
+              {/* Expanded editor */}
               {expandedIdx === idx && (
-                <div className="p-4 border-t space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-4 border-t bg-white">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs font-medium">Tipo Fase</label>
+                      <label className="text-xs font-medium text-gray-600">Tipo Fase</label>
                       <select
-                        className="flex h-9 w-full rounded-md border px-3 text-sm"
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                         value={phase.phase_type}
-                        onChange={e => updatePhase(idx, 'phase_type', e.target.value)}
+                        onChange={e => updateField(idx, 'phase_type', e.target.value)}
+                        onBlur={() => savePhase(idx)}
                       >
                         {PHASE_TYPES.map(t => (
                           <option key={t.value} value={t.value}>{t.label}</option>
                         ))}
                       </select>
                     </div>
+
                     <div>
-                      <label className="text-xs font-medium">Macchina</label>
+                      <label className="text-xs font-medium text-gray-600">Macchina</label>
                       <select
-                        className="flex h-9 w-full rounded-md border px-3 text-sm"
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                         value={phase.machine_id || ''}
-                        onChange={e => updatePhase(idx, 'machine_id', Number(e.target.value) || undefined)}
+                        onChange={e => updateField(idx, 'machine_id', Number(e.target.value) || undefined)}
+                        onBlur={() => savePhase(idx)}
                       >
                         <option value="">Nessuna</option>
                         {machines.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({m.hourly_rate.toFixed(0)} €/h)
+                          </option>
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="text-xs font-medium">Descrizione</label>
+
+                    {suppliers.length > 0 && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-600">Fornitore esterno</label>
+                        <select
+                          className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                          value={phase.supplier_id || ''}
+                          onChange={e => updateField(idx, 'supplier_id', Number(e.target.value) || undefined)}
+                          onBlur={() => savePhase(idx)}
+                        >
+                          <option value="">Nessuno</option>
+                          {suppliers.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="text-xs font-medium text-gray-600">Descrizione</label>
                       <Input
+                        className="mt-1 h-9 text-sm"
                         value={phase.description}
-                        onChange={e => updatePhase(idx, 'description', e.target.value)}
-                        placeholder="Descrizione fase"
+                        onChange={e => updateField(idx, 'description', e.target.value)}
+                        onBlur={() => savePhase(idx)}
+                        placeholder="Descrizione opzionale"
                       />
                     </div>
+
                     <div>
-                      <label className="text-xs font-medium">Ore Setup</label>
+                      <label className="text-xs font-medium text-gray-600">Ore setup</label>
                       <Input
-                        type="number"
-                        step="0.1"
+                        type="number" step="0.05" min="0"
+                        className="mt-1 h-9 text-sm"
                         value={phase.setup_hours}
-                        onChange={e => updatePhase(idx, 'setup_hours', Number(e.target.value))}
+                        onChange={e => updateField(idx, 'setup_hours', parseFloat(e.target.value) || 0)}
+                        onBlur={() => savePhase(idx)}
                       />
                     </div>
+
                     <div>
-                      <label className="text-xs font-medium">Ore Ciclo per Parte</label>
+                      <label className="text-xs font-medium text-gray-600">Ore ciclo / pz</label>
                       <Input
-                        type="number"
-                        step="0.1"
+                        type="number" step="0.05" min="0"
+                        className="mt-1 h-9 text-sm"
                         value={phase.cycle_hours_per_part}
-                        onChange={e => updatePhase(idx, 'cycle_hours_per_part', Number(e.target.value))}
+                        onChange={e => updateField(idx, 'cycle_hours_per_part', parseFloat(e.target.value) || 0)}
+                        onBlur={() => savePhase(idx)}
                       />
                     </div>
+
                     <div>
-                      <label className="text-xs font-medium">Costo Fisso (€)</label>
+                      <label className="text-xs font-medium text-gray-600">Costo fisso (€)</label>
                       <Input
-                        type="number"
-                        step="0.1"
+                        type="number" step="0.5" min="0"
+                        className="mt-1 h-9 text-sm"
                         value={phase.fixed_cost}
-                        onChange={e => updatePhase(idx, 'fixed_cost', Number(e.target.value))}
+                        onChange={e => updateField(idx, 'fixed_cost', parseFloat(e.target.value) || 0)}
+                        onBlur={() => savePhase(idx)}
                       />
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">Costo var / pz (€)</label>
+                      <Input
+                        type="number" step="0.5" min="0"
+                        className="mt-1 h-9 text-sm"
+                        value={phase.variable_cost_per_part}
+                        onChange={e => updateField(idx, 'variable_cost_per_part', parseFloat(e.target.value) || 0)}
+                        onBlur={() => savePhase(idx)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">Tariffa override (€/h)</label>
+                      <Input
+                        type="number" step="1" min="0"
+                        className="mt-1 h-9 text-sm"
+                        value={phase.hourly_rate_override ?? ''}
+                        placeholder="Auto"
+                        onChange={e => updateField(idx, 'hourly_rate_override', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                        onBlur={() => savePhase(idx)}
+                      />
+                    </div>
+
+                    <div className="flex items-end pb-1 gap-2">
                       <input
                         type="checkbox"
+                        id={`vis-${idx}`}
                         checked={phase.customer_visible}
-                        onChange={e => updatePhase(idx, 'customer_visible', e.target.checked)}
+                        onChange={e => { updateField(idx, 'customer_visible', e.target.checked); savePhase(idx) }}
                       />
-                      <label className="text-xs">Visibile al cliente</label>
+                      <label htmlFor={`vis-${idx}`} className="text-xs text-gray-600 cursor-pointer">
+                        Visibile al cliente
+                      </label>
                     </div>
+                  </div>
+
+                  {/* Cost breakdown */}
+                  <div className="mt-3 pt-3 border-t flex justify-end items-center gap-4">
+                    {(() => {
+                      const machine = machines.find(m => m.id === phase.machine_id)
+                      const rate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
+                      return (
+                        <span className="text-xs text-gray-400">
+                          Tariffa: {rate.toFixed(0)} €/h ·
+                          Setup: {((phase.setup_hours || 0) * rate).toFixed(2)} € ·
+                          Ciclo: {((phase.cycle_hours_per_part || 0) * quantity * rate).toFixed(2)} €
+                        </span>
+                      )
+                    })()}
+                    <span className="text-sm font-bold text-blue-700">
+                      = {phase.calculated_cost.toFixed(2)} €
+                    </span>
                   </div>
                 </div>
               )}
             </div>
           ))}
-
-          {phases.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-4">
-              Nessuna fase. Clicca "Aggiungi Fase" per iniziare.
-            </p>
-          )}
         </div>
       </CardContent>
     </Card>

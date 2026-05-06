@@ -1,11 +1,12 @@
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Enum, Float, ForeignKey, Integer,
+    Boolean, Column, Date, DateTime, Float, ForeignKey, Integer,
     String, Text, JSON
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -17,14 +18,22 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
-    def __repr__(self):
-        return f"<User {self.username}>"
+
+class QuoteCategory(Base):
+    __tablename__ = "quote_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(5), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
 
 
 class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(Integer, primary_key=True, index=True)
+    customer_number = Column(Integer, unique=True, nullable=False)
     name = Column(String(200), nullable=False)
     vat_number = Column(String(50))
     address = Column(Text)
@@ -43,10 +52,11 @@ class Quote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     quote_number = Column(String(50), unique=True, index=True)
+    quote_type = Column(String(20), default="single")   # single | commessa
     customer_id = Column(Integer, ForeignKey("customers.id"))
     customer_name = Column(String(200))
     customer_reference = Column(String(200))
-    date = Column(Date, server_default=func.now())
+    quote_date = Column(Date, server_default=func.now())
 
     customer = relationship("Customer", back_populates="quotes")
     validity_days = Column(Integer, default=30)
@@ -58,7 +68,7 @@ class Quote(Base):
     packaging_cost = Column(Float, default=0.0)
     notes_customer = Column(Text)
     notes_internal = Column(Text)
-    status = Column(Enum("draft", "sent", "accepted", "rejected", "archived", name="quote_status"), default="draft")
+    status = Column(String(20), default="draft")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -74,7 +84,7 @@ class Part(Base):
     revision = Column(String(20), default="A")
     description = Column(Text)
     quantity = Column(Integer, default=1)
-    quote_mode = Column(Enum("manual", "dxf", "step", "mixed", name="quote_mode"), default="manual")
+    quote_mode = Column(String(20), default="manual")
     material_id = Column(Integer, ForeignKey("materials.id"))
     raw_x_mm = Column(Float)
     raw_y_mm = Column(Float)
@@ -86,7 +96,7 @@ class Part(Base):
     margin_percent = Column(Float)
     minimum_price = Column(Float)
     rounding_rule = Column(String(20), default="none")
-    confidence_level = Column(Enum("high", "medium", "low", name="confidence"), default="high")
+    confidence_level = Column(String(20), default="high")
     customer_notes = Column(Text)
     internal_notes = Column(Text)
     total_cost = Column(Float, default=0.0)
@@ -94,9 +104,11 @@ class Part(Base):
     total_price = Column(Float, default=0.0)
 
     quote = relationship("Quote", back_populates="parts")
-    phases = relationship("ManufacturingPhase", back_populates="part", cascade="all, delete-orphan")
+    phases = relationship("ManufacturingPhase", back_populates="part",
+                          cascade="all, delete-orphan", order_by="ManufacturingPhase.sequence_number")
     files = relationship("PartFile", back_populates="part", cascade="all, delete-orphan")
-    geometry = relationship("GeometryAnalysis", back_populates="part", uselist=False, cascade="all, delete-orphan")
+    geometry = relationship("GeometryAnalysis", back_populates="part",
+                            uselist=False, cascade="all, delete-orphan")
     material = relationship("Material")
 
 
@@ -105,7 +117,7 @@ class PartFile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     part_id = Column(Integer, ForeignKey("parts.id"), nullable=False)
-    file_type = Column(Enum("step", "dxf", "pdf", "image", "other", name="file_type"), nullable=False)
+    file_type = Column(String(20), nullable=False)
     filename = Column(String(200), nullable=False)
     path = Column(String(500), nullable=False)
     uploaded_at = Column(DateTime, server_default=func.now())
@@ -129,7 +141,7 @@ class GeometryAnalysis(Base):
     detected_colors_json = Column(JSON)
     dxf_total_length_mm = Column(Float)
     dxf_profile_count = Column(Integer, default=0)
-    confidence_level = Column(Enum("high", "medium", "low", name="confidence"), default="high")
+    confidence_level = Column(String(20), default="high")
     warnings_json = Column(JSON)
     raw_analysis_json = Column(JSON)
 

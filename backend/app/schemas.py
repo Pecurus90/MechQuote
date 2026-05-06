@@ -1,6 +1,29 @@
 from pydantic import BaseModel
 from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
+
+
+# --- QuoteCategory ---
+class QuoteCategoryBase(BaseModel):
+    code: str
+    name: str
+    active: Optional[bool] = True
+    sort_order: Optional[int] = 0
+
+
+class QuoteCategoryCreate(QuoteCategoryBase):
+    pass
+
+
+class QuoteCategoryUpdate(QuoteCategoryBase):
+    pass
+
+
+class QuoteCategoryOut(QuoteCategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
 
 
 # --- Customer ---
@@ -16,15 +39,16 @@ class CustomerBase(BaseModel):
 
 
 class CustomerCreate(CustomerBase):
-    pass
+    customer_number: int
 
 
 class CustomerUpdate(CustomerBase):
-    pass
+    customer_number: Optional[int] = None
 
 
 class CustomerOut(CustomerBase):
     id: int
+    customer_number: int
     created_at: datetime
 
     class Config:
@@ -48,98 +72,7 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
-# --- Quote ---
-class QuoteBase(BaseModel):
-    customer_id: Optional[int] = None
-    customer_name: Optional[str] = None
-    customer_reference: Optional[str] = None
-    date: Optional[date] = None
-    validity_days: Optional[int] = 30
-    delivery_text: Optional[str] = None
-    currency: Optional[str] = "EUR"
-    global_margin_percent: Optional[float] = 20.0
-    global_discount_percent: Optional[float] = 0.0
-    transport_cost: Optional[float] = 0.0
-    packaging_cost: Optional[float] = 0.0
-    notes_customer: Optional[str] = None
-    notes_internal: Optional[str] = None
-    status: Optional[str] = "draft"
-
-
-class QuoteCreate(QuoteBase):
-    pass
-
-
-class QuoteUpdate(QuoteBase):
-    pass
-
-
-class QuoteOut(QuoteBase):
-    id: int
-    quote_number: str
-    created_at: datetime
-    updated_at: datetime
-    parts: List["PartOut"] = []
-    customer: Optional[CustomerOut] = None
-
-    class Config:
-        from_attributes = True
-
-
-# --- Part ---
-class PartBase(BaseModel):
-    part_code: str
-    revision: Optional[str] = "A"
-    description: Optional[str] = None
-    quantity: Optional[int] = 1
-    quote_mode: Optional[str] = "manual"
-    material_id: Optional[int] = None
-    raw_x_mm: Optional[float] = None
-    raw_y_mm: Optional[float] = None
-    raw_z_mm: Optional[float] = None
-    raw_diameter_mm: Optional[float] = None
-    finished_weight_kg: Optional[float] = None
-    raw_weight_kg: Optional[float] = None
-    material_cost: Optional[float] = 0.0
-    margin_percent: Optional[float] = None
-    minimum_price: Optional[float] = None
-    rounding_rule: Optional[str] = "none"
-    confidence_level: Optional[str] = "high"
-    customer_notes: Optional[str] = None
-    internal_notes: Optional[str] = None
-    total_cost: Optional[float] = 0.0
-    unit_price: Optional[float] = 0.0
-    total_price: Optional[float] = 0.0
-
-
-class PartCreate(PartBase):
-    pass
-
-
-class PartUpdate(PartBase):
-    pass
-
-
-class PartFileOut(BaseModel):
-    id: int
-    file_type: str
-    filename: str
-    path: str
-
-    class Config:
-        from_attributes = True
-
-
-class PartOut(PartBase):
-    id: int
-    quote_id: int
-    files: List[PartFileOut] = []
-
-    class Config:
-        from_attributes = True
-
-
-# --- ManufacturingPhase ---
+# --- ManufacturingPhase (defined before PartOut) ---
 class PhaseBase(BaseModel):
     sequence_number: Optional[int] = 10
     phase_type: str
@@ -203,6 +136,101 @@ class MaterialOut(MaterialBase):
         from_attributes = True
 
 
+# --- Part ---
+class PartBase(BaseModel):
+    part_code: str
+    revision: Optional[str] = "A"
+    description: Optional[str] = None
+    quantity: Optional[int] = 1
+    quote_mode: Optional[str] = "manual"
+    material_id: Optional[int] = None
+    raw_x_mm: Optional[float] = None
+    raw_y_mm: Optional[float] = None
+    raw_z_mm: Optional[float] = None
+    raw_diameter_mm: Optional[float] = None
+    finished_weight_kg: Optional[float] = None
+    raw_weight_kg: Optional[float] = None
+    material_cost: Optional[float] = 0.0
+    margin_percent: Optional[float] = None
+    minimum_price: Optional[float] = None
+    rounding_rule: Optional[str] = "none"
+    confidence_level: Optional[str] = "high"
+    customer_notes: Optional[str] = None
+    internal_notes: Optional[str] = None
+    total_cost: Optional[float] = 0.0
+    unit_price: Optional[float] = 0.0
+    total_price: Optional[float] = 0.0
+
+
+class PartCreate(PartBase):
+    pass
+
+
+class PartUpdate(PartBase):
+    pass
+
+
+class PartFileOut(BaseModel):
+    id: int
+    file_type: str
+    filename: str
+    path: str
+
+    class Config:
+        from_attributes = True
+
+
+class PartOut(PartBase):
+    id: int
+    quote_id: int
+    phases: List[PhaseOut] = []
+    files: List[PartFileOut] = []
+    material: Optional[MaterialOut] = None
+
+    class Config:
+        from_attributes = True
+
+
+# --- Quote ---
+class QuoteBase(BaseModel):
+    quote_type: Optional[str] = "single"
+    customer_id: Optional[int] = None
+    customer_name: Optional[str] = None
+    customer_reference: Optional[str] = None
+    quote_date: Optional[date] = None
+    validity_days: Optional[int] = 30
+    delivery_text: Optional[str] = None
+    currency: Optional[str] = "EUR"
+    global_margin_percent: Optional[float] = 20.0
+    global_discount_percent: Optional[float] = 0.0
+    transport_cost: Optional[float] = 0.0
+    packaging_cost: Optional[float] = 0.0
+    notes_customer: Optional[str] = None
+    notes_internal: Optional[str] = None
+    status: Optional[str] = "draft"
+
+
+class QuoteCreate(QuoteBase):
+    quote_number: Optional[str] = None
+    num_components: Optional[int] = None
+
+
+class QuoteUpdate(QuoteBase):
+    pass
+
+
+class QuoteOut(QuoteBase):
+    id: int
+    quote_number: str
+    created_at: datetime
+    updated_at: datetime
+    parts: List[PartOut] = []
+    customer: Optional[CustomerOut] = None
+
+    class Config:
+        from_attributes = True
+
+
 # --- Machine ---
 class MachineBase(BaseModel):
     name: str
@@ -246,6 +274,10 @@ class TreatmentCreate(TreatmentBase):
     pass
 
 
+class TreatmentUpdate(TreatmentBase):
+    pass
+
+
 class TreatmentOut(TreatmentBase):
     id: int
 
@@ -262,6 +294,10 @@ class SupplierBase(BaseModel):
 
 
 class SupplierCreate(SupplierBase):
+    pass
+
+
+class SupplierUpdate(SupplierBase):
     pass
 
 
@@ -355,3 +391,8 @@ class MonthlyData(BaseModel):
     month: str
     value: float
     year: int
+
+
+# --- Email ---
+class SendEmailRequest(BaseModel):
+    email: str

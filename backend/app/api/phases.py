@@ -5,6 +5,7 @@ from typing import List
 from app.core.database import get_db
 from app.models import ManufacturingPhase
 from app.schemas import PhaseCreate, PhaseUpdate, PhaseOut
+from app.services.calculation import recalculate_part
 
 router = APIRouter(prefix="/api", tags=["phases"])
 
@@ -14,6 +15,8 @@ def add_phase(part_id: int, data: PhaseCreate, db: Session = Depends(get_db)):
     phase = ManufacturingPhase(part_id=part_id, **data.model_dump(exclude_unset=True))
     db.add(phase)
     db.commit()
+    db.refresh(phase)
+    recalculate_part(part_id, db)
     db.refresh(phase)
     return phase
 
@@ -26,6 +29,7 @@ def update_phase(phase_id: int, data: PhaseUpdate, db: Session = Depends(get_db)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(phase, key, value)
     db.commit()
+    recalculate_part(phase.part_id, db)
     db.refresh(phase)
     return phase
 
@@ -35,8 +39,10 @@ def delete_phase(phase_id: int, db: Session = Depends(get_db)):
     phase = db.query(ManufacturingPhase).filter(ManufacturingPhase.id == phase_id).first()
     if not phase:
         raise HTTPException(status_code=404, detail="Phase not found")
+    part_id = phase.part_id
     db.delete(phase)
     db.commit()
+    recalculate_part(part_id, db)
     return {"ok": True}
 
 

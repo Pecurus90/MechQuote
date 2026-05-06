@@ -3,10 +3,59 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.models import Material, Machine, Treatment, Supplier, CostRule, PhaseTemplate, StepColorRule
-from app.schemas import *
+from app.models import (
+    Material, Machine, Treatment, Supplier, CostRule,
+    PhaseTemplate, StepColorRule, QuoteCategory
+)
+from app.schemas import (
+    MaterialCreate, MaterialUpdate, MaterialOut,
+    MachineCreate, MachineUpdate, MachineOut,
+    TreatmentCreate, TreatmentUpdate, TreatmentOut,
+    SupplierCreate, SupplierUpdate, SupplierOut,
+    CostRuleCreate, CostRuleBase, CostRuleOut,
+    PhaseTemplateCreate, PhaseTemplateBase, PhaseTemplateOut,
+    StepColorRuleCreate, StepColorRuleBase, StepColorRuleOut,
+    QuoteCategoryCreate, QuoteCategoryUpdate, QuoteCategoryOut,
+)
 
 router = APIRouter(prefix="/api", tags=["settings"])
+
+
+# --- Quote Categories ---
+@router.get("/quote-categories", response_model=List[QuoteCategoryOut])
+def list_categories(db: Session = Depends(get_db)):
+    return db.query(QuoteCategory).order_by(QuoteCategory.sort_order, QuoteCategory.code).all()
+
+
+@router.post("/quote-categories", response_model=QuoteCategoryOut)
+def create_category(data: QuoteCategoryCreate, db: Session = Depends(get_db)):
+    cat = QuoteCategory(**data.model_dump())
+    db.add(cat)
+    db.commit()
+    db.refresh(cat)
+    return cat
+
+
+@router.put("/quote-categories/{cid}", response_model=QuoteCategoryOut)
+def update_category(cid: int, data: QuoteCategoryUpdate, db: Session = Depends(get_db)):
+    cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
+    if not cat:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(cat, k, v)
+    db.commit()
+    db.refresh(cat)
+    return cat
+
+
+@router.delete("/quote-categories/{cid}")
+def delete_category(cid: int, db: Session = Depends(get_db)):
+    cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
+    if not cat:
+        raise HTTPException(404, "Not found")
+    db.delete(cat)
+    db.commit()
+    return {"ok": True}
 
 
 # --- Materials ---
@@ -32,6 +81,7 @@ def update_material(mid: int, data: MaterialUpdate, db: Session = Depends(get_db
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(m, k, v)
     db.commit()
+    db.refresh(m)
     return m
 
 
@@ -68,6 +118,7 @@ def update_machine(mid: int, data: MachineUpdate, db: Session = Depends(get_db))
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(m, k, v)
     db.commit()
+    db.refresh(m)
     return m
 
 
@@ -96,6 +147,18 @@ def create_treatment(data: TreatmentCreate, db: Session = Depends(get_db)):
     return t
 
 
+@router.put("/treatments/{tid}", response_model=TreatmentOut)
+def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_db)):
+    t = db.query(Treatment).filter(Treatment.id == tid).first()
+    if not t:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(t, k, v)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
 @router.delete("/treatments/{tid}")
 def delete_treatment(tid: int, db: Session = Depends(get_db)):
     t = db.query(Treatment).filter(Treatment.id == tid).first()
@@ -116,6 +179,18 @@ def list_suppliers(db: Session = Depends(get_db)):
 def create_supplier(data: SupplierCreate, db: Session = Depends(get_db)):
     s = Supplier(**data.model_dump())
     db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+@router.put("/suppliers/{sid}", response_model=SupplierOut)
+def update_supplier(sid: int, data: SupplierUpdate, db: Session = Depends(get_db)):
+    s = db.query(Supplier).filter(Supplier.id == sid).first()
+    if not s:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(s, k, v)
     db.commit()
     db.refresh(s)
     return s
@@ -154,6 +229,7 @@ def update_cost_rule(rid: int, data: CostRuleBase, db: Session = Depends(get_db)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(r, k, v)
     db.commit()
+    db.refresh(r)
     return r
 
 
@@ -167,6 +243,18 @@ def list_templates(db: Session = Depends(get_db)):
 def create_template(data: PhaseTemplateCreate, db: Session = Depends(get_db)):
     t = PhaseTemplate(**data.model_dump())
     db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+@router.put("/phase-templates/{tid}", response_model=PhaseTemplateOut)
+def update_template(tid: int, data: PhaseTemplateBase, db: Session = Depends(get_db)):
+    t = db.query(PhaseTemplate).filter(PhaseTemplate.id == tid).first()
+    if not t:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump().items():
+        setattr(t, k, v)
     db.commit()
     db.refresh(t)
     return t
@@ -192,6 +280,18 @@ def list_color_rules(db: Session = Depends(get_db)):
 def create_color_rule(data: StepColorRuleCreate, db: Session = Depends(get_db)):
     c = StepColorRule(**data.model_dump())
     db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+
+@router.put("/step-color-rules/{cid}", response_model=StepColorRuleOut)
+def update_color_rule(cid: int, data: StepColorRuleBase, db: Session = Depends(get_db)):
+    c = db.query(StepColorRule).filter(StepColorRule.id == cid).first()
+    if not c:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump().items():
+        setattr(c, k, v)
     db.commit()
     db.refresh(c)
     return c

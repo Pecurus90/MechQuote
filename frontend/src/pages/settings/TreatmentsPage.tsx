@@ -151,9 +151,9 @@ export default function TreatmentsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left p-3 w-[28%]">Nome</th>
-                  <th className="text-left p-3 w-[33%]">Indirizzo</th>
-                  <th className="text-right p-3 w-[22%]">Spedizione (€)</th>
-                  <th className="text-center p-3 w-[17%]">Azioni</th>
+                  <th className="text-left p-3 w-[43%]">Indirizzo</th>
+                  <th className="text-right p-3 w-[17%]">Spedizione (€)</th>
+                  <th className="text-center p-3 w-[12%]">Azioni</th>
                 </tr>
               </thead>
               <tbody>

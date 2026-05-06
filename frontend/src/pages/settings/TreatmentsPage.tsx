@@ -247,9 +247,7 @@ export default function TreatmentsPage() {
                     <td className="p-3 text-right">{t.minimum_cost.toFixed(2)}</td>
                     <td className="p-3 text-right text-gray-500">{t.minimum_weight_kg != null ? `< ${t.minimum_weight_kg} kg` : '—'}</td>
                     <td className="p-3 text-xs text-gray-500 truncate">
-                      {t.supplier
-                        ? <span>{t.supplier.name}{t.supplier.shipping_cost > 0 && <span className="text-gray-400"> +{t.supplier.shipping_cost.toFixed(2)} €</span>}</span>
-                        : '—'}
+                      {t.supplier?.name || '—'}
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">

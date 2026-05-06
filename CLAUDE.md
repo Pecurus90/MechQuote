@@ -15,6 +15,16 @@ Three quote modes, all converging into the same `Quote → Parts → Manufacturi
 
 ---
 
+## Repository
+
+Remote GitHub: **https://github.com/Pecurus90/MechQuote.git** (branch `main`)
+
+```bash
+git push origin main   # push delle modifiche
+```
+
+---
+
 ## Quick start
 
 ```bash

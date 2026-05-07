@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { X, Check, Bell, Trash2 } from 'lucide-react'
 import type { Notification } from '@/lib/useNotifications'
+import { timeAgo } from '@/lib/timeAgo'
 
 interface Props {
   open: boolean
@@ -13,20 +14,6 @@ interface Props {
   onMarkRead: (id: number) => void
   onMarkConfirmed: (id: number) => void
   onClearRead: () => void
-}
-
-const relativeTime = (iso: string | null): string => {
-  if (!iso) return ''
-  const then = new Date(iso).getTime()
-  const now = Date.now()
-  const diffMin = Math.round((now - then) / 60000)
-  if (diffMin < 1) return 'adesso'
-  if (diffMin < 60) return `${diffMin} min fa`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `${diffH} h fa`
-  const diffD = Math.round(diffH / 24)
-  if (diffD < 7) return `${diffD} g fa`
-  return new Date(iso).toLocaleDateString('it-IT')
 }
 
 export default function NotificationPanel({
@@ -113,7 +100,7 @@ export default function NotificationPanel({
                           {n.title}
                         </p>
                         {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
-                        <p className="text-[11px] text-gray-400 mt-1">{relativeTime(n.created_at)}</p>
+                        <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.created_at)}</p>
                         {n.requires_action && !confirmed && (
                           <button
                             onClick={e => { e.stopPropagation(); onMarkConfirmed(n.id) }}

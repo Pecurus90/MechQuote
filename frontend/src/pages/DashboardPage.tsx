@@ -7,18 +7,8 @@ import { FileText, Plus, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import type { DashboardKPI, QuoteListItem } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import { timeAgo } from '@/lib/timeAgo'
 import { toast } from 'sonner'
-
-const relativeTime = (iso: string | null): string => {
-  if (!iso) return ''
-  const then = new Date(iso).getTime()
-  const diffMin = Math.round((Date.now() - then) / 60000)
-  if (diffMin < 1) return 'adesso'
-  if (diffMin < 60) return `${diffMin}m`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `${diffH}h`
-  return `${Math.round(diffH / 24)}g`
-}
 
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<DashboardKPI | null>(null)
@@ -160,7 +150,7 @@ export default function DashboardPage() {
                         </p>
                         {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
                       </div>
-                      <span className="text-[11px] text-gray-400 shrink-0">{relativeTime(a.created_at)}</span>
+                      <span className="text-[11px] text-gray-400 shrink-0">{timeAgo(a.created_at)}</span>
                     </div>
                   </li>
                 )

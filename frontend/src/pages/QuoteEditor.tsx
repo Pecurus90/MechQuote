@@ -8,6 +8,7 @@ import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Sup
 import api from '@/lib/api'
 import { Trash2, Copy, FileDown, ChevronLeft, Save, Plus } from 'lucide-react'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import { timeAgo } from '@/lib/timeAgo'
 import { useAuth } from '@/lib/auth'
 import { Send } from 'lucide-react'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
@@ -291,6 +292,21 @@ export default function QuoteEditor() {
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[quote.status] ?? STATUS_COLORS.bozza}`}>
           {STATUS_LABELS[quote.status] ?? quote.status}
         </span>
+        {quote.status === 'inviato' && quote.submitted_by && (
+          <span className="text-xs text-gray-500">
+            Inviato da <span className="font-medium text-gray-700">{quote.submitted_by.full_name || quote.submitted_by.username}</span>
+            {quote.submitted_at && <> · {timeAgo(quote.submitted_at)}</>}
+          </span>
+        )}
+        {quote.status === 'completato' && quote.completed_by && (
+          <span
+            className="text-xs text-gray-500"
+            title={quote.submitted_by ? `Inviato da ${quote.submitted_by.full_name || quote.submitted_by.username}` : undefined}
+          >
+            Completato da <span className="font-medium text-gray-700">{quote.completed_by.full_name || quote.completed_by.username}</span>
+            {quote.completed_at && <> · {timeAgo(quote.completed_at)}</>}
+          </span>
+        )}
         {quote.status === 'bozza' && hasPermission('quotes.send') && (
           <Button size="sm" variant="outline" onClick={submitForReview} disabled={saving}>
             <Send className="w-3.5 h-3.5 mr-1" /> Invia per revisione

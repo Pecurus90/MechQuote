@@ -139,6 +139,24 @@ export interface Quote {
   parts: Part[]
 }
 
+export interface WorkflowStats {
+  by_status: Record<string, number>
+  my_drafts_count: number
+  my_pending_count: number
+  to_review_count: number
+}
+
+export interface DashboardQuoteRow {
+  id: number
+  quote_number: string
+  customer_name: string | null
+  status: string
+  quote_date: string | null
+  total_price: number
+  submitted_at?: string | null
+  submitted_by?: UserMinimal | null
+}
+
 // Minimal shape returned by the archive/list endpoints
 export interface QuoteListItem {
   id: number
@@ -176,4 +194,10 @@ export interface DashboardKPI {
   total_part_codes: number
   cnc_quoted_value: number
   edm_quoted_value: number
+}
+
+export interface MonthlyData {
+  month: string
+  value: number
+  year: number
 }

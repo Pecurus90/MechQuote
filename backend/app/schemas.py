@@ -508,3 +508,24 @@ class MonthlyData(BaseModel):
     value: float
     year: int
 
+
+class WorkflowStats(BaseModel):
+    by_status: dict[str, int]
+    my_drafts_count: int
+    my_pending_count: int
+    to_review_count: int
+
+
+class DashboardQuoteRow(BaseModel):
+    id: int
+    quote_number: str
+    customer_name: Optional[str] = None
+    status: str
+    quote_date: Optional[date] = None
+    total_price: float
+    submitted_at: Optional[datetime] = None
+    submitted_by: Optional[UserMinimal] = None
+
+    class Config:
+        from_attributes = True
+

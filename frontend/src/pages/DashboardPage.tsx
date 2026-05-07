@@ -3,224 +3,314 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Plus, TrendingUp, TrendingDown, Check } from 'lucide-react'
-import type { DashboardKPI, QuoteListItem } from '@/types'
+import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox } from 'lucide-react'
+import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
+import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts'
+
+const fmtEur = (n: number) =>
+  n.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
+  const { hasPermission } = useAuth()
+  const canReview = hasPermission('quotes.complete')
+
   const [kpi, setKpi] = useState<DashboardKPI | null>(null)
-  const [quotes, setQuotes] = useState<QuoteListItem[]>([])
+  const [monthly, setMonthly] = useState<MonthlyData[]>([])
+  const [stats, setStats] = useState<WorkflowStats | null>(null)
+  const [myDrafts, setMyDrafts] = useState<DashboardQuoteRow[]>([])
+  const [myPending, setMyPending] = useState<DashboardQuoteRow[]>([])
+  const [toReview, setToReview] = useState<DashboardQuoteRow[]>([])
   const [activity, setActivity] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([
+    const calls: Promise<unknown>[] = [
       api.get('/dashboard/kpi'),
-      api.get('/quotes?limit=20'),
+      api.get('/dashboard/monthly'),
+      api.get('/dashboard/workflow-stats'),
+      api.get('/dashboard/my-quotes', { params: { status: 'bozza' } }),
+      api.get('/dashboard/my-quotes', { params: { status: 'inviato' } }),
       api.get('/dashboard/activity'),
-    ]).then(([kpiRes, quotesRes, actRes]) => {
-      setKpi(kpiRes.data)
-      setQuotes(quotesRes.data)
-      setActivity(actRes.data ?? [])
-      setLoading(false)
+    ]
+    if (canReview) calls.push(api.get('/dashboard/to-review'))
+
+    Promise.all(calls).then((results) => {
+      const [kpiR, monthlyR, statsR, draftsR, pendingR, actR, reviewR] = results as { data: unknown }[]
+      setKpi(kpiR.data as DashboardKPI)
+      setMonthly(monthlyR.data as MonthlyData[])
+      setStats(statsR.data as WorkflowStats)
+      setMyDrafts(draftsR.data as DashboardQuoteRow[])
+      setMyPending(pendingR.data as DashboardQuoteRow[])
+      setActivity(actR.data as Notification[])
+      if (reviewR) setToReview(reviewR.data as DashboardQuoteRow[])
     }).catch(() => {
-      toast.error('Errore nel caricamento dati. Verifica che il backend sia attivo.')
-      setLoading(false)
-    })
-  }, [])
+      toast.error('Errore nel caricamento dashboard')
+    }).finally(() => setLoading(false))
+  }, [canReview])
 
-  const quoteTotal = (q: QuoteListItem) =>
-    q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-64 text-gray-500">
-      Caricamento...
-    </div>
+  if (loading || !kpi || !stats) return (
+    <div className="flex items-center justify-center h-64 text-gray-500">Caricamento...</div>
   )
 
-  if (!kpi) return null
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-5">
+      <DashboardHeader stats={stats} onNew={() => navigate('/quotes/new')} />
+      <KPIGrid kpi={kpi} />
+      {monthly.length > 0 && <MonthlyChart data={monthly} />}
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 space-y-5">
+          <QuoteListSection
+            title="Le mie bozze"
+            count={stats.my_drafts_count}
+            rows={myDrafts}
+            emptyText="Nessuna bozza in lavorazione"
+            icon={<FileText className="w-4 h-4 text-gray-400" />}
+            onClick={(id) => navigate(`/quotes/${id}`)}
+          />
+          <QuoteListSection
+            title="In attesa di revisione"
+            count={stats.my_pending_count}
+            rows={myPending}
+            emptyText="Nessun preventivo in attesa"
+            icon={<Send className="w-4 h-4 text-amber-500" />}
+            onClick={(id) => navigate(`/quotes/${id}`)}
+          />
+          {canReview && (
+            <QuoteListSection
+              title="Da revisionare"
+              count={stats.to_review_count}
+              rows={toReview}
+              emptyText="Niente da revisionare"
+              icon={<Inbox className="w-4 h-4 text-blue-500" />}
+              onClick={(id) => navigate(`/quotes/${id}`)}
+              showSubmitter
+            />
+          )}
+        </div>
+
+        <ActivityCard items={activity} onClick={(quoteId) => navigate(`/quotes/${quoteId}`)} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Sezioni interne (co-locate, usate solo qui) ──────────────────────────────
+
+function DashboardHeader({ stats, onNew }: { stats: WorkflowStats; onNew: () => void }) {
+  const counts = stats.by_status
+  return (
+    <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
+        <h2 className="text-2xl font-bold text-gray-900 mr-2">Dashboard</h2>
+        <StatusPill label="Bozza" value={counts.bozza ?? 0} color="bg-gray-100 text-gray-700" />
+        <StatusPill label="Inviato" value={counts.inviato ?? 0} color="bg-amber-100 text-amber-700" />
+        <StatusPill label="Completato" value={counts.completato ?? 0} color="bg-green-100 text-green-700" />
+      </div>
+      <Button onClick={onNew}>
+        <Plus className="w-4 h-4 mr-1.5" /> Nuovo Preventivo
+      </Button>
+    </div>
+  )
+}
+
+function StatusPill({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+      {value} {label}
+    </span>
+  )
+}
+
+function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
   const diff = kpi.percentage_diff
   const diffPositive = diff >= 0
-
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-        <Button onClick={() => navigate('/quotes/new')}>
-          <Plus className="w-4 h-4 mr-1.5" /> Nuovo Preventivo
-        </Button>
-      </div>
-
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-1">
-            <CardDescription>Preventivi totali</CardDescription>
-            <CardTitle className="text-3xl">{kpi.total_quotes}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-500">
-            {kpi.total_quotes_this_month} questo mese
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-1">
-            <CardDescription>Valore totale</CardDescription>
-            <CardTitle className="text-3xl">{kpi.total_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-500">
-            Media {kpi.avg_quote_value.toFixed(0)} € / preventivo
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-1">
-            <CardDescription>Valore questo mese</CardDescription>
-            <CardTitle className="text-3xl">{kpi.quoted_value_this_month.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm flex items-center gap-1">
-            {diffPositive
-              ? <TrendingUp className="w-4 h-4 text-green-600" />
-              : <TrendingDown className="w-4 h-4 text-red-500" />}
-            <span className={diffPositive ? 'text-green-600' : 'text-red-500'}>
-              {diffPositive ? '+' : ''}{diff.toFixed(1)}% vs mese prec.
-            </span>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-1">
-            <CardDescription>Codici parte totali</CardDescription>
-            <CardTitle className="text-3xl">{kpi.total_part_codes}</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-1">
-            <CardDescription>Valore CNC preventivato</CardDescription>
-            <CardTitle className="text-3xl">{kpi.cnc_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-1">
-            <CardDescription>Valore EDM preventivato</CardDescription>
-            <CardTitle className="text-3xl">{kpi.edm_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {/* Recent activity */}
-      {activity.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Attività recente</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ul>
-              {activity.map(a => {
-                const unread = !a.read_at
-                const confirmed = !!a.confirmed_at
-                const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
-                return (
-                  <li
-                    key={a.id}
-                    className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                    onClick={() => quoteId && navigate(`/quotes/${quoteId}`)}
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="pt-1.5 shrink-0">
-                        {confirmed ? (
-                          <Check className="w-3 h-3 text-green-600" />
-                        ) : unread ? (
-                          <span className="block w-2 h-2 rounded-full bg-blue-500" />
-                        ) : (
-                          <span className="block w-2 h-2 rounded-full border border-gray-300" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
-                          {a.title}
-                        </p>
-                        {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
-                      </div>
-                      <span className="text-[11px] text-gray-400 shrink-0">{timeAgo(a.created_at)}</span>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent quotes */}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Preventivi Recenti</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => navigate('/quotes/archive')}>
-            Vedi archivio
-          </Button>
+        <CardHeader className="pb-1">
+          <CardDescription>Valore totale preventivato</CardDescription>
+          <CardTitle className="text-3xl">{fmtEur(kpi.total_quoted_value)} €</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left p-3 font-medium text-gray-600">N. Preventivo</th>
-                <th className="text-left p-3 font-medium text-gray-600">Cliente</th>
-                <th className="text-left p-3 font-medium text-gray-600">Data</th>
-                <th className="text-left p-3 font-medium text-gray-600">Stato</th>
-                <th className="text-right p-3 font-medium text-gray-600">Totale</th>
-                <th className="text-center p-3 font-medium text-gray-600">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-6 text-center text-gray-400">
-                    Nessun preventivo ancora.{' '}
-                    <button className="text-blue-600 underline" onClick={() => navigate('/quotes/new')}>
-                      Crea il primo
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                quotes.map(q => (
-                  <tr
-                    key={q.id}
-                    className="border-b hover:bg-gray-50 cursor-pointer"
-                    onClick={() => navigate(`/quotes/${q.id}`)}
-                  >
-                    <td className="p-3 font-mono font-medium text-blue-700">{q.quote_number}</td>
-                    <td className="p-3">{q.customer_name || '-'}</td>
-                    <td className="p-3 text-gray-500">{q.quote_date}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
-                        {STATUS_LABELS[q.status] || q.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right font-medium">{quoteTotal(q).toFixed(2)} €</td>
-                    <td className="p-3 text-center">
-                      <Button
-                        variant="outline" size="sm"
-                        onClick={e => { e.stopPropagation(); navigate(`/quotes/${q.id}`) }}
-                      >
-                        <FileText className="w-3.5 h-3.5 mr-1" /> Apri
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <CardContent className="text-sm text-gray-500">
+          {kpi.total_quotes} preventivi
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-1">
+          <CardDescription>Valore mese corrente</CardDescription>
+          <CardTitle className="text-3xl">{fmtEur(kpi.quoted_value_this_month)} €</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-gray-500">
+          {kpi.total_quotes_this_month} preventivi
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-1">
+          <CardDescription>Trend vs mese precedente</CardDescription>
+          <CardTitle className={`text-3xl flex items-center gap-2 ${diffPositive ? 'text-green-600' : 'text-red-500'}`}>
+            {diffPositive
+              ? <TrendingUp className="w-7 h-7" />
+              : <TrendingDown className="w-7 h-7" />}
+            {diffPositive ? '+' : ''}{diff.toFixed(1)}%
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-gray-500">
+          {fmtEur(kpi.quoted_value_prev_month)} € il mese scorso
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-1">
+          <CardDescription>Media per preventivo</CardDescription>
+          <CardTitle className="text-3xl">{fmtEur(kpi.avg_quote_value)} €</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-gray-500">
+          su {kpi.total_quotes} preventivi
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function MonthlyChart({ data }: { data: MonthlyData[] }) {
+  // Ultimi 6 mesi: la API ritorna ordinata asc; prendiamo gli ultimi 6
+  const last6 = data.slice(-6)
+  const formatted = last6.map(d => ({
+    label: d.month.slice(2),  // "26-05" da "2026-05"
+    value: d.value,
+  }))
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Andamento ultimi 6 mesi</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={formatted} margin={{ top: 5, right: 20, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip
+                formatter={(v: number) => [`${fmtEur(v)} €`, 'Valore preventivato']}
+                contentStyle={{ fontSize: 12 }}
+              />
+              <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function QuoteListSection({
+  title, count, rows, emptyText, icon, onClick, showSubmitter = false,
+}: {
+  title: string
+  count: number
+  rows: DashboardQuoteRow[]
+  emptyText: string
+  icon: React.ReactNode
+  onClick: (id: number) => void
+  showSubmitter?: boolean
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-base flex items-center gap-2">
+          {icon}
+          {title}
+          <span className="text-sm font-normal text-gray-400">({count})</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <div className="p-4 text-sm text-gray-400">{emptyText}</div>
+        ) : (
+          <ul>
+            {rows.map(q => (
+              <li
+                key={q.id}
+                onClick={() => onClick(q.id)}
+                className="border-b last:border-0 px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex items-center gap-3"
+              >
+                <span className="font-mono font-medium text-blue-700 text-sm shrink-0">{q.quote_number}</span>
+                <span className="text-sm text-gray-600 truncate flex-1">{q.customer_name || '—'}</span>
+                {showSubmitter && q.submitted_by && (
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {q.submitted_by.full_name || q.submitted_by.username}
+                    {q.submitted_at && <> · {timeAgo(q.submitted_at)}</>}
+                  </span>
+                )}
+                <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
+                  {STATUS_LABELS[q.status] || q.status}
+                </span>
+                <span className="font-medium text-sm shrink-0 w-24 text-right">{q.total_price.toFixed(2)} €</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ActivityCard({ items, onClick }: { items: Notification[]; onClick: (quoteId: number) => void }) {
+  return (
+    <Card className="lg:sticky lg:top-4 self-start">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Attività recente</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {items.length === 0 ? (
+          <div className="p-4 text-sm text-gray-400">Nessuna attività</div>
+        ) : (
+          <ul>
+            {items.map(a => {
+              const unread = !a.read_at
+              const confirmed = !!a.confirmed_at
+              const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
+              return (
+                <li
+                  key={a.id}
+                  onClick={() => quoteId && onClick(quoteId)}
+                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="pt-1.5 shrink-0">
+                      {confirmed ? (
+                        <Check className="w-3 h-3 text-green-600" />
+                      ) : unread ? (
+                        <span className="block w-2 h-2 rounded-full bg-blue-500" />
+                      ) : (
+                        <span className="block w-2 h-2 rounded-full border border-gray-300" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>{a.title}</p>
+                      {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
+                      <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(a.created_at)}</p>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }

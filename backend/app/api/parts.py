@@ -4,18 +4,36 @@ from typing import List
 import os
 
 from app.core.database import get_db
-from app.core.security import require_permission
-from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis
+from app.core.security import require_permission, get_current_user
+from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis, Quote, User
 from app.schemas import PartCreate, PartUpdate, PartOut
 from app.services.calculation import recalculate_part
+from app.api.quotes import ensure_editable
 
 _can_write = require_permission('quotes.create')
+
+
+def _quote_for_part(part_id: int, db: Session) -> Quote:
+    quote = db.query(Quote).join(Part, Part.quote_id == Quote.id).filter(Part.id == part_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Part not found")
+    return quote
 
 router = APIRouter(prefix="/api", tags=["parts"])
 
 
 @router.post("/quotes/{quote_id}/parts", response_model=PartOut)
-def add_part(quote_id: int, data: PartCreate, db: Session = Depends(get_db), _=_can_write):
+def add_part(
+    quote_id: int,
+    data: PartCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    ensure_editable(quote, current_user)
     part = Part(quote_id=quote_id, **data.model_dump(exclude_unset=True))
     db.add(part)
     db.commit()
@@ -41,10 +59,17 @@ def get_part(part_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/parts/{part_id}", response_model=PartOut)
-def update_part(part_id: int, data: PartUpdate, db: Session = Depends(get_db), _=_can_write):
+def update_part(
+    part_id: int,
+    data: PartUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
+    ensure_editable(_quote_for_part(part_id, db), current_user)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(part, key, value)
     db.commit()
@@ -58,20 +83,32 @@ def update_part(part_id: int, data: PartUpdate, db: Session = Depends(get_db), _
 
 
 @router.delete("/parts/{part_id}")
-def delete_part(part_id: int, db: Session = Depends(get_db), _=_can_write):
+def delete_part(
+    part_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
+    ensure_editable(_quote_for_part(part_id, db), current_user)
     db.delete(part)
     db.commit()
     return {"ok": True}
 
 
 @router.post("/parts/{part_id}/duplicate", response_model=PartOut)
-def duplicate_part(part_id: int, db: Session = Depends(get_db), _=_can_write):
+def duplicate_part(
+    part_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     part = db.query(Part).options(joinedload(Part.phases)).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
+    ensure_editable(_quote_for_part(part_id, db), current_user)
 
     new_part = Part(
         quote_id=part.quote_id,
@@ -132,10 +169,17 @@ def duplicate_part(part_id: int, db: Session = Depends(get_db), _=_can_write):
 
 
 @router.post("/parts/{part_id}/files")
-def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), _=_can_write):
+def upload_file(
+    part_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
+    ensure_editable(_quote_for_part(part_id, db), current_user)
 
     safe_filename = os.path.basename(file.filename or "upload").replace("..", "").strip("/\\")
     if not safe_filename:
@@ -211,10 +255,16 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
 
 
 @router.delete("/files/{file_id}")
-def delete_file(file_id: int, db: Session = Depends(get_db), _=_can_write):
+def delete_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     pf = db.query(PartFile).filter(PartFile.id == file_id).first()
     if not pf:
         raise HTTPException(status_code=404, detail="File not found")
+    ensure_editable(_quote_for_part(pf.part_id, db), current_user)
     try:
         os.remove(pf.path)
     except Exception:

@@ -24,7 +24,25 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
             joinedload(Part.files),
         ),
         joinedload(Quote.customer),
+        joinedload(Quote.submitted_by),
+        joinedload(Quote.completed_by),
     ).filter(Quote.id == quote_id).first()
+
+
+def ensure_editable(quote: Quote, current_user: User) -> None:
+    """Solo le bozze sono modificabili; admin è sempre l'eccezione (safety net).
+
+    Esportata per uso da parts.py / phases.py — qualsiasi mutazione sulle parti
+    o sulle fasi di un preventivo è in effetti una modifica del preventivo stesso.
+    """
+    if quote.status == 'bozza':
+        return
+    if current_user.role == 'admin':
+        return
+    raise HTTPException(
+        status_code=403,
+        detail=f"Preventivo non più modificabile (stato: {quote.status})",
+    )
 
 
 @router.get("", response_model=List[QuoteOut])
@@ -39,7 +57,12 @@ def list_quotes(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
 
 
 @router.post("", response_model=QuoteOut)
-def create_quote(data: QuoteCreate, db: Session = Depends(get_db), _=_can_write):
+def create_quote(
+    data: QuoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     from datetime import date as date_type
 
     num_components = data.num_components
@@ -49,6 +72,7 @@ def create_quote(data: QuoteCreate, db: Session = Depends(get_db), _=_can_write)
     quote = Quote(**quote_data)
     if not quote.quote_date:
         quote.quote_date = date_type.today()
+    quote.created_by_user_id = current_user.id
 
     db.add(quote)
     db.commit()
@@ -152,10 +176,17 @@ def update_quote_status(
 
 
 @router.put("/{quote_id}", response_model=QuoteOut)
-def update_quote(quote_id: int, data: QuoteUpdate, db: Session = Depends(get_db), _=_can_write):
+def update_quote(
+    quote_id: int,
+    data: QuoteUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
+    ensure_editable(quote, current_user)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(quote, key, value)
     db.commit()
@@ -163,20 +194,40 @@ def update_quote(quote_id: int, data: QuoteUpdate, db: Session = Depends(get_db)
 
 
 @router.post("/{quote_id}/recalculate", response_model=QuoteOut)
-def recalculate_quote(quote_id: int, db: Session = Depends(get_db), _=_can_write):
+def recalculate_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
+    ensure_editable(quote, current_user)
     for part in db.query(Part).filter(Part.quote_id == quote_id).all():
         recalculate_part(part.id, db)
     return _load_quote(quote_id, db)
 
 
 @router.delete("/{quote_id}")
-def delete_quote(quote_id: int, db: Session = Depends(get_db), _=_can_write):
+def delete_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
+    is_admin = current_user.role == 'admin'
+    is_creator = (
+        quote.created_by_user_id is not None
+        and quote.created_by_user_id == current_user.id
+    )
+    if not (is_admin or is_creator):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo il creatore del preventivo o un admin possono eliminarlo",
+        )
     db.delete(quote)
     db.commit()
     return {"ok": True}

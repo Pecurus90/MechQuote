@@ -313,13 +313,25 @@ class QuoteStatusUpdate(BaseModel):
     status: str  # "bozza" | "inviato"
 
 
+class UserMinimal(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class QuoteOut(QuoteBase):
     id: int
     quote_number: str
+    created_by_user_id: Optional[int] = None
     submitted_by_user_id: Optional[int] = None
     submitted_at: Optional[datetime] = None
     completed_by_user_id: Optional[int] = None
     completed_at: Optional[datetime] = None
+    submitted_by: Optional[UserMinimal] = None
+    completed_by: Optional[UserMinimal] = None
     created_at: datetime
     updated_at: datetime
     parts: List[PartOut] = []

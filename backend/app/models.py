@@ -71,6 +71,7 @@ class Quote(Base):
     notes_customer = Column(Text)
     notes_internal = Column(Text)
     status = Column(String(20), default="bozza")  # bozza|inviato|completato
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     submitted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     submitted_at = Column(DateTime, nullable=True)
     completed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -79,6 +80,9 @@ class Quote(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     parts = relationship("Part", back_populates="quote", cascade="all, delete-orphan")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+    submitted_by = relationship("User", foreign_keys=[submitted_by_user_id])
+    completed_by = relationship("User", foreign_keys=[completed_by_user_id])
 
 
 class Part(Base):

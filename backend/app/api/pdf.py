@@ -359,8 +359,8 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
             costs_html += f'<div class="cbd-total-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
 
             # Right: pricing
-            margin = part.margin_percent
-            margin_lbl = f"{margin:.0f}%" if margin is not None else "—"
+            margin = part.margin_percent if part.margin_percent is not None else (quote.global_margin_percent or 0.0)
+            margin_lbl = f"{margin:.0f}%"
             pricing_html = f'<div class="cbd-pr-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
             pricing_html += f'<div class="cbd-pr-row"><span>Margine</span><span>{margin_lbl}</span></div>'
             pricing_html += f'<div class="cbd-pr-row"><span>Prezzo/pz</span><span>{part.unit_price or 0:.2f}&nbsp;{cur}</span></div>'

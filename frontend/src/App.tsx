@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
-import api from '@/lib/api'
+import { AuthProvider, useAuth, UserRole } from '@/lib/auth'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AppLayout from '@/components/layout/AppLayout'
@@ -18,32 +17,25 @@ import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
 import CustomersPage from '@/pages/settings/CustomersPage'
 import BackupSettingsPage from '@/pages/settings/BackupSettingsPage'
 import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
+import UsersPage from '@/pages/settings/UsersPage'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false)
-  const [ok, setOk] = useState(false)
+function ProtectedRoute({
+  children,
+  roles,
+}: {
+  children: React.ReactNode
+  roles?: UserRole[]
+}) {
+  const { user, loading } = useAuth()
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) { setReady(true); return }
-    api.get('/auth/me').then(() => {
-      setOk(true)
-      setReady(true)
-    }).catch(() => {
-      localStorage.removeItem('token')
-      setReady(true)
-    })
-  }, [])
-
-  if (!ready) return <div className="p-8 text-center text-gray-500">Caricamento...</div>
-  if (!ok) return <Navigate to="/login" replace />
+  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento...</div>
+  if (!user) return <Navigate to="/login" replace />
+  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
-export default function App() {
+function AppRoutes() {
   return (
-    <>
-    <Toaster position="top-center" richColors closeButton />
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -53,19 +45,34 @@ export default function App() {
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
-        <Route path="settings/materials" element={<MaterialsPage />} />
-        <Route path="settings/machines" element={<MachinesPage />} />
-        <Route path="settings/templates" element={<PhaseTemplatesPage />} />
-        <Route path="settings/treatments" element={<TreatmentsPage />} />
-        <Route path="settings/cost-rules" element={<CostRulesPage />} />
-        <Route path="settings/step-colors" element={<StepColorRulesPage />} />
-        <Route path="settings/company" element={<CompanySettingsPage />} />
-        <Route path="settings/customers" element={<CustomersPage />} />
-        <Route path="settings/backup" element={<BackupSettingsPage />} />
-        <Route path="settings/categories" element={<QuoteCategoriesPage />} />
+
+        {/* Settings — solo admin */}
+        <Route path="settings/materials"  element={<ProtectedRoute roles={['admin']}><MaterialsPage /></ProtectedRoute>} />
+        <Route path="settings/machines"   element={<ProtectedRoute roles={['admin']}><MachinesPage /></ProtectedRoute>} />
+        <Route path="settings/templates"  element={<ProtectedRoute roles={['admin']}><PhaseTemplatesPage /></ProtectedRoute>} />
+        <Route path="settings/treatments" element={<ProtectedRoute roles={['admin']}><TreatmentsPage /></ProtectedRoute>} />
+        <Route path="settings/cost-rules" element={<ProtectedRoute roles={['admin']}><CostRulesPage /></ProtectedRoute>} />
+        <Route path="settings/step-colors" element={<ProtectedRoute roles={['admin']}><StepColorRulesPage /></ProtectedRoute>} />
+        <Route path="settings/company"    element={<ProtectedRoute roles={['admin']}><CompanySettingsPage /></ProtectedRoute>} />
+        <Route path="settings/backup"     element={<ProtectedRoute roles={['admin']}><BackupSettingsPage /></ProtectedRoute>} />
+        <Route path="settings/categories" element={<ProtectedRoute roles={['admin']}><QuoteCategoriesPage /></ProtectedRoute>} />
+        <Route path="settings/users"      element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
+
+        {/* Clienti — admin + ufficio_tecnico */}
+        <Route path="settings/customers" element={
+          <ProtectedRoute roles={['admin', 'ufficio_tecnico']}><CustomersPage /></ProtectedRoute>
+        } />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    </>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Toaster position="top-center" richColors closeButton />
+      <AppRoutes />
+    </AuthProvider>
   )
 }

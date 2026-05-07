@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.database import get_db
+from app.core.security import require_role
 from app.models import Material, MaterialSupplier
 from app.schemas import (
     MaterialCreate, MaterialUpdate, MaterialOut,
@@ -18,7 +19,7 @@ def list_material_suppliers(db: Session = Depends(get_db)):
     return db.query(MaterialSupplier).order_by(MaterialSupplier.name).all()
 
 
-@router.post("/material-suppliers", response_model=MaterialSupplierOut)
+@router.post("/material-suppliers", response_model=MaterialSupplierOut, dependencies=[require_role('admin')])
 def create_material_supplier(data: MaterialSupplierCreate, db: Session = Depends(get_db)):
     s = MaterialSupplier(**data.model_dump())
     db.add(s)
@@ -27,7 +28,7 @@ def create_material_supplier(data: MaterialSupplierCreate, db: Session = Depends
     return s
 
 
-@router.put("/material-suppliers/{sid}", response_model=MaterialSupplierOut)
+@router.put("/material-suppliers/{sid}", response_model=MaterialSupplierOut, dependencies=[require_role('admin')])
 def update_material_supplier(sid: int, data: MaterialSupplierUpdate, db: Session = Depends(get_db)):
     s = db.query(MaterialSupplier).filter(MaterialSupplier.id == sid).first()
     if not s:
@@ -39,7 +40,7 @@ def update_material_supplier(sid: int, data: MaterialSupplierUpdate, db: Session
     return s
 
 
-@router.delete("/material-suppliers/{sid}")
+@router.delete("/material-suppliers/{sid}", dependencies=[require_role('admin')])
 def delete_material_supplier(sid: int, db: Session = Depends(get_db)):
     s = db.query(MaterialSupplier).filter(MaterialSupplier.id == sid).first()
     if not s:
@@ -55,7 +56,7 @@ def list_materials(db: Session = Depends(get_db)):
     return db.query(Material).options(joinedload(Material.material_supplier)).order_by(Material.name).all()
 
 
-@router.post("/materials", response_model=MaterialOut)
+@router.post("/materials", response_model=MaterialOut, dependencies=[require_role('admin')])
 def create_material(data: MaterialCreate, db: Session = Depends(get_db)):
     m = Material(**data.model_dump())
     db.add(m)
@@ -63,7 +64,7 @@ def create_material(data: MaterialCreate, db: Session = Depends(get_db)):
     return db.query(Material).options(joinedload(Material.material_supplier)).filter(Material.id == m.id).first()
 
 
-@router.put("/materials/{mid}", response_model=MaterialOut)
+@router.put("/materials/{mid}", response_model=MaterialOut, dependencies=[require_role('admin')])
 def update_material(mid: int, data: MaterialUpdate, db: Session = Depends(get_db)):
     m = db.query(Material).filter(Material.id == mid).first()
     if not m:
@@ -74,7 +75,7 @@ def update_material(mid: int, data: MaterialUpdate, db: Session = Depends(get_db
     return db.query(Material).options(joinedload(Material.material_supplier)).filter(Material.id == mid).first()
 
 
-@router.delete("/materials/{mid}")
+@router.delete("/materials/{mid}", dependencies=[require_role('admin')])
 def delete_material(mid: int, db: Session = Depends(get_db)):
     m = db.query(Material).filter(Material.id == mid).first()
     if not m:

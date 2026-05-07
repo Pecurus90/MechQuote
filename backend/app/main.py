@@ -5,7 +5,7 @@ from sqlalchemy import text
 import os
 
 from app.core.database import engine, Base
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_role
 from app.models import *
 
 Base.metadata.create_all(bind=engine)
@@ -22,12 +22,14 @@ app.add_middleware(
 )
 
 _auth = [Depends(get_current_user)]
+_admin = [require_role('admin')]
 
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog,
 )
 app.include_router(auth.router)
+app.include_router(auth.users_router, dependencies=_auth)
 # quotes_archive MUST be registered before quotes to avoid /quotes/{id} swallowing /quotes/archive
 app.include_router(quotes_archive.router, dependencies=_auth)
 app.include_router(quotes.router, dependencies=_auth)
@@ -39,7 +41,7 @@ app.include_router(treatments.router, dependencies=_auth)
 app.include_router(catalog.router, dependencies=_auth)
 app.include_router(dashboard.router, dependencies=_auth)
 app.include_router(pdf.router, dependencies=_auth)
-app.include_router(backup.router, dependencies=_auth)
+app.include_router(backup.router, dependencies=_admin)
 app.include_router(customers.router, dependencies=_auth)
 
 
@@ -71,6 +73,8 @@ def _run_migrations():
         "ALTER TABLE suppliers ADD COLUMN address TEXT",
         "ALTER TABLE treatments ADD COLUMN minimum_weight_kg FLOAT",
         "ALTER TABLE material_suppliers ADD COLUMN cutting_cost_per_part FLOAT DEFAULT 0.0",
+        "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'admin'",
+        "ALTER TABLE users ADD COLUMN email VARCHAR(200)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

@@ -163,6 +163,64 @@ Passi:
 
 ---
 
+## MVP pre-deploy — Sistema ruoli (RBAC)
+
+**Obiettivo:** prima di distribuire l'app in azienda, controllare chi può fare cosa.
+Priorità: **dopo MVP 2 (DXF), prima del deploy multi-utente**.
+
+### Ruoli
+
+| Ruolo | Preventivi | Archivio | Dashboard | PDF | Impostazioni | Utenti |
+|-------|-----------|----------|-----------|-----|-------------|--------|
+| `admin` | CRUD | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ufficio_tecnico` | CRUD | ✓ | ✓ | ✓ | ✗ | ✗ |
+| `officina` | read-only | ✓ | ✗ | ✓ | ✗ | ✗ |
+| `amministrazione` | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ |
+
+### Backend
+
+1. `users.role VARCHAR(20) DEFAULT 'admin'` — migration in `_run_migrations()`
+2. `require_role(*roles)` — dependency factory da applicare agli endpoint protetti:
+   - Endpoint Settings (machines, materials, suppliers, treatments, cost-rules, phase-templates): solo `admin`
+   - DELETE preventivi: `admin`, `ufficio_tecnico`
+   - Backup/restore: solo `admin`
+3. `GET /api/auth/me` già esiste — aggiungere `role` nella risposta
+4. `POST /api/users` + `PUT /api/users/{id}` + `DELETE /api/users/{id}`: solo `admin`
+
+### Frontend
+
+1. `AuthContext` + `useAuth()` hook — salva `{ username, role }` dopo il login (da `/api/auth/me`)
+2. Sidebar: filtra voci in base al ruolo dell'utente loggato
+3. `<ProtectedRoute roles={['admin']}>` — wrappa le rotte protette in `App.tsx`
+4. Pagina "Gestione Utenti" in Settings (solo admin): lista utenti, crea/modifica/elimina, assegna ruolo
+5. Pagine Settings nascoste completamente per ruoli non-admin
+
+---
+
+## MVP 7 — Preventivo stampi e trance lamiera
+
+**Obiettivo:** supportare la preventivazione di stampi per pressofusione e trance per lamiera —
+categorie di lavoro distinte da CNC/EDM con la propria logica di costo.
+
+### Stampi (die casting / injection mould)
+- Quote type: `stampo`
+- Fasi tipiche: fresatura cavità, EDM a tuffo, lucidatura, assemblaggio
+- Campo aggiuntivo: `mould_shots` (vita utile stampo) — influenza ammortamento
+- Configurazione materiali stampo separata (acciaio per stampi H13, P20, ecc.)
+
+### Trance lamiera (progressive dies / blanking dies)
+- Quote type: `trancia`
+- Fasi tipiche: fresatura piastre, EDM filo profili, rettifica, assemblaggio
+- Collegamento al modulo 2D (MVP 2): profili DXF → lunghezze taglio EDM/wire
+- Numero di stazioni configurabile
+
+### Note implementative
+- Entrambi convergono nella struttura `Quote → Parts → ManufacturingPhases` esistente
+- Aggiungere `quote_type` values al DB (`stampo`, `trancia`) senza breaking changes
+- Valutare se serve una category separata nel numero preventivo (es. lettera S per stampi)
+
+---
+
 ## MVP 6 — Gestione magazzino utensili
 
 **Obiettivo:** inventario utensili con lettura barcode, giacenza minima, notifica settimanale in-app.

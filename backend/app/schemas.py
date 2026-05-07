@@ -81,6 +81,28 @@ class UserCreate(BaseModel):
     username: str
     password: str
     full_name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = 'admin'
+
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = None  # se presente viene ri-hashato
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    role: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
 
 
 class Token(BaseModel):

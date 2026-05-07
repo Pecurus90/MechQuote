@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.database import get_db
+from app.core.security import require_role
 from app.models import Supplier, Treatment
 from app.schemas import (
     SupplierCreate, SupplierUpdate, SupplierOut,
@@ -18,7 +19,7 @@ def list_suppliers(db: Session = Depends(get_db)):
     return db.query(Supplier).order_by(Supplier.name).all()
 
 
-@router.post("/suppliers", response_model=SupplierOut)
+@router.post("/suppliers", response_model=SupplierOut, dependencies=[require_role('admin')])
 def create_supplier(data: SupplierCreate, db: Session = Depends(get_db)):
     s = Supplier(**data.model_dump())
     db.add(s)
@@ -27,7 +28,7 @@ def create_supplier(data: SupplierCreate, db: Session = Depends(get_db)):
     return s
 
 
-@router.put("/suppliers/{sid}", response_model=SupplierOut)
+@router.put("/suppliers/{sid}", response_model=SupplierOut, dependencies=[require_role('admin')])
 def update_supplier(sid: int, data: SupplierUpdate, db: Session = Depends(get_db)):
     s = db.query(Supplier).filter(Supplier.id == sid).first()
     if not s:
@@ -39,7 +40,7 @@ def update_supplier(sid: int, data: SupplierUpdate, db: Session = Depends(get_db
     return s
 
 
-@router.delete("/suppliers/{sid}")
+@router.delete("/suppliers/{sid}", dependencies=[require_role('admin')])
 def delete_supplier(sid: int, db: Session = Depends(get_db)):
     s = db.query(Supplier).filter(Supplier.id == sid).first()
     if not s:
@@ -55,7 +56,7 @@ def list_treatments(db: Session = Depends(get_db)):
     return db.query(Treatment).options(joinedload(Treatment.supplier)).order_by(Treatment.name).all()
 
 
-@router.post("/treatments", response_model=TreatmentOut)
+@router.post("/treatments", response_model=TreatmentOut, dependencies=[require_role('admin')])
 def create_treatment(data: TreatmentCreate, db: Session = Depends(get_db)):
     t = Treatment(**data.model_dump())
     db.add(t)
@@ -63,7 +64,7 @@ def create_treatment(data: TreatmentCreate, db: Session = Depends(get_db)):
     return db.query(Treatment).options(joinedload(Treatment.supplier)).filter(Treatment.id == t.id).first()
 
 
-@router.put("/treatments/{tid}", response_model=TreatmentOut)
+@router.put("/treatments/{tid}", response_model=TreatmentOut, dependencies=[require_role('admin')])
 def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_db)):
     t = db.query(Treatment).filter(Treatment.id == tid).first()
     if not t:
@@ -74,7 +75,7 @@ def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_
     return db.query(Treatment).options(joinedload(Treatment.supplier)).filter(Treatment.id == tid).first()
 
 
-@router.delete("/treatments/{tid}")
+@router.delete("/treatments/{tid}", dependencies=[require_role('admin')])
 def delete_treatment(tid: int, db: Session = Depends(get_db)):
     t = db.query(Treatment).filter(Treatment.id == tid).first()
     if not t:

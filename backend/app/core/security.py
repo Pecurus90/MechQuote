@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -47,3 +47,12 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="Utente non trovato")
     return user
+
+
+def require_role(*roles: str):
+    """Return a Depends that checks the current user's role."""
+    def _check(current_user=Depends(get_current_user)):
+        if current_user.role not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permesso negato")
+        return current_user
+    return Depends(_check)

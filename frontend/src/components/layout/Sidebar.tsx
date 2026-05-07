@@ -3,10 +3,12 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Plus, Archive, FileText,
   Box, Cog, Layers, Ruler, Building2, FileText as FileTextIcon,
-  Palette, Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck
+  Palette, Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { useNotifications } from '@/lib/useNotifications'
+import NotificationPanel from '@/components/layout/NotificationPanel'
 
 const navLinkClass = (isActive: boolean, small = false) =>
   cn(
@@ -51,6 +53,9 @@ export default function Sidebar() {
     isQuotesActive || (location.pathname.startsWith('/settings') && !isSystemActive)
   )
   const [systemOpen, setSystemOpen] = useState(isSystemActive)
+  const [notifOpen, setNotifOpen] = useState(false)
+
+  const { enabled: notifEnabled, unreadCount, items, loading: notifLoading, fetchList, markRead, markConfirmed } = useNotifications()
 
   const handleLogout = () => {
     logout()
@@ -217,24 +222,50 @@ export default function Sidebar() {
 
       </nav>
 
-      {/* Footer: utente loggato + logout */}
+      {/* Footer: utente loggato + notifiche + logout */}
       {user && (
         <div className="p-3 border-t">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-xs font-medium text-gray-900 truncate">{user.full_name || user.username}</p>
               <p className="text-[10px] text-gray-400">{ROLE_LABELS[user.role] ?? user.role}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              title="Esci"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {notifEnabled && (
+                <button
+                  onClick={() => setNotifOpen(true)}
+                  className="relative p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  title="Notifiche"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[9px] leading-[14px] text-center font-semibold px-0.5">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                title="Esci"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      <NotificationPanel
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        items={items}
+        loading={notifLoading}
+        onRefresh={fetchList}
+        onMarkRead={markRead}
+        onMarkConfirmed={markConfirmed}
+      />
     </aside>
   )
 }

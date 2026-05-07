@@ -213,7 +213,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                     form.quote_type === 'single' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-2">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500">
                       <rect x="3" y="5" width="14" height="10" rx="1.5"/>
                       <path d="M3 8h14"/>
@@ -221,7 +221,6 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                     </svg>
                     <span className="font-medium text-sm">Pezzo singolo</span>
                   </div>
-                  <div className="text-xs text-gray-500 pl-7">Un codice parte</div>
                 </button>
                 <button
                   onClick={() => set('quote_type', 'commessa')}
@@ -229,7 +228,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                     form.quote_type === 'commessa' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-2">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500">
                       <rect x="2" y="2" width="7" height="7" rx="1"/>
                       <rect x="11" y="2" width="7" height="7" rx="1"/>
@@ -238,7 +237,6 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                     </svg>
                     <span className="font-medium text-sm">Commessa</span>
                   </div>
-                  <div className="text-xs text-gray-500 pl-7">Più parti _01 _02...</div>
                 </button>
               </div>
 

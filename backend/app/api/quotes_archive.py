@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, or_
 from typing import List, Optional
 
 from app.core.database import get_db
@@ -22,12 +22,19 @@ def get_quote_years(db: Session = Depends(get_db)):
 def list_archive(
     db: Session = Depends(get_db),
     year: Optional[int] = None,
+    q: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
 ):
     query = db.query(Quote).options(selectinload(Quote.parts))
     if year:
         query = query.filter(extract('year', Quote.quote_date) == year)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(or_(
+            Quote.quote_number.ilike(like),
+            Quote.customer_name.ilike(like),
+        ))
     query = query.order_by(Quote.quote_date.desc(), Quote.id.desc())
     offset = (page - 1) * page_size
     return query.offset(offset).limit(page_size).all()

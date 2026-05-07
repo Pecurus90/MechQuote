@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import type { QuoteListItem as Quote } from '@/types'
 import api from '@/lib/api'
-import { FileText, Plus, Trash2 } from 'lucide-react'
+import { FileText, Plus, Trash2, Search, X } from 'lucide-react'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
@@ -18,6 +19,8 @@ export default function QuoteArchivePage() {
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 20
   const [loading, setLoading] = useState(true)
@@ -28,14 +31,24 @@ export default function QuoteArchivePage() {
     api.get('/quotes/years').then(res => setYears(res.data))
   }, [])
 
+  // Debounce search input → searchQuery
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchQuery(searchInput.trim())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
   useEffect(() => {
     loadQuotes()
-  }, [selectedYear, page])
+  }, [selectedYear, searchQuery, page])
 
   const loadQuotes = () => {
     setLoading(true)
-    const params: Record<string, number> = { page, page_size: pageSize }
+    const params: Record<string, string | number> = { page, page_size: pageSize }
     if (selectedYear) params.year = selectedYear
+    if (searchQuery) params.q = searchQuery
     api.get('/quotes/archive', { params }).then(res => {
       setQuotes(res.data)
       setLoading(false)
@@ -81,7 +94,28 @@ export default function QuoteArchivePage() {
         </Button>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-end flex-wrap">
+        <div className="flex-1 min-w-[240px]">
+          <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Input
+              className="h-9 pl-8 pr-8 text-sm"
+              placeholder="Codice preventivo o cliente"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+            />
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                title="Cancella"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
         <div>
           <label className="text-sm font-medium text-gray-600 mb-1 block">Anno</label>
           <select

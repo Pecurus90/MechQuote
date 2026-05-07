@@ -23,6 +23,7 @@ interface Material {
   edm_coefficient: number
   cnc_machinability_coefficient: number
   default_scrap_percent: number
+  cutting_cost_per_part?: number
   active: boolean
   supplier_id: number | null
   material_supplier?: MaterialSupplier | null
@@ -33,9 +34,9 @@ const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', sh
 
 interface MatForm {
   id: number | null; name: string; family: string; density: string; cost: string
-  edm: string; cnc: string; scrap: string; active: boolean; supplier_id: string
+  edm: string; cnc: string; scrap: string; cutting: string; active: boolean; supplier_id: string
 }
-const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', active: true, supplier_id: '' })
+const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', cutting: '0', active: true, supplier_id: '' })
 
 export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
@@ -78,8 +79,8 @@ export default function MaterialsPage() {
       name: matForm.name, family: matForm.family,
       density_kg_dm3: Number(matForm.density), cost_per_kg: Number(matForm.cost),
       edm_coefficient: Number(matForm.edm), cnc_machinability_coefficient: Number(matForm.cnc),
-      default_scrap_percent: Number(matForm.scrap), active: matForm.active,
-      supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
+      default_scrap_percent: Number(matForm.scrap), cutting_cost_per_part: Number(matForm.cutting),
+      active: matForm.active, supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
     }
     try {
       if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
@@ -98,8 +99,8 @@ export default function MaterialsPage() {
     id: m.id, name: m.name, family: m.family,
     density: String(m.density_kg_dm3), cost: String(m.cost_per_kg),
     edm: String(m.edm_coefficient), cnc: String(m.cnc_machinability_coefficient),
-    scrap: String(m.default_scrap_percent), active: m.active,
-    supplier_id: m.supplier_id ? String(m.supplier_id) : '',
+    scrap: String(m.default_scrap_percent), cutting: String(m.cutting_cost_per_part ?? 0),
+    active: m.active, supplier_id: m.supplier_id ? String(m.supplier_id) : '',
   })
 
   const visibleSup = [...suppliers]
@@ -288,6 +289,10 @@ export default function MaterialsPage() {
                 <div>
                   <label className="text-sm font-medium">Sfrido %</label>
                   <Input type="number" step="0.5" value={matForm.scrap} onChange={e => setMatForm(f => f ? { ...f, scrap: e.target.value } : f)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Spese taglio (€/pz)</label>
+                  <Input type="number" step="0.5" min="0" value={matForm.cutting} onChange={e => setMatForm(f => f ? { ...f, cutting: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Fornitore materiale</label>

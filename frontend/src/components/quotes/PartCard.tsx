@@ -88,6 +88,11 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
   const treatmentPhase = part.phases.find(p => p.treatment_id != null)
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
 
+  const deliveryPerPiece = (part.material_delivery_cost ?? 0) / (part.quantity || 1)
+  const cuttingPerPiece = selectedMaterial?.cutting_cost_per_part ?? 0
+  const materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
+  const treatmentShippingPerPiece = (treatmentPhase?.fixed_cost ?? 0) / (part.quantity || 1)
+
   const handleTreatmentSelect = async (treatmentId: number | undefined) => {
     if (!part.id) return
     const t = treatments.find(t => t.id === treatmentId)
@@ -109,7 +114,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
         sequence_number: 99,
         setup_hours: 0,
         cycle_hours_per_part: 0,
-        fixed_cost: 0,
+        fixed_cost: t.supplier?.shipping_cost ?? 0,
         customer_visible: true,
         is_shared: false,
       }
@@ -348,17 +353,37 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Costo per pezzo</p>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Materiale</span>
-                  <span>{part.material_cost.toFixed(2)} €</span>
+                  <span>{materialTotal.toFixed(2)} €</span>
                 </div>
+                {deliveryPerPiece > 0 && (
+                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                    <span>di cui spedizione</span>
+                    <span>{deliveryPerPiece.toFixed(2)} €</span>
+                  </div>
+                )}
+                {cuttingPerPiece > 0 && (
+                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                    <span>di cui taglio</span>
+                    <span>{cuttingPerPiece.toFixed(2)} €</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Lavorazioni</span>
                   <span>{workPhaseCost.toFixed(2)} €</span>
                 </div>
                 {treatmentPhaseCost > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Trattamenti</span>
-                    <span>{treatmentPhaseCost.toFixed(2)} €</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Trattamenti</span>
+                      <span>{treatmentPhaseCost.toFixed(2)} €</span>
+                    </div>
+                    {treatmentShippingPerPiece > 0 && (
+                      <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                        <span>di cui spedizione</span>
+                        <span>{treatmentShippingPerPiece.toFixed(2)} €</span>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="flex justify-between font-medium border-t border-blue-200 pt-1.5 mt-1.5">
                   <span>Costo/pz</span>

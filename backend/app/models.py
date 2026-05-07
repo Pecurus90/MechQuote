@@ -202,6 +202,7 @@ class Material(Base):
     edm_coefficient = Column(Float, default=1.0)
     cnc_machinability_coefficient = Column(Float, default=1.0)
     default_scrap_percent = Column(Float, default=10.0)
+    cutting_cost_per_part = Column(Float, default=0.0)
     active = Column(Boolean, default=True)
     notes = Column(Text)
     supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)

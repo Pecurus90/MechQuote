@@ -157,6 +157,7 @@ class MaterialBase(BaseModel):
     edm_coefficient: Optional[float] = 1.0
     cnc_machinability_coefficient: Optional[float] = 1.0
     default_scrap_percent: Optional[float] = 10.0
+    cutting_cost_per_part: Optional[float] = 0.0
     active: Optional[bool] = True
     notes: Optional[str] = None
     supplier_id: Optional[int] = None

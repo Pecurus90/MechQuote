@@ -6,10 +6,14 @@ import type { QuoteListItem as Quote } from '@/types'
 import api from '@/lib/api'
 import { FileText, Plus, Trash2 } from 'lucide-react'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 
 export default function QuoteArchivePage() {
   const navigate = useNavigate()
+  const { user, hasRole } = useAuth()
+  const isAdmin = hasRole('admin')
+  const canDelete = (q: Quote) => isAdmin || (q.created_by_user_id != null && q.created_by_user_id === user?.id)
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -151,13 +155,15 @@ export default function QuoteArchivePage() {
                           >
                             <FileText className="w-3.5 h-3.5 mr-1" /> Apri
                           </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
-                            onClick={e => { e.stopPropagation(); setConfirmDeleteId(q.id) }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {canDelete(q) && (
+                            <Button
+                              variant="outline" size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(q.id) }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

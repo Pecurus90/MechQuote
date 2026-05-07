@@ -16,37 +16,43 @@ Il ciclo di lavorazione (`ManufacturingPhase[]`) ha **sempre la stessa struttura
 
 ---
 
-## Stato attuale (MVP 1 — completato)
+## Stato attuale (MVP 1 + MVP 3 parziale — completato)
 
 ### Funzionalità implementate
-- CRUD completo: clienti, materiali, macchine, fornitori, trattamenti
+- CRUD completo: clienti, materiali (con fornitori materiali), macchine, fornitori, trattamenti
 - QuoteEditor con wizard (numero preventivo, tipo single/commessa, cliente, data, margine)
 - Tipi preventivo: `single` (1 parte) e `commessa` (N parti con suffisso `_01…_NN`)
 - Categorie preventivo configurabili (A-G default, gestibili da Settings)
 - Motore calcolo costi in tempo reale (frontend) + ricalcolo su salvataggio (backend)
-- PDF export, invio email
-- Dashboard con KPI e lista preventivi recenti
-- Archivio preventivi
+- PDF export (cliente + interno), invio email
+- Dashboard con KPI mensili
+- Archivio preventivi con ricerca e filtri
 - Backup e restore del database
-- Impostazioni aziendali (nome, logo per PDF)
+- Impostazioni aziendali (nome, indirizzo, P.IVA, contatti per PDF)
 - `quote_mode` per parte: `manual` / `dxf` / `step` / `mixed` (campo presente, non ancora usato dalla UI)
+- Quote total con trasporto, imballaggio e sconto globale (barra inferiore del QuoteEditor)
+- `minimum_price` esposto in UI (card parte, con avviso visivo quando attivo)
+- Grezzo cilindrico: toggle quadrato/tondo, formula `π×r²×h×density` nel backend
+- Phase templates: CRUD in Settings + pulsante "Da template" in PhaseEditor
+- Auth JWT applicata a tutti gli endpoint (get_current_user dependency)
+- CORS limitato tramite variabile d'ambiente `ALLOWED_ORIGINS`
 
 ---
 
-## Gap rispetto alle spec (da chiudere in MVP 3)
+## Gap rispetto alle spec
 
 Le spec in `06_cost_engine_formulas.md` prevedono funzionalità non ancora implementate:
 
 | Gap | Spec | Stato |
 |-----|------|-------|
-| Quote total con trasporto/imballo/sconto | `Σ(parti) + transport + packaging - discount` | Campi in DB, non in UI né nel calcolo |
-| `minimum_price` esposto in UI | `max(cost, min) × (1 + margin)` | Usato in backend, non visibile in QuoteEditor |
-| `complexity_coefficient` nelle fasi CNC | `cycle_h × qty × rate × complexity_coef` | Non implementato — da esporre come campo manuale per ora |
-| Grezzo cilindrico | `π × (d/2)² × h × density` | Solo rettangolare implementato |
-| Coefficienti EDM (passate, materiale, precisione) | Tabella pass_coef 1.0/1.45/1.85/2.20 | `CostRule` e `Material.edm_coefficient` esistono, non cablati |
-| Phase templates | Applica template da QuoteEditor | Modello `PhaseTemplate` esiste, nessuna UI |
-| Grafico trend dashboard | Trend mensile/annuale | Non implementato |
-| Regole di arrotondamento | 1/5/10/50 € | Campo `rounding_rule` in DB, nessuna logica |
+| Quote total con trasporto/imballo/sconto | `Σ(parti) + transport + packaging - discount` | ✅ Implementato |
+| `minimum_price` esposto in UI | `max(cost, min) × (1 + margin)` | ✅ Implementato |
+| Grezzo cilindrico | `π × (d/2)² × h × density` | ✅ Implementato |
+| Phase templates | Applica template da QuoteEditor | ✅ Implementato |
+| `complexity_coefficient` nelle fasi CNC | `cycle_h × qty × rate × complexity_coef` | Da fare — esporre come campo manuale nella fase |
+| Coefficienti EDM (passate, materiale, precisione) | Tabella pass_coef 1.0/1.45/1.85/2.20 | Da fare — `CostRule` e `Material.edm_coefficient` esistono, non cablati |
+| Grafico trend dashboard | Trend mensile/annuale | Da fare — endpoint `/dashboard/monthly` esiste, manca il grafico frontend |
+| Regole di arrotondamento | 1/5/10/50 € | Da fare — campo `rounding_rule` in DB, nessuna logica |
 
 ---
 
@@ -108,25 +114,23 @@ CostRule: edm_pass_coef_4 = 2.20
 
 **Obiettivo:** chiudere i gap della tabella sopra senza nuove dipendenze esterne.
 
-1. **Quote total con trasporto/imballo/sconto**
-   - Sezione "Riepilogo" in fondo a QuoteEditor
-   - Formula: `totale = Σ(parti) + trasporto + imballaggio - (Σ(parti) × sconto/100)`
-   - Nuovo `recalculate_quote()` in `services/calculation.py`
+Completato: quote total UI, minimum_price UI, phase templates, grezzo cilindrico.
 
-2. **`minimum_price` in UI**
-   - Campo "Prezzo minimo (€)" nella card parte, accanto al margine
+Da implementare:
 
-3. **Phase templates**
-   - Pagina `Settings > Template di fase` (CRUD inline, stesso pattern di `QuoteCategoriesPage.tsx`)
-   - Pulsante "Da template" in `PhaseEditor` → modal lista template → aggiunge fase pre-compilata
-
-4. **Grezzo cilindrico**
-   - Toggle "Cilindrico" nella sezione dimensioni grezzo
-   - Campi: diametro + lunghezza al posto di X/Y/Z
-   - Formula: `π × (d/2)² × h / 1_000_000 × density × cost_per_kg × (1 + scrap/100)`
-
-5. **Dashboard trend**
+1. **Dashboard trend**
    - Grafico a barre: ultimi 12 mesi, totale preventivi + conteggio
+   - L'endpoint `/api/dashboard/monthly` esiste già — serve solo il frontend (recharts o simile)
+
+2. **Regole di arrotondamento**
+   - Campo `rounding_rule` già in DB (`none` / `1` / `5` / `10` / `50`)
+   - Logica: `unit_price` arrotondato al multiplo configurato dopo il calcolo margine
+   - Va aggiunta in `services/calculation.py` e in `calcPartTotals()` nel frontend
+
+3. **`complexity_coefficient` nelle fasi CNC**
+   - Campo aggiuntivo sulla fase (`complexity_coefficient: float = 1.0`)
+   - Formula: `cycle_h × qty × rate × complexity_coef`
+   - Esposto come input numerico nella riga fase di `PhaseEditor`
 
 ---
 

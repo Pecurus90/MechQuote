@@ -7,7 +7,9 @@ import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
 import api from '@/lib/api'
 import { Trash2, Copy, FileDown, ChevronLeft, Save, Plus } from 'lucide-react'
-import { STATUS_LABELS } from '@/lib/constants'
+import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import { useAuth } from '@/lib/auth'
+import { Send } from 'lucide-react'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
 import { validateQuote } from '@/lib/quoteValidation'
@@ -17,6 +19,7 @@ import { toast } from 'sonner'
 export default function QuoteEditor() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const isNew = !id
 
   const [quote, setQuote] = useState<Quote | null>(null)
@@ -199,6 +202,35 @@ export default function QuoteEditor() {
     } catch (e) {toast.error('Errore nel ricalcolo') }
   }
 
+  const submitForReview = async () => {
+    if (!quote?.id) return
+    if (!confirm('Inviare il preventivo per revisione? Non potrai più modificarlo come bozza.')) return
+    setSaving(true)
+    try {
+      // Salva pending edits prima dell'invio
+      await api.put(`/quotes/${quote.id}`, {
+        customer_name: quote.customer_name,
+        customer_id: quote.customer_id,
+        customer_reference: quote.customer_reference,
+        global_margin_percent: quote.global_margin_percent,
+        global_discount_percent: quote.global_discount_percent,
+        transport_cost: quote.transport_cost,
+        packaging_cost: quote.packaging_cost,
+        validity_days: quote.validity_days,
+        delivery_text: quote.delivery_text,
+        quote_date: quote.quote_date,
+        notes_customer: quote.notes_customer,
+        notes_internal: quote.notes_internal,
+      })
+      const res = await api.patch(`/quotes/${quote.id}/status`, { status: 'inviato' })
+      applyQuoteData(res.data)
+      toast.success('Preventivo inviato per revisione')
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(msg ?? 'Errore nell\'invio')
+    } finally { setSaving(false) }
+  }
+
   const downloadPdf = async (type: 'customer' | 'internal') => {
     if (!quote?.id) return
     try {
@@ -255,16 +287,14 @@ export default function QuoteEditor() {
         <span className="text-gray-300">|</span>
         <span className="text-sm text-gray-500">{quote.customer_name || 'Nessun cliente'}</span>
         <div className="flex-1" />
-        <select
-          className="h-8 rounded border border-input bg-background px-2 text-xs"
-          value={quote.status}
-          onChange={e => setQuote(q => q ? { ...q, status: e.target.value } : q)}
-          onBlur={saveQuote}
-        >
-          {(['bozza', 'inviato', 'letto', 'inviato_cliente', 'vinto', 'perso'] as const).map(s => (
-            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-          ))}
-        </select>
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[quote.status] ?? STATUS_COLORS.bozza}`}>
+          {STATUS_LABELS[quote.status] ?? quote.status}
+        </span>
+        {quote.status === 'bozza' && hasPermission('quotes.send') && (
+          <Button size="sm" variant="outline" onClick={submitForReview} disabled={saving}>
+            <Send className="w-3.5 h-3.5 mr-1" /> Invia per revisione
+          </Button>
+        )}
         <Button size="sm" variant="outline" onClick={() => handlePdfClick('internal')}>
           <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
         </Button>

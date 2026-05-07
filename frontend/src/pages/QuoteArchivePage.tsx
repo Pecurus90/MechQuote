@@ -13,6 +13,7 @@ export default function QuoteArchivePage() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>('all')
   const [page, setPage] = useState(1)
   const pageSize = 20
   const [loading, setLoading] = useState(true)
@@ -54,6 +55,17 @@ export default function QuoteArchivePage() {
   const quoteTotal = (q: Quote) =>
     q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
 
+  // Normalizza i valori legacy del DB sotto i 3 stati visibili
+  const normalizeStatus = (s: string): string => {
+    if (s === 'bozza' || s === 'inviato' || s === 'completato') return s
+    if (s === 'draft') return 'bozza'
+    return 'completato'  // sent / inviato_cliente / vinto / perso
+  }
+
+  const visibleQuotes = statusFilter === 'all'
+    ? quotes
+    : quotes.filter(q => normalizeStatus(q.status) === statusFilter)
+
   const confirmingQuote = quotes.find(q => q.id === confirmDeleteId)
 
   return (
@@ -77,6 +89,19 @@ export default function QuoteArchivePage() {
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
+        <div>
+          <label className="text-sm font-medium text-gray-600 mb-1 block">Stato</label>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={e => { setPage(1); setStatusFilter(e.target.value as typeof statusFilter) }}
+          >
+            <option value="all">Tutti</option>
+            <option value="bozza">Bozza</option>
+            <option value="inviato">Inviato</option>
+            <option value="completato">Completato</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -96,14 +121,14 @@ export default function QuoteArchivePage() {
                 </tr>
               </thead>
               <tbody>
-                {quotes.length === 0 ? (
+                {visibleQuotes.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-6 text-center text-gray-400">
                       Nessun preventivo trovato.
                     </td>
                   </tr>
                 ) : (
-                  quotes.map(q => (
+                  visibleQuotes.map(q => (
                     <tr
                       key={q.id}
                       className="border-b hover:bg-gray-50 cursor-pointer"
@@ -113,7 +138,7 @@ export default function QuoteArchivePage() {
                       <td className="p-3">{q.customer_name || '-'}</td>
                       <td className="p-3 text-gray-500">{q.quote_date?.split('T')[0]}</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.draft}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
                           {STATUS_LABELS[q.status] || q.status}
                         </span>
                       </td>

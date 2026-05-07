@@ -153,6 +153,7 @@ export default function MachinesPage() {
                 <div>
                   <label className="text-sm font-medium">Setup minimo (h)</label>
                   <Input type="number" step="0.1" value={setup} onChange={e => setSetup(e.target.value)} />
+                  <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />

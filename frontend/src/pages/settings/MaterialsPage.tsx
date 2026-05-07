@@ -286,10 +286,12 @@ export default function MaterialsPage() {
                 <div>
                   <label className="text-sm font-medium">EDM Coeff.</label>
                   <Input type="number" step="0.1" value={matForm.edm} onChange={e => setMatForm(f => f ? { ...f, edm: e.target.value } : f)} />
+                  <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">CNC Coeff. lavorabilità</label>
                   <Input type="number" step="0.1" value={matForm.cnc} onChange={e => setMatForm(f => f ? { ...f, cnc: e.target.value } : f)} />
+                  <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Sfrido %</label>

@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Plus, Archive, FileText,
   Box, Cog, Layers, Ruler, Building2, FileText as FileTextIcon,
-  Palette, Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell
+  Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -145,10 +145,6 @@ export default function Sidebar() {
                   <NavLink to="/settings/cost-rules" className={({ isActive }) => navLinkClass(isActive, true)}>
                     <FileTextIcon className="w-3.5 h-3.5 shrink-0" />
                     <span>Regole di Costo</span>
-                  </NavLink>
-                  <NavLink to="/settings/step-colors" className={({ isActive }) => navLinkClass(isActive, true)}>
-                    <Palette className="w-3.5 h-3.5 shrink-0" />
-                    <span>Colori STEP</span>
                   </NavLink>
                   <NavLink to="/settings/categories" className={({ isActive }) => navLinkClass(isActive, true)}>
                     <Tag className="w-3.5 h-3.5 shrink-0" />

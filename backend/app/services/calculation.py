@@ -35,9 +35,10 @@ def recalculate_part(part_id: int, db: Session) -> None:
                 and total_weight < t.minimum_weight_kg
             )
             if below_threshold:
-                phase.variable_cost_per_part = round((t.minimum_cost or 0.0) / max(qty, 1), 4)
+                total_batch_cost = t.minimum_cost or 0.0
             else:
-                phase.variable_cost_per_part = round((t.cost_per_kg or 0.0) * (part.finished_weight_kg or 0.0), 4)
+                total_batch_cost = (t.cost_per_kg or 0.0) * total_weight
+            phase.variable_cost_per_part = round(total_batch_cost / max(qty, 1), 4)
 
         rate = phase.hourly_rate_override
         if rate is None:

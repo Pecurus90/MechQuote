@@ -4,9 +4,10 @@ export function calcTreatmentCost(t: Treatment, finishedWeightKg: number | undef
   const weight = finishedWeightKg || 0
   const totalBatchWeight = weight * qty
   const belowThreshold = t.minimum_weight_kg != null && t.minimum_weight_kg > 0 && totalBatchWeight < t.minimum_weight_kg
-  return belowThreshold
-    ? (t.minimum_cost || 0) / Math.max(qty, 1)
-    : (t.cost_per_kg || 0) * weight
+  const totalBatchCost = belowThreshold
+    ? (t.minimum_cost || 0)
+    : (t.cost_per_kg || 0) * totalBatchWeight
+  return totalBatchCost / Math.max(qty, 1)
 }
 
 export function calcMaterialCost(part: Part, material: Material | undefined): number {

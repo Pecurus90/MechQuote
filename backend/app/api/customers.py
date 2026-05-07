@@ -3,10 +3,13 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
+from app.core.security import require_permission
 from app.models import Customer
 from app.schemas import CustomerCreate, CustomerUpdate, CustomerOut
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
+
+_can_write = require_permission('customers')
 
 
 @router.get("", response_model=List[CustomerOut])
@@ -18,7 +21,7 @@ def list_customers(db: Session = Depends(get_db), active_only: bool = False):
 
 
 @router.post("", response_model=CustomerOut)
-def create_customer(data: CustomerCreate, db: Session = Depends(get_db)):
+def create_customer(data: CustomerCreate, db: Session = Depends(get_db), _=_can_write):
     customer = Customer(**data.model_dump())
     db.add(customer)
     db.commit()
@@ -35,7 +38,7 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{customer_id}", response_model=CustomerOut)
-def update_customer(customer_id: int, data: CustomerUpdate, db: Session = Depends(get_db)):
+def update_customer(customer_id: int, data: CustomerUpdate, db: Session = Depends(get_db), _=_can_write):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -46,7 +49,7 @@ def update_customer(customer_id: int, data: CustomerUpdate, db: Session = Depend
 
 
 @router.delete("/{customer_id}")
-def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+def delete_customer(customer_id: int, db: Session = Depends(get_db), _=_can_write):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")

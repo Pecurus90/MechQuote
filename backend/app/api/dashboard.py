@@ -5,11 +5,14 @@ from datetime import date, timedelta
 from typing import List
 
 from app.core.database import get_db
+from app.core.security import require_permission
 from app.models import Quote, Part
 from app.schemas import DashboardKPI, MonthlyData
 
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
+
+_can_view = require_permission('dashboard')
 
 
 def calc_quote_value(quote: Quote) -> float:
@@ -18,7 +21,7 @@ def calc_quote_value(quote: Quote) -> float:
 
 
 @router.get("/dashboard/kpi", response_model=DashboardKPI)
-def get_kpi(db: Session = Depends(get_db)):
+def get_kpi(db: Session = Depends(get_db), _=_can_view):
     today = date.today()
     first_this = today.replace(day=1)
     first_prev = (first_this - timedelta(days=1)).replace(day=1)
@@ -64,7 +67,7 @@ def get_kpi(db: Session = Depends(get_db)):
 
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])
-def get_monthly(db: Session = Depends(get_db)):
+def get_monthly(db: Session = Depends(get_db), _=_can_view):
     quotes = db.query(Quote).options(selectinload(Quote.parts)).all()
     data = {}
     for q in quotes:

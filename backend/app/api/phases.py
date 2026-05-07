@@ -50,7 +50,7 @@ def delete_phase(phase_id: int, db: Session = Depends(get_db), _=_can_write):
 
 
 @router.post("/parts/{part_id}/phases/reorder")
-def reorder_phases(part_id: int, phase_ids: List[int], db: Session = Depends(get_db)):
+def reorder_phases(part_id: int, phase_ids: List[int], db: Session = Depends(get_db), _=_can_write):
     for idx, pid in enumerate(phase_ids, start=1):
         phase = db.query(ManufacturingPhase).filter(
             ManufacturingPhase.id == pid, ManufacturingPhase.part_id == part_id

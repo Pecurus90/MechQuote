@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 import os
-import shutil
 
 from app.core.database import get_db
 from app.core.security import require_permission
@@ -155,8 +154,22 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
 
     os.makedirs("uploads", exist_ok=True)
     file_path = f"uploads/part_{part_id}_{safe_filename}"
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+    bytes_written = 0
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        while True:
+            chunk = file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            bytes_written += len(chunk)
+            if bytes_written > MAX_UPLOAD_BYTES:
+                buffer.close()
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                raise HTTPException(status_code=413, detail="File troppo grande (max 50 MB)")
+            buffer.write(chunk)
 
     part_file = PartFile(
         part_id=part_id,

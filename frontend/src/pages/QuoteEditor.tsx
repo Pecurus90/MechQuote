@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
-import type { Material, Category, Customer, Part, Quote, Machine, Treatment } from '@/types'
+import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
 import api from '@/lib/api'
 import { Trash2, Copy, FileDown, ChevronLeft, Save, Plus } from 'lucide-react'
 import { STATUS_LABELS } from '@/lib/constants'
@@ -24,8 +24,8 @@ export default function QuoteEditor() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([])
-  const [templates, setTemplates] = useState<{ id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean; is_shared: boolean }[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [templates, setTemplates] = useState<PhaseTemplate[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)

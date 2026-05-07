@@ -31,9 +31,11 @@ export function calcMaterialCost(part: Part, material: Material | undefined): nu
 }
 
 export function calcPartTotals(part: Part, globalMargin: number, nParts = 1): Part {
+  void nParts // reserved for future shared-phase recalc; kept for API parity with backend
   const phaseTotal = part.phases.reduce((s, p) => s + (p.calculated_cost || 0), 0)
   const deliveryPerPiece = (part.material_delivery_cost || 0) / (part.quantity || 1)
-  const totalCost = Math.round(((part.material_cost || 0) + deliveryPerPiece + phaseTotal) * 100) / 100
+  const cuttingPerPiece = part.material?.material_supplier?.cutting_cost_per_part || 0
+  const totalCost = Math.round(((part.material_cost || 0) + deliveryPerPiece + cuttingPerPiece + phaseTotal) * 100) / 100
   const margin = part.margin_percent ?? globalMargin
   const minimum = part.minimum_price ?? 0
   const base = Math.max(totalCost, minimum)

@@ -4,11 +4,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
-import type { PhaseTemplate } from '@/types'
+import type { PhaseTemplate, Machine, Supplier } from '@/types'
 import { toast } from 'sonner'
-
-interface Machine { id: number; name: string }
-interface Supplier { id: number; name: string }
 
 export default function PhaseTemplatesPage() {
   const [templates, setTemplates] = useState<PhaseTemplate[]>([])

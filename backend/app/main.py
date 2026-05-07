@@ -5,7 +5,7 @@ from sqlalchemy import text
 import os
 
 from app.core.database import engine, Base
-from app.core.security import get_current_user, require_role
+from app.core.security import get_current_user, require_role, require_permission
 from app.models import (
     User, QuoteCategory, Customer, Quote, Part, PartFile, GeometryAnalysis,
     ManufacturingPhase, MaterialSupplier, Material, Machine, Treatment,
@@ -27,6 +27,7 @@ app.add_middleware(
 
 _auth = [Depends(get_current_user)]
 _admin = [require_role('admin')]
+_backup = [require_permission('backup')]
 
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
@@ -45,7 +46,7 @@ app.include_router(treatments.router, dependencies=_auth)
 app.include_router(catalog.router, dependencies=_auth)
 app.include_router(dashboard.router, dependencies=_auth)
 app.include_router(pdf.router, dependencies=_auth)
-app.include_router(backup.router, dependencies=_admin)
+app.include_router(backup.router, dependencies=_backup)
 app.include_router(customers.router, dependencies=_auth)
 app.include_router(roles.router, dependencies=_auth)
 app.include_router(roles.permissions_router, dependencies=_auth)

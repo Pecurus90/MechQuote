@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { AuthProvider, useAuth, UserRole } from '@/lib/auth'
+import { AuthProvider, useAuth } from '@/lib/auth'
+import type { UserRole } from '@/lib/auth'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AppLayout from '@/components/layout/AppLayout'
@@ -50,22 +51,22 @@ function AppRoutes() {
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
 
-        {/* Settings — solo admin */}
-        <Route path="settings/materials"  element={<ProtectedRoute roles={['admin']}><MaterialsPage /></ProtectedRoute>} />
-        <Route path="settings/machines"   element={<ProtectedRoute roles={['admin']}><MachinesPage /></ProtectedRoute>} />
-        <Route path="settings/templates"  element={<ProtectedRoute roles={['admin']}><PhaseTemplatesPage /></ProtectedRoute>} />
-        <Route path="settings/treatments" element={<ProtectedRoute roles={['admin']}><TreatmentsPage /></ProtectedRoute>} />
-        <Route path="settings/cost-rules" element={<ProtectedRoute roles={['admin']}><CostRulesPage /></ProtectedRoute>} />
-        <Route path="settings/step-colors" element={<ProtectedRoute roles={['admin']}><StepColorRulesPage /></ProtectedRoute>} />
+        {/* Settings — gated dal sistema dei permessi dinamici */}
+        <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />
+        <Route path="settings/machines"   element={<ProtectedRoute permission="settings"><MachinesPage /></ProtectedRoute>} />
+        <Route path="settings/templates"  element={<ProtectedRoute permission="settings"><PhaseTemplatesPage /></ProtectedRoute>} />
+        <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
+        <Route path="settings/cost-rules" element={<ProtectedRoute permission="settings"><CostRulesPage /></ProtectedRoute>} />
+        <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />
+        <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />
         <Route path="settings/company"    element={<ProtectedRoute roles={['admin']}><CompanySettingsPage /></ProtectedRoute>} />
-        <Route path="settings/backup"     element={<ProtectedRoute roles={['admin']}><BackupSettingsPage /></ProtectedRoute>} />
-        <Route path="settings/categories" element={<ProtectedRoute roles={['admin']}><QuoteCategoriesPage /></ProtectedRoute>} />
-        <Route path="settings/users"      element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
-        <Route path="settings/roles"      element={<ProtectedRoute roles={['admin']}><RolesPage /></ProtectedRoute>} />
+        <Route path="settings/backup"     element={<ProtectedRoute permission="backup"><BackupSettingsPage /></ProtectedRoute>} />
+        <Route path="settings/users"      element={<ProtectedRoute permission="users"><UsersPage /></ProtectedRoute>} />
+        <Route path="settings/roles"      element={<ProtectedRoute permission="users"><RolesPage /></ProtectedRoute>} />
 
-        {/* Clienti — admin + ufficio_tecnico */}
+        {/* Clienti */}
         <Route path="settings/customers" element={
-          <ProtectedRoute roles={['admin', 'ufficio_tecnico']}><CustomersPage /></ProtectedRoute>
+          <ProtectedRoute permission="customers"><CustomersPage /></ProtectedRoute>
         } />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

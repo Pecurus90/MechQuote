@@ -6,9 +6,12 @@ import os
 import math
 
 from app.core.database import get_db
+from app.core.security import require_permission
 from app.models import Quote, Part, ManufacturingPhase, CostRule, Material, MaterialSupplier
 
 router = APIRouter(prefix="/api", tags=["pdf"])
+
+_can_pdf = require_permission('quotes.pdf')
 
 
 def _esc(text) -> str:
@@ -341,7 +344,7 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
             treat_phases = [ph for ph in part.phases if ph.treatment_id]
             work_cost = sum(ph.calculated_cost for ph in work_phases)
             treat_cost = sum(ph.calculated_cost for ph in treat_phases)
-            treat_ship_pp = (treat_phases[0].fixed_cost or 0.0) / qty if treat_phases else 0.0
+            treat_ship_pp = sum((ph.fixed_cost or 0.0) for ph in treat_phases) / qty
 
             # Left: cost items
             costs_html = f'<div class="cbd-row"><span>Materiale</span><span>{mat_total:.2f}&nbsp;{cur}/pz</span></div>'
@@ -442,7 +445,7 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
 
 
 @router.get("/quotes/{quote_id}/pdf/customer")
-def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
     path = generate_quote_pdf(quote_id, internal=False, db=db)
     background_tasks.add_task(os.unlink, path)
     return FileResponse(
@@ -453,7 +456,7 @@ def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Sessi
 
 
 @router.get("/quotes/{quote_id}/pdf/internal")
-def get_internal_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def get_internal_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
     path = generate_quote_pdf(quote_id, internal=True, db=db)
     background_tasks.add_task(os.unlink, path)
     return FileResponse(

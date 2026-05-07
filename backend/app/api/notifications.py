@@ -24,8 +24,13 @@ def _is_target(n: Notification, user: User) -> bool:
 
 
 def _query_for_user(db: Session, user: User):
-    """Notifications visible to this user."""
+    """Notifications visible to this user (escluso dismissed)."""
+    dismissed_subq = db.query(NotificationRead.notification_id).filter(
+        NotificationRead.user_id == user.id,
+        NotificationRead.dismissed_at.isnot(None),
+    ).subquery()
     return db.query(Notification).filter(
+        ~Notification.id.in_(dismissed_subq),
         or_(
             Notification.target_user_id == user.id,
             # SQLite: target_roles is JSON; we filter in Python for simplicity & portability.
@@ -111,6 +116,33 @@ def mark_read(
         read.read_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
+
+
+@router.post("/clear-read")
+def clear_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """Nasconde dal pannello dell'utente corrente tutte le notifiche già lette.
+
+    Non elimina la notifica globalmente — gli altri destinatari continuano a vederla.
+    Imposta dismissed_at su NotificationRead per ogni notifica letta.
+    """
+    items = _user_notifications(db, current_user)
+    read_ids = [it["id"] for it in items if it["read_at"]]
+    if not read_ids:
+        return {"cleared": 0}
+    now = datetime.utcnow()
+    reads = db.query(NotificationRead).filter(
+        NotificationRead.user_id == current_user.id,
+        NotificationRead.notification_id.in_(read_ids),
+    ).all()
+    for r in reads:
+        if not r.dismissed_at:
+            r.dismissed_at = now
+    db.commit()
+    return {"cleared": len(read_ids)}
 
 
 @router.post("/{notification_id}/confirm")

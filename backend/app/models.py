@@ -342,5 +342,6 @@ class NotificationRead(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     read_at = Column(DateTime, nullable=True)
     confirmed_at = Column(DateTime, nullable=True)
+    dismissed_at = Column(DateTime, nullable=True)  # nascondi dal pannello (per-utente)
 
     notification = relationship("Notification", back_populates="reads")

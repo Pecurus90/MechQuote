@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { X, Check, Bell } from 'lucide-react'
+import { X, Check, Bell, Trash2 } from 'lucide-react'
 import type { Notification } from '@/lib/useNotifications'
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   onRefresh: () => void
   onMarkRead: (id: number) => void
   onMarkConfirmed: (id: number) => void
+  onClearRead: () => void
 }
 
 const relativeTime = (iso: string | null): string => {
@@ -29,9 +30,16 @@ const relativeTime = (iso: string | null): string => {
 }
 
 export default function NotificationPanel({
-  open, onClose, items, loading, onRefresh, onMarkRead, onMarkConfirmed,
+  open, onClose, items, loading, onRefresh, onMarkRead, onMarkConfirmed, onClearRead,
 }: Props) {
   const navigate = useNavigate()
+  const readCount = items.filter(n => n.read_at).length
+
+  const handleClearRead = () => {
+    if (readCount === 0) return
+    if (!confirm(`Svuotare ${readCount} notifiche già lette?`)) return
+    onClearRead()
+  }
 
   useEffect(() => {
     if (open) onRefresh()
@@ -57,9 +65,21 @@ export default function NotificationPanel({
             <Bell className="w-4 h-4 text-gray-500" />
             <h2 className="font-semibold text-gray-900">Notifiche</h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100">
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-1">
+            {readCount > 0 && (
+              <button
+                onClick={handleClearRead}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-500 hover:text-red-600 hover:bg-red-50"
+                title="Svuota notifiche lette"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Svuota lette
+              </button>
+            )}
+            <button onClick={onClose} className="p-1 rounded hover:bg-gray-100" title="Chiudi">
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">

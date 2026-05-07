@@ -55,7 +55,7 @@ export default function Sidebar() {
   const [systemOpen, setSystemOpen] = useState(isSystemActive)
   const [notifOpen, setNotifOpen] = useState(false)
 
-  const { enabled: notifEnabled, unreadCount, items, loading: notifLoading, fetchList, markRead, markConfirmed } = useNotifications()
+  const { enabled: notifEnabled, unreadCount, items, loading: notifLoading, fetchList, markRead, markConfirmed, clearRead } = useNotifications()
 
   const handleLogout = () => {
     logout()
@@ -265,6 +265,7 @@ export default function Sidebar() {
         onRefresh={fetchList}
         onMarkRead={markRead}
         onMarkConfirmed={markConfirmed}
+        onClearRead={clearRead}
       />
     </aside>
   )

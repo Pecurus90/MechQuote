@@ -58,6 +58,12 @@ export function useNotifications() {
     fetchCount()
   }, [fetchCount])
 
+  const clearRead = useCallback(async () => {
+    await api.post('/notifications/clear-read')
+    setItems(prev => prev.filter(n => !n.read_at))
+    fetchCount()
+  }, [fetchCount])
+
   useEffect(() => {
     if (!enabled) return
     fetchCount()
@@ -67,5 +73,5 @@ export function useNotifications() {
     }
   }, [enabled, fetchCount])
 
-  return { enabled, unreadCount, items, loading, fetchList, markRead, markConfirmed }
+  return { enabled, unreadCount, items, loading, fetchList, markRead, markConfirmed, clearRead }
 }

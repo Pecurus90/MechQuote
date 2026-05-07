@@ -332,6 +332,78 @@ export default function QuoteEditor() {
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Riepilogo commessa */}
+          {selectedPartIdx === -1 && quote.parts.length > 1 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Riepilogo Commessa</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left p-3 font-medium text-gray-600">Codice</th>
+                      <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Qtà</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Costo/pz</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Prezzo/pz</th>
+                      <th className="text-right p-3 font-medium text-gray-600">Totale</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quote.parts.map((part, idx) => (
+                      <tr
+                        key={part.id ?? idx}
+                        onClick={() => setSelectedPartIdx(idx)}
+                        className="border-b hover:bg-blue-50 cursor-pointer"
+                      >
+                        <td className="p-3 font-mono font-medium text-blue-700 whitespace-nowrap">
+                          {partsWithIssues.has(idx) && <span className="text-amber-500 mr-1">⚠</span>}
+                          {part.part_code}
+                        </td>
+                        <td className="p-3 text-gray-600 truncate max-w-48">{part.description || '—'}</td>
+                        <td className="p-3 text-right">{part.quantity}</td>
+                        <td className="p-3 text-right text-gray-500">{(part.total_cost ?? 0).toFixed(2)} €</td>
+                        <td className="p-3 text-right text-gray-500">{(part.unit_price ?? 0).toFixed(2)} €</td>
+                        <td className="p-3 text-right font-semibold">{(part.total_price ?? 0).toFixed(2)} €</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t bg-gray-50">
+                    <tr>
+                      <td colSpan={5} className="p-3 text-right text-sm text-gray-500">Subtotale</td>
+                      <td className="p-3 text-right font-medium">{partsSubtotal.toFixed(2)} €</td>
+                    </tr>
+                    {quote.transport_cost > 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-gray-500">Trasporto</td>
+                        <td className="px-3 pb-1 text-right text-sm">{quote.transport_cost.toFixed(2)} €</td>
+                      </tr>
+                    )}
+                    {quote.packaging_cost > 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-gray-500">Imballaggio</td>
+                        <td className="px-3 pb-1 text-right text-sm">{quote.packaging_cost.toFixed(2)} €</td>
+                      </tr>
+                    )}
+                    {quote.global_discount_percent > 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-gray-500">Sconto {quote.global_discount_percent}%</td>
+                        <td className="px-3 pb-1 text-right text-sm text-red-500">
+                          -{((partsSubtotal + quote.transport_cost + quote.packaging_cost) * quote.global_discount_percent / 100).toFixed(2)} €
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="border-t">
+                      <td colSpan={5} className="p-3 text-right font-bold text-gray-800">Totale commessa</td>
+                      <td className="p-3 text-right font-bold text-blue-700 text-base">{total.toFixed(2)} €</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quote details panel */}
           {selectedPartIdx === -1 && (
             <Card>

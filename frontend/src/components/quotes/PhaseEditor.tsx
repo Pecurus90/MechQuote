@@ -200,7 +200,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
               >
                 <option value="">Da template...</option>
                 {templates.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}{t.is_shared ? ' ↗' : ''}</option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
             )}
@@ -253,9 +253,6 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                   <span className="flex-1 text-sm font-medium truncate">
                     {phaseLabel(phase.phase_type)}
                     {selectedTreatment && <span className="text-gray-400 font-normal"> — {selectedTreatment.name}</span>}
-                    {phase.is_shared && nParts > 1 && (
-                      <span className="ml-1 text-[10px] text-indigo-500 font-normal" title={`Condivisa tra ${nParts} parti`}>↗ ÷{nParts}</span>
-                    )}
                   </span>
                   {phase.description && !selectedTreatment && (
                     <span className="text-xs text-gray-400 truncate max-w-32">{phase.description}</span>
@@ -436,17 +433,6 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                             Visibile al cliente
                           </label>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id={`shared-${idx}`}
-                            checked={phase.is_shared ?? false}
-                            onChange={e => { updateField(idx, 'is_shared', e.target.checked); savePhase(idx) }}
-                          />
-                          <label htmlFor={`shared-${idx}`} className="text-xs text-gray-600 cursor-pointer" title="Setup e costo fisso divisi per tutti i pezzi della commessa">
-                            Condivisa{nParts > 1 ? ` (÷${nParts} parti)` : ''}
-                          </label>
-                        </div>
                       </div>
                     </div>
 
@@ -481,21 +467,19 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         const rate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
                         const divisor = quantity * (phase.is_shared ? nParts : 1)
                         if (isTreatment) {
-                          const sharedNote = phase.is_shared && nParts > 1 ? ` ÷${nParts} parti` : ''
                           const treatSupplierName = selectedTreatment?.supplier?.name
                           return (
                             <span className="text-xs text-gray-400">
                               {treatSupplierName && <span className="mr-2 text-indigo-400">{treatSupplierName}</span>}
                               {weightThresholdActive && <span className="mr-2 text-amber-500">minimo lotto {'<'}{selectedTreatment!.minimum_weight_kg} kg</span>}
-                              Fisso: {((phase.fixed_cost || 0) / divisor).toFixed(2)} €{sharedNote} · Lavorazione: {(phase.variable_cost_per_part || 0).toFixed(2)} €/pz
+                              Fisso: {((phase.fixed_cost || 0) / divisor).toFixed(2)} € · Lavorazione: {(phase.variable_cost_per_part || 0).toFixed(2)} €/pz
                             </span>
                           )
                         }
-                        const sharedNote = phase.is_shared && nParts > 1 ? ` ÷${nParts}` : ''
                         return (
                           <span className="text-xs text-gray-400">
                             Tariffa: {rate.toFixed(0)} €/h ·
-                            Setup: {((phase.setup_hours || 0) * rate / divisor).toFixed(2)} € (÷{quantity}pz{sharedNote}) ·
+                            Setup: {((phase.setup_hours || 0) * rate / divisor).toFixed(2)} € (÷{quantity}pz) ·
                             Ciclo: {((phase.cycle_hours_per_part || 0) * rate).toFixed(2)} €/pz
                           </span>
                         )

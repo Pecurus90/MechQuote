@@ -87,12 +87,12 @@ export default function StepColorRulesPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[6%]">Colore</th>
-                <th className="text-left p-3 w-[20%]">Nome</th>
-                <th className="text-left p-3 w-[28%]">Significato</th>
-                <th className="text-left p-3 w-[28%]">Fase Suggerita</th>
-                <th className="text-center p-3 w-[8%]">Attivo</th>
-                <th className="text-center p-3 w-[10%]">Azioni</th>
+                <th className="text-left p-3 w-[6%] font-medium text-gray-600">Colore</th>
+                <th className="text-left p-3 w-[20%] font-medium text-gray-600">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Significato</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Fase Suggerita</th>
+                <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
+                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>

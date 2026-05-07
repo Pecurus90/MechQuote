@@ -92,10 +92,10 @@ export default function MachinesPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[38%]">Nome</th>
-                <th className="text-left p-3 w-[38%]">Tipo</th>
-                <th className="text-right p-3 w-[14%]">Tariffa €/h</th>
-                <th className="text-center p-3 w-[10%]">Azioni</th>
+                <th className="text-left p-3 w-[38%] font-medium text-gray-600">Nome</th>
+                <th className="text-left p-3 w-[38%] font-medium text-gray-600">Tipo</th>
+                <th className="text-right p-3 w-[14%] font-medium text-gray-600">Tariffa €/h</th>
+                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>

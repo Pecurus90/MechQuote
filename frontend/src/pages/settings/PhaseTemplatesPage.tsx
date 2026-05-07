@@ -4,21 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
-
-interface PhaseTemplate {
-  id: number
-  name: string
-  phase_type: string
-  default_machine_id: number | null
-  default_supplier_id: number | null
-  setup_hours: number
-  cycle_hours_per_part: number
-  fixed_cost: number
-  variable_cost_per_part: number
-  customer_visible: boolean
-  is_shared: boolean
-  notes: string
-}
+import type { PhaseTemplate } from '@/types'
 
 interface Machine { id: number; name: string }
 interface Supplier { id: number; name: string }
@@ -116,13 +102,13 @@ export default function PhaseTemplatesPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[26%]">Nome</th>
-                <th className="text-left p-3 w-[20%]">Tipo Fase</th>
-                <th className="text-right p-3 w-[11%]">Setup (h)</th>
-                <th className="text-right p-3 w-[11%]">Ciclo (h)</th>
-                <th className="text-center p-3 w-[10%]">Visibile</th>
-                <th className="text-center p-3 w-[12%]">Condivisa</th>
-                <th className="text-center p-3 w-[10%]">Azioni</th>
+                <th className="text-left p-3 w-[26%] font-medium text-gray-600">Nome</th>
+                <th className="text-left p-3 w-[20%] font-medium text-gray-600">Tipo Fase</th>
+                <th className="text-right p-3 w-[11%] font-medium text-gray-600">Setup (h)</th>
+                <th className="text-right p-3 w-[11%] font-medium text-gray-600">Ciclo (h)</th>
+                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Visibile</th>
+                <th className="text-center p-3 w-[12%] font-medium text-gray-600">Condivisa</th>
+                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>

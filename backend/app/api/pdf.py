@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 import tempfile
+import os
 import math
 
 from app.core.database import get_db
@@ -278,8 +279,9 @@ body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
 
 
 @router.get("/quotes/{quote_id}/pdf/customer")
-def get_customer_pdf(quote_id: int, db: Session = Depends(get_db)):
+def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     path = generate_quote_pdf(quote_id, internal=False, db=db)
+    background_tasks.add_task(os.unlink, path)
     return FileResponse(
         path=path,
         media_type='application/pdf',
@@ -288,8 +290,9 @@ def get_customer_pdf(quote_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/quotes/{quote_id}/pdf/internal")
-def get_internal_pdf(quote_id: int, db: Session = Depends(get_db)):
+def get_internal_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     path = generate_quote_pdf(quote_id, internal=True, db=db)
+    background_tasks.add_task(os.unlink, path)
     return FileResponse(
         path=path,
         media_type='application/pdf',

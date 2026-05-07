@@ -150,15 +150,15 @@ export default function TreatmentsPage() {
             <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[28%]">Nome</th>
-                  <th className="text-left p-3 w-[43%]">Indirizzo</th>
-                  <th className="text-right p-3 w-[17%]">Spedizione (€)</th>
-                  <th className="text-center p-3 w-[12%]">Azioni</th>
+                  <th className="text-left p-3 w-[28%] font-medium text-gray-600">Nome</th>
+                  <th className="text-left p-3 w-[43%] font-medium text-gray-600">Indirizzo</th>
+                  <th className="text-right p-3 w-[17%] font-medium text-gray-600">Spedizione (€)</th>
+                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleSup.length === 0 && (
-                  <tr><td colSpan={4} className="p-4 text-center text-gray-400 text-xs">Nessun fornitore trovato.</td></tr>
+                  <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessun fornitore trovato.</td></tr>
                 )}
                 {visibleSup.map(s => (
                   supForm?.id === s.id ? (
@@ -229,16 +229,19 @@ export default function TreatmentsPage() {
             <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[22%]">Nome</th>
-                  <th className="text-left p-3 w-[14%]">Tipo</th>
-                  <th className="text-right p-3 w-[11%]">€/kg</th>
-                  <th className="text-right p-3 w-[11%]">Min (€)</th>
-                  <th className="text-right p-3 w-[11%]">Soglia (kg)</th>
-                  <th className="text-left p-3 w-[20%]">Fornitore</th>
-                  <th className="text-center p-3 w-[11%]">Azioni</th>
+                  <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
+                  <th className="text-left p-3 w-[14%] font-medium text-gray-600">Tipo</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">€/kg</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Min (€)</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Soglia (kg)</th>
+                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
+                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Azioni</th>
                 </tr>
               </thead>
               <tbody>
+                {visibleTreat.length === 0 && (
+                  <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun trattamento trovato.</td></tr>
+                )}
                 {visibleTreat.map(t => (
                   <tr key={t.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium truncate">{t.name}</td>
@@ -309,7 +312,7 @@ export default function TreatmentsPage() {
                     onChange={e => setTreatForm(f => f ? { ...f, supplierId: e.target.value } : f)}
                   >
                     <option value="">Nessun fornitore</option>
-                    {suppliers.filter(s => s.active).map(s => (
+                    {[...suppliers].filter(s => s.active).sort((a, b) => a.name.localeCompare(b.name, 'it')).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>

@@ -1,10 +1,17 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import get_db
 import bcrypt
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -22,3 +29,21 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    from app.models import User  # local import to avoid circular dependency
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        username: Optional[str] = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401, detail="Token non valido")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token non valido")
+    user = db.query(User).filter(User.username == username, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Utente non trovato")
+    return user

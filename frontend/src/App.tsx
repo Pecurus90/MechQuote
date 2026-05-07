@@ -25,7 +25,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) { setReady(true); return }
-    api.get('/health').then(() => {
+    api.get('/auth/me').then(() => {
       setOk(true)
       setReady(true)
     }).catch(() => {

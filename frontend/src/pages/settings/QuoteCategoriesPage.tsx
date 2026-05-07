@@ -123,12 +123,14 @@ export default function QuoteCategoriesPage() {
                           <td className="p-3">{cat.name}</td>
                           <td className="p-3 text-center text-gray-400">{cat.sort_order}</td>
                           <td className="p-3 text-center">
-                            <button onClick={() => startEdit(cat)} className="p-1 text-gray-400 hover:text-blue-600 rounded mr-1">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => deleteCategory(cat.id)} className="p-1 text-gray-400 hover:text-red-500 rounded">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex gap-2 justify-center">
+                              <button onClick={() => startEdit(cat)} className="p-1 hover:bg-gray-100 rounded">
+                                <Pencil className="w-4 h-4 text-blue-600" />
+                              </button>
+                              <button onClick={() => deleteCategory(cat.id)} className="p-1 hover:bg-red-50 rounded">
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            </div>
                           </td>
                         </>
                       )}

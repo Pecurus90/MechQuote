@@ -4,23 +4,10 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
-import type { Phase, Machine, Treatment } from '@/types'
+import type { Phase, Machine, Treatment, PhaseTemplate } from '@/types'
 import { PHASE_TYPES } from '@/lib/constants'
 
 interface Supplier { id: number; name: string }
-interface PhaseTemplate {
-  id: number
-  name: string
-  phase_type: string
-  default_machine_id: number | null
-  default_supplier_id: number | null
-  setup_hours: number
-  cycle_hours_per_part: number
-  fixed_cost: number
-  variable_cost_per_part: number
-  customer_visible: boolean
-  is_shared: boolean
-}
 
 interface Props {
   partId?: number

@@ -1,35 +1,46 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 import os
 
 from app.core.database import engine, Base
+from app.core.security import get_current_user
 from app.models import *
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="MechQuote API", version="1.0.0")
 
+_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-from app.api import auth, quotes, parts, phases, settings, dashboard, pdf, backup, customers, quotes_archive
+_auth = [Depends(get_current_user)]
+
+from app.api import (
+    auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
+    materials, machines, treatments, catalog,
+)
 app.include_router(auth.router)
-app.include_router(quotes_archive.router)
-app.include_router(quotes.router)
-app.include_router(parts.router)
-app.include_router(phases.router)
-app.include_router(settings.router)
-app.include_router(dashboard.router)
-app.include_router(pdf.router)
-app.include_router(backup.router)
-app.include_router(customers.router)
+# quotes_archive MUST be registered before quotes to avoid /quotes/{id} swallowing /quotes/archive
+app.include_router(quotes_archive.router, dependencies=_auth)
+app.include_router(quotes.router, dependencies=_auth)
+app.include_router(parts.router, dependencies=_auth)
+app.include_router(phases.router, dependencies=_auth)
+app.include_router(materials.router, dependencies=_auth)
+app.include_router(machines.router, dependencies=_auth)
+app.include_router(treatments.router, dependencies=_auth)
+app.include_router(catalog.router, dependencies=_auth)
+app.include_router(dashboard.router, dependencies=_auth)
+app.include_router(pdf.router, dependencies=_auth)
+app.include_router(backup.router, dependencies=_auth)
+app.include_router(customers.router, dependencies=_auth)
 
 
 def _run_migrations():

@@ -83,7 +83,9 @@ def duplicate_part(part_id: int, db: Session = Depends(get_db)):
         raw_y_mm=part.raw_y_mm,
         raw_z_mm=part.raw_z_mm,
         raw_diameter_mm=part.raw_diameter_mm,
+        finished_weight_kg=part.finished_weight_kg,
         material_cost=part.material_cost,
+        material_delivery_cost=part.material_delivery_cost,
         margin_percent=part.margin_percent,
         minimum_price=part.minimum_price,
         rounding_rule=part.rounding_rule,
@@ -104,12 +106,16 @@ def duplicate_part(part_id: int, db: Session = Depends(get_db)):
             description=ph.description,
             machine_id=ph.machine_id,
             supplier_id=ph.supplier_id,
+            treatment_id=ph.treatment_id,
             setup_hours=ph.setup_hours,
             cycle_hours_per_part=ph.cycle_hours_per_part,
             fixed_cost=ph.fixed_cost,
             variable_cost_per_part=ph.variable_cost_per_part,
             hourly_rate_override=ph.hourly_rate_override,
             customer_visible=ph.customer_visible,
+            is_shared=ph.is_shared,
+            internal_notes=ph.internal_notes,
+            customer_notes=ph.customer_notes,
         )
         db.add(new_ph)
 
@@ -129,7 +135,10 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
-    ext = os.path.splitext(file.filename)[1].lower()
+    safe_filename = os.path.basename(file.filename or "upload").replace("..", "").strip("/\\")
+    if not safe_filename:
+        safe_filename = "upload"
+    ext = os.path.splitext(safe_filename)[1].lower()
     if ext == '.dxf':
         file_type = 'dxf'
     elif ext in ('.step', '.stp'):
@@ -142,14 +151,14 @@ def upload_file(part_id: int, file: UploadFile = File(...), db: Session = Depend
         file_type = 'other'
 
     os.makedirs("uploads", exist_ok=True)
-    file_path = f"uploads/part_{part_id}_{file.filename}"
+    file_path = f"uploads/part_{part_id}_{safe_filename}"
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     part_file = PartFile(
         part_id=part_id,
         file_type=file_type,
-        filename=file.filename,
+        filename=safe_filename,
         path=file_path,
     )
     db.add(part_file)

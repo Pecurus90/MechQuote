@@ -74,10 +74,10 @@ export default function CostRulesPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[25%]">Chiave</th>
-                <th className="text-left p-3 w-[20%]">Valore</th>
-                <th className="text-left p-3 w-[43%]">Descrizione</th>
-                <th className="text-center p-3 w-[12%]">Azioni</th>
+                <th className="text-left p-3 w-[25%] font-medium text-gray-600">Chiave</th>
+                <th className="text-left p-3 w-[20%] font-medium text-gray-600">Valore</th>
+                <th className="text-left p-3 w-[43%] font-medium text-gray-600">Descrizione</th>
+                <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>

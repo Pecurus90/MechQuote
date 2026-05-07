@@ -10,9 +10,7 @@ export interface Treatment {
   id: number
   name: string
   treatment_type: string | null
-  fixed_cost: number
   cost_per_kg: number
-  cost_per_part: number
   minimum_cost: number
   minimum_weight_kg?: number | null
   supplier_id: number | null
@@ -133,6 +131,21 @@ export interface QuoteListItem {
   quote_date: string
   status: string
   parts: { total_price?: number }[]
+}
+
+export interface PhaseTemplate {
+  id: number
+  name: string
+  phase_type: string
+  default_machine_id: number | null
+  default_supplier_id: number | null
+  setup_hours: number
+  cycle_hours_per_part: number
+  fixed_cost: number
+  variable_cost_per_part: number
+  customer_visible: boolean
+  is_shared: boolean
+  notes?: string | null
 }
 
 export interface DashboardKPI {

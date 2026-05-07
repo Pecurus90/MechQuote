@@ -97,12 +97,10 @@ class PhaseBase(BaseModel):
     supplier_id: Optional[int] = None
     setup_hours: Optional[float] = 0.0
     cycle_hours_per_part: Optional[float] = 0.0
-    quantity_multiplier: Optional[float] = 1.0
     fixed_cost: Optional[float] = 0.0
     variable_cost_per_part: Optional[float] = 0.0
     hourly_rate_override: Optional[float] = None
     calculated_cost: Optional[float] = 0.0
-    margin_percent_override: Optional[float] = None
     customer_visible: Optional[bool] = True
     is_shared: Optional[bool] = False
     treatment_id: Optional[int] = None
@@ -331,10 +329,7 @@ class SupplierOut(SupplierBase):
 class TreatmentBase(BaseModel):
     name: str
     treatment_type: Optional[str] = None
-    fixed_cost: Optional[float] = 0.0
     cost_per_kg: Optional[float] = 0.0
-    cost_per_part: Optional[float] = 0.0
-    cost_per_surface_area: Optional[float] = 0.0
     minimum_cost: Optional[float] = 0.0
     minimum_weight_kg: Optional[float] = None
     supplier_id: Optional[int] = None
@@ -366,6 +361,10 @@ class CostRuleBase(BaseModel):
 
 
 class CostRuleCreate(CostRuleBase):
+    pass
+
+
+class CostRuleUpdate(CostRuleBase):
     pass
 
 

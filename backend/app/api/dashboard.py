@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 from datetime import date, timedelta
 from typing import List
@@ -38,17 +39,15 @@ def get_kpi(db: Session = Depends(get_db)):
 
     avg_quote_value = total_quoted_value / total_quotes if total_quotes > 0 else 0.0
 
-    all_parts = db.query(Part).all()
-    total_part_codes = len(all_parts)
+    total_part_codes = db.query(func.count(Part.id)).scalar() or 0
 
-    cnc_value = sum(
-        p.total_price or 0 for p in all_parts
-        if p.quote_mode in ("manual", "step", "mixed") and p.total_price
-    )
-    edm_value = sum(
-        p.total_price or 0 for p in all_parts
-        if p.quote_mode in ("dxf", "mixed") and p.total_price
-    )
+    cnc_value = db.query(func.coalesce(func.sum(Part.total_price), 0.0)).filter(
+        Part.quote_mode.in_(["manual", "step", "mixed"])
+    ).scalar() or 0.0
+
+    edm_value = db.query(func.coalesce(func.sum(Part.total_price), 0.0)).filter(
+        Part.quote_mode.in_(["dxf", "mixed"])
+    ).scalar() or 0.0
 
     return DashboardKPI(
         total_quotes=total_quotes,

@@ -22,10 +22,133 @@ def _fmt_time(hours: float) -> str:
         return ""
     total_min = round(hours * 60)
     if total_min < 60:
-        return f"{total_min} min"
+        return f"{total_min}&prime;"
     h = total_min // 60
     m = total_min % 60
-    return f"{h}h {m}min" if m else f"{h}h"
+    return f"{h}h{m:02d}&prime;" if m else f"{h}h"
+
+
+def _phase_label(phase_type: str) -> str:
+    labels = {
+        "cnc": "CNC", "turning": "TORN.", "milling": "FRES.",
+        "grinding": "RETT.", "edm_wire": "EDM FILO", "edm_sink": "EDM TUFF.",
+        "edm_drill": "EDM FOR.", "laser": "LASER", "waterjet": "IDRO",
+        "heat_treatment": "TRATT.", "surface_treatment": "SUPER.",
+        "assembly": "MONT.", "inspection": "CTRL", "external": "CONTO LAV.",
+        "other": "ALTRO",
+    }
+    return labels.get(phase_type, phase_type.upper().replace("_", " "))
+
+
+CSS = """
+@page { margin: 18mm 14mm 16mm; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #1e293b; line-height: 1.4; }
+
+/* ── Header ─────────────────────────────── */
+.hdr { display: flex; justify-content: space-between; align-items: flex-start;
+       border-bottom: 3px solid #1d4ed8; padding-bottom: 14px; margin-bottom: 16px; }
+.co-name { font-size: 18px; font-weight: 700; color: #1e3a8a; }
+.co-info { font-size: 9.5px; color: #64748b; line-height: 1.7; margin-top: 4px; }
+.qbadge { text-align: right; }
+.qbadge-pill { display: inline-block; background: #1d4ed8; color: #fff;
+               font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+               padding: 3px 10px; border-radius: 20px; }
+.qnum { font-family: monospace; font-size: 17px; font-weight: 700;
+        color: #1e3a8a; margin-top: 5px; }
+.int-tag { color: #dc2626; font-weight: 700; font-size: 10px; margin-top: 3px; }
+
+/* ── Meta bar ────────────────────────────── */
+.meta { display: flex; gap: 10px; margin-bottom: 18px; }
+.meta-box { flex: 1; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 8px 11px; background: #f8fafc; }
+.ml { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.8px;
+      color: #94a3b8; font-weight: 600; }
+.mv { font-size: 11.5px; font-weight: 600; color: #0f172a; margin-top: 2px; }
+.mv-sm { font-size: 10px; color: #475569; margin-top: 1px; }
+
+/* ── Part card ───────────────────────────── */
+.part { border: 1px solid #cbd5e1; border-radius: 7px; margin-bottom: 13px;
+        overflow: hidden; page-break-inside: avoid; }
+.ph { background: #eff6ff; padding: 7px 12px; border-bottom: 1px solid #bfdbfe;
+      display: flex; justify-content: space-between; align-items: center; }
+.ph-left { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.pc { font-family: monospace; font-size: 12.5px; font-weight: 700; color: #1d4ed8; }
+.pd { font-size: 10.5px; color: #475569; }
+.prev { background: #e0e7ff; color: #3730a3; font-size: 9px;
+        padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+.pqty { background: #dbeafe; color: #1d4ed8; font-size: 9.5px; font-weight: 600;
+        padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+
+/* ── Material line ───────────────────────── */
+.matl { padding: 5px 12px; font-size: 10px; color: #475569;
+        background: #f8fafc; border-bottom: 1px solid #f1f5f9; }
+.matl b { color: #334155; }
+
+/* ── Cost breakdown (internal) ───────────── */
+.cbd { background: #fffbeb; border-top: 1px solid #fde68a;
+       border-bottom: 1px solid #fde68a; padding: 6px 12px 5px; }
+.cbd-title { font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
+             color: #92400e; font-weight: 700; margin-bottom: 5px; }
+.cbd-grid { display: flex; gap: 0; }
+.cbd-col { flex: 1; border-right: 1px solid #fde68a; padding-right: 10px; margin-right: 10px; }
+.cbd-col:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+.cbd-row { display: flex; justify-content: space-between; font-size: 10px;
+           color: #374151; font-weight: 600; padding: 1px 0; }
+.cbd-sub { display: flex; justify-content: space-between; font-size: 8.5px;
+           color: #b45309; padding: 0 0 1px 8px; }
+.cbd-total { display: flex; justify-content: space-between; font-size: 10px;
+             color: #1e3a8a; font-weight: 700; border-top: 1px solid #fde68a;
+             margin-top: 4px; padding-top: 3px; }
+
+/* ── Phases table ────────────────────────── */
+.ops { width: 100%; border-collapse: collapse; }
+.ops td { padding: 5px 10px; font-size: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+.ops tr:last-child td { border-bottom: none; }
+.ops-n { width: 22px; text-align: center; color: #94a3b8; font-size: 8.5px; padding-top: 7px; }
+.ops-type { width: 88px; }
+.badge { display: inline-block; border-radius: 3px; padding: 2px 6px;
+         font-size: 8.5px; font-weight: 700; white-space: nowrap; }
+.badge-work { background: #dbeafe; color: #1d4ed8; }
+.badge-treat { background: #d1fae5; color: #065f46; }
+.badge-ext { background: #f3e8ff; color: #6b21a8; }
+.ops-mach { color: #94a3b8; font-size: 8.5px; margin-top: 2px; }
+.ops-desc { color: #374151; }
+.ops-note { color: #94a3b8; font-style: italic; font-size: 9px; margin-top: 2px; }
+.ops-time { text-align: right; color: #64748b; white-space: nowrap; font-size: 9px; }
+.ops-cost { text-align: right; color: #64748b; white-space: nowrap; }
+.no-ops { padding: 8px 12px; font-size: 10px; color: #94a3b8; font-style: italic; }
+
+/* ── Price footer ────────────────────────── */
+.pfoot { background: #eff6ff; border-top: 1px solid #bfdbfe;
+         padding: 7px 12px; display: flex; justify-content: flex-end;
+         align-items: center; gap: 18px; }
+.pf-cost { font-size: 9.5px; color: #64748b; }
+.pf-unit { font-size: 10.5px; color: #374151; }
+.pf-total { font-size: 13px; font-weight: 700; color: #1d4ed8; }
+
+/* ── Totals ──────────────────────────────── */
+.totals-wrap { display: flex; justify-content: flex-end; margin-top: 14px; }
+.totals-box { min-width: 260px; border: 1px solid #e2e8f0; border-radius: 7px; overflow: hidden; }
+.totals-row { display: flex; justify-content: space-between; padding: 5px 14px;
+              font-size: 10.5px; border-bottom: 1px solid #f1f5f9; }
+.totals-row:last-child { border-bottom: none; }
+.totals-label { color: #64748b; }
+.totals-val { font-weight: 600; font-family: monospace; }
+.totals-disc { color: #dc2626; }
+.totals-head { background: #f8fafc; padding: 5px 14px;
+               font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.8px;
+               color: #94a3b8; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+.totals-final { background: #eff6ff; border-top: 2px solid #1d4ed8;
+                padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; }
+.totals-final-label { font-size: 10px; font-weight: 600; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+.totals-final-val { font-size: 16px; font-weight: 700; color: #1d4ed8; font-family: monospace; }
+
+/* ── Notes / footer ──────────────────────── */
+.doc-notes { margin-top: 14px; font-size: 9.5px; color: #475569;
+             border-top: 1px solid #e2e8f0; padding-top: 10px; }
+.doc-footer { margin-top: 10px; font-size: 8.5px; color: #94a3b8; text-align: center; }
+"""
 
 
 def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
@@ -50,246 +173,242 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
     company_phone = company.get('company_phone', '')
     company_email = company.get('company_email', '')
 
-    quote_date_str = str(quote.quote_date) if quote.quote_date else "-"
+    quote_date_str = str(quote.quote_date)[:10] if quote.quote_date else "—"
     cur = _esc(quote.currency) or "EUR"
 
+    # ── Company info lines ──
+    co_lines = f'<div class="co-info">{_esc(company_address)}'
+    if company_vat:
+        co_lines += f'<br>P.IVA: {_esc(company_vat)}'
+    if company_phone:
+        co_lines += f'<br>Tel: {_esc(company_phone)}'
+    if company_email:
+        co_lines += f'<br>{_esc(company_email)}'
+    co_lines += '</div>'
+
+    int_tag = '<div class="int-tag">▶ USO INTERNO</div>' if internal else ""
+
+    # ── Meta boxes ──
+    meta_boxes = f"""
+<div class="meta-box">
+  <div class="ml">Cliente</div>
+  <div class="mv">{_esc(quote.customer_name) or "—"}</div>
+  {"<div class='ml' style='margin-top:6px;'>Rif. cliente</div><div class='mv-sm'>" + _esc(quote.customer_reference) + "</div>" if quote.customer_reference else ""}
+</div>
+<div class="meta-box">
+  <div class="ml">Data</div>
+  <div class="mv">{quote_date_str}</div>
+  <div class="ml" style="margin-top:5px;">Validità</div>
+  <div class="mv-sm">{quote.validity_days or 30} giorni</div>
+</div>"""
+    if quote.delivery_text:
+        meta_boxes += f"""
+<div class="meta-box">
+  <div class="ml">Consegna</div>
+  <div class="mv-sm">{_esc(quote.delivery_text)}</div>
+</div>"""
+
     html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-@page {{ margin: 2cm; }}
-body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
-.header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 20px; }}
-.company-name {{ font-size: 22px; font-weight: bold; color: #1e40af; }}
-.company-info {{ font-size: 11px; color: #555; margin-top: 4px; }}
-.quote-title {{ font-size: 20px; font-weight: bold; text-align: right; color: #1e40af; }}
-.quote-number {{ text-align: right; color: #666; margin-top: 4px; font-size: 13px; }}
-.info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0 20px; }}
-.info-box {{ background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; }}
-.info-label {{ font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }}
-.info-value {{ font-size: 13px; font-weight: 600; margin-top: 2px; }}
-/* Part cards */
-.part-block {{ border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; overflow: hidden; page-break-inside: avoid; }}
-.part-head {{ background: #f0f4ff; padding: 9px 14px; border-bottom: 1px solid #dbeafe; display: flex; justify-content: space-between; align-items: center; }}
-.part-head-left {{ display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }}
-.part-code {{ font-family: monospace; font-weight: 700; color: #1e40af; font-size: 13px; }}
-.part-rev {{ background: #dbeafe; color: #1e40af; padding: 1px 5px; border-radius: 3px; font-size: 10px; }}
-.part-desc {{ color: #374151; font-size: 12px; }}
-.part-qty {{ font-size: 12px; color: #6b7280; white-space: nowrap; }}
-.mat-row {{ padding: 6px 14px; font-size: 11px; color: #555; background: #fafafa; border-bottom: 1px solid #f0f0f0; }}
-.mat-label {{ font-weight: 600; color: #374151; }}
-.ops-table {{ width: 100%; border-collapse: collapse; }}
-.ops-table td {{ padding: 6px 12px; font-size: 11px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }}
-.ops-table tr:last-child td {{ border-bottom: none; }}
-.ops-seq {{ width: 28px; color: #9ca3af; font-size: 10px; padding-top: 8px; text-align: center; }}
-.ops-badge {{ display: inline-block; background: #eff6ff; color: #2563eb; border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 700; }}
-.ops-machine {{ color: #6b7280; font-size: 10px; margin-top: 2px; }}
-.ops-desc {{ color: #374151; }}
-.ops-notes {{ color: #6b7280; font-style: italic; font-size: 10px; margin-top: 2px; }}
-.ops-time {{ color: #374151; font-size: 10px; white-space: nowrap; text-align: right; }}
-.part-price-row {{ padding: 10px 14px; display: flex; justify-content: flex-end; align-items: center; gap: 24px; border-top: 1px solid #dbeafe; background: #f0f4ff; }}
-.price-unit {{ font-size: 12px; color: #6b7280; }}
-.price-total {{ font-size: 14px; font-weight: 700; color: #1e40af; }}
-.price-cost {{ font-size: 11px; color: #9ca3af; }}
-.total-section {{ text-align: right; margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; }}
-.total-label {{ font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }}
-.total-value {{ font-size: 24px; font-weight: bold; color: #1e40af; margin-top: 4px; }}
-.footer {{ margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #888; }}
-.no-phases {{ padding: 8px 14px; font-size: 11px; color: #9ca3af; font-style: italic; }}
-.cost-breakdown {{ padding: 6px 14px 4px; background: #fffbeb; border-bottom: 1px solid #fde68a; font-size: 11px; }}
-.cb-item {{ display: flex; justify-content: space-between; color: #374151; padding: 1px 0; }}
-.cb-item span:first-child {{ font-weight: 600; }}
-.cb-sub {{ display: flex; justify-content: space-between; color: #9ca3af; padding: 0 0 1px 12px; font-size: 10px; }}
-</style>
-</head>
+<html lang="it">
+<head><meta charset="utf-8"><style>{CSS}</style></head>
 <body>
 
-<div class="header">
+<div class="hdr">
   <div>
-    <div class="company-name">{_esc(company_name)}</div>
-    <div class="company-info">{_esc(company_address)}</div>
-    {"<div class='company-info'>P.IVA: " + _esc(company_vat) + "</div>" if company_vat else ""}
-    {"<div class='company-info'>Tel: " + _esc(company_phone) + "</div>" if company_phone else ""}
-    {"<div class='company-info'>Email: " + _esc(company_email) + "</div>" if company_email else ""}
+    <div class="co-name">{_esc(company_name)}</div>
+    {co_lines}
   </div>
-  <div>
-    <div class="quote-title">PREVENTIVO</div>
-    <div class="quote-number">{_esc(quote.quote_number)}</div>
-    {"<div class='quote-number' style='color:#e53e3e;font-weight:bold;margin-top:4px;'>USO INTERNO</div>" if internal else ""}
+  <div class="qbadge">
+    <div class="qbadge-pill">PREVENTIVO</div>
+    <div class="qnum">{_esc(quote.quote_number)}</div>
+    {int_tag}
   </div>
 </div>
 
-<div class="info-grid">
-  <div class="info-box">
-    <div class="info-label">Cliente</div>
-    <div class="info-value">{_esc(quote.customer_name) or "-"}</div>
-    {"<div class='info-label' style='margin-top:8px;'>Rif. Cliente</div><div class='info-value'>" + _esc(quote.customer_reference) + "</div>" if quote.customer_reference else ""}
-  </div>
-  <div class="info-box">
-    <div class="info-label">Data</div>
-    <div class="info-value">{quote_date_str}</div>
-    <div class="info-label" style="margin-top:8px;">Validità</div>
-    <div class="info-value">{quote.validity_days or 30} giorni</div>
-    {"<div class='info-label' style='margin-top:8px;'>Consegna</div><div class='info-value'>" + _esc(quote.delivery_text) + "</div>" if quote.delivery_text else ""}
-  </div>
+<div class="meta">{meta_boxes}
 </div>
 """
 
+    # ── Parts ──
     for part in parts:
         mat = part.material
-        rev = part.revision or "A"
+        qty = part.quantity or 1
 
-        # Header
-        rev_badge = f'<span class="part-rev">Rev. {_esc(rev)}</span>' if rev != "A" else ""
-        desc_span = f'<span class="part-desc">— {_esc(part.description)}</span>' if part.description else ""
+        # Part header
+        rev = part.revision or ""
+        rev_span = f'<span class="prev">Rev.{_esc(rev)}</span> ' if rev and rev != "A" else ""
+        desc_span = f'<span class="pd">— {_esc(part.description)}</span>' if part.description else ""
         html += f"""
-<div class="part-block">
-  <div class="part-head">
-    <div class="part-head-left">
-      <span class="part-code">{_esc(part.part_code)}</span>
-      {rev_badge}{desc_span}
+<div class="part">
+  <div class="ph">
+    <div class="ph-left">
+      <span class="pc">{_esc(part.part_code)}</span>
+      {rev_span}{desc_span}
     </div>
-    <span class="part-qty">Qtà: {part.quantity}</span>
+    <span class="pqty">Qtà &nbsp;{qty}</span>
   </div>
 """
 
-        # Material row
+        # Material line
         if mat:
-            mat_label = _esc(mat.name)
+            mat_str = _esc(mat.name)
             if mat.family:
-                mat_label += f" ({_esc(mat.family)})"
+                mat_str += f" <span style='color:#94a3b8;'>({_esc(mat.family)})</span>"
 
             dim_str = ""
             weight_kg = None
             if part.raw_diameter_mm:
                 r = part.raw_diameter_mm / 2
                 l = part.raw_z_mm or 0
-                dim_str = f"Tondo &nbsp;Ø {part.raw_diameter_mm:g} &times; {l:g} mm" if l else f"Tondo &nbsp;Ø {part.raw_diameter_mm:g} mm"
+                dim_str = f"Tondo &thinsp;Ø&thinsp;{part.raw_diameter_mm:g}&thinsp;&times;&thinsp;{l:g}&thinsp;mm" if l else f"Tondo &thinsp;Ø&thinsp;{part.raw_diameter_mm:g}&thinsp;mm"
                 if l and mat.density_kg_dm3:
                     weight_kg = (math.pi * r * r * l / 1_000_000) * mat.density_kg_dm3
             elif part.raw_x_mm and part.raw_y_mm and part.raw_z_mm:
-                dim_str = f"Prismatico &nbsp;{part.raw_x_mm:g} &times; {part.raw_y_mm:g} &times; {part.raw_z_mm:g} mm"
+                dim_str = f"Prismatico &thinsp;{part.raw_x_mm:g}&thinsp;&times;&thinsp;{part.raw_y_mm:g}&thinsp;&times;&thinsp;{part.raw_z_mm:g}&thinsp;mm"
                 if mat.density_kg_dm3:
                     weight_kg = (part.raw_x_mm * part.raw_y_mm * part.raw_z_mm / 1_000_000) * mat.density_kg_dm3
 
-            weight_str = f" &nbsp;&bull;&nbsp; ~{weight_kg:.3f} kg/pz" if weight_kg else ""
-            dim_part = f" &nbsp;&bull;&nbsp; <span class='mat-label'>Grezzo:</span> {dim_str}{weight_str}" if dim_str else ""
+            extras = ""
+            if dim_str:
+                extras += f" &nbsp;&middot;&nbsp; <b>Grezzo:</b> {dim_str}"
+            if weight_kg:
+                extras += f" &nbsp;&middot;&nbsp; ~{weight_kg:.3f}&thinsp;kg/pz"
+            if part.finished_weight_kg:
+                extras += f" &nbsp;&middot;&nbsp; Finito: {part.finished_weight_kg:.3f}&thinsp;kg"
 
-            html += f'  <div class="mat-row"><span class="mat-label">Materiale:</span> {mat_label}{dim_part}</div>\n'
+            html += f'  <div class="matl"><b>Materiale:</b> {mat_str}{extras}</div>\n'
 
-        # Internal cost breakdown
+        # ── Internal cost breakdown ──
         if internal:
-            qty = part.quantity or 1
             delivery_pp = (part.material_delivery_cost or 0.0) / qty
             cutting_pp = 0.0
             if mat and mat.material_supplier:
                 cutting_pp = mat.material_supplier.cutting_cost_per_part or 0.0
-            material_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
+            mat_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
 
-            work_cost = sum(ph.calculated_cost for ph in part.phases if not ph.treatment_id)
-            treatment_phases = [ph for ph in part.phases if ph.treatment_id]
-            treatment_cost = sum(ph.calculated_cost for ph in treatment_phases)
-            treatment_shipping_pp = (treatment_phases[0].fixed_cost or 0.0) / qty if treatment_phases else 0.0
+            work_phases = [ph for ph in part.phases if not ph.treatment_id]
+            treat_phases = [ph for ph in part.phases if ph.treatment_id]
+            work_cost = sum(ph.calculated_cost for ph in work_phases)
+            treat_cost = sum(ph.calculated_cost for ph in treat_phases)
+            treat_ship_pp = (treat_phases[0].fixed_cost or 0.0) / qty if treat_phases else 0.0
 
-            bd = '<div class="cost-breakdown">'
-            bd += f'<div class="cb-item"><span>Materiale</span><span>{material_total:.2f} {cur}/pz</span></div>'
-            if delivery_pp > 0:
-                bd += f'<div class="cb-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f} {cur}</span></div>'
-            if cutting_pp > 0:
-                bd += f'<div class="cb-sub"><span>di cui taglio</span><span>{cutting_pp:.2f} {cur}</span></div>'
-            if work_cost > 0:
-                bd += f'<div class="cb-item"><span>Lavorazioni</span><span>{work_cost:.2f} {cur}/pz</span></div>'
-            if treatment_cost > 0:
-                bd += f'<div class="cb-item"><span>Trattamenti</span><span>{treatment_cost:.2f} {cur}/pz</span></div>'
-                if treatment_shipping_pp > 0:
-                    bd += f'<div class="cb-sub"><span>di cui spedizione</span><span>{treatment_shipping_pp:.2f} {cur}</span></div>'
-            bd += '</div>'
-            html += bd + '\n'
+            # Left col: material breakdown
+            left = f'<div class="cbd-row"><span>Materiale</span><span>{mat_total:.2f} {cur}/pz</span></div>'
+            if delivery_pp > 0.005:
+                left += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f}</span></div>'
+            if cutting_pp > 0.005:
+                left += f'<div class="cbd-sub"><span>di cui taglio grezzo</span><span>{cutting_pp:.2f}</span></div>'
 
-        # Phases table
-        visible_phases = [ph for ph in part.phases if ph.customer_visible or internal]
-        if visible_phases:
-            html += '  <table class="ops-table">\n'
-            for ph in visible_phases:
+            # Right col: phases + treatment
+            right = ""
+            if work_cost > 0.005:
+                right += f'<div class="cbd-row"><span>Lavorazioni</span><span>{work_cost:.2f} {cur}/pz</span></div>'
+            if treat_cost > 0.005:
+                right += f'<div class="cbd-row"><span>Trattamenti</span><span>{treat_cost:.2f} {cur}/pz</span></div>'
+                if treat_ship_pp > 0.005:
+                    right += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{treat_ship_pp:.2f}</span></div>'
+
+            # Total line
+            total_line = f'<div class="cbd-total"><span>Costo totale / pz</span><span>{part.total_cost or 0:.2f} {cur}</span></div>'
+
+            html += f"""  <div class="cbd">
+    <div class="cbd-title">Analisi costi &mdash; uso interno</div>
+    <div class="cbd-grid">
+      <div class="cbd-col">{left}</div>
+      <div class="cbd-col">{right}</div>
+    </div>
+    {total_line}
+  </div>
+"""
+
+        # ── Phases table ──
+        visible = [ph for ph in part.phases if ph.customer_visible or internal]
+        if visible:
+            html += '  <table class="ops">\n'
+            for ph in visible:
                 setup_str = _fmt_time(ph.setup_hours or 0)
                 cycle_str = _fmt_time(ph.cycle_hours_per_part or 0)
-                time_parts = []
+                times = []
                 if setup_str:
-                    time_parts.append(f"Attr.: {setup_str}")
+                    times.append(f"Attr.&nbsp;{setup_str}")
                 if cycle_str:
-                    time_parts.append(f"Ciclo: {cycle_str}/pz")
-                time_cell = " &nbsp;|&nbsp; ".join(time_parts)
+                    times.append(f"Ciclo&nbsp;{cycle_str}/pz")
+                time_cell = " &nbsp;·&nbsp; ".join(times)
 
-                machine_name = ph.machine.name if ph.machine else ""
-                supplier_name = ph.supplier.name if ph.supplier else ""
-                sub_info = machine_name or supplier_name
-                machine_span = f'<div class="ops-machine">{_esc(sub_info)}</div>' if sub_info else ""
+                is_treat = bool(ph.treatment_id)
+                is_ext = ph.phase_type in ("external", "other")
+                badge_cls = "badge-treat" if is_treat else ("badge-ext" if is_ext else "badge-work")
+                badge_label = _phase_label(ph.phase_type)
+
+                sub = ph.machine.name if ph.machine else (ph.supplier.name if ph.supplier else "")
+                mach_div = f'<div class="ops-mach">{_esc(sub)}</div>' if sub else ""
 
                 desc_text = _esc(ph.description or "")
-                notes_text = _esc(ph.customer_notes or "") if not internal else _esc(ph.internal_notes or "")
-                desc_cell = desc_text
-                if notes_text:
-                    desc_cell += f'<div class="ops-notes">{notes_text}</div>'
+                note = _esc(ph.customer_notes or "") if not internal else _esc(ph.internal_notes or "")
+                note_div = f'<div class="ops-note">{note}</div>' if note else ""
 
-                cost_cell = ""
-                if internal:
-                    cost_cell = f'<td style="text-align:right;font-size:10px;color:#6b7280;white-space:nowrap;">{ph.calculated_cost:.2f} {cur}</td>'
+                cost_td = f'<td class="ops-cost">{ph.calculated_cost:.2f}</td>' if internal else ""
 
                 html += f"""    <tr>
-      <td class="ops-seq">{ph.sequence_number}</td>
-      <td><span class="ops-badge">{_esc(ph.phase_type)}</span>{machine_span}</td>
-      <td class="ops-desc">{desc_cell}</td>
+      <td class="ops-n">{ph.sequence_number}</td>
+      <td class="ops-type"><span class="badge {badge_cls}">{badge_label}</span>{mach_div}</td>
+      <td class="ops-desc">{desc_text}{note_div}</td>
       <td class="ops-time">{time_cell}</td>
-      {cost_cell}
+      {cost_td}
     </tr>
 """
             html += '  </table>\n'
         else:
-            html += '  <div class="no-phases">Nessuna lavorazione definita</div>\n'
+            html += '  <div class="no-ops">Nessuna lavorazione definita.</div>\n'
 
-        # Price row
-        cost_info = f'<span class="price-cost">Costo: {part.total_cost or 0:.2f} {cur}</span>' if internal else ""
-        html += f"""  <div class="part-price-row">
-    {cost_info}
-    <span class="price-unit">{part.unit_price or 0:.2f} {cur} / pz</span>
-    <span class="price-total">{part.total_price or 0:.2f} {cur}</span>
+        # ── Price footer ──
+        cost_span = f'<span class="pf-cost">Costo&nbsp;{part.total_cost or 0:.2f}&nbsp;{cur}</span>' if internal else ""
+        margin_pct = part.margin_percent
+        margin_span = f'<span class="pf-cost">Marg.&nbsp;{margin_pct:.0f}%</span>' if internal and margin_pct is not None else ""
+        html += f"""  <div class="pfoot">
+    {cost_span}{margin_span}
+    <span class="pf-unit">{part.unit_price or 0:.2f}&nbsp;{cur}&nbsp;/&nbsp;pz</span>
+    <span class="pf-total">{part.total_price or 0:.2f}&nbsp;{cur}</span>
   </div>
 </div>
 """
 
-    # Totals
+    # ── Totals ──
     subtotal = sum(p.total_price or 0 for p in parts)
     transport = quote.transport_cost or 0
     packaging = quote.packaging_cost or 0
     discount_pct = quote.global_discount_percent or 0
     after_extras = subtotal + transport + packaging
-    discount_amount = after_extras * discount_pct / 100
+    discount_amount = round(after_extras * discount_pct / 100, 2)
     total = round(after_extras - discount_amount, 2)
 
-    total_rows = ""
+    rows = f'<div class="totals-row"><span class="totals-label">Subtotale parti</span><span class="totals-val">{subtotal:.2f}&nbsp;{cur}</span></div>'
     if transport:
-        total_rows += f'<div style="font-size:12px;color:#555;margin-bottom:4px;">Trasporto: {transport:.2f} {cur}</div>\n'
+        rows += f'<div class="totals-row"><span class="totals-label">Trasporto</span><span class="totals-val">{transport:.2f}&nbsp;{cur}</span></div>'
     if packaging:
-        total_rows += f'<div style="font-size:12px;color:#555;margin-bottom:4px;">Imballaggio: {packaging:.2f} {cur}</div>\n'
+        rows += f'<div class="totals-row"><span class="totals-label">Imballaggio</span><span class="totals-val">{packaging:.2f}&nbsp;{cur}</span></div>'
     if discount_pct:
-        total_rows += f'<div style="font-size:12px;color:#e53e3e;margin-bottom:4px;">Sconto {discount_pct:.1f}%: -{discount_amount:.2f} {cur}</div>\n'
+        rows += f'<div class="totals-row"><span class="totals-label">Sconto&nbsp;{discount_pct:.1f}%</span><span class="totals-val totals-disc">- {discount_amount:.2f}&nbsp;{cur}</span></div>'
 
     html += f"""
-<div class="total-section">
-  {total_rows}
-  <div class="total-label">Totale Preventivo</div>
-  <div class="total-value">{total:.2f} {cur}</div>
+<div class="totals-wrap">
+  <div class="totals-box">
+    <div class="totals-head">Riepilogo</div>
+    {rows}
+    <div class="totals-final">
+      <span class="totals-final-label">Totale</span>
+      <span class="totals-final-val">{total:.2f}&nbsp;{cur}</span>
+    </div>
+  </div>
 </div>
 """
 
     if quote.notes_customer:
-        html += f'<div class="footer"><strong>Note:</strong><br>{_esc(quote.notes_customer)}</div>\n'
-
+        html += f'<div class="doc-notes"><strong>Note:</strong><br>{_esc(quote.notes_customer)}</div>\n'
     if internal and quote.notes_internal:
-        html += f'<div class="footer"><strong>Note interne:</strong><br>{_esc(quote.notes_internal)}</div>\n'
+        html += f'<div class="doc-notes"><strong>Note interne:</strong><br>{_esc(quote.notes_internal)}</div>\n'
 
-    html += f'<div class="footer" style="margin-top:16px;">Generato da MechQuote &mdash; {_esc(company_name)}</div>\n'
+    html += f'<div class="doc-footer">{_esc(company_name)} &mdash; Generato da MechQuote</div>\n'
     html += "</body>\n</html>"
 
     from playwright.sync_api import sync_playwright
@@ -298,7 +417,7 @@ body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
         page = browser.new_page()
         page.set_content(html, wait_until="networkidle")
         pdf_bytes = page.pdf(format="A4", margin={
-            "top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm"
+            "top": "18mm", "bottom": "16mm", "left": "14mm", "right": "14mm"
         })
         browser.close()
 

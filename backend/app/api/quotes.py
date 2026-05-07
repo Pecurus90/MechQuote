@@ -8,6 +8,7 @@ from app.core.security import require_permission, get_current_user
 from app.models import Quote, Part, ManufacturingPhase, User
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
 from app.services.calculation import recalculate_part
+from app.services.notifications import create_notification
 
 _can_write = require_permission('quotes.create')
 _can_send = require_permission('quotes.send')
@@ -95,7 +96,18 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
         quote.completed_at = datetime.utcnow()
         db.commit()
         db.refresh(quote)
-        # Notification trigger lives here once the notifications service ships (FASE D).
+        # Notifica al creatore (1-a-1)
+        if quote.submitted_by_user_id:
+            reviewer_name = current_user.full_name or current_user.username
+            create_notification(
+                db,
+                type='quote_completed',
+                title=f"Preventivo {quote.quote_number} completato",
+                body=f"Letto da {reviewer_name}",
+                created_by_user_id=current_user.id,
+                target_user_id=quote.submitted_by_user_id,
+                data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            )
 
     return quote
 
@@ -124,7 +136,17 @@ def update_quote_status(
     quote.submitted_by_user_id = current_user.id
     quote.submitted_at = datetime.utcnow()
     db.commit()
-    # Notification trigger lives here once the notifications service ships (FASE D).
+    # Notifica chi può completare (admin + amministrazione)
+    sender_name = current_user.full_name or current_user.username
+    create_notification(
+        db,
+        type='quote_submitted',
+        title=f"Preventivo {quote.quote_number} da revisionare",
+        body=f"Inviato da {sender_name}",
+        created_by_user_id=current_user.id,
+        target_roles=['admin', 'amministrazione'],
+        data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+    )
 
     return _load_quote(quote_id, db)
 

@@ -315,3 +315,32 @@ class RolePermission(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     permission_key = Column(String(100), nullable=False)
     role = relationship("Role", back_populates="permissions")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String(50), nullable=False)            # es. "quote_submitted", "tool_low_stock"
+    title = Column(String(200), nullable=False)
+    body = Column(Text)
+    data_json = Column(JSON)                              # payload arbitrario per il client
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    target_roles = Column(JSON, default=list)             # lista di slug ruolo
+    target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # per notifiche 1-a-1
+    requires_action = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    reads = relationship("NotificationRead", back_populates="notification", cascade="all, delete-orphan")
+
+
+class NotificationRead(Base):
+    __tablename__ = "notification_reads"
+
+    id = Column(Integer, primary_key=True)
+    notification_id = Column(Integer, ForeignKey("notifications.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    read_at = Column(DateTime, nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
+
+    notification = relationship("Notification", back_populates="reads")

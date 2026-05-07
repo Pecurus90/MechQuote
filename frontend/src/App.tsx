@@ -11,7 +11,6 @@ import NewQuotePage from '@/pages/NewQuotePage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import MachinesPage from '@/pages/settings/MachinesPage'
 import TreatmentsPage from '@/pages/settings/TreatmentsPage'
-import CostRulesPage from '@/pages/settings/CostRulesPage'
 import PhaseTemplatesPage from '@/pages/settings/PhaseTemplatesPage'
 import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
 import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
@@ -56,7 +55,6 @@ function AppRoutes() {
         <Route path="settings/machines"   element={<ProtectedRoute permission="settings"><MachinesPage /></ProtectedRoute>} />
         <Route path="settings/templates"  element={<ProtectedRoute permission="settings"><PhaseTemplatesPage /></ProtectedRoute>} />
         <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
-        <Route path="settings/cost-rules" element={<ProtectedRoute permission="settings"><CostRulesPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />
         <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />
         <Route path="settings/company"    element={<ProtectedRoute roles={['admin']}><CompanySettingsPage /></ProtectedRoute>} />

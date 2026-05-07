@@ -4,9 +4,8 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.security import require_role
-from app.models import CostRule, PhaseTemplate, QuoteCategory, StepColorRule
+from app.models import PhaseTemplate, QuoteCategory, StepColorRule
 from app.schemas import (
-    CostRuleCreate, CostRuleUpdate, CostRuleOut,
     PhaseTemplateCreate, PhaseTemplateBase, PhaseTemplateOut,
     QuoteCategoryCreate, QuoteCategoryUpdate, QuoteCategoryOut,
     StepColorRuleCreate, StepColorRuleBase, StepColorRuleOut,
@@ -50,33 +49,6 @@ def delete_category(cid: int, db: Session = Depends(get_db)):
     db.delete(cat)
     db.commit()
     return {"ok": True}
-
-
-# --- Cost Rules ---
-@router.get("/cost-rules", response_model=List[CostRuleOut])
-def list_cost_rules(db: Session = Depends(get_db)):
-    return db.query(CostRule).order_by(CostRule.key).all()
-
-
-@router.post("/cost-rules", response_model=CostRuleOut, dependencies=[require_role('admin')])
-def create_cost_rule(data: CostRuleCreate, db: Session = Depends(get_db)):
-    r = CostRule(**data.model_dump())
-    db.add(r)
-    db.commit()
-    db.refresh(r)
-    return r
-
-
-@router.put("/cost-rules/{rid}", response_model=CostRuleOut, dependencies=[require_role('admin')])
-def update_cost_rule(rid: int, data: CostRuleUpdate, db: Session = Depends(get_db)):
-    r = db.query(CostRule).filter(CostRule.id == rid).first()
-    if not r:
-        raise HTTPException(404, "Not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(r, k, v)
-    db.commit()
-    db.refresh(r)
-    return r
 
 
 # --- Phase Templates ---

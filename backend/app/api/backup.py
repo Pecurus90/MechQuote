@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db, engine
 from app.models import (
     Quote, Part, ManufacturingPhase, Material, Machine,
-    Treatment, Supplier, CostRule, PhaseTemplate, StepColorRule, User,
+    Treatment, Supplier, PhaseTemplate, StepColorRule, User, CompanySettings,
 )
 import json
 import io
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/backup", tags=["backup"])
 def export_data(db: Session = Depends(get_db)):
     data = {}
     # Export all tables
-    for model_class in [Quote, Part, ManufacturingPhase, Material, Machine, Treatment, Supplier, CostRule, PhaseTemplate, StepColorRule, User]:
+    for model_class in [Quote, Part, ManufacturingPhase, Material, Machine, Treatment, Supplier, CompanySettings, PhaseTemplate, StepColorRule, User]:
         table_name = model_class.__tablename__
         records = db.query(model_class).all()
         data[table_name] = []
@@ -35,7 +35,7 @@ def export_data(db: Session = Depends(get_db)):
 def import_data(payload: dict, db: Session = Depends(get_db)):
     # Clear existing data (be careful!)
     # This is a simple implementation - in production you'd want more checks
-    for model_class in [StepColorRule, PhaseTemplate, CostRule, Supplier, Treatment, Machine, Material, ManufacturingPhase, Part, Quote]:
+    for model_class in [StepColorRule, PhaseTemplate, CompanySettings, Supplier, Treatment, Machine, Material, ManufacturingPhase, Part, Quote]:
         db.query(model_class).delete()
     db.commit()
 
@@ -48,7 +48,7 @@ def import_data(payload: dict, db: Session = Depends(get_db)):
         'machines': Machine,
         'treatments': Treatment,
         'suppliers': Supplier,
-        'cost_rules': CostRule,
+        'company_settings': CompanySettings,
         'phase_templates': PhaseTemplate,
         'step_color_rules': StepColorRule,
     }

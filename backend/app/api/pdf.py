@@ -7,7 +7,7 @@ import math
 
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Quote, Part, ManufacturingPhase, CostRule, Material, MaterialSupplier
+from app.models import Quote, Part, ManufacturingPhase, Material, MaterialSupplier, CompanySettings
 
 router = APIRouter(prefix="/api", tags=["pdf"])
 
@@ -180,13 +180,12 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
         ),
     ).filter(Part.quote_id == quote_id).order_by(Part.id).all()
 
-    company_rules = db.query(CostRule).filter(CostRule.key.like('company_%')).all()
-    company = {r.key: r.value for r in company_rules}
-    company_name = company.get('company_name', 'Fratelli Dalla Via')
-    company_address = company.get('company_address', 'Officina Meccanica di Precisione')
-    company_vat = company.get('company_vat', '')
-    company_phone = company.get('company_phone', '')
-    company_email = company.get('company_email', '')
+    cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
+    company_name    = (cs.name    if cs and cs.name    else 'Fratelli Dalla Via')
+    company_address = (cs.address if cs and cs.address else 'Officina Meccanica di Precisione')
+    company_vat     = (cs.vat     if cs else '')
+    company_phone   = (cs.phone   if cs else '')
+    company_email   = (cs.email   if cs else '')
 
     quote_date_str = str(quote.quote_date)[:10] if quote.quote_date else "—"
     cur = _esc(quote.currency) or "EUR"

@@ -5,7 +5,7 @@ import os
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
-from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis, Quote, User
+from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut
 from app.services.calculation import recalculate_part
 from app.api.quotes import ensure_editable
@@ -34,7 +34,13 @@ def add_part(
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
     ensure_editable(quote, current_user)
-    part = Part(quote_id=quote_id, **data.model_dump(exclude_unset=True))
+    part_data = data.model_dump(exclude_unset=True)
+    # Applica default_minimum_part_price se non specificato
+    if "minimum_price" not in part_data:
+        cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
+        if cs:
+            part_data["minimum_price"] = cs.default_minimum_part_price
+    part = Part(quote_id=quote_id, **part_data)
     db.add(part)
     db.commit()
     db.refresh(part)

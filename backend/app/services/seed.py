@@ -1,6 +1,6 @@
 from app.core.database import engine, Base
 from app.models import (
-    Material, Machine, Treatment, Supplier, CostRule, PhaseTemplate, StepColorRule
+    Material, Machine, Treatment, Supplier, PhaseTemplate, StepColorRule, CompanySettings
 )
 from sqlalchemy.orm import sessionmaker
 
@@ -45,17 +45,17 @@ def seed_data():
     session.add_all(suppliers)
     session.flush()  # Get IDs
 
-    # Cost Rules
-    cost_rules = [
-        CostRule(key="default_margin_percent", value="20.0", description="Default margin for parts"),
-        CostRule(key="default_scrap_percent", value="10.0", description="Default scrap percentage"),
-        CostRule(key="minimum_quote_price", value="50.0", description="Minimum total quote price"),
-        CostRule(key="minimum_part_price", value="10.0", description="Minimum part price"),
-        CostRule(key="default_rounding", value="none", description="Rounding rule: none, 1, 5, 10, 50"),
-        CostRule(key="packaging_default", value="5.0", description="Default packaging cost"),
-        CostRule(key="transport_default", value="15.0", description="Default transport cost"),
-    ]
-    session.add_all(cost_rules)
+    # Company settings (singleton: anagrafica + default operativi)
+    cs = CompanySettings(
+        id=1,
+        name="Fratelli Dalla Via",
+        address="Officina Meccanica di Precisione",
+        default_margin_percent=20.0,
+        default_minimum_part_price=10.0,
+        default_transport_cost=15.0,
+        default_packaging_cost=5.0,
+    )
+    session.add(cs)
 
     # Phase Templates
     templates = [

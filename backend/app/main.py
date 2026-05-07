@@ -9,8 +9,8 @@ from app.core.security import get_current_user, require_role, require_permission
 from app.models import (
     User, QuoteCategory, Customer, Quote, Part, PartFile, GeometryAnalysis,
     ManufacturingPhase, MaterialSupplier, Material, Machine, Treatment,
-    Supplier, CostRule, PhaseTemplate, StepColorRule, Role, RolePermission,
-    Notification, NotificationRead,
+    Supplier, PhaseTemplate, StepColorRule, Role, RolePermission,
+    Notification, NotificationRead, CompanySettings,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -32,7 +32,7 @@ _backup = [require_permission('backup')]
 
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
-    materials, machines, treatments, catalog, roles, notifications,
+    materials, machines, treatments, catalog, roles, notifications, company,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -52,6 +52,7 @@ app.include_router(customers.router, dependencies=_auth)
 app.include_router(roles.router, dependencies=_auth)
 app.include_router(roles.permissions_router, dependencies=_auth)
 app.include_router(notifications.router, dependencies=_auth)
+app.include_router(company.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -110,6 +111,29 @@ def _run_migrations():
         "ALTER TABLE notification_reads ADD COLUMN dismissed_at DATETIME",
         # FASE C rifinitura — chi ha creato il preventivo (per controllo eliminazione)
         "ALTER TABLE quotes ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)",
+        # CompanySettings — singleton che sostituisce CostRule + 4 default attivi
+        ("CREATE TABLE IF NOT EXISTS company_settings ("
+         "id INTEGER PRIMARY KEY, name VARCHAR(200) DEFAULT '', address TEXT DEFAULT '', "
+         "vat VARCHAR(50) DEFAULT '', phone VARCHAR(50) DEFAULT '', "
+         "email VARCHAR(100) DEFAULT '', website VARCHAR(200) DEFAULT '', "
+         "default_margin_percent FLOAT DEFAULT 20.0, default_minimum_part_price FLOAT DEFAULT 0.0, "
+         "default_transport_cost FLOAT DEFAULT 0.0, default_packaging_cost FLOAT DEFAULT 0.0, "
+         "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        # Migrazione idempotente: se non esiste il singleton, lo crea copiando i valori da cost_rules
+        ("INSERT INTO company_settings (id, name, address, vat, phone, email, website, "
+         "default_margin_percent, default_minimum_part_price, default_transport_cost, default_packaging_cost) "
+         "SELECT 1, "
+         "COALESCE((SELECT value FROM cost_rules WHERE key='company_name'), ''), "
+         "COALESCE((SELECT value FROM cost_rules WHERE key='company_address'), ''), "
+         "COALESCE((SELECT value FROM cost_rules WHERE key='company_vat'), ''), "
+         "COALESCE((SELECT value FROM cost_rules WHERE key='company_phone'), ''), "
+         "COALESCE((SELECT value FROM cost_rules WHERE key='company_email'), ''), "
+         "COALESCE((SELECT value FROM cost_rules WHERE key='company_website'), ''), "
+         "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='default_margin_percent') AS FLOAT), 20.0), "
+         "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='minimum_part_price') AS FLOAT), 0.0), "
+         "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='transport_default') AS FLOAT), 0.0), "
+         "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='packaging_default') AS FLOAT), 0.0) "
+         "WHERE NOT EXISTS (SELECT 1 FROM company_settings WHERE id=1)"),
     ]
     with engine.connect() as conn:
         for sql in migrations:

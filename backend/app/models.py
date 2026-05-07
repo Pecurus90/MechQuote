@@ -263,13 +263,23 @@ class Supplier(Base):
     active = Column(Boolean, default=True)
 
 
-class CostRule(Base):
-    __tablename__ = "cost_rules"
+class CompanySettings(Base):
+    __tablename__ = "company_settings"
 
-    id = Column(Integer, primary_key=True, index=True)
-    key = Column(String(100), nullable=False, unique=True)
-    value = Column(String(500))
-    description = Column(Text)
+    id = Column(Integer, primary_key=True)
+    # Anagrafica
+    name = Column(String(200), default="")
+    address = Column(Text, default="")
+    vat = Column(String(50), default="")
+    phone = Column(String(50), default="")
+    email = Column(String(100), default="")
+    website = Column(String(200), default="")
+    # Default applicati al create di Quote/Part se non specificati esplicitamente
+    default_margin_percent = Column(Float, default=20.0)
+    default_minimum_part_price = Column(Float, default=0.0)
+    default_transport_cost = Column(Float, default=0.0)
+    default_packaging_cost = Column(Float, default=0.0)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class PhaseTemplate(Base):

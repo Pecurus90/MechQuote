@@ -419,23 +419,27 @@ class TreatmentOut(TreatmentBase):
         from_attributes = True
 
 
-# --- CostRule ---
-class CostRuleBase(BaseModel):
-    key: str
-    value: Optional[str] = None
-    description: Optional[str] = None
+# --- CompanySettings (singleton: anagrafica + default operativi) ---
+class CompanySettingsBase(BaseModel):
+    name: str = ""
+    address: str = ""
+    vat: str = ""
+    phone: str = ""
+    email: str = ""
+    website: str = ""
+    default_margin_percent: float = 20.0
+    default_minimum_part_price: float = 0.0
+    default_transport_cost: float = 0.0
+    default_packaging_cost: float = 0.0
 
 
-class CostRuleCreate(CostRuleBase):
+class CompanySettingsUpdate(CompanySettingsBase):
     pass
 
 
-class CostRuleUpdate(CostRuleBase):
-    pass
-
-
-class CostRuleOut(CostRuleBase):
+class CompanySettingsOut(CompanySettingsBase):
     id: int
+    updated_at: datetime
 
     class Config:
         from_attributes = True

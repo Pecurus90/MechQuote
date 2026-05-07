@@ -7,77 +7,61 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 
 interface CompanySettings {
-  company_name: string
-  company_address: string
-  company_vat: string
-  company_phone: string
-  company_email: string
-  company_website: string
+  id: number
+  name: string
+  address: string
+  vat: string
+  phone: string
+  email: string
+  website: string
+  default_margin_percent: number
+  default_minimum_part_price: number
+  default_transport_cost: number
+  default_packaging_cost: number
+}
+
+const empty: Omit<CompanySettings, 'id'> = {
+  name: '', address: '', vat: '', phone: '', email: '', website: '',
+  default_margin_percent: 20, default_minimum_part_price: 0,
+  default_transport_cost: 0, default_packaging_cost: 0,
 }
 
 export default function CompanySettingsPage() {
-  const [settings, setSettings] = useState<CompanySettings>({
-    company_name: '',
-    company_address: '',
-    company_vat: '',
-    company_phone: '',
-    company_email: '',
-    company_website: '',
-  })
+  const [settings, setSettings] = useState(empty)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    // Load company settings from cost-rules
-    api.get('/cost-rules').then(res => {
-      const rules = res.data
-      const companySettings: any = {}
-      rules.forEach((r: any) => {
-        if (r.key.startsWith('company_')) {
-          companySettings[r.key] = r.value || ''
-        }
-      })
-      setSettings({
-        company_name: companySettings.company_name || 'Fratelli Dalla Via',
-        company_address: companySettings.company_address || 'Via dell\'Industria, 1 - 36040 Torri di Quartesolo (VI)',
-        company_vat: companySettings.company_vat || 'IT12345678901',
-        company_phone: companySettings.company_phone || '+39 0444 123456',
-        company_email: companySettings.company_email || 'info@dallavia.it',
-        company_website: companySettings.company_website || 'www.dallavia.it',
-      })
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    api.get('/company-settings').then(r => {
+      const { id: _id, updated_at: _u, ...rest } = r.data
+      void _id; void _u
+      setSettings(rest)
+    }).catch(() => toast.error('Errore nel caricamento')).finally(() => setLoading(false))
   }, [])
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Save each setting as a cost rule
-      for (const [key, value] of Object.entries(settings)) {
-        const existing = await api.get('/cost-rules').then(res =>
-          res.data.find((r: any) => r.key === key)
-        )
-        if (existing) {
-          await api.put(`/cost-rules/${existing.id}`, { key, value, description: `Company ${key.replace('company_', '')}` })
-        } else {
-          await api.post('/cost-rules', { key, value, description: `Company ${key.replace('company_', '')}` })
-        }
-      }
-      toast.success('Impostazioni salvate!')
-    } catch (e) {
-      console.error('Save error', e)
+      await api.put('/company-settings', settings)
+      toast.success('Impostazioni salvate')
+    } catch {
       toast.error('Errore nel salvataggio')
     } finally {
       setSaving(false)
     }
   }
 
+  const num = (v: number | string): number => {
+    const n = typeof v === 'number' ? v : parseFloat(v)
+    return isNaN(n) ? 0 : n
+  }
+
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Dati Aziendali</h1>
+    <div className="p-8 max-w-5xl mx-auto space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Dati Azienda</h1>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="w-4 h-4 mr-1" /> {saving ? 'Salvataggio...' : 'Salva'}
         </Button>
@@ -91,46 +75,70 @@ export default function CompanySettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="text-sm font-medium">Nome Azienda</label>
-              <Input
-                value={settings.company_name}
-                onChange={e => setSettings({ ...settings, company_name: e.target.value })}
-              />
+              <Input value={settings.name}
+                onChange={e => setSettings(s => ({ ...s, name: e.target.value }))} />
             </div>
             <div className="md:col-span-2">
               <label className="text-sm font-medium">Indirizzo</label>
-              <Input
-                value={settings.company_address}
-                onChange={e => setSettings({ ...settings, company_address: e.target.value })}
-              />
+              <Input value={settings.address}
+                onChange={e => setSettings(s => ({ ...s, address: e.target.value }))} />
             </div>
             <div>
               <label className="text-sm font-medium">P.IVA / VAT</label>
-              <Input
-                value={settings.company_vat}
-                onChange={e => setSettings({ ...settings, company_vat: e.target.value })}
-              />
+              <Input value={settings.vat}
+                onChange={e => setSettings(s => ({ ...s, vat: e.target.value }))} />
             </div>
             <div>
               <label className="text-sm font-medium">Telefono</label>
-              <Input
-                value={settings.company_phone}
-                onChange={e => setSettings({ ...settings, company_phone: e.target.value })}
-              />
+              <Input value={settings.phone}
+                onChange={e => setSettings(s => ({ ...s, phone: e.target.value }))} />
             </div>
             <div>
               <label className="text-sm font-medium">Email</label>
-              <Input
-                type="email"
-                value={settings.company_email}
-                onChange={e => setSettings({ ...settings, company_email: e.target.value })}
-              />
+              <Input type="email" value={settings.email}
+                onChange={e => setSettings(s => ({ ...s, email: e.target.value }))} />
             </div>
             <div>
               <label className="text-sm font-medium">Sito Web</label>
-              <Input
-                value={settings.company_website}
-                onChange={e => setSettings({ ...settings, company_website: e.target.value })}
-              />
+              <Input value={settings.website}
+                onChange={e => setSettings(s => ({ ...s, website: e.target.value }))} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Default Preventivi</CardTitle>
+          <p className="text-xs text-gray-500 mt-1">
+            Valori applicati automaticamente ad ogni nuovo preventivo o parte. L'utente può sovrascriverli caso per caso.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Margine globale (%)</label>
+              <Input type="number" min={0} step={0.5} value={settings.default_margin_percent}
+                onChange={e => setSettings(s => ({ ...s, default_margin_percent: num(e.target.value) }))} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Margine di default applicato al preventivo</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Prezzo minimo parte (€)</label>
+              <Input type="number" min={0} step={0.5} value={settings.default_minimum_part_price}
+                onChange={e => setSettings(s => ({ ...s, default_minimum_part_price: num(e.target.value) }))} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Soglia minima del prezzo unitario di una parte</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Trasporto di default (€)</label>
+              <Input type="number" min={0} step={0.5} value={settings.default_transport_cost}
+                onChange={e => setSettings(s => ({ ...s, default_transport_cost: num(e.target.value) }))} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Importo precompilato come spese di trasporto</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Imballaggio di default (€)</label>
+              <Input type="number" min={0} step={0.5} value={settings.default_packaging_cost}
+                onChange={e => setSettings(s => ({ ...s, default_packaging_cost: num(e.target.value) }))} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Importo precompilato come spese di imballaggio</p>
             </div>
           </div>
         </CardContent>

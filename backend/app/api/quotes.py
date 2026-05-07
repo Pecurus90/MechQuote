@@ -5,7 +5,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
-from app.models import Quote, Part, ManufacturingPhase, User
+from app.models import Quote, Part, ManufacturingPhase, User, CompanySettings
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
 from app.services.calculation import recalculate_part
 from app.services.notifications import create_notification
@@ -74,11 +74,23 @@ def create_quote(
         quote.quote_date = date_type.today()
     quote.created_by_user_id = current_user.id
 
+    # Applica i default da CompanySettings dove l'utente non ha specificato un valore.
+    # `exclude_unset=True` su quote_data permette di distinguere "non passato" da "passato a 0".
+    cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
+    if cs:
+        if "global_margin_percent" not in quote_data:
+            quote.global_margin_percent = cs.default_margin_percent
+        if "transport_cost" not in quote_data:
+            quote.transport_cost = cs.default_transport_cost
+        if "packaging_cost" not in quote_data:
+            quote.packaging_cost = cs.default_packaging_cost
+
     db.add(quote)
     db.commit()
     db.refresh(quote)
 
     # Auto-create parts based on quote type
+    default_min_price = cs.default_minimum_part_price if cs else 0.0
     if quote.quote_type == "commessa" and num_components and num_components > 0:
         for i in range(1, num_components + 1):
             part = Part(
@@ -86,6 +98,7 @@ def create_quote(
                 part_code=f"{quote.quote_number}_{i:02d}",
                 quantity=default_quantity,
                 quote_mode="manual",
+                minimum_price=default_min_price,
             )
             db.add(part)
     else:
@@ -95,6 +108,7 @@ def create_quote(
             part_code=quote.quote_number or "P01",
             quantity=default_quantity,
             quote_mode="manual",
+            minimum_price=default_min_price,
         )
         db.add(part)
 

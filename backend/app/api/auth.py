@@ -48,6 +48,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "email": current_user.email,
         "role": current_user.role,
+        "permissions": getattr(current_user, '_permissions', []),
     }
 
 

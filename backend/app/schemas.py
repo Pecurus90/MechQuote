@@ -110,6 +110,29 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+# --- Role / Permissions ---
+class RoleCreate(BaseModel):
+    name: str    # slug, no spaces
+    label: str
+    color: str = 'gray'
+
+
+class RoleUpdate(BaseModel):
+    label: Optional[str] = None
+    color: Optional[str] = None
+
+
+class RoleOut(BaseModel):
+    id: int
+    name: str
+    label: str
+    color: str
+    permissions: List[str] = []
+
+    class Config:
+        from_attributes = True
+
+
 # --- ManufacturingPhase (defined before PartOut) ---
 class PhaseBase(BaseModel):
     sequence_number: Optional[int] = 10

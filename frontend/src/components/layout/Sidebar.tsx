@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Plus, Archive, FileText,
   Box, Cog, Layers, Ruler, Building2, FileText as FileTextIcon,
-  Palette, Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog
+  Palette, Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -27,21 +27,25 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, hasRole, logout } = useAuth()
+  const { user, hasRole, hasPermission, logout } = useAuth()
 
   const isQuotesActive = location.pathname.startsWith('/quotes')
   const isSystemActive =
     location.pathname.startsWith('/settings/customers') ||
     location.pathname.startsWith('/settings/company') ||
     location.pathname.startsWith('/settings/backup') ||
-    location.pathname.startsWith('/settings/users')
+    location.pathname.startsWith('/settings/users') ||
+    location.pathname.startsWith('/settings/roles')
 
   const isAdmin = hasRole('admin')
-  const canQuote = hasRole('admin', 'ufficio_tecnico')
-  const canDashboard = hasRole('admin', 'ufficio_tecnico', 'amministrazione')
-  const canCustomers = hasRole('admin', 'ufficio_tecnico')
-  // "Impostazioni" section visible only if at least one item is visible = admin
-  const hasSettingsItems = isAdmin
+  const canQuote = hasPermission('quotes.create')
+  const canDashboard = hasPermission('dashboard')
+  const canCustomers = hasPermission('customers')
+  const canSettings = hasPermission('settings')
+  const canUsers = hasPermission('users')
+  const canBackup = hasPermission('backup')
+  const hasSettingsItems = canSettings
+  const hasSystemItems = canCustomers || canUsers || canBackup || isAdmin
 
   const [quotesOpen, setQuotesOpen] = useState(
     isQuotesActive || (location.pathname.startsWith('/settings') && !isSystemActive)
@@ -153,7 +157,7 @@ export default function Sidebar() {
         </div>
 
         {/* Anagrafica e Sistema */}
-        {(canCustomers || isAdmin) && (
+        {hasSystemItems && (
           <div className="pt-1">
             <button
               onClick={() => setSystemOpen(o => !o)}
@@ -183,18 +187,26 @@ export default function Sidebar() {
                   </NavLink>
                 )}
                 {isAdmin && (
+                  <NavLink to="/settings/company" className={({ isActive }) => navLinkClass(isActive, true)}>
+                    <Building2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Dati Azienda</span>
+                  </NavLink>
+                )}
+                {canBackup && (
+                  <NavLink to="/settings/backup" className={({ isActive }) => navLinkClass(isActive, true)}>
+                    <Database className="w-3.5 h-3.5 shrink-0" />
+                    <span>Backup / Esporta</span>
+                  </NavLink>
+                )}
+                {canUsers && (
                   <>
-                    <NavLink to="/settings/company" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Building2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Dati Azienda</span>
-                    </NavLink>
-                    <NavLink to="/settings/backup" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Database className="w-3.5 h-3.5 shrink-0" />
-                      <span>Backup / Esporta</span>
-                    </NavLink>
                     <NavLink to="/settings/users" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <UserCog className="w-3.5 h-3.5 shrink-0" />
                       <span>Utenti</span>
+                    </NavLink>
+                    <NavLink to="/settings/roles" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>Ruoli e Permessi</span>
                     </NavLink>
                   </>
                 )}

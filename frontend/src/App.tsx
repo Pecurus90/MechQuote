@@ -18,19 +18,23 @@ import CustomersPage from '@/pages/settings/CustomersPage'
 import BackupSettingsPage from '@/pages/settings/BackupSettingsPage'
 import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
 import UsersPage from '@/pages/settings/UsersPage'
+import RolesPage from '@/pages/settings/RolesPage'
 
 function ProtectedRoute({
   children,
   roles,
+  permission,
 }: {
   children: React.ReactNode
   roles?: UserRole[]
+  permission?: string
 }) {
-  const { user, loading } = useAuth()
+  const { user, loading, hasPermission } = useAuth()
 
   if (loading) return <div className="p-8 text-center text-gray-500">Caricamento...</div>
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
+  if (permission && !hasPermission(permission)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -57,6 +61,7 @@ function AppRoutes() {
         <Route path="settings/backup"     element={<ProtectedRoute roles={['admin']}><BackupSettingsPage /></ProtectedRoute>} />
         <Route path="settings/categories" element={<ProtectedRoute roles={['admin']}><QuoteCategoriesPage /></ProtectedRoute>} />
         <Route path="settings/users"      element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
+        <Route path="settings/roles"      element={<ProtectedRoute roles={['admin']}><RolesPage /></ProtectedRoute>} />
 
         {/* Clienti — admin + ufficio_tecnico */}
         <Route path="settings/customers" element={

@@ -9,6 +9,7 @@ export interface AuthUser {
   full_name: string | null
   email: string | null
   role: UserRole
+  permissions: string[]
 }
 
 interface AuthContextValue {
@@ -16,6 +17,7 @@ interface AuthContextValue {
   loading: boolean
   setUser: (u: AuthUser | null) => void
   hasRole: (...roles: UserRole[]) => boolean
+  hasPermission: (key: string) => boolean
   logout: () => void
 }
 
@@ -24,6 +26,7 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   setUser: () => {},
   hasRole: () => false,
+  hasPermission: () => false,
   logout: () => {},
 })
 
@@ -49,9 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const hasRole = (...roles: UserRole[]) => !!user && roles.includes(user.role)
+  const hasPermission = (key: string) => !!user && user.permissions.includes(key)
 
   return (
-    <AuthContext.Provider value={{ user, loading, setUser, hasRole, logout }}>
+    <AuthContext.Provider value={{ user, loading, setUser, hasRole, hasPermission, logout }}>
       {children}
     </AuthContext.Provider>
   )

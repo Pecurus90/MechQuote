@@ -292,3 +292,22 @@ class StepColorRule(Base):
     complexity_coefficient = Column(Float, default=1.0)
     notes = Column(Text)
     active = Column(Boolean, default=True)
+
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)   # slug: "admin"
+    label = Column(String(100), nullable=False)              # "Amministratore"
+    color = Column(String(20), default='gray')
+    permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
+    permission_key = Column(String(100), nullable=False)
+    role = relationship("Role", back_populates="permissions")

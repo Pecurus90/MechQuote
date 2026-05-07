@@ -26,7 +26,7 @@ _admin = [require_role('admin')]
 
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
-    materials, machines, treatments, catalog,
+    materials, machines, treatments, catalog, roles,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -43,6 +43,8 @@ app.include_router(dashboard.router, dependencies=_auth)
 app.include_router(pdf.router, dependencies=_auth)
 app.include_router(backup.router, dependencies=_admin)
 app.include_router(customers.router, dependencies=_auth)
+app.include_router(roles.router, dependencies=_auth)
+app.include_router(roles.permissions_router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -105,8 +107,33 @@ def _seed_categories():
             db.commit()
 
 
+def _seed_roles():
+    """Insert default roles and permissions if the roles table is empty."""
+    from sqlalchemy.orm import Session
+    from app.models import Role, RolePermission
+    from app.core.permissions import DEFAULT_ROLE_PERMISSIONS
+
+    with Session(engine) as db:
+        if db.query(Role).count() > 0:
+            return
+        role_defs = [
+            ("admin",           "Amministratore",  "green"),
+            ("ufficio_tecnico", "Ufficio Tecnico", "blue"),
+            ("officina",        "Officina",        "gray"),
+            ("amministrazione", "Amministrazione", "purple"),
+        ]
+        for name, label, color in role_defs:
+            role = Role(name=name, label=label, color=color)
+            db.add(role)
+            db.flush()
+            for key in DEFAULT_ROLE_PERMISSIONS.get(name, []):
+                db.add(RolePermission(role_id=role.id, permission_key=key))
+        db.commit()
+
+
 _run_migrations()
 _seed_categories()
+_seed_roles()
 
 
 @app.get("/api/health")

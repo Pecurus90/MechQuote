@@ -1,14 +1,16 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import require_permission
-from app.models import Quote, Part, ManufacturingPhase
-from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut
+from app.core.security import require_permission, get_current_user
+from app.models import Quote, Part, ManufacturingPhase, User
+from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
 from app.services.calculation import recalculate_part
 
 _can_write = require_permission('quotes.create')
+_can_send = require_permission('quotes.send')
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
@@ -78,11 +80,53 @@ def create_quote(data: QuoteCreate, db: Session = Depends(get_db), _=_can_write)
 
 
 @router.get("/{quote_id}", response_model=QuoteOut)
-def get_quote(quote_id: int, db: Session = Depends(get_db)):
+def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quote = _load_quote(quote_id, db)
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
+
+    # Auto-mark "completato" when a user with quotes.complete reads a quote in 'inviato' state.
+    # The creator (ufficio_tecnico) doesn't have this permission, so opening their own quote
+    # never advances the workflow — this is the intended invariant.
+    perms = getattr(current_user, '_permissions', [])
+    if quote.status == 'inviato' and 'quotes.complete' in perms:
+        quote.status = 'completato'
+        quote.completed_by_user_id = current_user.id
+        quote.completed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(quote)
+        # Notification trigger lives here once the notifications service ships (FASE D).
+
     return quote
+
+
+@router.patch("/{quote_id}/status", response_model=QuoteOut)
+def update_quote_status(
+    quote_id: int,
+    data: QuoteStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_send,
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+
+    # Only one explicit transition is allowed via this endpoint: bozza → inviato.
+    # The reverse path (inviato → completato) is handled automatically in GET when an
+    # admin/amministrazione user opens it. 'completato' is terminal.
+    if data.status != 'inviato':
+        raise HTTPException(status_code=400, detail="Solo la transizione a 'inviato' è permessa qui")
+    if quote.status != 'bozza':
+        raise HTTPException(status_code=400, detail=f"Impossibile inviare: stato corrente '{quote.status}'")
+
+    quote.status = 'inviato'
+    quote.submitted_by_user_id = current_user.id
+    quote.submitted_at = datetime.utcnow()
+    db.commit()
+    # Notification trigger lives here once the notifications service ships (FASE D).
+
+    return _load_quote(quote_id, db)
 
 
 @router.put("/{quote_id}", response_model=QuoteOut)

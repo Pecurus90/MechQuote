@@ -296,7 +296,7 @@ class QuoteBase(BaseModel):
     packaging_cost: Optional[float] = 0.0
     notes_customer: Optional[str] = None
     notes_internal: Optional[str] = None
-    status: Optional[str] = "draft"
+    status: Optional[str] = "bozza"
 
 
 class QuoteCreate(QuoteBase):
@@ -309,9 +309,17 @@ class QuoteUpdate(QuoteBase):
     pass
 
 
+class QuoteStatusUpdate(BaseModel):
+    status: str  # "bozza" | "inviato"
+
+
 class QuoteOut(QuoteBase):
     id: int
     quote_number: str
+    submitted_by_user_id: Optional[int] = None
+    submitted_at: Optional[datetime] = None
+    completed_by_user_id: Optional[int] = None
+    completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     parts: List[PartOut] = []

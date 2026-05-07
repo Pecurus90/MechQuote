@@ -70,7 +70,11 @@ class Quote(Base):
     packaging_cost = Column(Float, default=0.0)
     notes_customer = Column(Text)
     notes_internal = Column(Text)
-    status = Column(String(20), default="bozza")  # bozza|inviato|letto|inviato_cliente|vinto|perso
+    status = Column(String(20), default="bozza")  # bozza|inviato|completato
+    submitted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
+    completed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

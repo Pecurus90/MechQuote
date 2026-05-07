@@ -90,6 +90,18 @@ def _run_migrations():
         # Ensure roles/role_permissions tables exist (also created by create_all)
         "CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY, name VARCHAR(50) UNIQUE NOT NULL, label VARCHAR(100) NOT NULL, color VARCHAR(20) DEFAULT 'gray')",
         "CREATE TABLE IF NOT EXISTS role_permissions (id INTEGER PRIMARY KEY, role_id INTEGER REFERENCES roles(id), permission_key VARCHAR(100) NOT NULL)",
+        # FASE C — workflow interno semplificato (bozza|inviato|completato)
+        "ALTER TABLE quotes ADD COLUMN submitted_by_user_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE quotes ADD COLUMN submitted_at DATETIME",
+        "ALTER TABLE quotes ADD COLUMN completed_by_user_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE quotes ADD COLUMN completed_at DATETIME",
+        # Collassa i vecchi stati al cliente / vinti / persi in 'completato'
+        "UPDATE quotes SET status = 'completato' WHERE status IN ('inviato_cliente','vinto','perso')",
+        # Pulizia permessi rimossi / rinominati
+        "DELETE FROM role_permissions WHERE permission_key IN ('quotes.send_client','quotes.close')",
+        # Inserisce 'quotes.complete' per admin e amministrazione (idempotente: prima cancella, poi reinserisce)
+        "DELETE FROM role_permissions WHERE permission_key = 'quotes.complete'",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.complete' FROM roles WHERE name IN ('admin','amministrazione')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

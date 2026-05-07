@@ -283,9 +283,11 @@ export default function QuoteEditor() {
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Parti ({quote.parts.length})
             </span>
-            <button onClick={addPart} className="p-0.5 hover:text-blue-600 text-gray-400" title="Aggiungi parte">
-              <Plus className="w-4 h-4" />
-            </button>
+            {quote.quote_type !== 'single' && (
+              <button onClick={addPart} className="p-0.5 hover:text-blue-600 text-gray-400" title="Aggiungi parte">
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <div
             onClick={() => setSelectedPartIdx(-1)}
@@ -310,14 +312,18 @@ export default function QuoteEditor() {
                     {partsWithIssues.has(idx) && (
                       <span className="text-amber-500 text-xs" title="Dati mancanti">⚠</span>
                     )}
-                    <button onClick={e => { e.stopPropagation(); duplicatePart(idx) }}
-                      className="p-0.5 hover:text-blue-600 text-gray-300" title="Duplica">
-                      <Copy className="w-3 h-3" />
-                    </button>
-                    <button onClick={e => { e.stopPropagation(); deletePart(idx) }}
-                      className="p-0.5 hover:text-red-500 text-gray-300" title="Elimina">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {quote.quote_type !== 'single' && (
+                      <button onClick={e => { e.stopPropagation(); duplicatePart(idx) }}
+                        className="p-0.5 hover:text-blue-600 text-gray-300" title="Duplica">
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    )}
+                    {quote.quote_type !== 'single' && (
+                      <button onClick={e => { e.stopPropagation(); deletePart(idx) }}
+                        className="p-0.5 hover:text-red-500 text-gray-300" title="Elimina">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="text-xs text-gray-400 truncate">{part.description || 'Nessuna descrizione'}</div>

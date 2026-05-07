@@ -207,23 +207,39 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
             <div className="p-5 flex items-start gap-6 flex-wrap">
               {/* Tipo */}
               <div className="flex gap-2">
-                {([
-                  { value: 'single', label: 'Pezzo singolo', sub: 'Un codice parte' },
-                  { value: 'commessa', label: 'Commessa', sub: 'Più parti _01 _02...' },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => set('quote_type', opt.value)}
-                    className={`px-4 py-2.5 rounded-lg border-2 text-left transition-colors ${
-                      form.quote_type === opt.value
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="font-medium text-sm">{opt.label}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{opt.sub}</div>
-                  </button>
-                ))}
+                <button
+                  onClick={() => set('quote_type', 'single')}
+                  className={`px-4 py-2.5 rounded-lg border-2 text-left transition-colors ${
+                    form.quote_type === 'single' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500">
+                      <rect x="3" y="5" width="14" height="10" rx="1.5"/>
+                      <path d="M3 8h14"/>
+                      <path d="M10 5v3"/>
+                    </svg>
+                    <span className="font-medium text-sm">Pezzo singolo</span>
+                  </div>
+                  <div className="text-xs text-gray-500 pl-7">Un codice parte</div>
+                </button>
+                <button
+                  onClick={() => set('quote_type', 'commessa')}
+                  className={`px-4 py-2.5 rounded-lg border-2 text-left transition-colors ${
+                    form.quote_type === 'commessa' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500">
+                      <rect x="2" y="2" width="7" height="7" rx="1"/>
+                      <rect x="11" y="2" width="7" height="7" rx="1"/>
+                      <rect x="2" y="11" width="7" height="7" rx="1"/>
+                      <rect x="11" y="11" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span className="font-medium text-sm">Commessa</span>
+                  </div>
+                  <div className="text-xs text-gray-500 pl-7">Più parti _01 _02...</div>
+                </button>
               </div>
 
               {form.quote_type === 'commessa' && (

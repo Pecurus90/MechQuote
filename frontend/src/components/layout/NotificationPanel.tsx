@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { X, Check, Bell } from 'lucide-react'
 import type { Notification } from '@/lib/useNotifications'
@@ -47,10 +48,10 @@ export default function NotificationPanel({
     }
   }
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed inset-0 bg-black/30 z-[9998]" onClick={onClose} />
+      <aside className="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl z-[9999] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-gray-500" />
@@ -110,6 +111,7 @@ export default function NotificationPanel({
           )}
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   )
 }

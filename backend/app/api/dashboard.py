@@ -5,9 +5,10 @@ from datetime import date, timedelta
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import require_permission
-from app.models import Quote, Part
+from app.core.security import require_permission, get_current_user
+from app.models import Quote, Part, User
 from app.schemas import DashboardKPI, MonthlyData
+from app.api.notifications import _user_notifications
 
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -64,6 +65,21 @@ def get_kpi(db: Session = Depends(get_db), _=_can_view):
         cnc_quoted_value=round(cnc_value, 2),
         edm_quoted_value=round(edm_value, 2),
     )
+
+
+@router.get("/dashboard/activity")
+def get_activity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+    limit: int = 5,
+):
+    """Le 5 notifiche più recenti per l'utente corrente.
+
+    Riusa la stessa logica di filtraggio di /api/notifications. Niente tabella
+    'activity' separata: le attività SONO le notifiche personali.
+    """
+    return _user_notifications(db, current_user, limit=limit)
 
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])

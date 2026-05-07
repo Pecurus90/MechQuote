@@ -3,14 +3,27 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Plus, TrendingUp, TrendingDown } from 'lucide-react'
+import { FileText, Plus, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import type { DashboardKPI, QuoteListItem } from '@/types'
+import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { toast } from 'sonner'
+
+const relativeTime = (iso: string | null): string => {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  const diffMin = Math.round((Date.now() - then) / 60000)
+  if (diffMin < 1) return 'adesso'
+  if (diffMin < 60) return `${diffMin}m`
+  const diffH = Math.round(diffMin / 60)
+  if (diffH < 24) return `${diffH}h`
+  return `${Math.round(diffH / 24)}g`
+}
 
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<DashboardKPI | null>(null)
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
+  const [activity, setActivity] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
@@ -19,9 +32,11 @@ export default function DashboardPage() {
     Promise.all([
       api.get('/dashboard/kpi'),
       api.get('/quotes?limit=20'),
-    ]).then(([kpiRes, quotesRes]) => {
+      api.get('/dashboard/activity'),
+    ]).then(([kpiRes, quotesRes, actRes]) => {
       setKpi(kpiRes.data)
       setQuotes(quotesRes.data)
+      setActivity(actRes.data ?? [])
       setLoading(false)
     }).catch(() => {
       toast.error('Errore nel caricamento dati. Verifica che il backend sia attivo.')
@@ -111,6 +126,50 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Recent activity */}
+      {activity.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Attività recente</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul>
+              {activity.map(a => {
+                const unread = !a.read_at
+                const confirmed = !!a.confirmed_at
+                const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
+                return (
+                  <li
+                    key={a.id}
+                    className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                    onClick={() => quoteId && navigate(`/quotes/${quoteId}`)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="pt-1.5 shrink-0">
+                        {confirmed ? (
+                          <Check className="w-3 h-3 text-green-600" />
+                        ) : unread ? (
+                          <span className="block w-2 h-2 rounded-full bg-blue-500" />
+                        ) : (
+                          <span className="block w-2 h-2 rounded-full border border-gray-300" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                          {a.title}
+                        </p>
+                        {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
+                      </div>
+                      <span className="text-[11px] text-gray-400 shrink-0">{relativeTime(a.created_at)}</span>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent quotes */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -152,7 +211,7 @@ export default function DashboardPage() {
                     <td className="p-3">{q.customer_name || '-'}</td>
                     <td className="p-3 text-gray-500">{q.quote_date}</td>
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.draft}`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
                         {STATUS_LABELS[q.status] || q.status}
                       </span>
                     </td>

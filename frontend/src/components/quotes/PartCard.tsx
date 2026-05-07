@@ -303,21 +303,6 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
               </div>
               {selectedTreatment && (
                 <>
-                  {(() => {
-                    const qty = part.quantity || 1
-                    const totalBatchWeight = (part.finished_weight_kg || 0) * qty
-                    const belowThreshold = selectedTreatment.minimum_weight_kg != null
-                      && selectedTreatment.minimum_weight_kg > 0
-                      && totalBatchWeight < selectedTreatment.minimum_weight_kg
-                    const totalBatchCost = belowThreshold
-                      ? (selectedTreatment.minimum_cost || 0)
-                      : (selectedTreatment.cost_per_kg || 0) * totalBatchWeight
-                    return (
-                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap shrink-0">
-                        {totalBatchCost.toFixed(2)} € totale
-                      </span>
-                    )
-                  })()}
                   <button
                     type="button"
                     onClick={() => handleTreatmentSelect(undefined)}

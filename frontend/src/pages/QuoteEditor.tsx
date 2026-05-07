@@ -109,7 +109,7 @@ export default function QuoteEditor() {
         unit_price: part.unit_price,
         total_price: part.total_price,
       })
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio della parte') }
+    } catch (e) {toast.error('Errore nel salvataggio della parte') }
   }
 
   const reloadPart = async (idx: number) => {
@@ -120,7 +120,7 @@ export default function QuoteEditor() {
       const res = await api.get(`/parts/${part.id}`)
       const fresh = { ...res.data, phases: res.data.phases || [] }
       setQuote(q => q ? { ...q, parts: q.parts.map((p, i) => i === idx ? fresh : p) } : q)
-    } catch (e) { console.error(e) }
+    } catch { toast.error('Errore nel caricamento della parte') }
   }
 
   const duplicatePart = async (idx: number) => {
@@ -131,14 +131,14 @@ export default function QuoteEditor() {
       const res = await api.post(`/parts/${part.id}/duplicate`)
       setQuote(q => q ? { ...q, parts: [...q.parts, { ...res.data, phases: res.data.phases || [] }] } : q)
       toast.success('Parte duplicata')
-    } catch (e) { console.error(e); toast.error('Errore nella duplicazione') }
+    } catch (e) {toast.error('Errore nella duplicazione') }
   }
 
   const deletePart = async (idx: number) => {
     if (!quote) return
     const part = quote.parts[idx]
     if (part.id) {
-      try { await api.delete(`/parts/${part.id}`) } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione della parte') }
+      try { await api.delete(`/parts/${part.id}`) } catch (e) {toast.error('Errore nell\'eliminazione della parte') }
     }
     setQuote(q => q ? { ...q, parts: q.parts.filter((_, i) => i !== idx) } : q)
     setSelectedPartIdx(Math.max(0, idx - 1))
@@ -152,7 +152,7 @@ export default function QuoteEditor() {
       const newPart = { ...res.data, phases: res.data.phases || [] }
       setQuote(q => q ? { ...q, parts: [...q.parts, newPart] } : q)
       setSelectedPartIdx(quote.parts.length)
-    } catch (e) { console.error(e); toast.error('Errore nell\'aggiunta della parte') }
+    } catch (e) {toast.error('Errore nell\'aggiunta della parte') }
   }
 
   const applyQuoteData = (q: Quote & { transport_cost?: number; packaging_cost?: number; global_discount_percent?: number; validity_days?: number }) => {
@@ -186,7 +186,7 @@ export default function QuoteEditor() {
         status: quote.status,
       })
       toast.success('Preventivo salvato')
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
     finally { setSaving(false) }
   }
 
@@ -196,7 +196,7 @@ export default function QuoteEditor() {
     try {
       const res = await api.post(`/quotes/${quote.id}/recalculate`)
       applyQuoteData(res.data)
-    } catch (e) { console.error(e); toast.error('Errore nel ricalcolo') }
+    } catch (e) {toast.error('Errore nel ricalcolo') }
   }
 
   const downloadPdf = async (type: 'customer' | 'internal') => {
@@ -211,7 +211,7 @@ export default function QuoteEditor() {
       a.click()
       a.remove()
       toast.success('PDF generato')
-    } catch (e) { console.error(e); toast.error('Errore nella generazione del PDF') }
+    } catch (e) {toast.error('Errore nella generazione del PDF') }
   }
 
   const handlePdfClick = (type: 'customer' | 'internal') => {
@@ -261,7 +261,7 @@ export default function QuoteEditor() {
           onChange={e => setQuote(q => q ? { ...q, status: e.target.value } : q)}
           onBlur={saveQuote}
         >
-          {(['draft', 'sent', 'accepted', 'rejected', 'archived'] as const).map(s => (
+          {(['bozza', 'inviato', 'letto', 'inviato_cliente', 'vinto', 'perso'] as const).map(s => (
             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
           ))}
         </select>

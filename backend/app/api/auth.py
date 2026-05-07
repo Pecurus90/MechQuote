@@ -4,7 +4,7 @@ from typing import List
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_db
-from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user, require_role
+from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user, require_role, require_permission
 from app.models import User
 from app.schemas import Token, UserCreate, UserUpdate, UserOut
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=Token)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+def register(user: UserCreate, db: Session = Depends(get_db), _=require_permission('users')):
     existing = db.query(User).filter(User.username == user.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username già esistente")

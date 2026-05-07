@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import api from '@/lib/api'
 
 interface StepColorRule {
@@ -53,12 +54,12 @@ export default function StepColorRulesPage() {
       if (editingId && editingId > 0) await api.put(`/step-color-rules/${editingId}`, payload)
       else await api.post('/step-color-rules', payload)
       resetForm(); loadData()
-    } catch (e) { console.error(e) }
+    } catch { toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questa regola?')) return
-    try { await api.delete(`/step-color-rules/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/step-color-rules/${id}`); loadData() } catch { toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...rules]

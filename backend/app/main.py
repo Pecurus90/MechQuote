@@ -6,7 +6,11 @@ import os
 
 from app.core.database import engine, Base
 from app.core.security import get_current_user, require_role
-from app.models import *
+from app.models import (
+    User, QuoteCategory, Customer, Quote, Part, PartFile, GeometryAnalysis,
+    ManufacturingPhase, MaterialSupplier, Material, Machine, Treatment,
+    Supplier, CostRule, PhaseTemplate, StepColorRule, Role, RolePermission,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -77,6 +81,14 @@ def _run_migrations():
         "ALTER TABLE material_suppliers ADD COLUMN cutting_cost_per_part FLOAT DEFAULT 0.0",
         "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'admin'",
         "ALTER TABLE users ADD COLUMN email VARCHAR(200)",
+        # Workflow status migration — convert legacy English values to Italian
+        "UPDATE quotes SET status = 'bozza' WHERE status = 'draft'",
+        "UPDATE quotes SET status = 'inviato_cliente' WHERE status = 'sent'",
+        "UPDATE quotes SET status = 'vinto' WHERE status = 'won'",
+        "UPDATE quotes SET status = 'perso' WHERE status = 'lost'",
+        # Ensure roles/role_permissions tables exist (also created by create_all)
+        "CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY, name VARCHAR(50) UNIQUE NOT NULL, label VARCHAR(100) NOT NULL, color VARCHAR(20) DEFAULT 'gray')",
+        "CREATE TABLE IF NOT EXISTS role_permissions (id INTEGER PRIMARY KEY, role_id INTEGER REFERENCES roles(id), permission_key VARCHAR(100) NOT NULL)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

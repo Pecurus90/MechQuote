@@ -1,17 +1,26 @@
 export const STATUS_LABELS: Record<string, string> = {
-  draft: 'Bozza',
-  sent: 'Inviato',
-  accepted: 'Accettato',
-  rejected: 'Rifiutato',
-  archived: 'Archiviato',
+  bozza:           'Bozza',
+  inviato:         'Inviato',
+  letto:           'Letto',
+  inviato_cliente: 'Inviato al cliente',
+  vinto:           'Vinto',
+  perso:           'Perso',
+  // legacy fallback (pre-migrazione)
+  draft:    'Bozza',
+  sent:     'Inviato al cliente',
+  won:      'Vinto',
+  lost:     'Perso',
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  sent: 'bg-blue-100 text-blue-700',
-  accepted: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
-  archived: 'bg-yellow-100 text-yellow-700',
+  bozza:           'bg-gray-100 text-gray-700',
+  inviato:         'bg-amber-100 text-amber-700',
+  letto:           'bg-blue-100 text-blue-700',
+  inviato_cliente: 'bg-indigo-100 text-indigo-700',
+  vinto:           'bg-green-100 text-green-700',
+  perso:           'bg-red-100 text-red-700',
+  // legacy fallback
+  draft:    'bg-gray-100 text-gray-700',
 }
 
 export const PHASE_TYPES = [

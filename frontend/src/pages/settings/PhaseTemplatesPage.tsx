@@ -70,12 +70,12 @@ export default function PhaseTemplatesPage() {
       else await api.post('/phase-templates', payload)
       toast.success('Template salvato')
       resetForm(); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questo template?')) return
-    try { await api.delete(`/phase-templates/${id}`); toast.success('Template eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/phase-templates/${id}`); toast.success('Template eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...templates]

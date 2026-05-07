@@ -66,12 +66,12 @@ export default function MaterialsPage() {
       else await api.post('/material-suppliers', payload)
       toast.success('Fornitore salvato')
       setSupForm(null); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const deleteSupplier = async (id: number) => {
     if (!confirm('Eliminare questo fornitore?')) return
-    try { await api.delete(`/material-suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/material-suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const saveMaterial = async () => {
@@ -88,12 +88,12 @@ export default function MaterialsPage() {
       else await api.post('/materials', payload)
       toast.success('Materiale salvato')
       setMatForm(null); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const deleteMaterial = async (id: number) => {
     if (!confirm('Eliminare questo materiale?')) return
-    try { await api.delete(`/materials/${id}`); toast.success('Materiale eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/materials/${id}`); toast.success('Materiale eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const startEditMat = (m: Material) => setMatForm({

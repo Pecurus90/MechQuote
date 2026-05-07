@@ -42,7 +42,7 @@ export default function QuoteCategoriesPage() {
       await api.put(`/quote-categories/${id}`, editRow)
       toast.success('Categoria salvata')
       setEditingId(null); load()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const deleteCategory = async (id: number) => {
@@ -50,7 +50,7 @@ export default function QuoteCategoriesPage() {
     try {
       await api.delete(`/quote-categories/${id}`)
       toast.success('Categoria eliminata'); load()
-    } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const createCategory = async () => {
@@ -59,7 +59,7 @@ export default function QuoteCategoriesPage() {
       await api.post('/quote-categories', newRow)
       toast.success('Categoria creata')
       setNewRow({ code: '', name: '', sort_order: 0 }); setShowNew(false); load()
-    } catch (e) { console.error(e); toast.error('Errore nella creazione') }
+    } catch (e) {toast.error('Errore nella creazione') }
   }
 
   const visible = categories.filter(c =>

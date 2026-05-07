@@ -3,15 +3,18 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
+from app.core.security import require_permission
 from app.models import ManufacturingPhase
 from app.schemas import PhaseCreate, PhaseUpdate, PhaseOut
 from app.services.calculation import recalculate_part
+
+_can_write = require_permission('quotes.create')
 
 router = APIRouter(prefix="/api", tags=["phases"])
 
 
 @router.post("/parts/{part_id}/phases", response_model=PhaseOut)
-def add_phase(part_id: int, data: PhaseCreate, db: Session = Depends(get_db)):
+def add_phase(part_id: int, data: PhaseCreate, db: Session = Depends(get_db), _=_can_write):
     phase = ManufacturingPhase(part_id=part_id, **data.model_dump(exclude_unset=True))
     db.add(phase)
     db.commit()
@@ -22,7 +25,7 @@ def add_phase(part_id: int, data: PhaseCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/phases/{phase_id}", response_model=PhaseOut)
-def update_phase(phase_id: int, data: PhaseUpdate, db: Session = Depends(get_db)):
+def update_phase(phase_id: int, data: PhaseUpdate, db: Session = Depends(get_db), _=_can_write):
     phase = db.query(ManufacturingPhase).filter(ManufacturingPhase.id == phase_id).first()
     if not phase:
         raise HTTPException(status_code=404, detail="Phase not found")
@@ -35,7 +38,7 @@ def update_phase(phase_id: int, data: PhaseUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/phases/{phase_id}")
-def delete_phase(phase_id: int, db: Session = Depends(get_db)):
+def delete_phase(phase_id: int, db: Session = Depends(get_db), _=_can_write):
     phase = db.query(ManufacturingPhase).filter(ManufacturingPhase.id == phase_id).first()
     if not phase:
         raise HTTPException(status_code=404, detail="Phase not found")

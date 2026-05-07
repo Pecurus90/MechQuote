@@ -3,23 +3,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
-import { useAuth, UserRole } from '@/lib/auth'
+import { useAuth } from '@/lib/auth'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
+
+interface ApiRole { id: number; name: string; label: string; color: string }
 
 interface User {
   id: number
   username: string
   full_name: string | null
   email: string | null
-  role: UserRole
+  role: string
   is_active: boolean
 }
 
 interface EditRow {
   full_name: string
   email: string
-  role: UserRole
+  role: string
   is_active: boolean
   password: string
 }
@@ -28,18 +30,14 @@ interface NewRow extends EditRow {
   username: string
 }
 
-const ROLES: { value: UserRole; label: string; color: string }[] = [
-  { value: 'admin',           label: 'Admin',            color: 'bg-green-100 text-green-800' },
-  { value: 'ufficio_tecnico', label: 'Ufficio Tecnico',  color: 'bg-blue-100 text-blue-800' },
-  { value: 'officina',        label: 'Officina',         color: 'bg-gray-100 text-gray-800' },
-  { value: 'amministrazione', label: 'Amministrazione',  color: 'bg-purple-100 text-purple-800' },
-]
-
-const roleBadge = (role: UserRole) => {
-  const r = ROLES.find(r => r.value === role)
-  return r ? (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.color}`}>{r.label}</span>
-  ) : <span>{role}</span>
+const COLOR_BADGE: Record<string, string> = {
+  green:  'bg-green-100 text-green-800',
+  blue:   'bg-blue-100 text-blue-800',
+  gray:   'bg-gray-100 text-gray-800',
+  purple: 'bg-purple-100 text-purple-800',
+  amber:  'bg-amber-100 text-amber-800',
+  red:    'bg-red-100 text-red-800',
+  indigo: 'bg-indigo-100 text-indigo-800',
 }
 
 const emptyEdit = (): EditRow => ({
@@ -50,6 +48,7 @@ const emptyNew = (): NewRow => ({ ...emptyEdit(), username: '' })
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<ApiRole[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editRow, setEditRow] = useState<EditRow>(emptyEdit())
@@ -60,7 +59,21 @@ export default function UsersPage() {
 
   const load = () => {
     setLoading(true)
-    api.get('/users').then(r => { setUsers(r.data); setLoading(false) })
+    Promise.all([api.get('/users'), api.get('/roles')]).then(([usersRes, rolesRes]) => {
+      setUsers(usersRes.data)
+      setRoles(rolesRes.data)
+      setLoading(false)
+    })
+  }
+
+  const roleBadge = (roleName: string) => {
+    const r = roles.find(r => r.name === roleName)
+    if (!r) return <span className="text-xs text-gray-500">{roleName}</span>
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COLOR_BADGE[r.color] ?? 'bg-gray-100 text-gray-800'}`}>
+        {r.label}
+      </span>
+    )
   }
 
   const startEdit = (u: User) => {
@@ -168,9 +181,9 @@ export default function UsersPage() {
                           <select
                             className="h-7 text-xs border rounded px-1.5 bg-white"
                             value={editRow.role}
-                            onChange={e => setEditRow(r => ({ ...r, role: e.target.value as UserRole }))}
+                            onChange={e => setEditRow(r => ({ ...r, role: e.target.value }))}
                           >
-                            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                            {roles.map(r => <option key={r.name} value={r.name}>{r.label}</option>)}
                           </select>
                         </td>
                         <td className="px-3 py-2">
@@ -246,9 +259,9 @@ export default function UsersPage() {
                       <select
                         className="h-7 text-xs border rounded px-1.5 bg-white"
                         value={newRow.role}
-                        onChange={e => setNewRow(r => ({ ...r, role: e.target.value as UserRole }))}
+                        onChange={e => setNewRow(r => ({ ...r, role: e.target.value }))}
                       >
-                        {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                        {roles.map(r => <option key={r.name} value={r.name}>{r.label}</option>)}
                       </select>
                     </td>
                     <td className="px-3 py-2">

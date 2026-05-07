@@ -42,12 +42,12 @@ export default function CostRulesPage() {
       else await api.post('/cost-rules', { key, value, description })
       toast.success('Regola salvata')
       resetForm(); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questa regola?')) return
-    try { await api.delete(`/cost-rules/${id}`); toast.success('Regola eliminata'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/cost-rules/${id}`); toast.success('Regola eliminata'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...rules]

@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
 import api from '@/lib/api'
-import type { Part, Material, Machine, Treatment } from '@/types'
+import type { Part, Material, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
 import { toast } from 'sonner'
 
 type StockType = 'none' | 'round' | 'square'
@@ -25,8 +25,6 @@ const IconSquare = () => (
   </svg>
 )
 
-interface Supplier { id: number; name: string }
-interface PhaseTemplate { id: number; name: string; phase_type: string; default_machine_id: number | null; default_supplier_id: number | null; setup_hours: number; cycle_hours_per_part: number; fixed_cost: number; variable_cost_per_part: number; customer_visible: boolean; is_shared: boolean }
 
 interface Props {
   part: Part
@@ -124,7 +122,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
         await api.post(`/parts/${part.id}/phases`, payload)
       }
       onReload?.()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio del trattamento') }
+    } catch (e) {toast.error('Errore nel salvataggio del trattamento') }
   }
 
   return (

@@ -1,3 +1,5 @@
+export interface Supplier { id: number; name: string }
+
 export interface MaterialSupplier {
   id: number
   name: string

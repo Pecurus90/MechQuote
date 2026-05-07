@@ -44,8 +44,7 @@ export default function QuoteArchivePage() {
       setConfirmDeleteId(null)
       toast.success('Preventivo eliminato')
       loadQuotes()
-    } catch (e) {
-      console.error(e)
+    } catch {
       toast.error('Errore nell\'eliminazione')
     } finally {
       setDeleting(false)

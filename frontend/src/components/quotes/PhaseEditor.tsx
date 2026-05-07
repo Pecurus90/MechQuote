@@ -4,12 +4,10 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
-import type { Phase, Machine, Treatment, PhaseTemplate } from '@/types'
+import type { Phase, Machine, Treatment, PhaseTemplate, Supplier } from '@/types'
 import { PHASE_TYPES } from '@/lib/constants'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
-
-interface Supplier { id: number; name: string }
 
 interface Props {
   partId?: number
@@ -76,7 +74,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
         const saved: Phase = res.data
         onChange([...phases, calcPhase(saved, machines, quantity, nParts)])
         setExpandedIdx(phases.length)
-      } catch (e) { console.error(e); toast.error('Errore nell\'aggiunta della fase') }
+      } catch (e) {toast.error('Errore nell\'aggiunta della fase') }
     } else {
       onChange([...phases, calcPhase(newPhase, machines, quantity, nParts)])
       setExpandedIdx(phases.length)
@@ -86,7 +84,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
   const removePhase = async (idx: number) => {
     const phase = phases[idx]
     if (phase.id) {
-      try { await api.delete(`/phases/${phase.id}`) } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione della fase') }
+      try { await api.delete(`/phases/${phase.id}`) } catch (e) {toast.error('Errore nell\'eliminazione della fase') }
     }
     onChange(phases.filter((_, i) => i !== idx))
     if (expandedIdx === idx) setExpandedIdx(null)
@@ -107,7 +105,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
   const savePhase = async (idx: number) => {
     const phase = phases[idx]
     if (!phase.id) return
-    try { await api.put(`/phases/${phase.id}`, phase) } catch (e) { console.error(e); toast.error('Errore nel salvataggio della fase') }
+    try { await api.put(`/phases/${phase.id}`, phase) } catch (e) {toast.error('Errore nel salvataggio della fase') }
   }
 
   const handleTreatmentSelect = (idx: number, treatmentId: number | undefined) => {
@@ -150,7 +148,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
         const res = await api.post(`/parts/${partId}/phases`, newPhase)
         onChange([...phases, calcPhase(res.data, machines, quantity, nParts)])
         setExpandedIdx(phases.length)
-      } catch (e) { console.error(e); toast.error('Errore nell\'applicazione del template') }
+      } catch (e) {toast.error('Errore nell\'applicazione del template') }
     } else {
       onChange([...phases, calcPhase(newPhase, machines, quantity, nParts)])
       setExpandedIdx(phases.length)
@@ -169,7 +167,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     setDragIdx(null)
     if (partId) {
       const ids = updated.filter(p => p.id).map(p => p.id as number)
-      try { await api.post(`/parts/${partId}/phases/reorder`, ids) } catch (e) { console.error(e); toast.error('Errore nel riordino delle fasi') }
+      try { await api.post(`/parts/${partId}/phases/reorder`, ids) } catch (e) {toast.error('Errore nel riordino delle fasi') }
     }
   }
 

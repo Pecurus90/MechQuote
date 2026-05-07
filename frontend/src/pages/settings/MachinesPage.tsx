@@ -60,12 +60,12 @@ export default function MachinesPage() {
       else await api.post('/machines', payload)
       toast.success('Macchina salvata')
       resetForm(); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questa macchina?')) return
-    try { await api.delete(`/machines/${id}`); toast.success('Macchina eliminata'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/machines/${id}`); toast.success('Macchina eliminata'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...machines]

@@ -55,12 +55,12 @@ export default function CustomersPage() {
       else await api.post('/customers', payload)
       toast.success('Cliente salvato')
       closeForm(); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questo cliente?')) return
-    try { await api.delete(`/customers/${id}`); toast.success('Cliente eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/customers/${id}`); toast.success('Cliente eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')

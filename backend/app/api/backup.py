@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db, engine
-from app.models import *
+from app.models import (
+    Quote, Part, ManufacturingPhase, Material, Machine,
+    Treatment, Supplier, CostRule, PhaseTemplate, StepColorRule, User,
+)
 import json
 import io
 from datetime import date

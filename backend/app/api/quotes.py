@@ -3,9 +3,12 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.database import get_db
+from app.core.security import require_permission
 from app.models import Quote, Part, ManufacturingPhase
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut
 from app.services.calculation import recalculate_part
+
+_can_write = require_permission('quotes.create')
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
@@ -33,7 +36,7 @@ def list_quotes(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
 
 
 @router.post("", response_model=QuoteOut)
-def create_quote(data: QuoteCreate, db: Session = Depends(get_db)):
+def create_quote(data: QuoteCreate, db: Session = Depends(get_db), _=_can_write):
     from datetime import date as date_type
 
     num_components = data.num_components
@@ -83,7 +86,7 @@ def get_quote(quote_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{quote_id}", response_model=QuoteOut)
-def update_quote(quote_id: int, data: QuoteUpdate, db: Session = Depends(get_db)):
+def update_quote(quote_id: int, data: QuoteUpdate, db: Session = Depends(get_db), _=_can_write):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
@@ -94,7 +97,7 @@ def update_quote(quote_id: int, data: QuoteUpdate, db: Session = Depends(get_db)
 
 
 @router.post("/{quote_id}/recalculate", response_model=QuoteOut)
-def recalculate_quote(quote_id: int, db: Session = Depends(get_db)):
+def recalculate_quote(quote_id: int, db: Session = Depends(get_db), _=_can_write):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
@@ -104,7 +107,7 @@ def recalculate_quote(quote_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{quote_id}")
-def delete_quote(quote_id: int, db: Session = Depends(get_db)):
+def delete_quote(quote_id: int, db: Session = Depends(get_db), _=_can_write):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")

@@ -75,12 +75,12 @@ export default function TreatmentsPage() {
       else await api.post('/suppliers', payload)
       toast.success('Fornitore salvato')
       setSupForm(null); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const deleteSupplier = async (id: number) => {
     if (!confirm('Eliminare questo fornitore?')) return
-    try { await api.delete(`/suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   // --- Treatment CRUD ---
@@ -101,12 +101,12 @@ export default function TreatmentsPage() {
       else await api.post('/treatments', payload)
       toast.success('Trattamento salvato')
       setTreatForm(null); loadData()
-    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
+    } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const deleteTreat = async (id: number) => {
     if (!confirm('Eliminare questo trattamento?')) return
-    try { await api.delete(`/treatments/${id}`); toast.success('Trattamento eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/treatments/${id}`); toast.success('Trattamento eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const startEditTreat = (t: Treatment) => setTreatForm({

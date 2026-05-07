@@ -19,6 +19,7 @@ interface Props {
   templates?: PhaseTemplate[]
   treatments?: Treatment[]
   finishedWeightKg?: number
+  readOnly?: boolean
   onChange: (phases: Phase[]) => void
 }
 
@@ -37,7 +38,7 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, onChange }: Props) {
+export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, readOnly = false, onChange }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
 
@@ -182,6 +183,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
   const phaseLabel = (type: string) => PHASE_TYPES.find(t => t.value === type)?.label || type
 
   return (
+    <fieldset disabled={readOnly} className="border-0 p-0 m-0 disabled:opacity-90">
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center gap-2 flex-wrap">
@@ -494,5 +496,6 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
         </div>
       </CardContent>
     </Card>
+    </fieldset>
   )
 }

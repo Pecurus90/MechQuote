@@ -106,6 +106,12 @@ export interface Part {
   material?: Material
 }
 
+export interface UserMinimal {
+  id: number
+  username: string
+  full_name: string | null
+}
+
 export interface Quote {
   id?: number
   quote_number: string
@@ -121,6 +127,13 @@ export interface Quote {
   delivery_text?: string
   quote_date: string
   status: string
+  created_by_user_id?: number | null
+  submitted_by_user_id?: number | null
+  submitted_at?: string | null
+  completed_by_user_id?: number | null
+  completed_at?: string | null
+  submitted_by?: UserMinimal | null
+  completed_by?: UserMinimal | null
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
@@ -133,6 +146,7 @@ export interface QuoteListItem {
   customer_name: string
   quote_date: string
   status: string
+  created_by_user_id?: number | null
   parts: { total_price?: number }[]
 }
 

@@ -35,13 +35,14 @@ interface Props {
   treatments?: Treatment[]
   nParts?: number
   globalMarginPercent: number
+  readOnly?: boolean
   onUpdate: (updates: Partial<Part>) => void
   onSave: () => void
   onPhasesChange: (phases: Part['phases']) => void
   onReload?: () => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], templates = [], treatments = [], nParts = 1, globalMarginPercent, onUpdate, onSave, onPhasesChange, onReload }: Props) {
+export default function PartCard({ part, machines, materials, suppliers = [], templates = [], treatments = [], nParts = 1, globalMarginPercent, readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
@@ -126,7 +127,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
   }
 
   return (
-    <div className="space-y-3">
+    <fieldset disabled={readOnly} className="space-y-3 border-0 p-0 m-0 disabled:opacity-90">
       {/* Header compatto: dati parte + materiale in due righe */}
       <Card>
         <CardContent className="pt-4 pb-3 space-y-3">
@@ -339,6 +340,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             templates={templates}
             treatments={treatments}
             finishedWeightKg={part.finished_weight_kg}
+            readOnly={readOnly}
             onChange={onPhasesChange}
           />
         </div>
@@ -427,6 +429,6 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           </Card>
         </div>
       </div>
-    </div>
+    </fieldset>
   )
 }

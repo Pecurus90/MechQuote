@@ -270,14 +270,6 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 placeholder="—"
                 onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0 })}
                 onBlur={onSave} />
-              <div className="flex gap-2 mt-0.5">
-                {selectedMaterial?.material_supplier && (
-                  <p className="text-[10px] text-gray-400">{selectedMaterial.material_supplier.name}</p>
-                )}
-                {part.quantity > 1 && (part.material_delivery_cost || 0) > 0 && (
-                  <p className="text-[10px] text-gray-400">÷{part.quantity} pz</p>
-                )}
-              </div>
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>

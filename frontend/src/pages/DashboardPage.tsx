@@ -78,10 +78,10 @@ export default function DashboardPage() {
             onClick={(id) => navigate(`/quotes/${id}`)}
           />
           <QuoteListSection
-            title="In attesa di lettura"
+            title="I miei inviati"
             count={stats.my_pending_count}
             rows={myPending}
-            emptyText="Nessun preventivo in attesa"
+            emptyText="Nessun preventivo inviato in attesa"
             icon={<Send className="w-4 h-4 text-amber-500" />}
             onClick={(id) => navigate(`/quotes/${id}`)}
           />

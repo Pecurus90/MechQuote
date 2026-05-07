@@ -1,4 +1,13 @@
-import type { Part, Quote, Material } from '@/types'
+import type { Part, Quote, Material, Treatment } from '@/types'
+
+export function calcTreatmentCost(t: Treatment, finishedWeightKg: number | undefined, qty: number): number {
+  const weight = finishedWeightKg || 0
+  const totalBatchWeight = weight * qty
+  const belowThreshold = t.minimum_weight_kg != null && t.minimum_weight_kg > 0 && totalBatchWeight < t.minimum_weight_kg
+  return belowThreshold
+    ? (t.minimum_cost || 0) / Math.max(qty, 1)
+    : (t.cost_per_kg || 0) * weight
+}
 
 export function calcMaterialCost(part: Part, material: Material | undefined): number {
   if (!material) return part.material_cost || 0
@@ -22,7 +31,7 @@ export function calcMaterialCost(part: Part, material: Material | undefined): nu
 
 export function calcPartTotals(part: Part, globalMargin: number, nParts = 1): Part {
   const phaseTotal = part.phases.reduce((s, p) => s + (p.calculated_cost || 0), 0)
-  const deliveryPerPiece = (part.material_delivery_cost || 0) / nParts
+  const deliveryPerPiece = (part.material_delivery_cost || 0) / (part.quantity || 1)
   const totalCost = Math.round(((part.material_cost || 0) + deliveryPerPiece + phaseTotal) * 100) / 100
   const margin = part.margin_percent ?? globalMargin
   const minimum = part.minimum_price ?? 0

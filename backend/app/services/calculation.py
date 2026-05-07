@@ -41,7 +41,7 @@ def recalculate_part(part_id: int, db: Session) -> None:
     if margin is None:
         margin = quote.global_margin_percent if quote else 20.0
 
-    delivery_per_piece = (part.material_delivery_cost or 0.0) / n_parts
+    delivery_per_piece = (part.material_delivery_cost or 0.0) / qty
     part.total_cost = round((part.material_cost or 0.0) + delivery_per_piece + phase_total_per_piece, 4)
 
     minimum = part.minimum_price or 0.0

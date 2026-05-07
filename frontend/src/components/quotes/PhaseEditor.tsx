@@ -6,6 +6,7 @@ import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from
 import api from '@/lib/api'
 import type { Phase, Machine, Treatment, PhaseTemplate } from '@/types'
 import { PHASE_TYPES } from '@/lib/constants'
+import { calcTreatmentCost } from '@/lib/quoteCalc'
 
 interface Supplier { id: number; name: string }
 
@@ -24,15 +25,6 @@ interface Props {
 
 const TREATMENT_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment'])
 const SUPPLIER_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment', 'external_supplier'])
-
-function calcTreatmentVarCost(t: Treatment, finishedWeightKg: number | undefined, qty: number): number {
-  const weight = finishedWeightKg || 0
-  const totalBatchWeight = weight * qty
-  const belowThreshold = t.minimum_weight_kg != null && t.minimum_weight_kg > 0 && totalBatchWeight < t.minimum_weight_kg
-  return belowThreshold
-    ? (t.minimum_cost || 0) / Math.max(qty, 1)
-    : (t.cost_per_kg || 0) * weight
-}
 
 function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): Phase {
   const machine = machines.find(m => m.id === phase.machine_id)
@@ -56,7 +48,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
       if (!ph.treatment_id) return ph
       const t = treatments.find(t => t.id === ph.treatment_id)
       if (!t) return ph
-      const varCost = calcTreatmentVarCost(t, finishedWeightKg, quantity)
+      const varCost = calcTreatmentCost(t, finishedWeightKg, quantity)
       return calcPhase({ ...ph, variable_cost_per_part: varCost }, machines, quantity, nParts)
     })
     const changed = updated.some((ph, i) => ph.variable_cost_per_part !== phases[i].variable_cost_per_part)
@@ -125,7 +117,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     }
     const t = treatments.find(t => t.id === treatmentId)
     if (!t) return
-    const varCost = calcTreatmentVarCost(t, finishedWeightKg, quantity)
+    const varCost = calcTreatmentCost(t, finishedWeightKg, quantity)
     const shippingCost = t.supplier?.shipping_cost || 0
     updateMany(idx, {
       treatment_id: treatmentId,

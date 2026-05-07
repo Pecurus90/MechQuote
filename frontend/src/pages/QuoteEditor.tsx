@@ -112,6 +112,17 @@ export default function QuoteEditor() {
     } catch (e) { console.error(e) }
   }
 
+  const reloadPart = async (idx: number) => {
+    if (!quote) return
+    const part = quote.parts[idx]
+    if (!part?.id) return
+    try {
+      const res = await api.get(`/parts/${part.id}`)
+      const fresh = { ...res.data, phases: res.data.phases || [] }
+      setQuote(q => q ? { ...q, parts: q.parts.map((p, i) => i === idx ? fresh : p) } : q)
+    } catch (e) { console.error(e) }
+  }
+
   const duplicatePart = async (idx: number) => {
     if (!quote) return
     const part = quote.parts[idx]
@@ -392,6 +403,7 @@ export default function QuoteEditor() {
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
               onSave={() => savePart(selectedPartIdx)}
               onPhasesChange={phases => updatePart(selectedPartIdx, { phases })}
+              onReload={() => reloadPart(selectedPartIdx)}
             />
           )}
         </div>

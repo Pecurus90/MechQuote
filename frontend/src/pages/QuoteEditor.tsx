@@ -265,7 +265,7 @@ export default function QuoteEditor() {
             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
           ))}
         </select>
-        <Button size="sm" variant="outline" onClick={() => handlePdfClick('customer')}>
+        <Button size="sm" variant="outline" onClick={() => handlePdfClick('internal')}>
           <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
         </Button>
         <Button size="sm" onClick={saveQuote} disabled={saving}>

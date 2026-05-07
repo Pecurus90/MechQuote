@@ -85,28 +85,15 @@ body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #1e2
         background: #f8fafc; border-bottom: 1px solid #f1f5f9; }
 .matl b { color: #334155; }
 
-/* ── Cost breakdown (internal) ───────────── */
-.cbd { background: #fffbeb; border-top: 1px solid #fde68a;
-       border-bottom: 1px solid #fde68a; padding: 6px 12px 5px; }
-.cbd-title { font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
-             color: #92400e; font-weight: 700; margin-bottom: 5px; }
-.cbd-grid { display: flex; gap: 0; }
-.cbd-col { flex: 1; border-right: 1px solid #fde68a; padding-right: 10px; margin-right: 10px; }
-.cbd-col:last-child { border-right: none; padding-right: 0; margin-right: 0; }
-.cbd-row { display: flex; justify-content: space-between; font-size: 10px;
-           color: #374151; font-weight: 600; padding: 1px 0; }
-.cbd-sub { display: flex; justify-content: space-between; font-size: 8.5px;
-           color: #b45309; padding: 0 0 1px 8px; }
-.cbd-total { display: flex; justify-content: space-between; font-size: 10px;
-             color: #1e3a8a; font-weight: 700; border-top: 1px solid #fde68a;
-             margin-top: 4px; padding-top: 3px; }
-
 /* ── Phases table ────────────────────────── */
 .ops { width: 100%; border-collapse: collapse; }
+.ops-hd td { background: #f1f5f9; font-size: 8px; font-weight: 700; text-transform: uppercase;
+             letter-spacing: 0.6px; color: #64748b; padding: 4px 10px;
+             border-bottom: 1px solid #e2e8f0; }
 .ops td { padding: 5px 10px; font-size: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
 .ops tr:last-child td { border-bottom: none; }
 .ops-n { width: 22px; text-align: center; color: #94a3b8; font-size: 8.5px; padding-top: 7px; }
-.ops-type { width: 88px; }
+.ops-type { width: 90px; }
 .badge { display: inline-block; border-radius: 3px; padding: 2px 6px;
          font-size: 8.5px; font-weight: 700; white-space: nowrap; }
 .badge-work { background: #dbeafe; color: #1d4ed8; }
@@ -115,15 +102,40 @@ body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #1e2
 .ops-mach { color: #94a3b8; font-size: 8.5px; margin-top: 2px; }
 .ops-desc { color: #374151; }
 .ops-note { color: #94a3b8; font-style: italic; font-size: 9px; margin-top: 2px; }
-.ops-time { text-align: right; color: #64748b; white-space: nowrap; font-size: 9px; }
-.ops-cost { text-align: right; color: #64748b; white-space: nowrap; }
+.ops-time { text-align: right; color: #64748b; white-space: nowrap; font-size: 9px; width: 90px; }
+.ops-cost { text-align: right; font-weight: 700; color: #1e3a8a; white-space: nowrap;
+            font-family: monospace; width: 70px; }
 .no-ops { padding: 8px 12px; font-size: 10px; color: #94a3b8; font-style: italic; }
+
+/* ── Cost breakdown (internal) ───────────── */
+.cbd { background: #fffbeb; border-top: 2px solid #f59e0b; padding: 8px 12px 7px; }
+.cbd-title { font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
+             color: #92400e; font-weight: 700; margin-bottom: 7px; }
+.cbd-body { display: flex; gap: 16px; }
+.cbd-costs { flex: 1; }
+.cbd-pricing { min-width: 200px; border-left: 1px solid #fde68a; padding-left: 16px; }
+.cbd-row { display: flex; justify-content: space-between; align-items: baseline;
+           font-size: 10px; color: #374151; font-weight: 600; padding: 1.5px 0; }
+.cbd-row span:last-child { font-family: monospace; color: #1e3a8a; }
+.cbd-sub { display: flex; justify-content: space-between; font-size: 8.5px;
+           color: #b45309; padding: 0 0 1px 10px; }
+.cbd-sub span:last-child { font-family: monospace; }
+.cbd-sep { border-top: 1px solid #fde68a; margin: 5px 0; }
+.cbd-total-row { display: flex; justify-content: space-between; font-size: 10.5px;
+                 font-weight: 700; color: #1e3a8a; padding: 2px 0; }
+.cbd-total-row span:last-child { font-family: monospace; }
+.cbd-pr-row { display: flex; justify-content: space-between; font-size: 10px;
+              color: #374151; padding: 1.5px 0; }
+.cbd-pr-row span:last-child { font-family: monospace; font-weight: 600; color: #1e3a8a; }
+.cbd-pr-final { display: flex; justify-content: space-between; font-size: 12px;
+                font-weight: 700; color: #1d4ed8; border-top: 1px solid #fde68a;
+                margin-top: 5px; padding-top: 4px; }
+.cbd-pr-final span:last-child { font-family: monospace; }
 
 /* ── Price footer ────────────────────────── */
 .pfoot { background: #eff6ff; border-top: 1px solid #bfdbfe;
          padding: 7px 12px; display: flex; justify-content: flex-end;
          align-items: center; gap: 18px; }
-.pf-cost { font-size: 9.5px; color: #64748b; }
 .pf-unit { font-size: 10.5px; color: #374151; }
 .pf-total { font-size: 13px; font-weight: 700; color: #1d4ed8; }
 
@@ -278,53 +290,11 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
 
             html += f'  <div class="matl"><b>Materiale:</b> {mat_str}{extras}</div>\n'
 
-        # ── Internal cost breakdown ──
-        if internal:
-            delivery_pp = (part.material_delivery_cost or 0.0) / qty
-            cutting_pp = 0.0
-            if mat and mat.material_supplier:
-                cutting_pp = mat.material_supplier.cutting_cost_per_part or 0.0
-            mat_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
-
-            work_phases = [ph for ph in part.phases if not ph.treatment_id]
-            treat_phases = [ph for ph in part.phases if ph.treatment_id]
-            work_cost = sum(ph.calculated_cost for ph in work_phases)
-            treat_cost = sum(ph.calculated_cost for ph in treat_phases)
-            treat_ship_pp = (treat_phases[0].fixed_cost or 0.0) / qty if treat_phases else 0.0
-
-            # Left col: material breakdown
-            left = f'<div class="cbd-row"><span>Materiale</span><span>{mat_total:.2f} {cur}/pz</span></div>'
-            if delivery_pp > 0.005:
-                left += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f}</span></div>'
-            if cutting_pp > 0.005:
-                left += f'<div class="cbd-sub"><span>di cui taglio grezzo</span><span>{cutting_pp:.2f}</span></div>'
-
-            # Right col: phases + treatment
-            right = ""
-            if work_cost > 0.005:
-                right += f'<div class="cbd-row"><span>Lavorazioni</span><span>{work_cost:.2f} {cur}/pz</span></div>'
-            if treat_cost > 0.005:
-                right += f'<div class="cbd-row"><span>Trattamenti</span><span>{treat_cost:.2f} {cur}/pz</span></div>'
-                if treat_ship_pp > 0.005:
-                    right += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{treat_ship_pp:.2f}</span></div>'
-
-            # Total line
-            total_line = f'<div class="cbd-total"><span>Costo totale / pz</span><span>{part.total_cost or 0:.2f} {cur}</span></div>'
-
-            html += f"""  <div class="cbd">
-    <div class="cbd-title">Analisi costi &mdash; uso interno</div>
-    <div class="cbd-grid">
-      <div class="cbd-col">{left}</div>
-      <div class="cbd-col">{right}</div>
-    </div>
-    {total_line}
-  </div>
-"""
-
         # ── Phases table ──
         visible = [ph for ph in part.phases if ph.customer_visible or internal]
         if visible:
-            html += '  <table class="ops">\n'
+            hd_cost = '<td class="ops-cost">€/pz</td>' if internal else ""
+            html += f'  <table class="ops"><tr class="ops-hd"><td class="ops-n">#</td><td class="ops-type">Tipo</td><td>Descrizione</td><td class="ops-time">Tempi</td>{hd_cost}</tr>\n'
             for ph in visible:
                 setup_str = _fmt_time(ph.setup_hours or 0)
                 cycle_str = _fmt_time(ph.cycle_hours_per_part or 0)
@@ -361,12 +331,52 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
         else:
             html += '  <div class="no-ops">Nessuna lavorazione definita.</div>\n'
 
+        # ── Internal cost breakdown (after phases) ──
+        if internal:
+            delivery_pp = (part.material_delivery_cost or 0.0) / qty
+            cutting_pp = (mat.material_supplier.cutting_cost_per_part or 0.0) if (mat and mat.material_supplier) else 0.0
+            mat_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
+
+            work_phases = [ph for ph in part.phases if not ph.treatment_id]
+            treat_phases = [ph for ph in part.phases if ph.treatment_id]
+            work_cost = sum(ph.calculated_cost for ph in work_phases)
+            treat_cost = sum(ph.calculated_cost for ph in treat_phases)
+            treat_ship_pp = (treat_phases[0].fixed_cost or 0.0) / qty if treat_phases else 0.0
+
+            # Left: cost items
+            costs_html = f'<div class="cbd-row"><span>Materiale</span><span>{mat_total:.2f}&nbsp;{cur}/pz</span></div>'
+            if delivery_pp > 0.005:
+                costs_html += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f}</span></div>'
+            if cutting_pp > 0.005:
+                costs_html += f'<div class="cbd-sub"><span>di cui taglio grezzo</span><span>{cutting_pp:.2f}</span></div>'
+            if work_cost > 0.005:
+                costs_html += f'<div class="cbd-row"><span>Lavorazioni</span><span>{work_cost:.2f}&nbsp;{cur}/pz</span></div>'
+            if treat_cost > 0.005:
+                costs_html += f'<div class="cbd-row"><span>Trattamenti</span><span>{treat_cost:.2f}&nbsp;{cur}/pz</span></div>'
+                if treat_ship_pp > 0.005:
+                    costs_html += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{treat_ship_pp:.2f}</span></div>'
+            costs_html += f'<div class="cbd-sep"></div>'
+            costs_html += f'<div class="cbd-total-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
+
+            # Right: pricing
+            margin = part.margin_percent
+            margin_lbl = f"{margin:.0f}%" if margin is not None else "—"
+            pricing_html = f'<div class="cbd-pr-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
+            pricing_html += f'<div class="cbd-pr-row"><span>Margine</span><span>{margin_lbl}</span></div>'
+            pricing_html += f'<div class="cbd-pr-row"><span>Prezzo/pz</span><span>{part.unit_price or 0:.2f}&nbsp;{cur}</span></div>'
+            pricing_html += f'<div class="cbd-pr-final"><span>Totale &times;&thinsp;{qty}</span><span>{part.total_price or 0:.2f}&nbsp;{cur}</span></div>'
+
+            html += f"""  <div class="cbd">
+    <div class="cbd-title">Analisi costi &mdash; uso interno</div>
+    <div class="cbd-body">
+      <div class="cbd-costs">{costs_html}</div>
+      <div class="cbd-pricing">{pricing_html}</div>
+    </div>
+  </div>
+"""
+
         # ── Price footer ──
-        cost_span = f'<span class="pf-cost">Costo&nbsp;{part.total_cost or 0:.2f}&nbsp;{cur}</span>' if internal else ""
-        margin_pct = part.margin_percent
-        margin_span = f'<span class="pf-cost">Marg.&nbsp;{margin_pct:.0f}%</span>' if internal and margin_pct is not None else ""
         html += f"""  <div class="pfoot">
-    {cost_span}{margin_span}
     <span class="pf-unit">{part.unit_price or 0:.2f}&nbsp;{cur}&nbsp;/&nbsp;pz</span>
     <span class="pf-total">{part.total_price or 0:.2f}&nbsp;{cur}</span>
   </div>

@@ -204,7 +204,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
             <div className="px-5 py-3 border-b">
               <h2 className="text-sm font-semibold text-gray-700">Tipo, Data e Margine</h2>
             </div>
-            <div className="p-5 flex flex-col items-center gap-4">
+            <div className="p-5 flex flex-col items-start gap-4">
               {/* Tipo */}
               <div className="flex gap-2">
                 <button

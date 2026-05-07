@@ -243,15 +243,20 @@ Parts are auto-created by `POST /api/quotes` based on `num_components`.
 
 ### Cost calculation formulas
 
-**Phase cost** (`calculation.py` and `PhaseEditor.tsx` must stay identical):
+**Phase cost — `calculated_cost` is the cost PER PIECE** (`calculation.py` and `PhaseEditor.tsx` must stay identical):
 ```
 rate = hourly_rate_override ?? machine.hourly_rate ?? 0
+divisor = quantity × (n_parts if phase.is_shared else 1)
 
-phase_cost = (setup_hours × rate)
-           + (cycle_hours_per_part × quantity × rate)
-           + fixed_cost
-           + (variable_cost_per_part × quantity)
+calculated_cost (per piece) =
+    (setup_hours × rate) / divisor               # setup amortized over all pieces
+  + (cycle_hours_per_part × rate)                # already a per-piece value
+  + fixed_cost / divisor                         # one-time fixed cost amortized
+  + variable_cost_per_part                       # already per-piece
 ```
+
+> When `is_shared=true` (e.g. heat treatment of a whole batch), setup and fixed_cost are
+> amortized over all parts in the same quote, not just over the quantity of one part.
 
 **Part totals:**
 ```

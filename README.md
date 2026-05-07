@@ -30,17 +30,37 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:3000 — the API is proxied to :8000.
+Then open http://localhost:5173 — the API is proxied to :8000.
 
 ## First User
 
+L'endpoint `POST /api/auth/register` richiede il permesso `users` (admin only).
+Per il bootstrap iniziale, creare il primo utente admin direttamente in DB con uno script Python o via SQLite:
+
 ```bash
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin","full_name":"Admin"}'
+cd backend
+venv/bin/python -c "
+from app.models import User
+from app.core.security import get_password_hash
+from app.core.database import SessionLocal
+db = SessionLocal()
+db.add(User(username='admin', hashed_password=get_password_hash('admin'), full_name='Admin', role='admin'))
+db.commit()
+"
 ```
 
-Then login at http://localhost:3000/login
+Then login at http://localhost:5173/login
+
+## Environment variables
+
+Da impostare in `backend/.env` prima del deploy:
+
+| Variabile | Default | Descrizione |
+|-----------|---------|-------------|
+| `SECRET_KEY` | _placeholder_ | JWT signing key — **obbligatorio in produzione** |
+| `DATABASE_URL` | `sqlite:///./mechquote.db` | Connection string SQLAlchemy |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | CORS, comma-separated |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Validità JWT (default 24h) |
 
 ## Project Structure
 

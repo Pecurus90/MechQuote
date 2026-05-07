@@ -18,10 +18,27 @@ def recalculate_part(part_id: int, db: Session) -> None:
 
     phases = db.query(ManufacturingPhase).filter(
         ManufacturingPhase.part_id == part_id
-    ).options(joinedload(ManufacturingPhase.machine)).all()
+    ).options(
+        joinedload(ManufacturingPhase.machine),
+        joinedload(ManufacturingPhase.treatment),
+    ).all()
 
     phase_total_per_piece = 0.0
     for phase in phases:
+        # Treatment phases: recalculate variable_cost_per_part dynamically
+        # so that qty changes are reflected correctly (forfait splits across pieces)
+        if phase.treatment_id and phase.treatment:
+            t = phase.treatment
+            total_weight = (part.finished_weight_kg or 0.0) * qty
+            below_threshold = (
+                t.minimum_weight_kg and t.minimum_weight_kg > 0
+                and total_weight < t.minimum_weight_kg
+            )
+            if below_threshold:
+                phase.variable_cost_per_part = round((t.minimum_cost or 0.0) / max(qty, 1), 4)
+            else:
+                phase.variable_cost_per_part = round((t.cost_per_kg or 0.0) * (part.finished_weight_kg or 0.0), 4)
+
         rate = phase.hourly_rate_override
         if rate is None:
             rate = phase.machine.hourly_rate if phase.machine else 0.0

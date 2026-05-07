@@ -80,7 +80,9 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
     onUpdate({ [field]: value, material_cost: matCost } as Partial<Part>)
   }
 
-  const phaseCost = part.phases.reduce((s, p) => s + p.calculated_cost, 0)
+  const workPhaseCost = part.phases.filter(p => !p.treatment_id).reduce((s, p) => s + p.calculated_cost, 0)
+  const treatmentPhaseCost = part.phases.filter(p => p.treatment_id != null).reduce((s, p) => s + p.calculated_cost, 0)
+  const phaseCost = workPhaseCost + treatmentPhaseCost
 
   const treatmentPhase = part.phases.find(p => p.treatment_id != null)
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
@@ -360,8 +362,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Lavorazioni</span>
-                  <span>{phaseCost.toFixed(2)} €</span>
+                  <span>{workPhaseCost.toFixed(2)} €</span>
                 </div>
+                {treatmentPhaseCost > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Trattamenti</span>
+                    <span>{treatmentPhaseCost.toFixed(2)} €</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-medium border-t border-blue-200 pt-1.5 mt-1.5">
                   <span>Costo totale</span>
                   <span>{part.total_cost.toFixed(2)} €</span>

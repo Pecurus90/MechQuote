@@ -4,17 +4,16 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { toast } from 'sonner'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setLoading(true)
     try {
       const res = await api.post('/auth/login', new URLSearchParams({
@@ -26,7 +25,7 @@ export default function LoginPage() {
       localStorage.setItem('token', res.data.access_token)
       navigate('/')
     } catch {
-      setError('Credenziali non valide')
+      toast.error('Credenziali non valide')
     } finally {
       setLoading(false)
     }
@@ -68,9 +67,6 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>
-            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Accesso...' : 'Accedi'}
             </Button>

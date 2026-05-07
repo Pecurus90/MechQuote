@@ -12,6 +12,7 @@ import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
+import { toast } from 'sonner'
 
 export default function QuoteEditor() {
   const { id } = useParams<{ id?: string }>()
@@ -28,7 +29,6 @@ export default function QuoteEditor() {
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
-  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [validationIssues, setValidationIssues] = useState<PartIssue[] | null>(null)
   const [pendingPdfType, setPendingPdfType] = useState<'customer' | 'internal' | null>(null)
@@ -69,7 +69,7 @@ export default function QuoteEditor() {
       setLoading(false)
     }).catch((e) => {
       const msg = e?.response?.data?.detail || e?.message || 'Errore sconosciuto'
-      setLoadError(`Impossibile caricare il preventivo: ${msg}`)
+      toast.error(`Impossibile caricare il preventivo: ${msg}`)
       setLoading(false)
     })
   }, [id])
@@ -109,7 +109,7 @@ export default function QuoteEditor() {
         unit_price: part.unit_price,
         total_price: part.total_price,
       })
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio della parte') }
   }
 
   const reloadPart = async (idx: number) => {
@@ -130,14 +130,15 @@ export default function QuoteEditor() {
     try {
       const res = await api.post(`/parts/${part.id}/duplicate`)
       setQuote(q => q ? { ...q, parts: [...q.parts, { ...res.data, phases: res.data.phases || [] }] } : q)
-    } catch (e) { console.error(e) }
+      toast.success('Parte duplicata')
+    } catch (e) { console.error(e); toast.error('Errore nella duplicazione') }
   }
 
   const deletePart = async (idx: number) => {
     if (!quote) return
     const part = quote.parts[idx]
     if (part.id) {
-      try { await api.delete(`/parts/${part.id}`) } catch (e) { console.error(e) }
+      try { await api.delete(`/parts/${part.id}`) } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione della parte') }
     }
     setQuote(q => q ? { ...q, parts: q.parts.filter((_, i) => i !== idx) } : q)
     setSelectedPartIdx(Math.max(0, idx - 1))
@@ -151,7 +152,7 @@ export default function QuoteEditor() {
       const newPart = { ...res.data, phases: res.data.phases || [] }
       setQuote(q => q ? { ...q, parts: [...q.parts, newPart] } : q)
       setSelectedPartIdx(quote.parts.length)
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nell\'aggiunta della parte') }
   }
 
   const applyQuoteData = (q: Quote & { transport_cost?: number; packaging_cost?: number; global_discount_percent?: number; validity_days?: number }) => {
@@ -184,7 +185,8 @@ export default function QuoteEditor() {
         notes_internal: quote.notes_internal,
         status: quote.status,
       })
-    } catch (e) { console.error(e) }
+      toast.success('Preventivo salvato')
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
     finally { setSaving(false) }
   }
 
@@ -194,7 +196,7 @@ export default function QuoteEditor() {
     try {
       const res = await api.post(`/quotes/${quote.id}/recalculate`)
       applyQuoteData(res.data)
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel ricalcolo') }
   }
 
   const downloadPdf = async (type: 'customer' | 'internal') => {
@@ -208,7 +210,8 @@ export default function QuoteEditor() {
       document.body.appendChild(a)
       a.click()
       a.remove()
-    } catch (e) { console.error(e) }
+      toast.success('PDF generato')
+    } catch (e) { console.error(e); toast.error('Errore nella generazione del PDF') }
   }
 
   const handlePdfClick = (type: 'customer' | 'internal') => {
@@ -233,12 +236,6 @@ export default function QuoteEditor() {
   }
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Caricamento...</div>
-  if (loadError) return (
-    <div className="flex flex-col items-center justify-center h-64 gap-3">
-      <p className="text-red-600 font-medium">{loadError}</p>
-      <button onClick={() => navigate('/')} className="text-sm text-blue-600 underline">Torna alla dashboard</button>
-    </div>
-  )
   if (!quote) return null
 
   const selectedPart = quote.parts[selectedPartIdx] ?? null

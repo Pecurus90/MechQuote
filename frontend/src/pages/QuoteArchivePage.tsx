@@ -6,6 +6,7 @@ import type { QuoteListItem as Quote } from '@/types'
 import api from '@/lib/api'
 import { FileText, Plus, Trash2 } from 'lucide-react'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import { toast } from 'sonner'
 
 export default function QuoteArchivePage() {
   const navigate = useNavigate()
@@ -41,9 +42,11 @@ export default function QuoteArchivePage() {
     try {
       await api.delete(`/quotes/${id}`)
       setConfirmDeleteId(null)
+      toast.success('Preventivo eliminato')
       loadQuotes()
     } catch (e) {
       console.error(e)
+      toast.error('Errore nell\'eliminazione')
     } finally {
       setDeleting(false)
     }

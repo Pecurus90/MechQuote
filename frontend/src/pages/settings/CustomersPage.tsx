@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 interface Customer {
   id: number
@@ -52,13 +53,14 @@ export default function CustomersPage() {
     try {
       if (editingId && editingId > 0) await api.put(`/customers/${editingId}`, payload)
       else await api.post('/customers', payload)
+      toast.success('Cliente salvato')
       closeForm(); loadData()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questo cliente?')) return
-    try { await api.delete(`/customers/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/customers/${id}`); toast.success('Cliente eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')

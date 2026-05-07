@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 interface CostRule {
   id: number
@@ -39,13 +40,14 @@ export default function CostRulesPage() {
     try {
       if (editingId && editingId > 0) await api.put(`/cost-rules/${editingId}`, { key, value, description })
       else await api.post('/cost-rules', { key, value, description })
+      toast.success('Regola salvata')
       resetForm(); loadData()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questa regola?')) return
-    try { await api.delete(`/cost-rules/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/cost-rules/${id}`); toast.success('Regola eliminata'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...rules]

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Download, Upload, FileJson } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 export default function BackupSettingsPage() {
   const [exporting, setExporting] = useState(false)
@@ -21,7 +22,7 @@ export default function BackupSettingsPage() {
       link.remove()
     } catch (e) {
       console.error('Export error', e)
-      alert('Errore durante l\'esportazione')
+      toast.error('Errore durante l\'esportazione')
     } finally {
       setExporting(false)
     }
@@ -43,10 +44,10 @@ export default function BackupSettingsPage() {
         try {
           const data = JSON.parse(ev.target?.result as string)
           await api.post('/backup/import', data)
-          alert('Dati importati con successo!')
+          toast.success('Dati importati con successo!')
         } catch (e) {
           console.error('Import error', e)
-          alert('Errore durante l\'importazione')
+          toast.error('Errore durante l\'importazione')
         } finally {
           setImporting(false)
         }

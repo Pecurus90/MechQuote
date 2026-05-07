@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 interface Supplier {
   id: number
@@ -72,14 +73,14 @@ export default function TreatmentsPage() {
     try {
       if (supForm.id) await api.put(`/suppliers/${supForm.id}`, payload)
       else await api.post('/suppliers', payload)
-      setSupForm(null)
-      loadData()
-    } catch (e) { console.error(e) }
+      toast.success('Fornitore salvato')
+      setSupForm(null); loadData()
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const deleteSupplier = async (id: number) => {
     if (!confirm('Eliminare questo fornitore?')) return
-    try { await api.delete(`/suppliers/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   // --- Treatment CRUD ---
@@ -98,14 +99,14 @@ export default function TreatmentsPage() {
     try {
       if (treatForm.id) await api.put(`/treatments/${treatForm.id}`, payload)
       else await api.post('/treatments', payload)
-      setTreatForm(null)
-      loadData()
-    } catch (e) { console.error(e) }
+      toast.success('Trattamento salvato')
+      setTreatForm(null); loadData()
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const deleteTreat = async (id: number) => {
     if (!confirm('Eliminare questo trattamento?')) return
-    try { await api.delete(`/treatments/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/treatments/${id}`); toast.success('Trattamento eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const startEditTreat = (t: Treatment) => setTreatForm({

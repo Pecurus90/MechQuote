@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import type { PhaseTemplate } from '@/types'
+import { toast } from 'sonner'
 
 interface Machine { id: number; name: string }
 interface Supplier { id: number; name: string }
@@ -67,13 +68,14 @@ export default function PhaseTemplatesPage() {
     try {
       if (editingId && editingId > 0) await api.put(`/phase-templates/${editingId}`, payload)
       else await api.post('/phase-templates', payload)
+      toast.success('Template salvato')
       resetForm(); loadData()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questo template?')) return
-    try { await api.delete(`/phase-templates/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/phase-templates/${id}`); toast.success('Template eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...templates]

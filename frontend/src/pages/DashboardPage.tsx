@@ -6,12 +6,12 @@ import { useNavigate } from 'react-router-dom'
 import { FileText, Plus, TrendingUp, TrendingDown } from 'lucide-react'
 import type { DashboardKPI, QuoteListItem } from '@/types'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import { toast } from 'sonner'
 
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<DashboardKPI | null>(null)
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function DashboardPage() {
       setQuotes(quotesRes.data)
       setLoading(false)
     }).catch(() => {
-      setError('Errore nel caricamento dei dati. Verifica che il backend sia attivo.')
+      toast.error('Errore nel caricamento dati. Verifica che il backend sia attivo.')
       setLoading(false)
     })
   }, [])
@@ -38,14 +38,9 @@ export default function DashboardPage() {
     </div>
   )
 
-  if (error) return (
-    <div className="p-8 text-center">
-      <p className="text-red-600 mb-4">{error}</p>
-      <Button onClick={() => window.location.reload()}>Riprova</Button>
-    </div>
-  )
+  if (!kpi) return null
 
-  const diff = kpi!.percentage_diff
+  const diff = kpi.percentage_diff
   const diffPositive = diff >= 0
 
   return (
@@ -62,27 +57,27 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Preventivi totali</CardDescription>
-            <CardTitle className="text-3xl">{kpi!.total_quotes}</CardTitle>
+            <CardTitle className="text-3xl">{kpi.total_quotes}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-gray-500">
-            {kpi!.total_quotes_this_month} questo mese
+            {kpi.total_quotes_this_month} questo mese
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Valore totale</CardDescription>
-            <CardTitle className="text-3xl">{kpi!.total_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
+            <CardTitle className="text-3xl">{kpi.total_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-gray-500">
-            Media {kpi!.avg_quote_value.toFixed(0)} € / preventivo
+            Media {kpi.avg_quote_value.toFixed(0)} € / preventivo
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Valore questo mese</CardDescription>
-            <CardTitle className="text-3xl">{kpi!.quoted_value_this_month.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
+            <CardTitle className="text-3xl">{kpi.quoted_value_this_month.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
           </CardHeader>
           <CardContent className="text-sm flex items-center gap-1">
             {diffPositive
@@ -97,21 +92,21 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Codici parte totali</CardDescription>
-            <CardTitle className="text-3xl">{kpi!.total_part_codes}</CardTitle>
+            <CardTitle className="text-3xl">{kpi.total_part_codes}</CardTitle>
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Valore CNC preventivato</CardDescription>
-            <CardTitle className="text-3xl">{kpi!.cnc_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
+            <CardTitle className="text-3xl">{kpi.cnc_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader className="pb-1">
             <CardDescription>Valore EDM preventivato</CardDescription>
-            <CardTitle className="text-3xl">{kpi!.edm_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
+            <CardTitle className="text-3xl">{kpi.edm_quoted_value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</CardTitle>
           </CardHeader>
         </Card>
       </div>

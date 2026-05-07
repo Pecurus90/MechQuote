@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Save } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 interface CompanySettings {
   company_name: string
@@ -62,10 +63,10 @@ export default function CompanySettingsPage() {
           await api.post('/cost-rules', { key, value, description: `Company ${key.replace('company_', '')}` })
         }
       }
-      alert('Impostazioni salvate!')
+      toast.success('Impostazioni salvate!')
     } catch (e) {
       console.error('Save error', e)
-      alert('Errore nel salvataggio')
+      toast.error('Errore nel salvataggio')
     } finally {
       setSaving(false)
     }

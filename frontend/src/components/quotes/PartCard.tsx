@@ -6,6 +6,7 @@ import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
 import api from '@/lib/api'
 import type { Part, Material, Machine, Treatment } from '@/types'
+import { toast } from 'sonner'
 
 type StockType = 'none' | 'round' | 'square'
 
@@ -90,33 +91,35 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
   const handleTreatmentSelect = async (treatmentId: number | undefined) => {
     if (!part.id) return
     const t = treatments.find(t => t.id === treatmentId)
-    if (!treatmentId || !t) {
-      if (treatmentPhase?.id) {
-        await api.delete(`/phases/${treatmentPhase.id}`)
-        onReload?.()
+    try {
+      if (!treatmentId || !t) {
+        if (treatmentPhase?.id) {
+          await api.delete(`/phases/${treatmentPhase.id}`)
+          onReload?.()
+        }
+        return
       }
-      return
-    }
-    const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1)
-    const payload = {
-      phase_type: 'heat_treatment',
-      description: t.name,
-      treatment_id: treatmentId,
-      supplier_id: t.supplier_id ?? undefined,
-      variable_cost_per_part: varCost,
-      sequence_number: 99,
-      setup_hours: 0,
-      cycle_hours_per_part: 0,
-      fixed_cost: 0,
-      customer_visible: true,
-      is_shared: false,
-    }
-    if (treatmentPhase?.id) {
-      await api.put(`/phases/${treatmentPhase.id}`, payload)
-    } else {
-      await api.post(`/parts/${part.id}/phases`, payload)
-    }
-    onReload?.()
+      const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1)
+      const payload = {
+        phase_type: 'heat_treatment',
+        description: t.name,
+        treatment_id: treatmentId,
+        supplier_id: t.supplier_id ?? undefined,
+        variable_cost_per_part: varCost,
+        sequence_number: 99,
+        setup_hours: 0,
+        cycle_hours_per_part: 0,
+        fixed_cost: 0,
+        customer_visible: true,
+        is_shared: false,
+      }
+      if (treatmentPhase?.id) {
+        await api.put(`/phases/${treatmentPhase.id}`, payload)
+      } else {
+        await api.post(`/parts/${part.id}/phases`, payload)
+      }
+      onReload?.()
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio del trattamento') }
   }
 
   return (

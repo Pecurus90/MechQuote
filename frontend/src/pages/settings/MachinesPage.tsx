@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 const MACHINE_TYPES = [
   { value: 'cnc_3_axis', label: 'CNC 3 assi' },
@@ -57,13 +58,14 @@ export default function MachinesPage() {
     try {
       if (editingId && editingId > 0) await api.put(`/machines/${editingId}`, payload)
       else await api.post('/machines', payload)
+      toast.success('Macchina salvata')
       resetForm(); loadData()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Eliminare questa macchina?')) return
-    try { await api.delete(`/machines/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/machines/${id}`); toast.success('Macchina eliminata'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...machines]

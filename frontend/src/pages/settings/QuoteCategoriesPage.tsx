@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Category {
   id: number
@@ -37,19 +38,28 @@ export default function QuoteCategoriesPage() {
   }
 
   const saveEdit = async (id: number) => {
-    await api.put(`/quote-categories/${id}`, editRow)
-    setEditingId(null); load()
+    try {
+      await api.put(`/quote-categories/${id}`, editRow)
+      toast.success('Categoria salvata')
+      setEditingId(null); load()
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const deleteCategory = async (id: number) => {
     if (!confirm('Eliminare questa categoria?')) return
-    await api.delete(`/quote-categories/${id}`); load()
+    try {
+      await api.delete(`/quote-categories/${id}`)
+      toast.success('Categoria eliminata'); load()
+    } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const createCategory = async () => {
     if (!newRow.code || !newRow.name) return
-    await api.post('/quote-categories', newRow)
-    setNewRow({ code: '', name: '', sort_order: 0 }); setShowNew(false); load()
+    try {
+      await api.post('/quote-categories', newRow)
+      toast.success('Categoria creata')
+      setNewRow({ code: '', name: '', sort_order: 0 }); setShowNew(false); load()
+    } catch (e) { console.error(e); toast.error('Errore nella creazione') }
   }
 
   const visible = categories.filter(c =>

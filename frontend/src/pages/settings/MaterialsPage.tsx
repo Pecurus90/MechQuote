@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 interface MaterialSupplier {
   id: number
@@ -61,13 +62,14 @@ export default function MaterialsPage() {
     try {
       if (supForm.id) await api.put(`/material-suppliers/${supForm.id}`, payload)
       else await api.post('/material-suppliers', payload)
+      toast.success('Fornitore salvato')
       setSupForm(null); loadData()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const deleteSupplier = async (id: number) => {
     if (!confirm('Eliminare questo fornitore?')) return
-    try { await api.delete(`/material-suppliers/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/material-suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const saveMaterial = async () => {
@@ -82,13 +84,14 @@ export default function MaterialsPage() {
     try {
       if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
       else await api.post('/materials', payload)
+      toast.success('Materiale salvato')
       setMatForm(null); loadData()
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error(e); toast.error('Errore nel salvataggio') }
   }
 
   const deleteMaterial = async (id: number) => {
     if (!confirm('Eliminare questo materiale?')) return
-    try { await api.delete(`/materials/${id}`); loadData() } catch (e) { console.error(e) }
+    try { await api.delete(`/materials/${id}`); toast.success('Materiale eliminato'); loadData() } catch (e) { console.error(e); toast.error('Errore nell\'eliminazione') }
   }
 
   const startEditMat = (m: Material) => setMatForm({

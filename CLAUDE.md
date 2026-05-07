@@ -46,6 +46,25 @@ Database: SQLite at `backend/mechquote.db` — **never commit this file**.
 
 ## Come lavorare
 
+### Feedback utente — Toast
+
+La libreria **sonner** è installata. Il `<Toaster />` è montato in `App.tsx` — disponibile ovunque.
+
+```typescript
+import { toast } from 'sonner'
+
+toast.success('Operazione completata')
+toast.error('Qualcosa è andato storto')
+```
+
+**Regole:**
+- Ogni operazione API (POST, PUT, DELETE) **deve** avere `toast.success()` on success e `toast.error()` nel catch
+- Mai usare `alert()` — mai
+- Mai creare `useState error` + JSX inline per messaggi transitori — usare `toast.error()`
+- `window.confirm()` per azioni distruttive (delete) è accettabile — non serve sostituirlo con un dialog custom
+
+---
+
 ### Verifica obbligatoria prima di chiudere qualsiasi task
 
 ```bash
@@ -144,6 +163,9 @@ Seguire il pattern di `frontend/src/pages/settings/QuoteCategoriesPage.tsx`:
 | Componente estratto porta con sé le costanti del padre | `ReferenceError` runtime nel padre | Dopo ogni estrazione verificare che le costanti restino nel padre |
 | Tipo TypeScript non aggiornato dopo modifica schema | Errori TS silenziosi, `undefined` a runtime | Aggiornare schema Pydantic e tipo TS nella stessa modifica |
 | Concatenazione in query SQL | Potenziale SQL injection | Usare sempre parametri: `db.execute(text("... WHERE id = :id"), {"id": id})` |
+| `alert()` invece di toast | Esperienza utente scadente, blocca il thread UI | Usare sempre `toast.success()` / `toast.error()` da `sonner` |
+| Operazione API senza feedback visivo | L'utente non sa se l'azione è andata a buon fine | Ogni `await api.post/put/delete` deve avere `toast.success()` on success e `toast.error()` nel catch |
+| `useState error` + JSX inline per messaggi transitori | Stato in più, JSX extra, design inconsistente | Usare `toast.error()` — rimuovere lo stato `error` e il blocco JSX inline |
 
 ---
 

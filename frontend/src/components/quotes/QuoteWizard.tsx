@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Category, Customer } from '@/types'
 import api from '@/lib/api'
+import { toast } from 'sonner'
 
 interface Props {
   categories: Category[]
@@ -27,7 +28,6 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
     quote_date: new Date().toISOString().split('T')[0],
   })
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerOpen, setCustomerOpen] = useState(false)
   const customerRef = useRef<HTMLDivElement>(null)
@@ -67,12 +67,14 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
     : ''
 
   const submit = async () => {
-    if (!form.customer_code || !form.progressive) {
-      setError('Inserisci codice cliente e progressivo')
+    const missing: string[] = []
+    if (!form.customer_code) missing.push('Codice cliente')
+    if (!form.progressive) missing.push('Numero progressivo')
+    if (missing.length > 0) {
+      toast.error(`Campi mancanti: ${missing.join(', ')}`)
       return
     }
     setSaving(true)
-    setError('')
     try {
       const res = await api.post('/quotes', {
         quote_number: quoteNumber,
@@ -87,7 +89,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
       onCreated(res.data.id)
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
-      setError(err?.response?.data?.detail || 'Errore nella creazione del preventivo')
+      toast.error(err?.response?.data?.detail || 'Errore nella creazione del preventivo')
     } finally {
       setSaving(false)
     }
@@ -272,10 +274,8 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
             </div>
           </div>
 
-{error && <p className="text-sm text-red-600 px-1">{error}</p>}
-
           <div className="flex justify-end pb-4">
-            <Button size="lg" onClick={submit} disabled={saving || !quoteNumber}>
+            <Button size="lg" onClick={submit} disabled={saving}>
               {saving ? 'Creazione...' : 'Crea Preventivo →'}
             </Button>
           </div>

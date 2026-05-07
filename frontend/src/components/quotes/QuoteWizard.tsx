@@ -204,7 +204,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
             <div className="px-5 py-3 border-b">
               <h2 className="text-sm font-semibold text-gray-700">Tipo, Data e Margine</h2>
             </div>
-            <div className="p-5 flex items-center justify-center gap-5 flex-wrap">
+            <div className="p-5 flex flex-col items-center gap-4">
               {/* Tipo */}
               <div className="flex gap-2">
                 <button
@@ -240,35 +240,34 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 </button>
               </div>
 
-              <div className="w-px h-9 bg-gray-200 shrink-0" />
-
-              {form.quote_type === 'commessa' && (
+              <div className="flex gap-4 items-end">
+                {form.quote_type === 'commessa' && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">N° componenti</label>
+                    <Input type="number" min={1} max={50} className="mt-1 h-9 w-24 text-sm"
+                      value={form.num_components}
+                      onChange={e => set('num_components', parseInt(e.target.value) || 1)} />
+                  </div>
+                )}
                 <div>
-                  <label className="text-xs font-medium text-gray-600">N° componenti</label>
-                  <Input type="number" min={1} max={50} className="mt-1 h-9 w-24 text-sm"
-                    value={form.num_components}
-                    onChange={e => set('num_components', parseInt(e.target.value) || 1)} />
+                  <label className="text-xs font-medium text-gray-600">Data</label>
+                  <Input type="date" className="mt-1 h-9 text-sm" value={form.quote_date}
+                    onChange={e => set('quote_date', e.target.value)} />
                 </div>
-              )}
-
-              <div>
-                <label className="text-xs font-medium text-gray-600">Data</label>
-                <Input type="date" className="mt-1 h-9 text-sm" value={form.quote_date}
-                  onChange={e => set('quote_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600">Margine default (%)</label>
-                <Input type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
-                  value={form.global_margin_percent}
-                  onChange={e => set('global_margin_percent', parseFloat(e.target.value) || 0)} />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600">
-                  {form.quote_type === 'commessa' ? 'Qtà per componente' : 'Quantità pezzi'}
-                </label>
-                <Input type="number" min={1} className="mt-1 h-9 w-24 text-sm"
-                  value={form.default_quantity}
-                  onChange={e => set('default_quantity', parseInt(e.target.value) || 1)} />
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Margine default (%)</label>
+                  <Input type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
+                    value={form.global_margin_percent}
+                    onChange={e => set('global_margin_percent', parseFloat(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">
+                    {form.quote_type === 'commessa' ? 'Qtà per componente' : 'Quantità pezzi'}
+                  </label>
+                  <Input type="number" min={1} className="mt-1 h-9 w-24 text-sm"
+                    value={form.default_quantity}
+                    onChange={e => set('default_quantity', parseInt(e.target.value) || 1)} />
+                </div>
               </div>
             </div>
           </div>

@@ -78,7 +78,7 @@ export default function DashboardPage() {
             onClick={(id) => navigate(`/quotes/${id}`)}
           />
           <QuoteListSection
-            title="In attesa di revisione"
+            title="In attesa di lettura"
             count={stats.my_pending_count}
             rows={myPending}
             emptyText="Nessun preventivo in attesa"
@@ -87,10 +87,10 @@ export default function DashboardPage() {
           />
           {canReview && (
             <QuoteListSection
-              title="Da revisionare"
+              title="Da leggere"
               count={stats.to_review_count}
               rows={toReview}
-              emptyText="Niente da revisionare"
+              emptyText="Niente da leggere"
               icon={<Inbox className="w-4 h-4 text-blue-500" />}
               onClick={(id) => navigate(`/quotes/${id}`)}
               showSubmitter

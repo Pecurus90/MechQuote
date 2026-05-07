@@ -31,21 +31,21 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, hasRole, hasPermission, logout } = useAuth()
+  const { user, hasPermission, logout } = useAuth()
 
   const isQuotesActive = location.pathname.startsWith('/quotes')
   const isSettingsActive = location.pathname.startsWith('/settings')
 
-  const isAdmin = hasRole('admin')
   const canQuote = hasPermission('quotes.create')
   const canDashboard = hasPermission('dashboard')
   const canCustomers = hasPermission('customers')
   const canSettings = hasPermission('settings')
+  const canCompany = hasPermission('company')
   const canUsers = hasPermission('users')
   const canBackup = hasPermission('backup')
 
   const showCatalog = canSettings
-  const showAziendaSection = isAdmin
+  const showAziendaSection = canCompany
   const showSystemSection = canUsers || canBackup
   const showSettingsRoot = showCatalog || showAziendaSection || showSystemSection
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_role
+from app.core.security import require_permission
 from app.models import CompanySettings
 from app.schemas import CompanySettingsOut, CompanySettingsUpdate
 
@@ -25,7 +25,7 @@ def get_company_settings(db: Session = Depends(get_db)):
     return _get_or_create(db)
 
 
-@router.put("/company-settings", response_model=CompanySettingsOut, dependencies=[require_role('admin')])
+@router.put("/company-settings", response_model=CompanySettingsOut, dependencies=[require_permission('company')])
 def update_company_settings(data: CompanySettingsUpdate, db: Session = Depends(get_db)):
     cs = _get_or_create(db)
     for key, value in data.model_dump().items():

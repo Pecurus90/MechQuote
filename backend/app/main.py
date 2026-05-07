@@ -134,6 +134,9 @@ def _run_migrations():
          "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='transport_default') AS FLOAT), 0.0), "
          "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='packaging_default') AS FLOAT), 0.0) "
          "WHERE NOT EXISTS (SELECT 1 FROM company_settings WHERE id=1)"),
+        # Permesso 'company' aggiunto in audit#3 — di default solo admin
+        "DELETE FROM role_permissions WHERE permission_key = 'company'",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'company' FROM roles WHERE name = 'admin'",
     ]
     with engine.connect() as conn:
         for sql in migrations:

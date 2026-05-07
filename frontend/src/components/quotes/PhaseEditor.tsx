@@ -42,7 +42,10 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
 
-  // When finishedWeightKg changes, recalculate treatment phases
+  // Quando cambia il peso finito o la quantità, ricalcola i costi delle fasi treatment.
+  // Phases/treatments/machines/onChange sono volutamente fuori dalle deps: phases viene
+  // ricreata ad ogni render del parent (riferimento nuovo) e onChange è una callback inline,
+  // metterli innescherebbe rerender continui. Il check `changed` evita loop comunque.
   useEffect(() => {
     const updated = phases.map(ph => {
       if (!ph.treatment_id) return ph
@@ -53,7 +56,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     })
     const changed = updated.some((ph, i) => ph.variable_cost_per_part !== phases[i].variable_cost_per_part)
     if (changed) onChange(updated)
-  }, [finishedWeightKg]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [finishedWeightKg, quantity]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addPhase = async () => {
     const seq = phases.length > 0 ? Math.max(...phases.map(p => p.sequence_number)) + 10 : 10

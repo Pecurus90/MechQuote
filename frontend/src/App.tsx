@@ -57,7 +57,7 @@ function AppRoutes() {
         <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />
         <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />
-        <Route path="settings/company"    element={<ProtectedRoute roles={['admin']}><CompanySettingsPage /></ProtectedRoute>} />
+        <Route path="settings/company"    element={<ProtectedRoute permission="company"><CompanySettingsPage /></ProtectedRoute>} />
         <Route path="settings/backup"     element={<ProtectedRoute permission="backup"><BackupSettingsPage /></ProtectedRoute>} />
         <Route path="settings/users"      element={<ProtectedRoute permission="users"><UsersPage /></ProtectedRoute>} />
         <Route path="settings/roles"      element={<ProtectedRoute permission="users"><RolesPage /></ProtectedRoute>} />

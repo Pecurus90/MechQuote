@@ -326,7 +326,7 @@ export default function QuoteEditor() {
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-xs text-amber-800 flex items-center gap-2">
           <span className="font-medium">🔒 Preventivo non più modificabile</span>
           <span className="text-amber-700">·</span>
-          <span>{quote.status === 'inviato' ? 'È in attesa di revisione.' : 'È stato completato.'} Solo un admin può apportare modifiche.</span>
+          <span>{quote.status === 'inviato' ? 'È in attesa di lettura.' : 'È stato completato.'} Solo un admin può apportare modifiche.</span>
         </div>
       )}
 

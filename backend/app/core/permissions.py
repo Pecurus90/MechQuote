@@ -7,6 +7,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.complete": "Marca preventivo come completato leggendolo",
     "customers":     "Gestione clienti",
     "settings":      "Impostazioni (materiali, macchine…)",
+    "company":       "Modifica dati aziendali e default preventivi",
     "users":         "Gestione utenti",
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",

@@ -20,8 +20,7 @@ export default function BackupSettingsPage() {
       document.body.appendChild(link)
       link.click()
       link.remove()
-    } catch (e) {
-      console.error('Export error', e)
+    } catch {
       toast.error('Errore durante l\'esportazione')
     } finally {
       setExporting(false)
@@ -45,8 +44,7 @@ export default function BackupSettingsPage() {
           const data = JSON.parse(ev.target?.result as string)
           await api.post('/backup/import', data)
           toast.success('Dati importati con successo!')
-        } catch (e) {
-          console.error('Import error', e)
+        } catch {
           toast.error('Errore durante l\'importazione')
         } finally {
           setImporting(false)

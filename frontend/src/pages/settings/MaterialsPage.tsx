@@ -11,6 +11,7 @@ interface MaterialSupplier {
   name: string
   address: string | null
   shipping_cost: number
+  cutting_cost_per_part?: number
   active: boolean
 }
 
@@ -29,14 +30,14 @@ interface Material {
   material_supplier?: MaterialSupplier | null
 }
 
-interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; active: boolean }
-const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', active: true })
+interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string; active: boolean }
+const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', cutting_cost_per_part: '0', active: true })
 
 interface MatForm {
   id: number | null; name: string; family: string; density: string; cost: string
-  edm: string; cnc: string; scrap: string; cutting: string; active: boolean; supplier_id: string
+  edm: string; cnc: string; scrap: string; active: boolean; supplier_id: string
 }
-const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', cutting: '0', active: true, supplier_id: '' })
+const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', active: true, supplier_id: '' })
 
 export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
@@ -59,7 +60,7 @@ export default function MaterialsPage() {
 
   const saveSupplier = async () => {
     if (!supForm) return
-    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), active: supForm.active }
+    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), cutting_cost_per_part: Number(supForm.cutting_cost_per_part), active: supForm.active }
     try {
       if (supForm.id) await api.put(`/material-suppliers/${supForm.id}`, payload)
       else await api.post('/material-suppliers', payload)
@@ -79,8 +80,8 @@ export default function MaterialsPage() {
       name: matForm.name, family: matForm.family,
       density_kg_dm3: Number(matForm.density), cost_per_kg: Number(matForm.cost),
       edm_coefficient: Number(matForm.edm), cnc_machinability_coefficient: Number(matForm.cnc),
-      default_scrap_percent: Number(matForm.scrap), cutting_cost_per_part: Number(matForm.cutting),
-      active: matForm.active, supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
+      default_scrap_percent: Number(matForm.scrap), active: matForm.active,
+      supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
     }
     try {
       if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
@@ -99,8 +100,8 @@ export default function MaterialsPage() {
     id: m.id, name: m.name, family: m.family,
     density: String(m.density_kg_dm3), cost: String(m.cost_per_kg),
     edm: String(m.edm_coefficient), cnc: String(m.cnc_machinability_coefficient),
-    scrap: String(m.default_scrap_percent), cutting: String(m.cutting_cost_per_part ?? 0),
-    active: m.active, supplier_id: m.supplier_id ? String(m.supplier_id) : '',
+    scrap: String(m.default_scrap_percent), active: m.active,
+    supplier_id: m.supplier_id ? String(m.supplier_id) : '',
   })
 
   const visibleSup = [...suppliers]
@@ -136,15 +137,16 @@ export default function MaterialsPage() {
             <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[28%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[43%] font-medium text-gray-600">Indirizzo</th>
-                  <th className="text-right p-3 w-[17%] font-medium text-gray-600">Spedizione (€)</th>
-                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[25%] font-medium text-gray-600">Nome</th>
+                  <th className="text-left p-3 w-[33%] font-medium text-gray-600">Indirizzo</th>
+                  <th className="text-right p-3 w-[14%] font-medium text-gray-600">Spedizione (€)</th>
+                  <th className="text-right p-3 w-[14%] font-medium text-gray-600">Taglio (€/pz)</th>
+                  <th className="text-center p-3 w-[14%] font-medium text-gray-600">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleSup.length === 0 && (
-                  <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessun fornitore trovato.</td></tr>
+                  <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessun fornitore trovato.</td></tr>
                 )}
                 {visibleSup.map(s => (
                   supForm?.id === s.id ? (
@@ -152,6 +154,7 @@ export default function MaterialsPage() {
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
                       <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                      <td className="p-2"><Input type="number" step="0.5" min="0" className="h-8 text-sm w-full" value={supForm.cutting_cost_per_part} onChange={e => setSupForm(f => f ? { ...f, cutting_cost_per_part: e.target.value } : f)} /></td>
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
@@ -164,9 +167,10 @@ export default function MaterialsPage() {
                       <td className="p-3 font-medium">{s.name}</td>
                       <td className="p-3 text-gray-500 truncate">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
+                      <td className="p-3 text-right font-mono">{(s.cutting_cost_per_part ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -182,6 +186,7 @@ export default function MaterialsPage() {
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
                     <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
+                    <td className="p-2"><Input type="number" step="0.5" min="0" className="h-8 text-sm w-full" value={supForm.cutting_cost_per_part} onChange={e => setSupForm(f => f ? { ...f, cutting_cost_per_part: e.target.value } : f)} /></td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
@@ -289,10 +294,6 @@ export default function MaterialsPage() {
                 <div>
                   <label className="text-sm font-medium">Sfrido %</label>
                   <Input type="number" step="0.5" value={matForm.scrap} onChange={e => setMatForm(f => f ? { ...f, scrap: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Spese taglio (€/pz)</label>
-                  <Input type="number" step="0.5" min="0" value={matForm.cutting} onChange={e => setMatForm(f => f ? { ...f, cutting: e.target.value } : f)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Fornitore materiale</label>

@@ -70,7 +70,7 @@ def _run_migrations():
         "ALTER TABLE suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE suppliers ADD COLUMN address TEXT",
         "ALTER TABLE treatments ADD COLUMN minimum_weight_kg FLOAT",
-        "ALTER TABLE materials ADD COLUMN cutting_cost_per_part FLOAT DEFAULT 0.0",
+        "ALTER TABLE material_suppliers ADD COLUMN cutting_cost_per_part FLOAT DEFAULT 0.0",
     ]
     with engine.connect() as conn:
         for sql in migrations:

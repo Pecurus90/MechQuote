@@ -6,7 +6,7 @@ import os
 import math
 
 from app.core.database import get_db
-from app.models import Quote, Part, ManufacturingPhase, CostRule
+from app.models import Quote, Part, ManufacturingPhase, CostRule, Material, MaterialSupplier
 
 router = APIRouter(prefix="/api", tags=["pdf"])
 
@@ -34,10 +34,11 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
 
     parts = db.query(Part).options(
-        joinedload(Part.material),
+        joinedload(Part.material).joinedload(Material.material_supplier),
         joinedload(Part.phases).options(
             joinedload(ManufacturingPhase.machine),
             joinedload(ManufacturingPhase.supplier),
+            joinedload(ManufacturingPhase.treatment),
         ),
     ).filter(Part.quote_id == quote_id).order_by(Part.id).all()
 
@@ -96,6 +97,10 @@ body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
 .total-value {{ font-size: 24px; font-weight: bold; color: #1e40af; margin-top: 4px; }}
 .footer {{ margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #888; }}
 .no-phases {{ padding: 8px 14px; font-size: 11px; color: #9ca3af; font-style: italic; }}
+.cost-breakdown {{ padding: 6px 14px 4px; background: #fffbeb; border-bottom: 1px solid #fde68a; font-size: 11px; }}
+.cb-item {{ display: flex; justify-content: space-between; color: #374151; padding: 1px 0; }}
+.cb-item span:first-child {{ font-weight: 600; }}
+.cb-sub {{ display: flex; justify-content: space-between; color: #9ca3af; padding: 0 0 1px 12px; font-size: 10px; }}
 </style>
 </head>
 <body>
@@ -172,6 +177,35 @@ body {{ font-family: Arial, sans-serif; font-size: 12px; color: #333; }}
             dim_part = f" &nbsp;&bull;&nbsp; <span class='mat-label'>Grezzo:</span> {dim_str}{weight_str}" if dim_str else ""
 
             html += f'  <div class="mat-row"><span class="mat-label">Materiale:</span> {mat_label}{dim_part}</div>\n'
+
+        # Internal cost breakdown
+        if internal:
+            qty = part.quantity or 1
+            delivery_pp = (part.material_delivery_cost or 0.0) / qty
+            cutting_pp = 0.0
+            if mat and mat.material_supplier:
+                cutting_pp = mat.material_supplier.cutting_cost_per_part or 0.0
+            material_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
+
+            work_cost = sum(ph.calculated_cost for ph in part.phases if not ph.treatment_id)
+            treatment_phases = [ph for ph in part.phases if ph.treatment_id]
+            treatment_cost = sum(ph.calculated_cost for ph in treatment_phases)
+            treatment_shipping_pp = (treatment_phases[0].fixed_cost or 0.0) / qty if treatment_phases else 0.0
+
+            bd = '<div class="cost-breakdown">'
+            bd += f'<div class="cb-item"><span>Materiale</span><span>{material_total:.2f} {cur}/pz</span></div>'
+            if delivery_pp > 0:
+                bd += f'<div class="cb-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f} {cur}</span></div>'
+            if cutting_pp > 0:
+                bd += f'<div class="cb-sub"><span>di cui taglio</span><span>{cutting_pp:.2f} {cur}</span></div>'
+            if work_cost > 0:
+                bd += f'<div class="cb-item"><span>Lavorazioni</span><span>{work_cost:.2f} {cur}/pz</span></div>'
+            if treatment_cost > 0:
+                bd += f'<div class="cb-item"><span>Trattamenti</span><span>{treatment_cost:.2f} {cur}/pz</span></div>'
+                if treatment_shipping_pp > 0:
+                    bd += f'<div class="cb-sub"><span>di cui spedizione</span><span>{treatment_shipping_pp:.2f} {cur}</span></div>'
+            bd += '</div>'
+            html += bd + '\n'
 
         # Phases table
         visible_phases = [ph for ph in part.phases if ph.customer_visible or internal]

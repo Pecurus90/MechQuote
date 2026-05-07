@@ -3,6 +3,7 @@ export interface MaterialSupplier {
   name: string
   address?: string | null
   shipping_cost: number
+  cutting_cost_per_part?: number
   active: boolean
 }
 
@@ -51,7 +52,6 @@ export interface Material {
   density_kg_dm3: number
   cost_per_kg: number
   default_scrap_percent: number
-  cutting_cost_per_part?: number
   supplier_id?: number | null
   material_supplier?: MaterialSupplier | null
 }

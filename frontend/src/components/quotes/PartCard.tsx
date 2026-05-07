@@ -89,7 +89,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
 
   const deliveryPerPiece = (part.material_delivery_cost ?? 0) / (part.quantity || 1)
-  const cuttingPerPiece = selectedMaterial?.cutting_cost_per_part ?? 0
+  const cuttingPerPiece = selectedMaterial?.material_supplier?.cutting_cost_per_part ?? 0
   const materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
   const treatmentShippingPerPiece = (treatmentPhase?.fixed_cost ?? 0) / (part.quantity || 1)
 

@@ -505,8 +505,11 @@ class DashboardKPI(BaseModel):
 
 class MonthlyData(BaseModel):
     month: str
-    value: float
     year: int
+    value: float     # somma part.total_price (valore preventivato finale)
+    margin: float    # somma (price - cost_total)
+    material: float  # somma costi materiali (grezzo + delivery + taglio)
+    labor: float     # somma calculated_cost delle fasi non-treatment
 
 
 class WorkflowStats(BaseModel):

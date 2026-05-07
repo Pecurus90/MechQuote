@@ -198,6 +198,9 @@ export interface DashboardKPI {
 
 export interface MonthlyData {
   month: string
-  value: number
   year: number
+  value: number     // valore preventivato (prezzo finale)
+  margin: number    // margine = prezzo - costo
+  material: number  // costo materiali (grezzo + delivery + taglio)
+  labor: number     // costo lavorazioni (escluso trattamenti)
 }

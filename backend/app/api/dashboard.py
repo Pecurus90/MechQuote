@@ -172,13 +172,40 @@ def get_to_review(
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])
 def get_monthly(db: Session = Depends(get_db), _=_can_view):
-    quotes = db.query(Quote).options(selectinload(Quote.parts)).all()
-    data = {}
+    from app.models import Material  # local to avoid widening top imports
+
+    quotes = db.query(Quote).options(
+        selectinload(Quote.parts).selectinload(Part.phases),
+        selectinload(Quote.parts).selectinload(Part.material).selectinload(Material.material_supplier),
+    ).all()
+    data: dict = {}
     for q in quotes:
-        if q.quote_date:
-            key = (q.quote_date.year, q.quote_date.month)
-            data[key] = data.get(key, 0.0) + calc_quote_value(q)
+        if not q.quote_date:
+            continue
+        key = (q.quote_date.year, q.quote_date.month)
+        b = data.setdefault(key, {"value": 0.0, "margin": 0.0, "material": 0.0, "labor": 0.0})
+        for p in q.parts:
+            qty = p.quantity or 1
+            price = p.total_price or 0.0
+            cost_total = (p.total_cost or 0.0) * qty
+            b["value"] += price
+            b["margin"] += price - cost_total
+            cutting = (
+                p.material.material_supplier.cutting_cost_per_part or 0.0
+                if p.material and p.material.material_supplier else 0.0
+            )
+            b["material"] += (p.material_cost or 0.0) * qty + (p.material_delivery_cost or 0.0) + cutting * qty
+            for ph in p.phases:
+                if ph.treatment_id is None:
+                    b["labor"] += (ph.calculated_cost or 0.0) * qty
     return [
-        MonthlyData(month=f"{y}-{m:02d}", value=round(v, 2), year=y)
-        for (y, m), v in sorted(data.items())
+        MonthlyData(
+            month=f"{y}-{m:02d}",
+            year=y,
+            value=round(b["value"], 2),
+            margin=round(b["margin"], 2),
+            material=round(b["material"], 2),
+            labor=round(b["labor"], 2),
+        )
+        for (y, m), b in sorted(data.items())
     ]

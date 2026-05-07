@@ -342,6 +342,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           <Card className="border-blue-200 bg-blue-50">
             <CardContent className="pt-4 pb-4">
               <div className="space-y-1 text-sm">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Costo per pezzo</p>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Materiale</span>
                   <span>{part.material_cost.toFixed(2)} €</span>
@@ -357,7 +358,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                   </div>
                 )}
                 <div className="flex justify-between font-medium border-t border-blue-200 pt-1.5 mt-1.5">
-                  <span>Costo totale</span>
+                  <span>Costo/pz</span>
                   <span>{part.total_cost.toFixed(2)} €</span>
                 </div>
 
@@ -386,8 +387,8 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 </div>
 
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-1">
-                  <div className="flex justify-between font-medium">
-                    <span>Unitario</span>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Prezzo/pz</span>
                     <span>{part.unit_price.toFixed(2)} €</span>
                   </div>
                   <div className="flex justify-between font-bold text-blue-700 text-base pt-0.5">

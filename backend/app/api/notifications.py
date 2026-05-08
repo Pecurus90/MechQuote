@@ -1,11 +1,10 @@
-from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, utc_now
 from app.core.security import require_permission, get_current_user
 from app.models import Notification, NotificationRead, User
 
@@ -113,7 +112,7 @@ def mark_read(
         read = NotificationRead(notification_id=notification_id, user_id=current_user.id)
         db.add(read)
     if not read.read_at:
-        read.read_at = datetime.utcnow()
+        read.read_at = utc_now()
     db.commit()
     return {"ok": True}
 
@@ -133,7 +132,7 @@ def clear_read(
     read_ids = [it["id"] for it in items if it["read_at"]]
     if not read_ids:
         return {"cleared": 0}
-    now = datetime.utcnow()
+    now = utc_now()
     reads = db.query(NotificationRead).filter(
         NotificationRead.user_id == current_user.id,
         NotificationRead.notification_id.in_(read_ids),
@@ -166,7 +165,7 @@ def mark_confirmed(
     if not read:
         read = NotificationRead(notification_id=notification_id, user_id=current_user.id)
         db.add(read)
-    now = datetime.utcnow()
+    now = utc_now()
     if not read.read_at:
         read.read_at = now
     read.confirmed_at = now

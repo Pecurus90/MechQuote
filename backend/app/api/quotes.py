@@ -1,10 +1,9 @@
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
-from app.core.database import get_db
+from app.core.database import get_db, utc_now
 from app.core.security import require_permission, get_current_user
 from app.models import Quote, Part, ManufacturingPhase, User, CompanySettings
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
@@ -142,7 +141,7 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     #    questo è il "vincitore" della race. Niente notifiche duplicate al creatore.
     perms = getattr(current_user, '_permissions', [])
     if quote.status == 'inviato' and 'quotes.complete' in perms:
-        now = datetime.utcnow()
+        now = utc_now()
         db.execute(
             text("UPDATE quotes SET status='completato', "
                  "completed_by_user_id=:uid, completed_at=:ts "
@@ -191,7 +190,7 @@ def update_quote_status(
 
     quote.status = 'inviato'
     quote.submitted_by_user_id = current_user.id
-    quote.submitted_at = datetime.utcnow()
+    quote.submitted_at = utc_now()
     db.commit()
     # Notifica chi può completare (admin + amministrazione)
     sender_name = current_user.full_name or current_user.username

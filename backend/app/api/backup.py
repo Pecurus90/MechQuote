@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, utc_now
 from app.models import (
     User, Role, RolePermission, QuoteCategory,
     MaterialSupplier, Material, Supplier, Machine, Treatment,
@@ -166,7 +166,7 @@ def export_data(db: Session = Depends(get_db)) -> Dict[str, Any]:
         tables[model_class.__tablename__] = [_serialize_record(r) for r in rows]
     return {
         "version": BACKUP_VERSION,
-        "exported_at": datetime.utcnow().isoformat(),
+        "exported_at": utc_now().isoformat(),
         "tables": tables,
     }
 

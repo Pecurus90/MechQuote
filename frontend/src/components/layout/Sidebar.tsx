@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Sun, Moon,
+  Sun, Moon, Zap, Gauge, Drill, SlidersHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -176,6 +176,28 @@ export default function Sidebar() {
                     <NavLink to="/settings/categories" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Tag className="w-3.5 h-3.5 shrink-0" />
                       <span>Categorie</span>
+                    </NavLink>
+                  </>
+                )}
+
+                {showCatalog && (
+                  <>
+                    <p className={sectionLabelClass}>Wire EDM</p>
+                    <NavLink to="/settings/edm/speeds" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Gauge className="w-3.5 h-3.5 shrink-0" />
+                      <span>Velocità di taglio</span>
+                    </NavLink>
+                    <NavLink to="/settings/edm/cycles" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Zap className="w-3.5 h-3.5 shrink-0" />
+                      <span>Cicli di taglio</span>
+                    </NavLink>
+                    <NavLink to="/settings/edm/drilling" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Drill className="w-3.5 h-3.5 shrink-0" />
+                      <span>Tempi foratura</span>
+                    </NavLink>
+                    <NavLink to="/settings/edm/config" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+                      <span>Parametri globali</span>
                     </NavLink>
                   </>
                 )}

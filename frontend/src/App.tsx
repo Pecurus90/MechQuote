@@ -21,6 +21,10 @@ import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
 import UsersPage from '@/pages/settings/UsersPage'
 import RolesPage from '@/pages/settings/RolesPage'
 import ActivityPage from '@/pages/ActivityPage'
+import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
+import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
+import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
+import DrillingTimesPage from '@/pages/settings/edm/DrillingTimesPage'
 
 function ProtectedRoute({
   children,
@@ -64,6 +68,12 @@ function AppRoutes() {
         <Route path="settings/backup"     element={<ProtectedRoute permission="backup"><BackupSettingsPage /></ProtectedRoute>} />
         <Route path="settings/users"      element={<ProtectedRoute permission="users"><UsersPage /></ProtectedRoute>} />
         <Route path="settings/roles"      element={<ProtectedRoute permission="users"><RolesPage /></ProtectedRoute>} />
+
+        {/* Wire EDM */}
+        <Route path="settings/edm/speeds"   element={<ProtectedRoute permission="settings"><EdmSpeedsPage /></ProtectedRoute>} />
+        <Route path="settings/edm/cycles"   element={<ProtectedRoute permission="settings"><CuttingCyclesPage /></ProtectedRoute>} />
+        <Route path="settings/edm/drilling" element={<ProtectedRoute permission="settings"><DrillingTimesPage /></ProtectedRoute>} />
+        <Route path="settings/edm/config"   element={<ProtectedRoute permission="settings"><EdmConfigPage /></ProtectedRoute>} />
 
         {/* Clienti */}
         <Route path="settings/customers" element={

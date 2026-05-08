@@ -38,6 +38,12 @@ export interface Phase {
   hourly_rate_override?: number
   calculated_cost: number
   customer_visible: boolean
+  // Wire EDM extra (popolati solo se phase_type === 'wire_edm')
+  cut_length_mm?: number | null
+  cut_height_mm?: number | null
+  cutting_cycle_id?: number | null
+  n_pierce?: number | null
+  dxf_profile_ids?: number[] | null
 }
 
 export interface Machine {
@@ -207,6 +213,54 @@ export interface DashboardKPI {
   total_part_codes: number
   cnc_quoted_value: number
   edm_quoted_value: number
+}
+
+// ─── Wire EDM ───────────────────────────────────────────────────────────────
+
+export interface EdmConfig {
+  id: number
+  rough_speed_factor: number
+  semi_speed_factor: number
+  finish_speed_factor: number
+  default_pierce_time_s: number
+  updated_at?: string
+}
+
+export interface EdmCutSpeed {
+  id: number
+  material_id: number
+  thickness_min_mm: number
+  thickness_max_mm: number
+  speed_mm2_min: number
+  pierce_time_s: number | null
+  notes: string | null
+}
+
+export type PassType = 'rough' | 'semi' | 'finish'
+
+export interface CuttingPass {
+  id?: number
+  sequence_number: number
+  pass_type: PassType
+}
+
+export interface CuttingCycle {
+  id: number
+  name: string
+  description: string | null
+  active: boolean
+  passes: CuttingPass[]
+}
+
+export interface DrillingTime {
+  id: number
+  material_id: number
+  diameter_min_mm: number
+  diameter_max_mm: number
+  height_min_mm: number
+  height_max_mm: number
+  seconds_per_hole: number
+  notes: string | null
 }
 
 export interface MonthlyData {

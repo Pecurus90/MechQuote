@@ -9,6 +9,7 @@ import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
 import { useAuth } from '@/lib/auth'
+import { useTheme } from '@/lib/theme'
 import { ACTIVITY_KIND } from '@/lib/activity'
 import { toast } from 'sonner'
 import {
@@ -200,6 +201,8 @@ const METRIC_CONFIG: Record<Metric, { label: string; color: string }> = {
 
 function MonthlyChart({ data }: { data: MonthlyData[] }) {
   const [metric, setMetric] = useState<Metric>('value')
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   // Ultimi 6 mesi: la API ritorna ordinata asc; prendiamo gli ultimi 6
   const last6 = data.slice(-6)
   const formatted = last6.map(d => ({
@@ -207,6 +210,22 @@ function MonthlyChart({ data }: { data: MonthlyData[] }) {
     value: d[metric],
   }))
   const cfg = METRIC_CONFIG[metric]
+
+  // Colori grafico in base al tema (recharts non legge CSS variables)
+  const chartColors = isDark ? {
+    grid: '#383838',     // border dark
+    tick: '#a3a3a3',     // muted-foreground dark
+    tooltipBg: '#1c1c1c', // card dark
+    tooltipBorder: '#383838',
+    tooltipText: '#f2f2f2', // foreground dark
+  } : {
+    grid: '#f0f0f0',
+    tick: '#6b7280',
+    tooltipBg: '#ffffff',
+    tooltipBorder: '#e5e7eb',
+    tooltipText: '#111827',
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2 flex-row items-center justify-between">
@@ -225,12 +244,21 @@ function MonthlyChart({ data }: { data: MonthlyData[] }) {
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={formatted} margin={{ top: 5, right: 20, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: chartColors.tick }} stroke={chartColors.grid} />
+              <YAxis tick={{ fontSize: 11, fill: chartColors.tick }} stroke={chartColors.grid} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 formatter={(v: number) => [`${fmtEur(v)} €`, cfg.label]}
-                contentStyle={{ fontSize: 12 }}
+                contentStyle={{
+                  fontSize: 12,
+                  background: chartColors.tooltipBg,
+                  border: `1px solid ${chartColors.tooltipBorder}`,
+                  borderRadius: 6,
+                  color: chartColors.tooltipText,
+                }}
+                itemStyle={{ color: chartColors.tooltipText }}
+                labelStyle={{ color: chartColors.tooltipText, fontWeight: 500 }}
+                cursor={{ stroke: chartColors.grid, strokeWidth: 1 }}
               />
               <Line type="monotone" dataKey="value" stroke={cfg.color} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>

@@ -27,25 +27,26 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 47% 9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 47% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Palette grigio neutro (no blu/navy). Gli accent (primary, destructive) restano col loro hue. */
+    --background: 0 0% 7%;          /* ~#121212 */
+    --foreground: 0 0% 95%;         /* ~#f2f2f2 */
+    --card: 0 0% 11%;               /* ~#1c1c1c */
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 217 91% 60%;         /* blue accent — identità brand */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 16%;          /* ~#292929 */
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 64%;   /* ~#a3a3a3 */
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 63% 40%;       /* red accent leggermente desaturato */
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 22%;             /* ~#383838 — abbastanza visibile su 11% card */
+    --input: 0 0% 22%;
+    --ring: 217 91% 60%;
   }
 
   * {

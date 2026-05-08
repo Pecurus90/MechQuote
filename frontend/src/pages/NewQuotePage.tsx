@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { FileText, Scan, Box } from 'lucide-react'
+import { FileText, Scan, Box, Hammer } from 'lucide-react'
 
 const modes = [
   {
@@ -27,6 +27,14 @@ const modes = [
     available: false,
     color: 'emerald',
   },
+  {
+    id: 'molds',
+    icon: Hammer,
+    title: 'Preventivazione Stampi',
+    description: 'Modulo dedicato per stampi e trance lamiera. Configurazione di blocchi, matrici, punzoni e fasi specifiche del settore stampaggio.',
+    available: false,
+    color: 'rose',
+  },
 ] as const
 
 const colorMap = {
@@ -48,6 +56,12 @@ const colorMap = {
     badge: 'bg-gray-200 text-gray-500',
     button: '',
   },
+  rose: {
+    card: 'border-gray-200 opacity-60',
+    icon: 'bg-rose-100 text-rose-500',
+    badge: 'bg-gray-200 text-gray-500',
+    button: '',
+  },
 }
 
 export default function NewQuotePage() {
@@ -60,7 +74,7 @@ export default function NewQuotePage() {
         <p className="text-sm text-gray-500 mt-1">Scegli come vuoi costruire il preventivo</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {modes.map(mode => {
           const colors = colorMap[mode.color]
           return (

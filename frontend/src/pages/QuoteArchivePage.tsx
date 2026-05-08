@@ -88,7 +88,7 @@ export default function QuoteArchivePage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Archivio Preventivi</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Archivio Preventivi</h1>
         <Button onClick={() => navigate('/quotes/manual/new')}>
           <Plus className="w-4 h-4 mr-1.5" /> Nuovo Preventivo
         </Button>
@@ -96,7 +96,7 @@ export default function QuoteArchivePage() {
 
       <div className="flex gap-4 items-end flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>
+          <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">Cerca</label>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <Input
@@ -108,7 +108,7 @@ export default function QuoteArchivePage() {
             {searchInput && (
               <button
                 onClick={() => setSearchInput('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:text-gray-200"
                 title="Cancella"
               >
                 <X className="w-3.5 h-3.5" />
@@ -117,7 +117,7 @@ export default function QuoteArchivePage() {
           </div>
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Anno</label>
+          <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">Anno</label>
           <select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={selectedYear || ''}
@@ -128,7 +128,7 @@ export default function QuoteArchivePage() {
           </select>
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Stato</label>
+          <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">Stato</label>
           <select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={statusFilter}
@@ -148,14 +148,14 @@ export default function QuoteArchivePage() {
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-900 border-b">
                 <tr>
-                  <th className="text-left p-3 font-medium text-gray-600">N. Preventivo</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Cliente</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Data</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Stato</th>
-                  <th className="text-right p-3 font-medium text-gray-600">Totale</th>
-                  <th className="text-center p-3 font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 font-medium text-gray-600 dark:text-gray-300">N. Preventivo</th>
+                  <th className="text-left p-3 font-medium text-gray-600 dark:text-gray-300">Cliente</th>
+                  <th className="text-left p-3 font-medium text-gray-600 dark:text-gray-300">Data</th>
+                  <th className="text-left p-3 font-medium text-gray-600 dark:text-gray-300">Stato</th>
+                  <th className="text-right p-3 font-medium text-gray-600 dark:text-gray-300">Totale</th>
+                  <th className="text-center p-3 font-medium text-gray-600 dark:text-gray-300">Azioni</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,12 +169,12 @@ export default function QuoteArchivePage() {
                   visibleQuotes.map(q => (
                     <tr
                       key={q.id}
-                      className="border-b hover:bg-gray-50 cursor-pointer"
+                      className="border-b hover:bg-gray-50 dark:bg-gray-900 cursor-pointer"
                       onClick={() => navigate(`/quotes/${q.id}`)}
                     >
                       <td className="p-3 font-mono font-medium text-blue-700">{q.quote_number}</td>
                       <td className="p-3">{q.customer_name || '-'}</td>
-                      <td className="p-3 text-gray-500">{q.quote_date?.split('T')[0]}</td>
+                      <td className="p-3 text-gray-500 dark:text-gray-400">{q.quote_date?.split('T')[0]}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
                           {STATUS_LABELS[q.status] || q.status}
@@ -214,7 +214,7 @@ export default function QuoteArchivePage() {
         {page > 1 && (
           <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)}>← Precedente</Button>
         )}
-        <span className="flex items-center px-4 text-sm text-gray-500">Pagina {page}</span>
+        <span className="flex items-center px-4 text-sm text-gray-500 dark:text-gray-400">Pagina {page}</span>
         {quotes.length >= pageSize && (
           <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>
         )}
@@ -223,17 +223,17 @@ export default function QuoteArchivePage() {
       {/* Confirm delete modal */}
       {confirmDeleteId && confirmingQuote && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">Elimina preventivo</h2>
-                <p className="text-sm text-gray-500">Questa azione non è reversibile</p>
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100">Elimina preventivo</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Questa azione non è reversibile</p>
               </div>
             </div>
-            <p className="text-sm text-gray-700 mb-6">
+            <p className="text-sm text-gray-700 dark:text-gray-200 mb-6">
               Sei sicuro di voler eliminare il preventivo{' '}
               <span className="font-mono font-semibold text-blue-700">{confirmingQuote.quote_number}</span>
               {confirmingQuote.customer_name ? ` (${confirmingQuote.customer_name})` : ''}?

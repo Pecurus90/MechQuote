@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import type { UserRole } from '@/lib/auth'
+import { ThemeProvider } from '@/lib/theme'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AppLayout from '@/components/layout/AppLayout'
@@ -32,7 +33,7 @@ function ProtectedRoute({
 }) {
   const { user, loading, hasPermission } = useAuth()
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento...</div>
+  if (loading) return <div className="p-8 text-center text-gray-500 dark:text-gray-400">Caricamento...</div>
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   if (permission && !hasPermission(permission)) return <Navigate to="/" replace />
@@ -76,9 +77,11 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Toaster position="top-center" richColors closeButton />
-      <AppRoutes />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Toaster position="top-center" richColors closeButton theme="system" />
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

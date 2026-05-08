@@ -4,9 +4,11 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
+  Sun, Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { useTheme } from '@/lib/theme'
 import { useNotifications } from '@/lib/useNotifications'
 import NotificationPanel from '@/components/layout/NotificationPanel'
 
@@ -15,8 +17,8 @@ const navLinkClass = (isActive: boolean, small = false) =>
     'flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors',
     small ? 'text-xs' : 'text-sm',
     isActive
-      ? 'bg-blue-50 text-blue-700 font-medium'
-      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium'
+      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
   )
 
 const sectionLabelClass = 'px-2 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider'
@@ -54,6 +56,7 @@ export default function Sidebar() {
   const [notifOpen, setNotifOpen] = useState(false)
 
   const { enabled: notifEnabled, unreadCount, items, loading: notifLoading, fetchList, markRead, markConfirmed, clearRead } = useNotifications()
+  const { theme, toggleTheme } = useTheme()
 
   const handleLogout = () => {
     logout()
@@ -61,15 +64,15 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-60 bg-white border-r h-screen sticky top-0 flex flex-col shrink-0">
+    <aside className="w-60 bg-card border-r h-screen sticky top-0 flex flex-col shrink-0">
       <div className="p-4 border-b">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-sm">FDV</span>
           </div>
           <div>
-            <h1 className="text-sm font-bold text-gray-900 leading-tight">MechQuote</h1>
-            <p className="text-xs text-gray-500">Fratelli Dalla Via</p>
+            <h1 className="text-sm font-bold text-foreground leading-tight">MechQuote</h1>
+            <p className="text-xs text-muted-foreground">Fratelli Dalla Via</p>
           </div>
         </div>
       </div>
@@ -90,7 +93,7 @@ export default function Sidebar() {
             onClick={() => setQuotesOpen(o => !o)}
             className={cn(
               'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-              isQuotesActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              isQuotesActive ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
             )}
           >
             <span className="flex items-center gap-2">
@@ -138,7 +141,7 @@ export default function Sidebar() {
               onClick={() => setSettingsOpen(o => !o)}
               className={cn(
                 'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-                isSettingsActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                isSettingsActive ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
               )}
             >
               <span className="flex items-center gap-2">
@@ -223,14 +226,14 @@ export default function Sidebar() {
         <div className="p-3 border-t">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-900 truncate">{user.full_name || user.username}</p>
-              <p className="text-[10px] text-gray-400">{ROLE_LABELS[user.role] ?? user.role}</p>
+              <p className="text-xs font-medium text-foreground truncate">{user.full_name || user.username}</p>
+              <p className="text-[10px] text-muted-foreground">{ROLE_LABELS[user.role] ?? user.role}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {notifEnabled && (
                 <button
                   onClick={() => setNotifOpen(true)}
-                  className="relative p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  className="relative p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
                   title="Notifiche"
                 >
                   <Bell className="w-3.5 h-3.5" />
@@ -242,8 +245,15 @@ export default function Sidebar() {
                 </button>
               )}
               <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
+                title={theme === 'dark' ? 'Tema chiaro' : 'Tema scuro'}
+              >
+                {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
+              <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                 title="Esci"
               >
                 <LogOut className="w-3.5 h-3.5" />

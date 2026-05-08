@@ -121,7 +121,7 @@ export default function MaterialsPage() {
       {/* ── Fornitori materiali ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Fornitori materiali</h2>
+          <h2 className="text-base font-semibold text-gray-700 dark:text-gray-200">Fornitori materiali</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -135,13 +135,13 @@ export default function MaterialsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-900 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[25%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[33%] font-medium text-gray-600">Indirizzo</th>
-                  <th className="text-right p-3 w-[14%] font-medium text-gray-600">Spedizione (€)</th>
-                  <th className="text-right p-3 w-[14%] font-medium text-gray-600">Taglio (€/pz)</th>
-                  <th className="text-center p-3 w-[14%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[25%] font-medium text-gray-600 dark:text-gray-300">Nome</th>
+                  <th className="text-left p-3 w-[33%] font-medium text-gray-600 dark:text-gray-300">Indirizzo</th>
+                  <th className="text-right p-3 w-[14%] font-medium text-gray-600 dark:text-gray-300">Spedizione (€)</th>
+                  <th className="text-right p-3 w-[14%] font-medium text-gray-600 dark:text-gray-300">Taglio (€/pz)</th>
+                  <th className="text-center p-3 w-[14%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
                 </tr>
               </thead>
               <tbody>
@@ -158,19 +158,19 @@ export default function MaterialsPage() {
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4 text-gray-500 dark:text-gray-400" /></button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <tr key={s.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                       <td className="p-3 font-medium">{s.name}</td>
-                      <td className="p-3 text-gray-500 truncate">{s.address || '—'}</td>
+                      <td className="p-3 text-gray-500 dark:text-gray-400 truncate">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
                       <td className="p-3 text-right font-mono">{(s.cutting_cost_per_part ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0), active: s.active })} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -190,7 +190,7 @@ export default function MaterialsPage() {
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4 text-gray-500 dark:text-gray-400" /></button>
                       </div>
                     </td>
                   </tr>
@@ -204,7 +204,7 @@ export default function MaterialsPage() {
       {/* ── Materiali ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Materiali</h2>
+          <h2 className="text-base font-semibold text-gray-700 dark:text-gray-200">Materiali</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -218,14 +218,14 @@ export default function MaterialsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-900 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[17%] font-medium text-gray-600">Famiglia</th>
-                  <th className="text-right p-3 w-[15%] font-medium text-gray-600">Densità (kg/dm³)</th>
-                  <th className="text-right p-3 w-[15%] font-medium text-gray-600">Costo €/kg</th>
-                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
-                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[22%] font-medium text-gray-600 dark:text-gray-300">Nome</th>
+                  <th className="text-left p-3 w-[17%] font-medium text-gray-600 dark:text-gray-300">Famiglia</th>
+                  <th className="text-right p-3 w-[15%] font-medium text-gray-600 dark:text-gray-300">Densità (kg/dm³)</th>
+                  <th className="text-right p-3 w-[15%] font-medium text-gray-600 dark:text-gray-300">Costo €/kg</th>
+                  <th className="text-left p-3 w-[20%] font-medium text-gray-600 dark:text-gray-300">Fornitore</th>
+                  <th className="text-center p-3 w-[11%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,15 +233,15 @@ export default function MaterialsPage() {
                   <tr><td colSpan={6} className="p-6 text-center text-gray-400">Nessun materiale trovato.</td></tr>
                 )}
                 {visibleMat.map(m => (
-                  <tr key={m.id} className="border-b hover:bg-gray-50">
+                  <tr key={m.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                     <td className="p-3 font-medium truncate">{m.name}</td>
                     <td className="p-3 truncate">{m.family}</td>
                     <td className="p-3 text-right">{m.density_kg_dm3}</td>
                     <td className="p-3 text-right">{m.cost_per_kg}</td>
-                    <td className="p-3 text-gray-500 text-xs truncate">{m.material_supplier?.name || '—'}</td>
+                    <td className="p-3 text-gray-500 dark:text-gray-400 text-xs truncate">{m.material_supplier?.name || '—'}</td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => startEditMat(m)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEditMat(m)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
                         <button onClick={() => deleteMaterial(m.id)} className="p-1 hover:bg-red-50 rounded">
@@ -260,10 +260,10 @@ export default function MaterialsPage() {
       {/* Material modal */}
       {matForm && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
+          <Card className="w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{matForm.id ? 'Modifica' : 'Nuovo'} Materiale</h3>
-              <button onClick={() => setMatForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={() => setMatForm(null)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">

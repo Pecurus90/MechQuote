@@ -135,7 +135,7 @@ export default function TreatmentsPage() {
       {/* ── Fornitori trattamenti ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Fornitori trattamenti</h2>
+          <h2 className="text-base font-semibold text-gray-700 dark:text-gray-200">Fornitori trattamenti</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -149,12 +149,12 @@ export default function TreatmentsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-900 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[28%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[43%] font-medium text-gray-600">Indirizzo</th>
-                  <th className="text-right p-3 w-[17%] font-medium text-gray-600">Spedizione (€)</th>
-                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[28%] font-medium text-gray-600 dark:text-gray-300">Nome</th>
+                  <th className="text-left p-3 w-[43%] font-medium text-gray-600 dark:text-gray-300">Indirizzo</th>
+                  <th className="text-right p-3 w-[17%] font-medium text-gray-600 dark:text-gray-300">Spedizione (€)</th>
+                  <th className="text-center p-3 w-[12%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
                 </tr>
               </thead>
               <tbody>
@@ -170,18 +170,18 @@ export default function TreatmentsPage() {
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4 text-gray-500 dark:text-gray-400" /></button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <tr key={s.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                       <td className="p-3 font-medium">{s.name}</td>
-                      <td className="p-3 text-gray-500">{s.address || '—'}</td>
+                      <td className="p-3 text-gray-500 dark:text-gray-400">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -200,7 +200,7 @@ export default function TreatmentsPage() {
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4 text-gray-500 dark:text-gray-400" /></button>
                       </div>
                     </td>
                   </tr>
@@ -214,7 +214,7 @@ export default function TreatmentsPage() {
       {/* ── Trattamenti ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Trattamenti</h2>
+          <h2 className="text-base font-semibold text-gray-700 dark:text-gray-200">Trattamenti</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -228,15 +228,15 @@ export default function TreatmentsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 dark:bg-gray-900 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[14%] font-medium text-gray-600">Tipo</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">€/kg</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Min (€)</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Soglia (kg)</th>
-                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
-                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[22%] font-medium text-gray-600 dark:text-gray-300">Nome</th>
+                  <th className="text-left p-3 w-[14%] font-medium text-gray-600 dark:text-gray-300">Tipo</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600 dark:text-gray-300">€/kg</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600 dark:text-gray-300">Min (€)</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600 dark:text-gray-300">Soglia (kg)</th>
+                  <th className="text-left p-3 w-[20%] font-medium text-gray-600 dark:text-gray-300">Fornitore</th>
+                  <th className="text-center p-3 w-[11%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
                 </tr>
               </thead>
               <tbody>
@@ -244,18 +244,18 @@ export default function TreatmentsPage() {
                   <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun trattamento trovato.</td></tr>
                 )}
                 {visibleTreat.map(t => (
-                  <tr key={t.id} className="border-b hover:bg-gray-50">
+                  <tr key={t.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                     <td className="p-3 font-medium truncate">{t.name}</td>
                     <td className="p-3 truncate">{t.treatment_type || '—'}</td>
                     <td className="p-3 text-right">{t.cost_per_kg.toFixed(2)}</td>
                     <td className="p-3 text-right">{t.minimum_cost.toFixed(2)}</td>
-                    <td className="p-3 text-right text-gray-500">{t.minimum_weight_kg != null ? `< ${t.minimum_weight_kg} kg` : '—'}</td>
-                    <td className="p-3 text-xs text-gray-500 truncate">
+                    <td className="p-3 text-right text-gray-500 dark:text-gray-400">{t.minimum_weight_kg != null ? `< ${t.minimum_weight_kg} kg` : '—'}</td>
+                    <td className="p-3 text-xs text-gray-500 dark:text-gray-400 truncate">
                       {t.supplier?.name || '—'}
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => startEditTreat(t)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEditTreat(t)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
                         <button onClick={() => deleteTreat(t.id)} className="p-1 hover:bg-red-50 rounded">
@@ -274,10 +274,10 @@ export default function TreatmentsPage() {
       {/* Treatment modal */}
       {treatForm && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
+          <Card className="w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{treatForm.id ? 'Modifica' : 'Nuovo'} Trattamento</h3>
-              <button onClick={() => setTreatForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={() => setTreatForm(null)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">

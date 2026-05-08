@@ -134,25 +134,25 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           {/* Riga 1: identificativi */}
           <div className="flex items-end gap-3">
             <div className="w-44 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Codice Parte</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Codice Parte</label>
               <Input className="mt-1 h-8 font-mono text-sm" value={part.part_code}
                 onChange={e => onUpdate({ part_code: e.target.value })}
                 onBlur={onSave} />
             </div>
             <div className="flex-1 min-w-0">
-              <label className="text-xs font-medium text-gray-600">Descrizione</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Descrizione</label>
               <Input className="mt-1 h-8 text-sm" value={part.description}
                 onChange={e => onUpdate({ description: e.target.value })}
                 onBlur={onSave} placeholder="Descrizione del pezzo" />
             </div>
             <div className="w-16 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Rev.</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Rev.</label>
               <Input className="mt-1 h-8 text-sm" value={part.revision}
                 onChange={e => onUpdate({ revision: e.target.value })}
                 onBlur={onSave} />
             </div>
             <div className="w-20 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Qtà</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Qtà</label>
               <Input type="number" min={1} className="mt-1 h-8 text-sm"
                 value={part.quantity}
                 onChange={e => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
@@ -163,7 +163,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           {/* Riga A: Materiale + Toggle grezzo */}
           <div className="flex items-end gap-3">
             <div className="flex-1 min-w-0">
-              <label className="text-xs font-medium text-gray-600">Materiale</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Materiale</label>
               <select
                 className="mt-1 flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
                 value={part.material_id || ''}
@@ -177,7 +177,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
               </select>
             </div>
             <div className="shrink-0">
-              <label className="text-xs font-medium text-gray-600 block mb-1">Grezzo</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300 block mb-1">Grezzo</label>
               <div className="flex gap-1">
                 {([
                   { type: 'none' as StockType, label: '—' },
@@ -191,7 +191,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                     className={`h-8 px-2.5 rounded-md border text-sm flex items-center gap-1 transition-colors ${
                       stockType === opt.type
                         ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'
                     }`}
                   >
                     {opt.icon ?? opt.label}
@@ -205,14 +205,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           {stockType === 'round' && (
             <div className="flex items-end gap-3">
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Ø (mm)</label>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ø (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_diameter_mm ?? ''}
                   onChange={e => handleDimChange('raw_diameter_mm', parseFloat(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Lungh. (mm)</label>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Lungh. (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseFloat(e.target.value) || 0)}
@@ -233,21 +233,21 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           {stockType === 'square' && (
             <div className="flex items-end gap-3">
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">X (mm)</label>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">X (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_x_mm ?? ''}
                   onChange={e => handleDimChange('raw_x_mm', parseFloat(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Y (mm)</label>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Y (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_y_mm ?? ''}
                   onChange={e => handleDimChange('raw_y_mm', parseFloat(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Z (mm)</label>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Z (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseFloat(e.target.value) || 0)}
@@ -264,14 +264,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           {/* Riga C: Costi — grid fisso, nessun wrap */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Costo mat. (€)</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Costo mat. (€)</label>
               <Input type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
                 value={part.material_cost}
                 onChange={e => onUpdate({ material_cost: parseFloat(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Spediz. mat. (€)</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Spediz. mat. (€)</label>
               <Input type="number" min={0} step={0.5} className="mt-1 h-8 text-sm"
                 value={part.material_delivery_cost ?? ''}
                 placeholder="—"
@@ -279,7 +279,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 onBlur={onSave} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Peso finito (kg)</label>
               <Input type="number" min={0} step={0.001} className="mt-1 h-8 text-sm"
                 value={part.finished_weight_kg ?? ''}
                 placeholder="—"
@@ -294,7 +294,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
       {treatments.length > 0 && (
         <Card>
           <CardContent className="pt-3 pb-3">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Trattamento termico</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Trattamento termico</p>
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <select
@@ -352,7 +352,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
               <div className="space-y-1 text-sm">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Costo per pezzo</p>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Materiale</span>
+                  <span className="text-gray-600 dark:text-gray-300">Materiale</span>
                   <span>{materialTotal.toFixed(2)} €</span>
                 </div>
                 {deliveryPerPiece > 0 && (
@@ -368,13 +368,13 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Lavorazioni</span>
+                  <span className="text-gray-600 dark:text-gray-300">Lavorazioni</span>
                   <span>{workPhaseCost.toFixed(2)} €</span>
                 </div>
                 {treatmentPhaseCost > 0 && (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Trattamenti</span>
+                      <span className="text-gray-600 dark:text-gray-300">Trattamenti</span>
                       <span>{treatmentPhaseCost.toFixed(2)} €</span>
                     </div>
                     {treatmentShippingPerPiece > 0 && (
@@ -392,7 +392,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
 
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-2">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Margine (%)</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Margine (%)</label>
                     <Input type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.margin_percent ?? globalMarginPercent}
                       onChange={e => onUpdate({ margin_percent: parseFloat(e.target.value) || 0 })}
@@ -400,7 +400,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                     <p className="text-[10px] text-gray-400 mt-0.5">default: {globalMarginPercent}%</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Prezzo minimo (€)</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Prezzo minimo (€)</label>
                     <Input type="number" min={0} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.minimum_price ?? ''}
                       placeholder="—"
@@ -415,7 +415,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 </div>
 
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-1">
-                  <div className="flex justify-between text-gray-600">
+                  <div className="flex justify-between text-gray-600 dark:text-gray-300">
                     <span>Prezzo/pz</span>
                     <span>{part.unit_price.toFixed(2)} €</span>
                   </div>

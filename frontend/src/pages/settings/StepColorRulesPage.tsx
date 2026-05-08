@@ -86,14 +86,14 @@ export default function StepColorRulesPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 dark:bg-gray-900 border-b">
               <tr>
-                <th className="text-left p-3 w-[6%] font-medium text-gray-600">Colore</th>
-                <th className="text-left p-3 w-[20%] font-medium text-gray-600">Nome</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Significato</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Fase Suggerita</th>
-                <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
-                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[6%] font-medium text-gray-600 dark:text-gray-300">Colore</th>
+                <th className="text-left p-3 w-[20%] font-medium text-gray-600 dark:text-gray-300">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600 dark:text-gray-300">Significato</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600 dark:text-gray-300">Fase Suggerita</th>
+                <th className="text-center p-3 w-[8%] font-medium text-gray-600 dark:text-gray-300">Attivo</th>
+                <th className="text-center p-3 w-[10%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
               </tr>
             </thead>
             <tbody>
@@ -101,7 +101,7 @@ export default function StepColorRulesPage() {
                 <tr><td colSpan={6} className="p-6 text-center text-gray-400">Nessuna regola trovata.</td></tr>
               )}
               {visible.map(r => (
-                <tr key={r.id} className="border-b hover:bg-gray-50">
+                <tr key={r.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                   <td className="p-3">
                     <div className="w-6 h-6 rounded border" style={{ backgroundColor: r.color_hex }} />
                   </td>
@@ -111,7 +111,7 @@ export default function StepColorRulesPage() {
                   <td className="p-3 text-center">{r.active ? 'Sì' : 'No'}</td>
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
-                      <button onClick={() => startEdit(r)} className="p-1 hover:bg-gray-100 rounded">
+                      <button onClick={() => startEdit(r)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded">
@@ -128,10 +128,10 @@ export default function StepColorRulesPage() {
 
       {editingId !== null && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
+          <Card className="w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{editingId > 0 ? 'Modifica' : 'Nuova'} Regola Colore</h3>
-              <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">

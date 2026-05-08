@@ -8,7 +8,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Logo placeholder - ready for future logo */}
@@ -16,8 +16,8 @@ export default function HomePage() {
               <span className="text-white font-bold text-lg">FDV</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">MechQuote</h1>
-              <p className="text-xs text-gray-500">Fratelli Dalla Via</p>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">MechQuote</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Fratelli Dalla Via</p>
             </div>
           </div>
           <Button variant="outline" onClick={() => navigate('/login')}>
@@ -29,10 +29,10 @@ export default function HomePage() {
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-16">
-          <h2 className="text-5xl font-bold text-gray-900 mb-4">
+          <h2 className="text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Fratelli Dalla Via
           </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             Sistema di preventivazione tecnica per lavorazioni meccaniche di precisione.
             CNC, EDM e processi misti in pochi minuti.
           </p>
@@ -56,7 +56,7 @@ export default function HomePage() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold mb-2">Preventivi Manuali</h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
                 Crea preventivi rapidi selezionando materiali, macchine e fasi di lavorazione.
               </p>
             </CardContent>
@@ -70,7 +70,7 @@ export default function HomePage() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold mb-2">Import DXF & STEP</h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
                 Carica file CAD per quotazioni assistite per EDM a filo e lavorazioni CNC.
               </p>
             </CardContent>
@@ -84,7 +84,7 @@ export default function HomePage() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold mb-2">Export PDF</h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
                 Genera PDF per cliente e PDF interno con dettaglio costi e cicli di lavorazione.
               </p>
             </CardContent>
@@ -92,12 +92,12 @@ export default function HomePage() {
         </div>
 
         {/* Company Info */}
-        <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-8 text-center">
           <div className="w-24 h-24 bg-blue-600 rounded-full mx-auto mb-6 flex items-center justify-center">
             <span className="text-white font-bold text-3xl">FDV</span>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">Fratelli Dalla Via</h3>
-          <p className="text-gray-600 max-w-3xl mx-auto">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Fratelli Dalla Via</h3>
+          <p className="text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Officina meccanica di precisione specializzata in lavorazioni CNC, elettroerosione a filo,
             e processi misti. Il nostro sistema di preventivazione garantisce rapidit e precisione
             nel calcolo dei costi di produzione.

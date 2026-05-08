@@ -43,13 +43,13 @@ export default function LoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.75 15.75l-.557-.278a2 2 0 00-1.022.547m0 0a2 2 0 011.022.547l.557.278m0 0a2 2 0 001.022.547m0 0l.557.278m0 0a2 2 0 001.022.547m0 0l2.387.477a6 6 0 003.86-.517l.318-.158m0 0a6 6 0 013.86-.517l2.387.477" />
             </svg>
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">MechQuote</CardTitle>
-          <CardDescription className="text-gray-500">Fratelli Dalla Via</CardDescription>
+          <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">MechQuote</CardTitle>
+          <CardDescription className="text-gray-500 dark:text-gray-400">Fratelli Dalla Via</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Username</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 block">Username</label>
               <Input
                 type="text"
                 placeholder="Inserisci username"
@@ -59,7 +59,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Password</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 block">Password</label>
               <Input
                 type="password"
                 placeholder="Inserisci password"

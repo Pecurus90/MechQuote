@@ -5,14 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react'
 import { toast } from 'sonner'
-
-interface Category {
-  id: number
-  code: string
-  name: string
-  active: boolean
-  sort_order: number
-}
+import type { Category } from '@/types'
 
 interface EditRow { code: string; name: string; sort_order: number }
 
@@ -34,7 +27,7 @@ export default function QuoteCategoriesPage() {
 
   const startEdit = (cat: Category) => {
     setEditingId(cat.id)
-    setEditRow({ code: cat.code, name: cat.name, sort_order: cat.sort_order })
+    setEditRow({ code: cat.code, name: cat.name, sort_order: cat.sort_order ?? 0 })
   }
 
   const saveEdit = async (id: number) => {

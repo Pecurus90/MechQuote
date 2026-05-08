@@ -5,17 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '@/lib/api'
-
-interface StepColorRule {
-  id: number
-  color_hex: string
-  color_name: string
-  meaning: string
-  suggested_phase_type: string
-  complexity_coefficient: number
-  notes: string
-  active: boolean
-}
+import type { StepColorRule } from '@/types'
 
 export default function StepColorRulesPage() {
   const [rules, setRules] = useState<StepColorRule[]>([])

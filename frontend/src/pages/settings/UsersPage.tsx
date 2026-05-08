@@ -6,17 +6,11 @@ import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
+import type { ApiUser, Role as ApiRole } from '@/types'
 
-interface ApiRole { id: number; name: string; label: string; color: string }
-
-interface User {
-  id: number
-  username: string
-  full_name: string | null
-  email: string | null
-  role: string
-  is_active: boolean
-}
+// Alias locale: la tabella users mostra l'utente backend (ApiUser), non l'utente
+// loggato (AuthUser di lib/auth). Il nome 'User' qui aiuta la leggibilità della pagina.
+type User = ApiUser
 
 interface EditRow {
   full_name: string

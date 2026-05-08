@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import type { Machine } from '@/types'
 
 const MACHINE_TYPES = [
   { value: 'cnc_3_axis', label: 'CNC 3 assi' },
@@ -16,15 +17,6 @@ const MACHINE_TYPES = [
   { value: 'manual', label: 'Manuale' },
   { value: 'inspection', label: 'Controllo' },
 ]
-
-interface Machine {
-  id: number
-  name: string
-  machine_type: string
-  hourly_rate: number
-  setup_minimum_hours: number
-  active: boolean
-}
 
 export default function MachinesPage() {
   const [machines, setMachines] = useState<Machine[]>([])
@@ -50,7 +42,7 @@ export default function MachinesPage() {
 
   const startEdit = (m: Machine) => {
     setEditingId(m.id); setName(m.name); setMtype(m.machine_type)
-    setRate(String(m.hourly_rate)); setSetup(String(m.setup_minimum_hours)); setActive(m.active)
+    setRate(String(m.hourly_rate)); setSetup(String(m.setup_minimum_hours ?? 0)); setActive(m.active ?? true)
   }
 
   const handleSave = async () => {

@@ -5,22 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Save } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import type { CompanySettings } from '@/types'
 
-interface CompanySettings {
-  id: number
-  name: string
-  address: string
-  vat: string
-  phone: string
-  email: string
-  website: string
-  default_margin_percent: number
-  default_minimum_part_price: number
-  default_transport_cost: number
-  default_packaging_cost: number
-}
-
-const empty: Omit<CompanySettings, 'id'> = {
+const empty: Omit<CompanySettings, 'id' | 'updated_at'> = {
   name: '', address: '', vat: '', phone: '', email: '', website: '',
   default_margin_percent: 20, default_minimum_part_price: 0,
   default_transport_cost: 0, default_packaging_cost: 0,

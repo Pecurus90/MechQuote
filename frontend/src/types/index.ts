@@ -1,4 +1,12 @@
-export interface Supplier { id: number; name: string }
+export interface Supplier {
+  id: number
+  name: string
+  supplier_type?: string | null
+  address?: string | null
+  shipping_cost?: number
+  notes?: string | null
+  active?: boolean
+}
 
 export interface MaterialSupplier {
   id: number
@@ -17,7 +25,7 @@ export interface Treatment {
   minimum_cost: number
   minimum_weight_kg?: number | null
   supplier_id: number | null
-  supplier?: { id: number; name: string; shipping_cost: number } | null
+  supplier?: Supplier | null
   active: boolean
   notes: string | null
 }
@@ -51,6 +59,9 @@ export interface Machine {
   name: string
   hourly_rate: number
   machine_type: string
+  setup_minimum_hours?: number
+  active?: boolean
+  notes?: string | null
 }
 
 export interface Material {
@@ -59,7 +70,11 @@ export interface Material {
   family: string
   density_kg_dm3: number
   cost_per_kg: number
+  edm_coefficient?: number
+  cnc_machinability_coefficient?: number
   default_scrap_percent: number
+  active?: boolean
+  notes?: string | null
   supplier_id?: number | null
   material_supplier?: MaterialSupplier | null
 }
@@ -68,13 +83,21 @@ export interface Category {
   id: number
   code: string
   name: string
+  active?: boolean
+  sort_order?: number
 }
 
 export interface Customer {
   id: number
   customer_number: number
   name: string
-  email?: string
+  vat_number?: string | null
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  contact_person?: string | null
+  notes?: string | null
+  active?: boolean
 }
 
 export interface PartFile {
@@ -298,4 +321,50 @@ export interface MonthlyData {
   margin: number    // margine = prezzo - costo
   material: number  // costo materiali (grezzo + delivery + taglio)
   labor: number     // costo lavorazioni (escluso trattamenti)
+}
+
+// ─── Role / User / Settings server-side ─────────────────────────────────────
+
+export interface Role {
+  id: number
+  name: string         // slug: 'admin', 'ufficio_tecnico', ...
+  label: string
+  color: string
+  permissions?: string[]
+}
+
+export interface ApiUser {
+  id: number
+  username: string
+  full_name: string | null
+  email: string | null
+  role: string
+  is_active: boolean
+  created_at?: string
+}
+
+export interface CompanySettings {
+  id: number
+  name: string
+  address: string
+  vat: string
+  phone: string
+  email: string
+  website: string
+  default_margin_percent: number
+  default_minimum_part_price: number
+  default_transport_cost: number
+  default_packaging_cost: number
+  updated_at?: string
+}
+
+export interface StepColorRule {
+  id: number
+  color_hex: string
+  color_name: string | null
+  meaning: string | null
+  suggested_phase_type: string | null
+  complexity_coefficient?: number
+  notes: string | null
+  active: boolean
 }

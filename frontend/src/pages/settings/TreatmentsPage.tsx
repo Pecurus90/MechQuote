@@ -5,28 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-
-interface Supplier {
-  id: number
-  name: string
-  supplier_type: string | null
-  address: string | null
-  shipping_cost: number
-  active: boolean
-}
-
-interface Treatment {
-  id: number
-  name: string
-  treatment_type: string
-  cost_per_kg: number
-  minimum_cost: number
-  minimum_weight_kg: number | null
-  supplier_id: number | null
-  supplier?: Supplier | null
-  active: boolean
-  notes: string
-}
+import type { Supplier, Treatment } from '@/types'
 
 interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string; active: boolean }
 const emptySupplier = (): SupForm => ({ id: null, name: '', supplierType: '', address: '', shippingCost: '0', active: true })
@@ -178,10 +157,10 @@ export default function TreatmentsPage() {
                     <tr key={s.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                       <td className="p-3 font-medium">{s.name}</td>
                       <td className="p-3 text-gray-500 dark:text-gray-400">{s.address || '—'}</td>
-                      <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
+                      <td className="p-3 text-right font-mono">{(s.shipping_cost ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost), active: s.active })} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost ?? 0), active: s.active ?? true })} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">

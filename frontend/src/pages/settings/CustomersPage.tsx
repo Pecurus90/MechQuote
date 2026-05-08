@@ -5,15 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-
-interface Customer {
-  id: number
-  customer_number: number
-  name: string
-  address: string | null
-  email: string | null
-  phone: string | null
-}
+import type { Customer } from '@/types'
 
 interface FormState {
   customer_number: string

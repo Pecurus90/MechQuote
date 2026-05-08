@@ -5,14 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
-
-interface Role {
-  id: number
-  name: string
-  label: string
-  color: string
-  permissions: string[]
-}
+import type { Role } from '@/types'
 
 const COLOR_OPTIONS = [
   { value: 'green',  label: 'Verde',   cls: 'bg-green-100 text-green-800' },
@@ -199,7 +192,7 @@ export default function RolesPage() {
                       </div>
                     </td>
                     {roles.map(role => {
-                      const checked = role.permissions.includes(key)
+                      const checked = (role.permissions ?? []).includes(key)
                       const tid = `${role.id}:${key}`
                       return (
                         <td key={role.id} className="px-4 py-2.5 text-center">

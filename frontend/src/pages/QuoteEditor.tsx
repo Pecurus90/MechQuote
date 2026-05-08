@@ -6,13 +6,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
 import api from '@/lib/api'
-import { Trash2, Copy, FileDown, ChevronLeft, Save, Plus } from 'lucide-react'
-import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
-import { timeAgo } from '@/lib/timeAgo'
+import { Trash2, Copy, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { Send } from 'lucide-react'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
+import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
 import { toast } from 'sonner'
@@ -280,47 +278,15 @@ export default function QuoteEditor() {
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Top bar */}
-      <div className="bg-white dark:bg-gray-800 border-b px-6 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-700 dark:text-gray-200 mr-1">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <span className="font-mono font-bold text-lg text-blue-700">{quote.quote_number}</span>
-        <span className="text-gray-300">|</span>
-        <span className="text-sm text-gray-500 dark:text-gray-400">{quote.customer_name || 'Nessun cliente'}</span>
-        <div className="flex-1" />
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[quote.status] ?? STATUS_COLORS.bozza}`}>
-          {STATUS_LABELS[quote.status] ?? quote.status}
-        </span>
-        {quote.status === 'inviato' && quote.submitted_by && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            Inviato da <span className="font-medium text-gray-700 dark:text-gray-200">{quote.submitted_by.full_name || quote.submitted_by.username}</span>
-            {quote.submitted_at && <> · {timeAgo(quote.submitted_at)}</>}
-          </span>
-        )}
-        {quote.status === 'completato' && quote.completed_by && (
-          <span
-            className="text-xs text-gray-500 dark:text-gray-400"
-            title={quote.submitted_by ? `Inviato da ${quote.submitted_by.full_name || quote.submitted_by.username}` : undefined}
-          >
-            Completato da <span className="font-medium text-gray-700 dark:text-gray-200">{quote.completed_by.full_name || quote.completed_by.username}</span>
-            {quote.completed_at && <> · {timeAgo(quote.completed_at)}</>}
-          </span>
-        )}
-        {quote.status === 'bozza' && hasPermission('quotes.send') && (
-          <Button size="sm" variant="outline" onClick={submitForReview} disabled={saving}>
-            <Send className="w-3.5 h-3.5 mr-1" /> Invia per revisione
-          </Button>
-        )}
-        <Button size="sm" variant="outline" onClick={() => handlePdfClick('internal')}>
-          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
-        </Button>
-        {!isLocked && (
-          <Button size="sm" onClick={saveQuote} disabled={saving}>
-            <Save className="w-3.5 h-3.5 mr-1" /> {saving ? 'Salvo...' : 'Salva'}
-          </Button>
-        )}
-      </div>
+      <QuoteTopBar
+        quote={quote}
+        isLocked={isLocked}
+        saving={saving}
+        canSubmit={hasPermission('quotes.send')}
+        onSave={saveQuote}
+        onSubmitForReview={submitForReview}
+        onPdfClick={handlePdfClick}
+      />
 
       {isLocked && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-xs text-amber-800 flex items-center gap-2">

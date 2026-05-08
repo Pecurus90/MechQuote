@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp, Zap, Unlock } from 'lucide-react'
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
 import type { Phase, Machine, Treatment, PhaseTemplate, Supplier, CuttingCycle } from '@/types'
 import { PHASE_TYPES } from '@/lib/constants'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
+import EdmPhaseFields from '@/components/quotes/EdmPhaseFields'
 
 const isEdmAuto = (p: Phase) =>
   p.phase_type === 'wire_edm' &&
@@ -413,78 +414,15 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                       </div>
                     </div>
 
-                    {/* Wire EDM block: campi specifici per il calcolo automatico */}
                     {isWireEdm && (
-                      <div className="rounded-md border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-                            <Zap className="w-3.5 h-3.5" />
-                            Parametri taglio EDM
-                            {edmAuto && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200">auto</span>}
-                          </div>
-                          {edmAuto && (
-                            <button
-                              type="button"
-                              onClick={() => unlockManualEdm(idx)}
-                              className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 hover:underline"
-                              title="Sblocca per inserire le ore manualmente"
-                            >
-                              <Unlock className="w-3 h-3" /> Modifica manualmente
-                            </button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Lunghezza profilo (mm)</label>
-                            <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
-                              value={phase.cut_length_mm ?? ''}
-                              placeholder="es. 320"
-                              onChange={e => updateField(idx, 'cut_length_mm', e.target.value === '' ? null : parseFloat(e.target.value))}
-                              onBlur={() => savePhase(idx)} />
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Altezza pezzo (mm)</label>
-                            <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
-                              value={phase.cut_height_mm ?? ''}
-                              placeholder="es. 40"
-                              onChange={e => updateField(idx, 'cut_height_mm', e.target.value === '' ? null : parseFloat(e.target.value))}
-                              onBlur={() => savePhase(idx)} />
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ciclo di taglio</label>
-                            <select
-                              className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                              value={phase.cutting_cycle_id ?? ''}
-                              onChange={e => updateField(idx, 'cutting_cycle_id', e.target.value === '' ? null : Number(e.target.value))}
-                              onBlur={() => savePhase(idx)}
-                            >
-                              <option value="">— scegli ciclo —</option>
-                              {cuttingCycles.map(c => (
-                                <option key={c.id} value={c.id}>{c.name} ({c.passes.length} passate)</option>
-                              ))}
-                            </select>
-                            {cuttingCycles.length === 0 && (
-                              <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
-                                Configura i cicli in Impostazioni → Wire EDM
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">N° pierce (fori partenza)</label>
-                            <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
-                              value={phase.n_pierce ?? ''}
-                              placeholder="0"
-                              onChange={e => updateField(idx, 'n_pierce', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-                              onBlur={() => savePhase(idx)} />
-                          </div>
-                        </div>
-                        {edmAuto && (
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-2">
-                            Le ore ciclo sono calcolate automaticamente da area × ciclo + tempo pierce.
-                            Se la coppia materiale/altezza non è in tabella, popolala in Impostazioni → Wire EDM → Velocità di taglio.
-                          </p>
-                        )}
-                      </div>
+                      <EdmPhaseFields
+                        phase={phase}
+                        edmAuto={edmAuto}
+                        cuttingCycles={cuttingCycles}
+                        onChange={(field, value) => updateField(idx, field, value)}
+                        onBlur={() => savePhase(idx)}
+                        onUnlockManual={() => unlockManualEdm(idx)}
+                      />
                     )}
 
                     {/* Row 2: Ore (solo per fasi non-trattamento) + Costi + Visibile + Condivisa */}

@@ -10,6 +10,8 @@ import type {
   DxfAnalysis, Category, Customer, Material, CuttingCycle, DrillingTime,
 } from '@/types'
 import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
+import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
+import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
 
 type DrillingMode = 'pierce' | 'predrilled'
 
@@ -117,6 +119,12 @@ export default function NewQuote2DPage() {
   }, [])
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(f => ({ ...f, [k]: v }))
+
+  const toggleProfile = (id: number) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
 
   // ─── DXF upload + analyze ──────────────────────────────────────────────
 
@@ -370,13 +378,7 @@ export default function NewQuote2DPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={(id) => {
-                      setSelectedIds(prev => {
-                        const next = new Set(prev)
-                        next.has(id) ? next.delete(id) : next.add(id)
-                        return next
-                      })
-                    }} height={420} />
+                    <DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={420} />
                     <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <span className="inline-block w-3 h-0.5 bg-blue-600" /> chiuso selezionato
@@ -400,50 +402,13 @@ export default function NewQuote2DPage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Profili rilevati ({analysis.profiles.length})</CardTitle></CardHeader>
-                  <CardContent className="p-0 max-h-64 overflow-y-auto">
-                    <ul className="text-sm divide-y">
-                      {analysis.profiles.map(p => (
-                        <li key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/40">
-                          <input type="checkbox" checked={selectedIds.has(p.id)}
-                            onChange={() => {
-                              setSelectedIds(prev => {
-                                const next = new Set(prev)
-                                next.has(p.id) ? next.delete(p.id) : next.add(p.id)
-                                return next
-                              })
-                            }} />
-                          <span className="font-mono text-xs text-muted-foreground w-8">#{p.id}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${p.closed ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
-                            {p.closed ? 'chiuso' : 'aperto'}
-                          </span>
-                          <span className="flex-1 text-xs text-muted-foreground">
-                            {p.length_mm.toFixed(1)} mm · bbox {p.bbox.w.toFixed(0)}×{p.bbox.h.toFixed(0)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+                <Dxf2dProfileList profiles={analysis.profiles} selectedIds={selectedIds} onToggle={toggleProfile} />
 
-                {/* Riepilogo selezione */}
-                <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20">
-                  <CardContent className="p-3 grid grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Profili selezionati</p>
-                      <p className="font-semibold text-base">{selectedProfiles.length}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Lunghezza taglio</p>
-                      <p className="font-semibold text-base">{selectedLengthMm.toFixed(1)} mm</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Profili chiusi</p>
-                      <p className="font-semibold text-base">{selectedClosedCount}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Dxf2dSelectionSummary
+                  selectedCount={selectedProfiles.length}
+                  selectedLengthMm={selectedLengthMm}
+                  selectedClosedCount={selectedClosedCount}
+                />
               </div>
 
               {/* Pannello destro: form */}

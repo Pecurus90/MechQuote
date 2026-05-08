@@ -151,6 +151,12 @@ class PhaseBase(BaseModel):
     treatment_id: Optional[int] = None
     internal_notes: Optional[str] = None
     customer_notes: Optional[str] = None
+    # Wire EDM extra (popolati solo se phase_type='wire_edm')
+    cut_length_mm: Optional[float] = Field(default=None, ge=0)
+    cut_height_mm: Optional[float] = Field(default=None, ge=0)
+    cutting_cycle_id: Optional[int] = None
+    n_pierce: Optional[int] = Field(default=None, ge=0)
+    dxf_profile_ids: Optional[list] = None
 
 
 class PhaseCreate(PhaseBase):
@@ -532,6 +538,110 @@ class DashboardQuoteRow(BaseModel):
     total_price: float
     submitted_at: Optional[datetime] = None
     submitted_by: Optional[UserMinimal] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Wire EDM ─────────────────────────────────────────────────────────────────
+
+class EdmConfigBase(BaseModel):
+    rough_speed_factor: float = Field(default=1.0, ge=0)
+    semi_speed_factor: float = Field(default=0.9, ge=0)
+    finish_speed_factor: float = Field(default=0.7, ge=0)
+    default_pierce_time_s: float = Field(default=2.0, ge=0)
+
+
+class EdmConfigUpdate(EdmConfigBase):
+    pass
+
+
+class EdmConfigOut(EdmConfigBase):
+    id: int
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EdmCutSpeedBase(BaseModel):
+    material_id: int
+    thickness_min_mm: float = Field(default=0.0, ge=0)
+    thickness_max_mm: float = Field(ge=0)
+    speed_mm2_min: float = Field(ge=0)
+    pierce_time_s: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = None
+
+
+class EdmCutSpeedCreate(EdmCutSpeedBase):
+    pass
+
+
+class EdmCutSpeedUpdate(EdmCutSpeedBase):
+    pass
+
+
+class EdmCutSpeedOut(EdmCutSpeedBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class CuttingPassBase(BaseModel):
+    sequence_number: int
+    pass_type: str  # 'rough' | 'semi' | 'finish'
+
+
+class CuttingPassOut(CuttingPassBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class CuttingCycleBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    active: bool = True
+
+
+class CuttingCycleCreate(CuttingCycleBase):
+    passes: List[CuttingPassBase] = []
+
+
+class CuttingCycleUpdate(CuttingCycleBase):
+    passes: List[CuttingPassBase] = []
+
+
+class CuttingCycleOut(CuttingCycleBase):
+    id: int
+    passes: List[CuttingPassOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class DrillingTimeBase(BaseModel):
+    material_id: int
+    diameter_min_mm: float = Field(default=0.0, ge=0)
+    diameter_max_mm: float = Field(ge=0)
+    height_min_mm: float = Field(default=0.0, ge=0)
+    height_max_mm: float = Field(ge=0)
+    seconds_per_hole: float = Field(ge=0)
+    notes: Optional[str] = None
+
+
+class DrillingTimeCreate(DrillingTimeBase):
+    pass
+
+
+class DrillingTimeUpdate(DrillingTimeBase):
+    pass
+
+
+class DrillingTimeOut(DrillingTimeBase):
+    id: int
 
     class Config:
         from_attributes = True

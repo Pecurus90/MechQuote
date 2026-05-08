@@ -11,6 +11,7 @@ from app.models import (
     ManufacturingPhase, MaterialSupplier, Material, Machine, Treatment,
     Supplier, PhaseTemplate, StepColorRule, Role, RolePermission,
     Notification, NotificationRead, CompanySettings,
+    EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -32,7 +33,7 @@ _backup = [require_permission('backup')]
 
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
-    materials, machines, treatments, catalog, roles, notifications, company, activity,
+    materials, machines, treatments, catalog, roles, notifications, company, activity, edm,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -54,6 +55,7 @@ app.include_router(roles.permissions_router, dependencies=_auth)
 app.include_router(notifications.router, dependencies=_auth)
 app.include_router(company.router, dependencies=_auth)
 app.include_router(activity.router, dependencies=_auth)
+app.include_router(edm.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -164,6 +166,12 @@ def _run_migrations():
         ("CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_unique_quote_completed "
          "ON notifications(type, target_user_id, target_quote_id) "
          "WHERE type='quote_completed' AND target_quote_id IS NOT NULL"),
+        # Wire EDM Step 1 — colonne extra su ManufacturingPhase, popolate solo se phase_type='wire_edm'
+        "ALTER TABLE manufacturing_phases ADD COLUMN cut_length_mm FLOAT",
+        "ALTER TABLE manufacturing_phases ADD COLUMN cut_height_mm FLOAT",
+        "ALTER TABLE manufacturing_phases ADD COLUMN cutting_cycle_id INTEGER REFERENCES cutting_cycles(id)",
+        "ALTER TABLE manufacturing_phases ADD COLUMN n_pierce INTEGER",
+        "ALTER TABLE manufacturing_phases ADD COLUMN dxf_profile_ids JSON",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -218,9 +226,41 @@ def _seed_roles():
         db.commit()
 
 
+def _seed_edm_defaults():
+    """Insert default EDM config (singleton) + 3 starter cycles, idempotente."""
+    from sqlalchemy.orm import Session
+
+    with Session(engine) as db:
+        if db.query(EdmConfig).count() == 0:
+            db.add(EdmConfig(
+                id=1,
+                rough_speed_factor=1.0,
+                semi_speed_factor=0.9,
+                finish_speed_factor=0.7,
+                default_pierce_time_s=2.0,
+            ))
+            db.commit()
+
+        if db.query(CuttingCycle).count() == 0:
+            cycles = [
+                ("Solo sgrossatura", "1 passata di sola sgrossatura", ["rough"]),
+                ("Standard 1+3", "Sgrossatura + 3 finiture", ["rough", "finish", "finish", "finish"]),
+                ("Alta precisione 1+1+3", "Sgrossatura + 1 semifinitura + 3 finiture",
+                 ["rough", "semi", "finish", "finish", "finish"]),
+            ]
+            for name, desc, passes in cycles:
+                cyc = CuttingCycle(name=name, description=desc, active=True)
+                db.add(cyc)
+                db.flush()
+                for i, pt in enumerate(passes, start=1):
+                    db.add(CuttingPass(cycle_id=cyc.id, sequence_number=i, pass_type=pt))
+            db.commit()
+
+
 _run_migrations()
 _seed_categories()
 _seed_roles()
+_seed_edm_defaults()
 
 
 @app.get("/api/health")

@@ -1,5 +1,60 @@
+from typing import Optional
 from sqlalchemy.orm import Session, joinedload
-from app.models import Part, ManufacturingPhase, Quote
+from app.models import (
+    Part, ManufacturingPhase, Quote,
+    EdmConfig, EdmCutSpeed, CuttingCycle,
+)
+
+
+def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session) -> Optional[float]:
+    """Calcola cycle_hours_per_part per una fase Wire EDM, dato lunghezza/altezza/ciclo.
+
+    Ritorna None se i campi non sono popolati (lascia il valore manuale) o se manca
+    la riga di velocità per il (materiale, altezza) di questa fase.
+    """
+    if phase.phase_type != 'wire_edm':
+        return None
+    if not (phase.cut_length_mm and phase.cut_height_mm and phase.cutting_cycle_id):
+        return None
+    if not part.material_id:
+        return None
+
+    cfg = db.query(EdmConfig).filter(EdmConfig.id == 1).first()
+    if not cfg:
+        return None
+
+    speed_row = db.query(EdmCutSpeed).filter(
+        EdmCutSpeed.material_id == part.material_id,
+        EdmCutSpeed.thickness_min_mm <= phase.cut_height_mm,
+        EdmCutSpeed.thickness_max_mm >= phase.cut_height_mm,
+    ).first()
+    if not speed_row or not speed_row.speed_mm2_min:
+        return None
+
+    cycle = db.query(CuttingCycle).options(joinedload(CuttingCycle.passes)).filter(
+        CuttingCycle.id == phase.cutting_cycle_id
+    ).first()
+    if not cycle or not cycle.passes:
+        return None
+
+    factor_for = {
+        'rough': cfg.rough_speed_factor,
+        'semi': cfg.semi_speed_factor,
+        'finish': cfg.finish_speed_factor,
+    }
+    base_speed = speed_row.speed_mm2_min
+    pierce_time = speed_row.pierce_time_s if speed_row.pierce_time_s is not None else cfg.default_pierce_time_s
+    area_mm2 = phase.cut_length_mm * phase.cut_height_mm
+
+    total_min = 0.0
+    for p in cycle.passes:
+        factor = factor_for.get(p.pass_type, 1.0)
+        speed_pass = base_speed * factor
+        if speed_pass > 0:
+            total_min += area_mm2 / speed_pass
+
+    total_min += (phase.n_pierce or 0) * pierce_time / 60.0
+    return round(total_min / 60.0, 4)  # ore
 
 
 def recalculate_part(part_id: int, db: Session) -> None:
@@ -25,6 +80,12 @@ def recalculate_part(part_id: int, db: Session) -> None:
 
     phase_total_per_piece = 0.0
     for phase in phases:
+        # Wire EDM: se i campi extra sono popolati, ricalcola cycle_hours_per_part
+        # automaticamente in base a lunghezza × altezza × ciclo passate / velocità.
+        edm_hours = _compute_edm_cycle_hours(phase, part, db)
+        if edm_hours is not None:
+            phase.cycle_hours_per_part = edm_hours
+
         # Treatment phases: recalculate variable_cost_per_part dynamically
         # so that qty changes are reflected correctly (forfait splits across pieces)
         if phase.treatment_id and phase.treatment:

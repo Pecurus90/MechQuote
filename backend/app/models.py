@@ -184,9 +184,18 @@ class ManufacturingPhase(Base):
 
     treatment_id = Column(Integer, ForeignKey("treatments.id"), nullable=True)
 
+    # Wire EDM extra fields (popolati quando phase_type='wire_edm', altrimenti NULL).
+    # Se popolati, il cost engine calcola cycle_hours_per_part automaticamente.
+    cut_length_mm = Column(Float, nullable=True)
+    cut_height_mm = Column(Float, nullable=True)
+    cutting_cycle_id = Column(Integer, ForeignKey("cutting_cycles.id"), nullable=True)
+    n_pierce = Column(Integer, nullable=True)
+    dxf_profile_ids = Column(JSON, nullable=True)
+
     part = relationship("Part", back_populates="phases")
     machine = relationship("Machine")
     supplier = relationship("Supplier")
+    cutting_cycle = relationship("CuttingCycle")
     treatment = relationship("Treatment")
 
 
@@ -361,3 +370,77 @@ class NotificationRead(Base):
     dismissed_at = Column(DateTime, nullable=True)  # nascondi dal pannello (per-utente)
 
     notification = relationship("Notification", back_populates="reads")
+
+
+# ─── Wire EDM models ──────────────────────────────────────────────────────────
+
+class EdmConfig(Base):
+    """Singleton (id=1) con costanti globali del calcolo EDM filo."""
+    __tablename__ = "edm_config"
+
+    id = Column(Integer, primary_key=True)
+    rough_speed_factor = Column(Float, default=1.0)
+    semi_speed_factor = Column(Float, default=0.9)
+    finish_speed_factor = Column(Float, default=0.7)
+    default_pierce_time_s = Column(Float, default=2.0)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class EdmCutSpeed(Base):
+    """Velocità di taglio (sgrossatura) per (materiale × range altezza)."""
+    __tablename__ = "edm_cut_speeds"
+
+    id = Column(Integer, primary_key=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    thickness_min_mm = Column(Float, nullable=False, default=0.0)
+    thickness_max_mm = Column(Float, nullable=False)
+    speed_mm2_min = Column(Float, nullable=False)
+    pierce_time_s = Column(Float, nullable=True)  # override del default per range altezza
+    notes = Column(Text)
+
+    material = relationship("Material")
+
+
+class CuttingCycle(Base):
+    """Template di ciclo di taglio EDM = sequenza ordinata di passate."""
+    __tablename__ = "cutting_cycles"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    active = Column(Boolean, default=True)
+
+    passes = relationship(
+        "CuttingPass",
+        back_populates="cycle",
+        cascade="all, delete-orphan",
+        order_by="CuttingPass.sequence_number",
+    )
+
+
+class CuttingPass(Base):
+    """Singola passata di un CuttingCycle (rough/semi/finish)."""
+    __tablename__ = "cutting_passes"
+
+    id = Column(Integer, primary_key=True)
+    cycle_id = Column(Integer, ForeignKey("cutting_cycles.id"), nullable=False)
+    sequence_number = Column(Integer, nullable=False)
+    pass_type = Column(String(20), nullable=False)  # 'rough' | 'semi' | 'finish'
+
+    cycle = relationship("CuttingCycle", back_populates="passes")
+
+
+class DrillingTime(Base):
+    """Tempo per foro foratrice per (materiale × diametro × altezza)."""
+    __tablename__ = "drilling_times"
+
+    id = Column(Integer, primary_key=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    diameter_min_mm = Column(Float, nullable=False, default=0.0)
+    diameter_max_mm = Column(Float, nullable=False)
+    height_min_mm = Column(Float, nullable=False, default=0.0)
+    height_max_mm = Column(Float, nullable=False)
+    seconds_per_hole = Column(Float, nullable=False)
+    notes = Column(Text)
+
+    material = relationship("Material")

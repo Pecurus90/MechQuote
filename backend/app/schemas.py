@@ -646,3 +646,31 @@ class DrillingTimeOut(DrillingTimeBase):
     class Config:
         from_attributes = True
 
+
+# --- DXF analysis (in-memory, no persistenza) ---
+
+class DxfBboxOut(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class DxfProfileOut(BaseModel):
+    id: int
+    closed: bool
+    length_mm: float
+    bbox: DxfBboxOut
+    svg_path: str
+    point_count: int
+
+
+class DxfAnalysisOut(BaseModel):
+    profiles: List[DxfProfileOut]
+    bbox_global: DxfBboxOut
+    total_length_mm: float
+    n_closed_profiles: int
+    suggested_pierce: int
+    units: str
+    warnings: List[str]
+

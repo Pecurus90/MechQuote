@@ -66,7 +66,7 @@ export default function CustomersPage() {
   const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')
 
   const visible = [...customers]
-    .sort((a, b) => a.name.localeCompare(b.name, 'it'))
+    .sort((a, b) => a.customer_number - b.customer_number)
     .filter(c => {
       if (!search) return true
       const q = normalize(search)

@@ -1,9 +1,46 @@
+import math
 from typing import Optional
 from sqlalchemy.orm import Session, joinedload
 from app.models import (
     Part, ManufacturingPhase, Quote, Material,
     EdmConfig, EdmCutSpeed, CuttingCycle,
 )
+
+
+def _compute_material_cost(part: Part, material: Optional[Material]) -> Optional[float]:
+    """Costo materiale grezzo per pezzo (€) calcolato da volume × densità × €/kg × scrap.
+
+    Gemello DRY di frontend/src/lib/quoteCalc.ts calcMaterialCost — devono restare
+    identici. Modalità:
+      - tondo: raw_diameter_mm + raw_z_mm (lunghezza barra)
+      - prismatico: raw_x_mm × raw_y_mm × raw_z_mm
+
+    Ritorna None quando i dati sono insufficienti (no material, dimensioni mancanti):
+    in quel caso il chiamante mantiene il valore già salvato.
+    """
+    if not material:
+        return None
+    scrap = 1 + (material.default_scrap_percent or 10) / 100
+    density = material.density_kg_dm3 or 0
+    cost_per_kg = material.cost_per_kg or 0
+
+    if part.raw_diameter_mm:
+        r = part.raw_diameter_mm / 2
+        l = part.raw_z_mm or 0
+        if not r or not l:
+            return None
+        vol_dm3 = (math.pi * r * r * l) / 1_000_000
+        kg = vol_dm3 * density
+        return round(kg * cost_per_kg * scrap, 2)
+
+    x = part.raw_x_mm or 0
+    y = part.raw_y_mm or 0
+    z = part.raw_z_mm or 0
+    if not x or not y or not z:
+        return None
+    vol_dm3 = (x * y * z) / 1_000_000
+    kg = vol_dm3 * density
+    return round(kg * cost_per_kg * scrap, 2)
 
 
 def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session) -> Optional[float]:
@@ -77,6 +114,14 @@ def recalculate_part(part_id: int, db: Session) -> None:
     qty = part.quantity or 1
     quote = db.query(Quote).filter(Quote.id == part.quote_id).first()
     n_parts = db.query(Part).filter(Part.quote_id == part.quote_id).count() if quote else 1
+
+    # Costo materiale: ricalcolo se ho dimensioni grezzo + materiale.
+    # Single source of truth backend (DRY hard rule CLAUDE.md §1) — il frontend
+    # ricalcola in live preview, ma il valore canonico passa da qui.
+    if part.material_id and part.material:
+        recomputed_material = _compute_material_cost(part, part.material)
+        if recomputed_material is not None:
+            part.material_cost = recomputed_material
 
     phases = db.query(ManufacturingPhase).filter(
         ManufacturingPhase.part_id == part_id

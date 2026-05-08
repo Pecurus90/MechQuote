@@ -190,8 +190,13 @@ Regole:
 ### Cost engine (DRY hard rule)
 
 **Una sola formula, due copie identiche**:
-- Backend: `backend/app/services/calculation.py` `recalculate_part(part_id, db)`
-- Frontend: `frontend/src/components/quotes/PhaseEditor.tsx` `calcPhase()` + `frontend/src/lib/quoteCalc.ts` `calcPartTotals()`
+- Backend: `backend/app/services/calculation.py` `recalculate_part(part_id, db)` — autoritativo
+- Frontend: `frontend/src/components/quotes/PhaseEditor.tsx` `calcPhase()` + `frontend/src/lib/quoteCalc.ts` `calcPartTotals()` — preview live
+
+**Material cost** (gemello DRY, devono restare identici):
+- Backend: `backend/app/services/calculation.py` `_compute_material_cost(part, material)`
+- Frontend: `frontend/src/lib/quoteCalc.ts` `calcMaterialCost(part, material)`
+Backend ricalcola al `recalculate_part` se `part.material_id` + dimensioni grezzo presenti.
 
 **Formula calculated_cost (per pezzo)**:
 ```

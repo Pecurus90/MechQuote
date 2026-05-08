@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import api from '@/lib/api'
-import type { DrillingTime, Material } from '@/types'
+import type { DrillingTime } from '@/types'
 import { toast } from 'sonner'
+import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 
 interface FormState {
-  material_id: string
+  material_family: string
   diameter_min_mm: string
   diameter_max_mm: string
   height_min_mm: string
@@ -18,7 +19,7 @@ interface FormState {
 }
 
 const empty = (): FormState => ({
-  material_id: '',
+  material_family: '',
   diameter_min_mm: '0',
   diameter_max_mm: '',
   height_min_mm: '0',
@@ -28,7 +29,7 @@ const empty = (): FormState => ({
 })
 
 const toPayload = (f: FormState) => ({
-  material_id: Number(f.material_id),
+  material_family: f.material_family,
   diameter_min_mm: Number(f.diameter_min_mm) || 0,
   diameter_max_mm: Number(f.diameter_max_mm) || 0,
   height_min_mm: Number(f.height_min_mm) || 0,
@@ -39,7 +40,6 @@ const toPayload = (f: FormState) => ({
 
 export default function DrillingTimesPage() {
   const [rows, setRows] = useState<DrillingTime[]>([])
-  const [materials, setMaterials] = useState<Material[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editRow, setEditRow] = useState<FormState>(empty())
   const [showNew, setShowNew] = useState(false)
@@ -48,17 +48,14 @@ export default function DrillingTimesPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([api.get('/drilling-times'), api.get('/materials')])
-      .then(([r1, r2]) => { setRows(r1.data); setMaterials(r2.data); setLoading(false) })
+    api.get('/drilling-times').then(r => { setRows(r.data); setLoading(false) })
   }
   useEffect(() => { load() }, [])
-
-  const matName = (id: number) => materials.find(m => m.id === id)?.name ?? `#${id}`
 
   const startEdit = (row: DrillingTime) => {
     setEditingId(row.id)
     setEditRow({
-      material_id: String(row.material_id),
+      material_family: row.material_family,
       diameter_min_mm: String(row.diameter_min_mm),
       diameter_max_mm: String(row.diameter_max_mm),
       height_min_mm: String(row.height_min_mm),
@@ -78,8 +75,8 @@ export default function DrillingTimesPage() {
   }
 
   const createRow = async () => {
-    if (!newRow.material_id || !newRow.diameter_max_mm || !newRow.height_max_mm || !newRow.seconds_per_hole) {
-      toast.error('Materiale, diametro/altezza max e secondi sono obbligatori')
+    if (!newRow.material_family || !newRow.diameter_max_mm || !newRow.height_max_mm || !newRow.seconds_per_hole) {
+      toast.error('Famiglia, diametro/altezza max e secondi sono obbligatori')
       return
     }
     try {
@@ -102,10 +99,10 @@ export default function DrillingTimesPage() {
   const renderRow = (form: FormState, set: (f: FormState) => void) => (
     <>
       <td className="px-3 py-2">
-        <select className="h-7 text-xs border rounded px-1.5 bg-background" value={form.material_id}
-          onChange={e => set({ ...form, material_id: e.target.value })}>
+        <select className="h-7 text-xs border rounded px-1.5 bg-background" value={form.material_family}
+          onChange={e => set({ ...form, material_family: e.target.value })}>
           <option value="">— scegli —</option>
-          {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {MATERIAL_FAMILIES.map(fam => <option key={fam.slug} value={fam.slug}>{fam.label}</option>)}
         </select>
       </td>
       <td className="px-3 py-2">
@@ -141,9 +138,10 @@ export default function DrillingTimesPage() {
         <div>
           <h1 className="text-2xl font-bold">Tempi foratura</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Tempo per ogni foro pre-EDM in base a materiale, diametro foro e altezza pezzo.
-            Quando un preventivo Wire EDM è impostato come "fori pre-fatti", il sistema
-            aggiunge una fase Foratura con tempi calcolati da questa tabella.
+            Tempo per ogni foro pre-EDM in base a famiglia materiale, diametro foro e altezza pezzo.
+            Una riga famiglia copre tutti i materiali della stessa famiglia. Quando un preventivo
+            Wire EDM è impostato come "fori pre-fatti", il sistema aggiunge una fase Foratura
+            con tempi calcolati da questa tabella.
           </p>
         </div>
         {!showNew && (
@@ -159,7 +157,7 @@ export default function DrillingTimesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Materiale</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Famiglia</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Ø min (mm)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Ø max (mm)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">H min (mm)</th>
@@ -188,7 +186,7 @@ export default function DrillingTimesPage() {
                       </>
                     ) : (
                       <>
-                        <td className="px-4 py-2.5">{matName(r.material_id)}</td>
+                        <td className="px-4 py-2.5">{familyLabel(r.material_family)}</td>
                         <td className="px-4 py-2.5">{r.diameter_min_mm}</td>
                         <td className="px-4 py-2.5">{r.diameter_max_mm}</td>
                         <td className="px-4 py-2.5">{r.height_min_mm}</td>

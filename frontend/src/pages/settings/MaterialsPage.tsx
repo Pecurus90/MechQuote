@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 
 interface MaterialSupplier {
   id: number
@@ -110,7 +111,13 @@ export default function MaterialsPage() {
 
   const visibleMat = [...materials]
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
-    .filter(m => !searchMat || m.name.toLowerCase().includes(searchMat.toLowerCase()) || m.family.toLowerCase().includes(searchMat.toLowerCase()))
+    .filter(m => {
+      if (!searchMat) return true
+      const q = searchMat.toLowerCase()
+      return m.name.toLowerCase().includes(q)
+          || (m.family ?? '').toLowerCase().includes(q)
+          || familyLabel(m.family).toLowerCase().includes(q)
+    })
 
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
@@ -235,7 +242,7 @@ export default function MaterialsPage() {
                 {visibleMat.map(m => (
                   <tr key={m.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
                     <td className="p-3 font-medium truncate">{m.name}</td>
-                    <td className="p-3 truncate">{m.family}</td>
+                    <td className="p-3 truncate">{familyLabel(m.family)}</td>
                     <td className="p-3 text-right">{m.density_kg_dm3}</td>
                     <td className="p-3 text-right">{m.cost_per_kg}</td>
                     <td className="p-3 text-gray-500 dark:text-gray-400 text-xs truncate">{m.material_supplier?.name || '—'}</td>
@@ -273,7 +280,16 @@ export default function MaterialsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Famiglia</label>
-                  <Input value={matForm.family} onChange={e => setMatForm(f => f ? { ...f, family: e.target.value } : f)} />
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={matForm.family}
+                    onChange={e => setMatForm(f => f ? { ...f, family: e.target.value } : f)}
+                  >
+                    <option value="">— scegli —</option>
+                    {MATERIAL_FAMILIES.map(fam => (
+                      <option key={fam.slug} value={fam.slug}>{fam.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Densità (kg/dm³)</label>

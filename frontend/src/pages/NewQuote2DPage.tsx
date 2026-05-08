@@ -52,12 +52,12 @@ const initialForm = (categories: Category[]): FormState => ({
   drill_diameter_mm: 1.5,
 })
 
-/** Lookup tempo foratura: matcha (materiale, diametro, altezza) nei range. Ritorna sec/foro o null. */
+/** Lookup tempo foratura: matcha (famiglia, diametro, altezza) nei range. Ritorna sec/foro o null. */
 function lookupDrillingSeconds(
-  rows: DrillingTime[], materialId: number, diameter: number, height: number,
+  rows: DrillingTime[], materialFamily: string, diameter: number, height: number,
 ): number | null {
   const row = rows.find(r =>
-    r.material_id === materialId &&
+    r.material_family === materialFamily &&
     r.diameter_min_mm <= diameter && diameter <= r.diameter_max_mm &&
     r.height_min_mm <= height && height <= r.height_max_mm,
   )
@@ -182,10 +182,12 @@ export default function NewQuote2DPage() {
   const drillSecondsPerHole = useMemo(() => {
     if (form.drilling_mode !== 'predrilled') return null
     if (!form.material_id || !form.cut_height_mm || !form.drill_diameter_mm) return null
+    const family = materials.find(m => m.id === Number(form.material_id))?.family
+    if (!family) return null
     return lookupDrillingSeconds(
-      drillingRows, Number(form.material_id), form.drill_diameter_mm, form.cut_height_mm,
+      drillingRows, family, form.drill_diameter_mm, form.cut_height_mm,
     )
-  }, [form.drilling_mode, form.material_id, form.cut_height_mm, form.drill_diameter_mm, drillingRows])
+  }, [form.drilling_mode, form.material_id, form.cut_height_mm, form.drill_diameter_mm, drillingRows, materials])
 
   const drillTotalSeconds = drillSecondsPerHole != null
     ? drillSecondsPerHole * selectedClosedCount

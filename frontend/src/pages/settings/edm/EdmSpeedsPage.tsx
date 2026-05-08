@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import api from '@/lib/api'
-import type { EdmCutSpeed, Material } from '@/types'
+import type { EdmCutSpeed } from '@/types'
 import { toast } from 'sonner'
+import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 
 interface FormState {
-  material_id: string
+  material_family: string
   thickness_min_mm: string
   thickness_max_mm: string
   speed_mm2_min: string
@@ -17,7 +18,7 @@ interface FormState {
 }
 
 const empty = (): FormState => ({
-  material_id: '',
+  material_family: '',
   thickness_min_mm: '0',
   thickness_max_mm: '',
   speed_mm2_min: '',
@@ -26,7 +27,7 @@ const empty = (): FormState => ({
 })
 
 const toPayload = (f: FormState) => ({
-  material_id: Number(f.material_id),
+  material_family: f.material_family,
   thickness_min_mm: Number(f.thickness_min_mm) || 0,
   thickness_max_mm: Number(f.thickness_max_mm) || 0,
   speed_mm2_min: Number(f.speed_mm2_min) || 0,
@@ -36,7 +37,6 @@ const toPayload = (f: FormState) => ({
 
 export default function EdmSpeedsPage() {
   const [rows, setRows] = useState<EdmCutSpeed[]>([])
-  const [materials, setMaterials] = useState<Material[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editRow, setEditRow] = useState<FormState>(empty())
   const [showNew, setShowNew] = useState(false)
@@ -45,17 +45,14 @@ export default function EdmSpeedsPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([api.get('/edm-cut-speeds'), api.get('/materials')])
-      .then(([r1, r2]) => { setRows(r1.data); setMaterials(r2.data); setLoading(false) })
+    api.get('/edm-cut-speeds').then(r => { setRows(r.data); setLoading(false) })
   }
   useEffect(() => { load() }, [])
-
-  const matName = (id: number) => materials.find(m => m.id === id)?.name ?? `#${id}`
 
   const startEdit = (row: EdmCutSpeed) => {
     setEditingId(row.id)
     setEditRow({
-      material_id: String(row.material_id),
+      material_family: row.material_family,
       thickness_min_mm: String(row.thickness_min_mm),
       thickness_max_mm: String(row.thickness_max_mm),
       speed_mm2_min: String(row.speed_mm2_min),
@@ -74,8 +71,8 @@ export default function EdmSpeedsPage() {
   }
 
   const createRow = async () => {
-    if (!newRow.material_id || !newRow.thickness_max_mm || !newRow.speed_mm2_min) {
-      toast.error('Materiale, altezza max e velocità sono obbligatori')
+    if (!newRow.material_family || !newRow.thickness_max_mm || !newRow.speed_mm2_min) {
+      toast.error('Famiglia, altezza max e velocità sono obbligatori')
       return
     }
     try {
@@ -98,10 +95,10 @@ export default function EdmSpeedsPage() {
   const renderRow = (form: FormState, set: (f: FormState) => void) => (
     <>
       <td className="px-3 py-2">
-        <select className="h-7 text-xs border rounded px-1.5 bg-background" value={form.material_id}
-          onChange={e => set({ ...form, material_id: e.target.value })}>
+        <select className="h-7 text-xs border rounded px-1.5 bg-background" value={form.material_family}
+          onChange={e => set({ ...form, material_family: e.target.value })}>
           <option value="">— scegli —</option>
-          {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          {MATERIAL_FAMILIES.map(fam => <option key={fam.slug} value={fam.slug}>{fam.label}</option>)}
         </select>
       </td>
       <td className="px-3 py-2">
@@ -133,7 +130,8 @@ export default function EdmSpeedsPage() {
         <div>
           <h1 className="text-2xl font-bold">Velocità di taglio Wire EDM</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Velocità base (sgrossatura) in mm²/min per ogni materiale e range di altezza.
+            Velocità base (sgrossatura) in mm²/min per ogni famiglia di materiale e range di altezza.
+            Una riga famiglia copre tutti i materiali della stessa famiglia.
             Le velocità delle altre passate sono derivate dai fattori in <em>Parametri globali</em>.
           </p>
         </div>
@@ -150,7 +148,7 @@ export default function EdmSpeedsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Materiale</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Famiglia</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Altezza min (mm)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Altezza max (mm)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Velocità (mm²/min)</th>
@@ -178,7 +176,7 @@ export default function EdmSpeedsPage() {
                       </>
                     ) : (
                       <>
-                        <td className="px-4 py-2.5">{matName(r.material_id)}</td>
+                        <td className="px-4 py-2.5">{familyLabel(r.material_family)}</td>
                         <td className="px-4 py-2.5">{r.thickness_min_mm}</td>
                         <td className="px-4 py-2.5">{r.thickness_max_mm}</td>
                         <td className="px-4 py-2.5 font-mono">{r.speed_mm2_min}</td>

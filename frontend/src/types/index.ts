@@ -228,7 +228,7 @@ export interface EdmConfig {
 
 export interface EdmCutSpeed {
   id: number
-  material_id: number
+  material_family: string  // slug da MATERIAL_FAMILIES
   thickness_min_mm: number
   thickness_max_mm: number
   speed_mm2_min: number
@@ -254,7 +254,7 @@ export interface CuttingCycle {
 
 export interface DrillingTime {
   id: number
-  material_id: number
+  material_family: string  // slug da MATERIAL_FAMILIES
   diameter_min_mm: number
   diameter_max_mm: number
   height_min_mm: number

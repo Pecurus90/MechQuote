@@ -139,6 +139,19 @@ export interface Quote {
   parts: Part[]
 }
 
+export interface ActivityRow {
+  id: number
+  type: string
+  title: string
+  body: string | null
+  data: Record<string, unknown>
+  requires_action: boolean
+  created_at: string | null
+  created_by: UserMinimal | null
+  read_at: string | null
+  confirmed_at: string | null
+}
+
 export interface WorkflowStats {
   by_status: Record<string, number>
   my_drafts_count: number

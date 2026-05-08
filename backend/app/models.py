@@ -346,6 +346,7 @@ class Notification(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     reads = relationship("NotificationRead", back_populates="notification", cascade="all, delete-orphan")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
 
 
 class NotificationRead(Base):

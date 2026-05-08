@@ -19,6 +19,7 @@ import BackupSettingsPage from '@/pages/settings/BackupSettingsPage'
 import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
 import UsersPage from '@/pages/settings/UsersPage'
 import RolesPage from '@/pages/settings/RolesPage'
+import ActivityPage from '@/pages/ActivityPage'
 
 function ProtectedRoute({
   children,
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
+        <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
 
         {/* Settings — gated dal sistema dei permessi dinamici */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />

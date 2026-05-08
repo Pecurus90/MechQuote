@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Plus, Archive, FileText,
+  LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
 } from 'lucide-react'
@@ -120,6 +120,13 @@ export default function Sidebar() {
           <NavLink to="/settings/customers" className={({ isActive }) => navLinkClass(isActive)}>
             <Users className="w-4 h-4 shrink-0" />
             <span>Clienti</span>
+          </NavLink>
+        )}
+
+        {canDashboard && (
+          <NavLink to="/activity" className={({ isActive }) => navLinkClass(isActive)}>
+            <Activity className="w-4 h-4 shrink-0" />
+            <span>Attività</span>
           </NavLink>
         )}
 

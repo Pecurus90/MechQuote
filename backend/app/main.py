@@ -32,7 +32,7 @@ _backup = [require_permission('backup')]
 
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
-    materials, machines, treatments, catalog, roles, notifications, company,
+    materials, machines, treatments, catalog, roles, notifications, company, activity,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -53,6 +53,7 @@ app.include_router(roles.router, dependencies=_auth)
 app.include_router(roles.permissions_router, dependencies=_auth)
 app.include_router(notifications.router, dependencies=_auth)
 app.include_router(company.router, dependencies=_auth)
+app.include_router(activity.router, dependencies=_auth)
 
 
 def _run_migrations():

@@ -11,7 +11,8 @@ from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import Quote, Part, User
 from app.schemas import DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow
-from app.api.notifications import _user_notifications
+from app.api.notifications import _user_notifications, serialize_notification
+from app.models import Notification, NotificationRead
 
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -77,12 +78,28 @@ def get_activity(
     _=_can_view,
     limit: int = 5,
 ):
-    """Le 5 notifiche più recenti per l'utente corrente.
+    """Feed globale: ultime N notifiche del sistema in ordine cronologico desc.
 
-    Riusa la stessa logica di filtraggio di /api/notifications. Niente tabella
-    'activity' separata: le attività SONO le notifiche personali.
+    Diverso da /api/notifications (inbox personale): qui niente filtro per
+    destinatario né esclusione delle dismissed. Lo stato di lettura mostrato
+    (read_at/confirmed_at) è quello dell'utente corrente per coerenza visiva.
     """
-    return _user_notifications(db, current_user, limit=limit)
+    notifications = (
+        db.query(Notification)
+        .order_by(Notification.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    if not notifications:
+        return []
+    reads = {
+        r.notification_id: r
+        for r in db.query(NotificationRead)
+        .filter(NotificationRead.user_id == current_user.id)
+        .filter(NotificationRead.notification_id.in_([n.id for n in notifications]))
+        .all()
+    }
+    return [serialize_notification(n, reads.get(n.id)) for n in notifications]
 
 
 def _quote_to_row(q: Quote) -> DashboardQuoteRow:

@@ -40,7 +40,7 @@ def _query_for_user(db: Session, user: User):
     ).order_by(Notification.created_at.desc())
 
 
-def _serialize(n: Notification, read: Optional[NotificationRead]) -> dict:
+def serialize_notification(n: Notification, read: Optional[NotificationRead]) -> dict:
     return {
         "id": n.id,
         "type": n.type,
@@ -69,7 +69,7 @@ def _user_notifications(db: Session, user: User, *, limit: Optional[int] = None)
         .filter(NotificationRead.notification_id.in_([n.id for n in visible]))
         .all()
     }
-    return [_serialize(n, reads.get(n.id)) for n in visible]
+    return [serialize_notification(n, reads.get(n.id)) for n in visible]
 
 
 @router.get("")

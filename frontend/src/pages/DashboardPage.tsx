@@ -3,12 +3,13 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, CheckCircle2 } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight } from 'lucide-react'
 import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
 import { useAuth } from '@/lib/auth'
+import { ACTIVITY_KIND } from '@/lib/activity'
 import { toast } from 'sonner'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -98,7 +99,11 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <ActivityCard items={activity} onClick={(quoteId) => navigate(`/quotes/${quoteId}`)} />
+        <ActivityCard
+          items={activity}
+          onClick={(quoteId) => navigate(`/quotes/${quoteId}`)}
+          onSeeAll={() => navigate('/activity')}
+        />
       </div>
     </div>
   )
@@ -288,27 +293,20 @@ function QuoteListSection({
   )
 }
 
-// Pill che indica il TIPO di evento dell'attività (distinto da read/unread).
-// Esteso facilmente a nuovi type man mano che vengono aggiunti.
-type ActivityKind = { label: string; pillClass: string; icon: React.ReactNode }
-const ACTIVITY_KIND: Record<string, ActivityKind> = {
-  quote_submitted: {
-    label: 'Inviato',
-    pillClass: 'bg-amber-100 text-amber-700',
-    icon: <Send className="w-3 h-3" />,
-  },
-  quote_completed: {
-    label: 'Completato',
-    pillClass: 'bg-green-100 text-green-700',
-    icon: <CheckCircle2 className="w-3 h-3" />,
-  },
-}
-
-function ActivityCard({ items, onClick }: { items: Notification[]; onClick: (quoteId: number) => void }) {
+function ActivityCard({ items, onClick, onSeeAll }: {
+  items: Notification[]
+  onClick: (quoteId: number) => void
+  onSeeAll?: () => void
+}) {
   return (
     <Card className="lg:sticky lg:top-4 self-start">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex-row items-center justify-between">
         <CardTitle className="text-base">Attività recente</CardTitle>
+        {onSeeAll && (
+          <button onClick={onSeeAll} className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+            Tutte <ChevronRight className="w-3 h-3" />
+          </button>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         {items.length === 0 ? (

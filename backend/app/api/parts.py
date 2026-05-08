@@ -5,7 +5,7 @@ import os
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
-from app.models import Part, ManufacturingPhase, PartFile, GeometryAnalysis, Quote, User, CompanySettings
+from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut
 from app.services.calculation import recalculate_part
 from app.api.quotes import ensure_editable
@@ -231,31 +231,9 @@ def upload_file(
     db.commit()
     db.refresh(part_file)
 
-    if file_type == 'dxf':
-        try:
-            import ezdxf
-            doc = ezdxf.readfile(file_path)
-            msp = doc.modelspace()
-            total_length = 0
-            profile_count = 0
-            for entity in msp:
-                if entity.dxftype() == 'LINE':
-                    total_length += entity.dxf.start.distance(entity.dxf.end)
-                    profile_count += 1
-                elif entity.dxftype() in ('CIRCLE', 'ARC', 'LWPOLYLINE', 'SPLINE'):
-                    profile_count += 1
-
-            geo = GeometryAnalysis(
-                part_id=part_id,
-                source_file_id=part_file.id,
-                dxf_total_length_mm=total_length,
-                dxf_profile_count=profile_count,
-                confidence_level='medium',
-            )
-            db.add(geo)
-            db.commit()
-        except Exception as e:
-            print(f"DXF analysis error: {e}")
+    # NOTA: l'analisi DXF "vera" avviene via POST /api/dxf/analyze (services.dxf_parser)
+    # invocato dal wizard "Nuovo Preventivo 2D". L'upload qui è solo persistenza file:
+    # niente mini-parser inline, evita drift con il parser principale.
 
     return {"ok": True, "file_id": part_file.id, "path": file_path}
 

@@ -1,5 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
@@ -69,6 +70,10 @@ def create_quote(
     default_quantity = data.default_quantity or 1
     quote_data = data.model_dump(exclude={"num_components", "default_quantity"}, exclude_unset=True)
 
+    # Pre-check duplicato: meglio 400 esplicito di un IntegrityError 500
+    if db.query(Quote).filter(Quote.quote_number == quote_data["quote_number"]).first():
+        raise HTTPException(status_code=400, detail=f"Numero preventivo '{quote_data['quote_number']}' già esistente")
+
     quote = Quote(**quote_data)
     if not quote.quote_date:
         quote.quote_date = date_type.today()
@@ -124,18 +129,32 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")
 
-    # Auto-mark "completato" when a user with quotes.complete reads a quote in 'inviato' state.
-    # The creator (ufficio_tecnico) doesn't have this permission, so opening their own quote
-    # never advances the workflow — this is the intended invariant.
+    # Auto-mark "completato" quando un utente con quotes.complete apre un quote 'inviato'.
+    # Il creator (ufficio_tecnico) non ha questo permesso, quindi aprire la propria bozza
+    # non altera mai il workflow — invariante by-design.
+    #
+    # Atomicità sotto carico concorrente:
+    # 1. L'UPDATE filtra `WHERE status='inviato'`: SQLite serializza le scritture, quindi
+    #    solo UN thread effettivamente cambia status da 'inviato' a 'completato' e scrive
+    #    il proprio user.id come completed_by_user_id. Gli altri thread vedono già
+    #    'completato' nel WHERE → 0 righe modificate → completed_by_user_id resta del primo.
+    # 2. Dopo il commit, ricarica e crea la notifica solo se completed_by_user_id == me:
+    #    questo è il "vincitore" della race. Niente notifiche duplicate al creatore.
     perms = getattr(current_user, '_permissions', [])
     if quote.status == 'inviato' and 'quotes.complete' in perms:
-        quote.status = 'completato'
-        quote.completed_by_user_id = current_user.id
-        quote.completed_at = datetime.utcnow()
+        now = datetime.utcnow()
+        db.execute(
+            text("UPDATE quotes SET status='completato', "
+                 "completed_by_user_id=:uid, completed_at=:ts "
+                 "WHERE id=:qid AND status='inviato'"),
+            {"uid": current_user.id, "ts": now, "qid": quote_id},
+        )
         db.commit()
         db.refresh(quote)
-        # Notifica al creatore (1-a-1)
-        if quote.submitted_by_user_id:
+        if quote.status == 'completato' and quote.submitted_by_user_id:
+            # La notifica al creatore è dedupata via UNIQUE INDEX su DB
+            # (type, target_user_id, target_quote_id WHERE type='quote_completed').
+            # Race concorrenti producono al massimo 1 notifica.
             reviewer_name = current_user.full_name or current_user.username
             create_notification(
                 db,
@@ -242,6 +261,15 @@ def delete_quote(
             status_code=403,
             detail="Solo il creatore del preventivo o un admin possono eliminarlo",
         )
+    # Cancella prima le notifiche legate al quote (FK target_quote_id non ha CASCADE su SQLite).
+    # SQLite ricicla gli id, quindi notifiche orfane causerebbero IntegrityError sul UNIQUE INDEX
+    # quando si crea un nuovo quote che riusa lo stesso id.
+    # Cancella anche le NotificationRead associate (altrimenti restano "dismissed" per id riciclati).
+    db.execute(text(
+        "DELETE FROM notification_reads WHERE notification_id IN "
+        "(SELECT id FROM notifications WHERE target_quote_id = :qid)"
+    ), {"qid": quote_id})
+    db.execute(text("DELETE FROM notifications WHERE target_quote_id = :qid"), {"qid": quote_id})
     db.delete(quote)
     db.commit()
     return {"ok": True}

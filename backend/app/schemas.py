@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -140,12 +140,12 @@ class PhaseBase(BaseModel):
     description: Optional[str] = None
     machine_id: Optional[int] = None
     supplier_id: Optional[int] = None
-    setup_hours: Optional[float] = 0.0
-    cycle_hours_per_part: Optional[float] = 0.0
-    fixed_cost: Optional[float] = 0.0
-    variable_cost_per_part: Optional[float] = 0.0
-    hourly_rate_override: Optional[float] = None
-    calculated_cost: Optional[float] = 0.0
+    setup_hours: Optional[float] = Field(default=0.0, ge=0)
+    cycle_hours_per_part: Optional[float] = Field(default=0.0, ge=0)
+    fixed_cost: Optional[float] = Field(default=0.0, ge=0)
+    variable_cost_per_part: Optional[float] = Field(default=0.0, ge=0)
+    hourly_rate_override: Optional[float] = Field(default=None, ge=0)
+    calculated_cost: Optional[float] = Field(default=0.0, ge=0)
     customer_visible: Optional[bool] = True
     is_shared: Optional[bool] = False
     treatment_id: Optional[int] = None
@@ -198,11 +198,11 @@ class MaterialSupplierOut(MaterialSupplierBase):
 class MaterialBase(BaseModel):
     name: str
     family: Optional[str] = None
-    density_kg_dm3: Optional[float] = 0.0
-    cost_per_kg: Optional[float] = 0.0
-    edm_coefficient: Optional[float] = 1.0
-    cnc_machinability_coefficient: Optional[float] = 1.0
-    default_scrap_percent: Optional[float] = 10.0
+    density_kg_dm3: Optional[float] = Field(default=0.0, ge=0)
+    cost_per_kg: Optional[float] = Field(default=0.0, ge=0)
+    edm_coefficient: Optional[float] = Field(default=1.0, ge=0)
+    cnc_machinability_coefficient: Optional[float] = Field(default=1.0, ge=0)
+    default_scrap_percent: Optional[float] = Field(default=10.0, ge=0)
     active: Optional[bool] = True
     notes: Optional[str] = None
     supplier_id: Optional[int] = None
@@ -229,26 +229,26 @@ class PartBase(BaseModel):
     part_code: str
     revision: Optional[str] = "A"
     description: Optional[str] = None
-    quantity: Optional[int] = 1
+    quantity: Optional[int] = Field(default=1, ge=1)  # almeno 1, evita div/0 nel cost engine
     quote_mode: Optional[str] = "manual"
     material_id: Optional[int] = None
-    raw_x_mm: Optional[float] = None
-    raw_y_mm: Optional[float] = None
-    raw_z_mm: Optional[float] = None
-    raw_diameter_mm: Optional[float] = None
-    finished_weight_kg: Optional[float] = None
-    raw_weight_kg: Optional[float] = None
-    material_cost: Optional[float] = 0.0
-    material_delivery_cost: Optional[float] = 0.0
-    margin_percent: Optional[float] = None
-    minimum_price: Optional[float] = None
+    raw_x_mm: Optional[float] = Field(default=None, ge=0)
+    raw_y_mm: Optional[float] = Field(default=None, ge=0)
+    raw_z_mm: Optional[float] = Field(default=None, ge=0)
+    raw_diameter_mm: Optional[float] = Field(default=None, ge=0)
+    finished_weight_kg: Optional[float] = Field(default=None, ge=0)
+    raw_weight_kg: Optional[float] = Field(default=None, ge=0)
+    material_cost: Optional[float] = Field(default=0.0, ge=0)
+    material_delivery_cost: Optional[float] = Field(default=0.0, ge=0)
+    margin_percent: Optional[float] = None  # può essere negativo (sconto), niente vincolo
+    minimum_price: Optional[float] = Field(default=None, ge=0)
     rounding_rule: Optional[str] = "none"
     confidence_level: Optional[str] = "high"
     customer_notes: Optional[str] = None
     internal_notes: Optional[str] = None
-    total_cost: Optional[float] = 0.0
-    unit_price: Optional[float] = 0.0
-    total_price: Optional[float] = 0.0
+    total_cost: Optional[float] = Field(default=0.0, ge=0)
+    unit_price: Optional[float] = Field(default=0.0, ge=0)
+    total_price: Optional[float] = Field(default=0.0, ge=0)
 
 
 class PartCreate(PartBase):
@@ -300,7 +300,7 @@ class QuoteBase(BaseModel):
 
 
 class QuoteCreate(QuoteBase):
-    quote_number: Optional[str] = None
+    quote_number: str  # obbligatorio per evitare 500 su INSERT NULL su colonna unique
     num_components: Optional[int] = None
     default_quantity: Optional[int] = 1
 
@@ -345,8 +345,8 @@ class QuoteOut(QuoteBase):
 class MachineBase(BaseModel):
     name: str
     machine_type: Optional[str] = None
-    hourly_rate: Optional[float] = 0.0
-    setup_minimum_hours: Optional[float] = 0.0
+    hourly_rate: Optional[float] = Field(default=0.0, ge=0)
+    setup_minimum_hours: Optional[float] = Field(default=0.0, ge=0)
     active: Optional[bool] = True
     notes: Optional[str] = None
 
@@ -395,9 +395,9 @@ class SupplierOut(SupplierBase):
 class TreatmentBase(BaseModel):
     name: str
     treatment_type: Optional[str] = None
-    cost_per_kg: Optional[float] = 0.0
-    minimum_cost: Optional[float] = 0.0
-    minimum_weight_kg: Optional[float] = None
+    cost_per_kg: Optional[float] = Field(default=0.0, ge=0)
+    minimum_cost: Optional[float] = Field(default=0.0, ge=0)
+    minimum_weight_kg: Optional[float] = Field(default=None, ge=0)
     supplier_id: Optional[int] = None
     active: Optional[bool] = True
     notes: Optional[str] = None
@@ -427,10 +427,10 @@ class CompanySettingsBase(BaseModel):
     phone: str = ""
     email: str = ""
     website: str = ""
-    default_margin_percent: float = 20.0
-    default_minimum_part_price: float = 0.0
-    default_transport_cost: float = 0.0
-    default_packaging_cost: float = 0.0
+    default_margin_percent: float = Field(default=20.0, ge=0)
+    default_minimum_part_price: float = Field(default=0.0, ge=0)
+    default_transport_cost: float = Field(default=0.0, ge=0)
+    default_packaging_cost: float = Field(default=0.0, ge=0)
 
 
 class CompanySettingsUpdate(CompanySettingsBase):

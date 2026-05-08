@@ -53,7 +53,7 @@ class Quote(Base):
     __tablename__ = "quotes"
 
     id = Column(Integer, primary_key=True, index=True)
-    quote_number = Column(String(50), unique=True, index=True)
+    quote_number = Column(String(50), unique=True, index=True, nullable=False)
     quote_type = Column(String(20), default="single")   # single | commessa
     customer_id = Column(Integer, ForeignKey("customers.id"))
     customer_name = Column(String(200))
@@ -342,6 +342,7 @@ class Notification(Base):
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     target_roles = Column(JSON, default=list)             # lista di slug ruolo
     target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # per notifiche 1-a-1
+    target_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)  # per dedupe via UNIQUE INDEX
     requires_action = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 

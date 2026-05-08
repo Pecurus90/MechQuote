@@ -26,6 +26,9 @@ def list_archive(
     page: int = 1,
     page_size: int = 20,
 ):
+    # Clamp parametri di paginazione: niente offset negativo, page_size in range sensato
+    page = max(1, page)
+    page_size = max(1, min(100, page_size))
     query = db.query(Quote).options(selectinload(Quote.parts))
     if year:
         query = query.filter(extract('year', Quote.quote_date) == year)

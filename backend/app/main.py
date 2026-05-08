@@ -138,6 +138,32 @@ def _run_migrations():
         # Permesso 'company' aggiunto in audit#3 — di default solo admin
         "DELETE FROM role_permissions WHERE permission_key = 'company'",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'company' FROM roles WHERE name = 'admin'",
+        # Pulizia preventivi orfani con quote_number NULL/'' (residui da test pre-validazione)
+        "DELETE FROM quotes WHERE quote_number IS NULL OR quote_number = ''",
+        # Dedupe notifiche quote_completed sotto race: target_quote_id + UNIQUE INDEX parziale.
+        # Il secondo INSERT con stesso (type,target_user_id,target_quote_id) fallisce con IntegrityError.
+        "ALTER TABLE notifications ADD COLUMN target_quote_id INTEGER REFERENCES quotes(id)",
+        # Backfill: estrae quote_id da data_json per le righe esistenti
+        ("UPDATE notifications SET target_quote_id = "
+         "CAST(json_extract(data_json, '$.quote_id') AS INTEGER) "
+         "WHERE target_quote_id IS NULL AND data_json IS NOT NULL"),
+        # Pulizia duplicati esistenti (audit#4 ne aveva creati 7+ per qid 5,6,7,8...): tieni solo il primo
+        ("DELETE FROM notifications WHERE id NOT IN ("
+         "SELECT MIN(id) FROM notifications WHERE type='quote_completed' "
+         "GROUP BY type, target_user_id, target_quote_id"
+         ") AND type='quote_completed'"),
+        # Pulizia notifiche orfane: target_quote_id punta a quote eliminato (id riciclato dal pool SQLite)
+        ("DELETE FROM notifications "
+         "WHERE target_quote_id IS NOT NULL "
+         "AND target_quote_id NOT IN (SELECT id FROM quotes)"),
+        # Pulizia notification_reads orfane: notification_id punta a notifiche cancellate.
+        # Critico per evitare che id riciclati ereditino lo stato 'dismessa' del precedente record.
+        ("DELETE FROM notification_reads "
+         "WHERE notification_id NOT IN (SELECT id FROM notifications)"),
+        # UNIQUE INDEX parziale: blocca INSERT duplicati per quote_completed
+        ("CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_unique_quote_completed "
+         "ON notifications(type, target_user_id, target_quote_id) "
+         "WHERE type='quote_completed' AND target_quote_id IS NOT NULL"),
     ]
     with engine.connect() as conn:
         for sql in migrations:

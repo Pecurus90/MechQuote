@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, CheckCircle2 } from 'lucide-react'
 import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
@@ -288,6 +288,22 @@ function QuoteListSection({
   )
 }
 
+// Pill che indica il TIPO di evento dell'attività (distinto da read/unread).
+// Esteso facilmente a nuovi type man mano che vengono aggiunti.
+type ActivityKind = { label: string; pillClass: string; icon: React.ReactNode }
+const ACTIVITY_KIND: Record<string, ActivityKind> = {
+  quote_submitted: {
+    label: 'Inviato',
+    pillClass: 'bg-amber-100 text-amber-700',
+    icon: <Send className="w-3 h-3" />,
+  },
+  quote_completed: {
+    label: 'Completato',
+    pillClass: 'bg-green-100 text-green-700',
+    icon: <CheckCircle2 className="w-3 h-3" />,
+  },
+}
+
 function ActivityCard({ items, onClick }: { items: Notification[]; onClick: (quoteId: number) => void }) {
   return (
     <Card className="lg:sticky lg:top-4 self-start">
@@ -303,11 +319,13 @@ function ActivityCard({ items, onClick }: { items: Notification[]; onClick: (quo
               const unread = !a.read_at
               const confirmed = !!a.confirmed_at
               const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
+              const kind = ACTIVITY_KIND[a.type]
+              const isCompleted = a.type === 'quote_completed'
               return (
                 <li
                   key={a.id}
                   onClick={() => quoteId && onClick(quoteId)}
-                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
                 >
                   <div className="flex items-start gap-2">
                     <div className="pt-1.5 shrink-0">
@@ -320,7 +338,15 @@ function ActivityCard({ items, onClick }: { items: Notification[]; onClick: (quo
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>{a.title}</p>
+                      <div className="flex items-start gap-2 justify-between">
+                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>{a.title}</p>
+                        {kind && (
+                          <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${kind.pillClass}`}>
+                            {kind.icon}
+                            {kind.label}
+                          </span>
+                        )}
+                      </div>
                       {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
                       <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(a.created_at)}</p>
                     </div>

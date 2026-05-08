@@ -9,17 +9,17 @@ Session = sessionmaker(bind=engine)
 def seed_data():
     session = Session()
 
-    # Materials
+    # Materials (family usa gli slug normalizzati di core.material_families)
     materials = [
-        Material(name="Aluminum 6061", family="aluminum", density_kg_dm3=2.7, cost_per_kg=3.5, edm_coefficient=1.0, cnc_machinability_coefficient=1.3, default_scrap_percent=10.0),
-        Material(name="Aluminum 7075", family="aluminum", density_kg_dm3=2.81, cost_per_kg=5.0, edm_coefficient=1.0, cnc_machinability_coefficient=1.1, default_scrap_percent=10.0),
-        Material(name="Steel S355", family="carbon steel", density_kg_dm3=7.85, cost_per_kg=1.2, edm_coefficient=1.3, cnc_machinability_coefficient=0.9, default_scrap_percent=12.0),
-        Material(name="Stainless 304", family="stainless steel", density_kg_dm3=7.93, cost_per_kg=4.5, edm_coefficient=1.5, cnc_machinability_coefficient=0.6, default_scrap_percent=15.0),
-        Material(name="Stainless 316", family="stainless steel", density_kg_dm3=7.98, cost_per_kg=6.0, edm_coefficient=1.5, cnc_machinability_coefficient=0.55, default_scrap_percent=15.0),
-        Material(name="Tool Steel A2", family="tool steel", density_kg_dm3=7.86, cost_per_kg=8.0, edm_coefficient=1.6, cnc_machinability_coefficient=0.4, default_scrap_percent=15.0),
-        Material(name="Titanium Grade 2", family="titanium", density_kg_dm3=4.51, cost_per_kg=25.0, edm_coefficient=2.0, cnc_machinability_coefficient=0.3, default_scrap_percent=20.0),
-        Material(name="Brass C360", family="brass", density_kg_dm3=8.5, cost_per_kg=6.5, edm_coefficient=1.2, cnc_machinability_coefficient=1.2, default_scrap_percent=10.0),
-        Material(name="Plastic POM", family="plastics", density_kg_dm3=1.41, cost_per_kg=4.0, edm_coefficient=0.5, cnc_machinability_coefficient=1.5, default_scrap_percent=5.0),
+        Material(name="Aluminum 6061", family="alluminio", density_kg_dm3=2.7, cost_per_kg=3.5, edm_coefficient=1.0, cnc_machinability_coefficient=1.3, default_scrap_percent=10.0),
+        Material(name="Aluminum 7075", family="alluminio", density_kg_dm3=2.81, cost_per_kg=5.0, edm_coefficient=1.0, cnc_machinability_coefficient=1.1, default_scrap_percent=10.0),
+        Material(name="Steel S355", family="acciaio_carbonio", density_kg_dm3=7.85, cost_per_kg=1.2, edm_coefficient=1.3, cnc_machinability_coefficient=0.9, default_scrap_percent=12.0),
+        Material(name="Stainless 304", family="acciaio_inox", density_kg_dm3=7.93, cost_per_kg=4.5, edm_coefficient=1.5, cnc_machinability_coefficient=0.6, default_scrap_percent=15.0),
+        Material(name="Stainless 316", family="acciaio_inox", density_kg_dm3=7.98, cost_per_kg=6.0, edm_coefficient=1.5, cnc_machinability_coefficient=0.55, default_scrap_percent=15.0),
+        Material(name="Tool Steel A2", family="acciaio_utensili", density_kg_dm3=7.86, cost_per_kg=8.0, edm_coefficient=1.6, cnc_machinability_coefficient=0.4, default_scrap_percent=15.0),
+        Material(name="Titanium Grade 2", family="titanio", density_kg_dm3=4.51, cost_per_kg=25.0, edm_coefficient=2.0, cnc_machinability_coefficient=0.3, default_scrap_percent=20.0),
+        Material(name="Brass C360", family="ottone", density_kg_dm3=8.5, cost_per_kg=6.5, edm_coefficient=1.2, cnc_machinability_coefficient=1.2, default_scrap_percent=10.0),
+        Material(name="Plastic POM", family="plastica", density_kg_dm3=1.41, cost_per_kg=4.0, edm_coefficient=0.5, cnc_machinability_coefficient=1.5, default_scrap_percent=5.0),
     ]
     session.add_all(materials)
 

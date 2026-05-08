@@ -1,7 +1,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session, joinedload
 from app.models import (
-    Part, ManufacturingPhase, Quote,
+    Part, ManufacturingPhase, Quote, Material,
     EdmConfig, EdmCutSpeed, CuttingCycle,
 )
 
@@ -10,7 +10,7 @@ def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session)
     """Calcola cycle_hours_per_part per una fase Wire EDM, dato lunghezza/altezza/ciclo.
 
     Ritorna None se i campi non sono popolati (lascia il valore manuale) o se manca
-    la riga di velocità per il (materiale, altezza) di questa fase.
+    la riga di velocità per (famiglia materiale, altezza) di questa fase.
     """
     if phase.phase_type != 'wire_edm':
         return None
@@ -23,8 +23,15 @@ def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session)
     if not cfg:
         return None
 
+    # Lookup velocità per famiglia: una riga famiglia copre tutti i materiali
+    # della stessa famiglia (acciaio_inox, alluminio, …). Se il materiale non ha
+    # famiglia categorizzata, niente auto-calc.
+    material = db.query(Material).filter(Material.id == part.material_id).first()
+    if not material or not material.family:
+        return None
+
     speed_row = db.query(EdmCutSpeed).filter(
-        EdmCutSpeed.material_id == part.material_id,
+        EdmCutSpeed.material_family == material.family,
         EdmCutSpeed.thickness_min_mm <= phase.cut_height_mm,
         EdmCutSpeed.thickness_max_mm >= phase.cut_height_mm,
     ).first()

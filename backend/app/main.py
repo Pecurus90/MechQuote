@@ -173,6 +173,32 @@ def _run_migrations():
         "ALTER TABLE manufacturing_phases ADD COLUMN cutting_cycle_id INTEGER REFERENCES cutting_cycles(id)",
         "ALTER TABLE manufacturing_phases ADD COLUMN n_pierce INTEGER",
         "ALTER TABLE manufacturing_phases ADD COLUMN dxf_profile_ids JSON",
+        # Wire EDM Step 1.5 — refactor: EdmCutSpeed/DrillingTime indicizzati per famiglia,
+        # non più per FK a Material. material_id legacy resta nel DB (SQLite no DROP COLUMN)
+        # ma il modello smette di leggerlo.
+        "ALTER TABLE edm_cut_speeds ADD COLUMN material_family VARCHAR(50)",
+        "ALTER TABLE drilling_times ADD COLUMN material_family VARCHAR(50)",
+        # Normalizza materials.family ai nuovi slug (idempotente — UPDATE resta no-op se già nuovo slug)
+        "UPDATE materials SET family='alluminio'        WHERE LOWER(family) IN ('aluminum','aluminium')",
+        "UPDATE materials SET family='acciaio_carbonio' WHERE LOWER(family) IN ('carbon steel','carbon_steel')",
+        "UPDATE materials SET family='acciaio_inox'     WHERE LOWER(family) IN ('stainless steel','stainless_steel','stainless')",
+        "UPDATE materials SET family='acciaio_utensili' WHERE LOWER(family) IN ('tool steel','tool_steel')",
+        "UPDATE materials SET family='titanio'          WHERE LOWER(family) IN ('titanium')",
+        "UPDATE materials SET family='ottone'           WHERE LOWER(family) IN ('brass')",
+        "UPDATE materials SET family='rame'             WHERE LOWER(family) IN ('copper')",
+        "UPDATE materials SET family='plastica'         WHERE LOWER(family) IN ('plastic','plastics')",
+        "UPDATE materials SET family='carburi'          WHERE LOWER(family) IN ('carbide','carbides')",
+        # Valori non riconosciuti diventano 'altro' (preservando i NULL)
+        ("UPDATE materials SET family='altro' WHERE family IS NOT NULL "
+         "AND family NOT IN ('acciaio_carbonio','acciaio_inox','acciaio_utensili','alluminio',"
+         "'titanio','ottone','rame','plastica','carburi','altro')"),
+        # Backfill material_family copiando da materials.family via material_id legacy
+        ("UPDATE edm_cut_speeds SET material_family = "
+         "(SELECT m.family FROM materials m WHERE m.id = edm_cut_speeds.material_id) "
+         "WHERE material_family IS NULL AND material_id IS NOT NULL"),
+        ("UPDATE drilling_times SET material_family = "
+         "(SELECT m.family FROM materials m WHERE m.id = drilling_times.material_id) "
+         "WHERE material_family IS NULL AND material_id IS NOT NULL"),
     ]
     with engine.connect() as conn:
         for sql in migrations:

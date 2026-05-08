@@ -213,6 +213,17 @@ class MaterialBase(BaseModel):
     notes: Optional[str] = None
     supplier_id: Optional[int] = None
 
+    @field_validator('family')
+    @classmethod
+    def _validate_family(cls, v: Optional[str]) -> Optional[str]:
+        # Accetta None / stringa vuota (materiale senza famiglia categorizzata).
+        if v is None or v == '':
+            return None
+        from app.core.material_families import MATERIAL_FAMILY_SLUGS
+        if v not in MATERIAL_FAMILY_SLUGS:
+            raise ValueError(f"Famiglia '{v}' non valida")
+        return v
+
 
 class MaterialCreate(MaterialBase):
     pass
@@ -565,12 +576,20 @@ class EdmConfigOut(EdmConfigBase):
 
 
 class EdmCutSpeedBase(BaseModel):
-    material_id: int
+    material_family: str
     thickness_min_mm: float = Field(default=0.0, ge=0)
     thickness_max_mm: float = Field(ge=0)
     speed_mm2_min: float = Field(ge=0)
     pierce_time_s: Optional[float] = Field(default=None, ge=0)
     notes: Optional[str] = None
+
+    @field_validator('material_family')
+    @classmethod
+    def _validate_family(cls, v: str) -> str:
+        from app.core.material_families import MATERIAL_FAMILY_SLUGS
+        if v not in MATERIAL_FAMILY_SLUGS:
+            raise ValueError(f"Famiglia '{v}' non valida")
+        return v
 
 
 class EdmCutSpeedCreate(EdmCutSpeedBase):
@@ -623,13 +642,21 @@ class CuttingCycleOut(CuttingCycleBase):
 
 
 class DrillingTimeBase(BaseModel):
-    material_id: int
+    material_family: str
     diameter_min_mm: float = Field(default=0.0, ge=0)
     diameter_max_mm: float = Field(ge=0)
     height_min_mm: float = Field(default=0.0, ge=0)
     height_max_mm: float = Field(ge=0)
     seconds_per_hole: float = Field(ge=0)
     notes: Optional[str] = None
+
+    @field_validator('material_family')
+    @classmethod
+    def _validate_family(cls, v: str) -> str:
+        from app.core.material_families import MATERIAL_FAMILY_SLUGS
+        if v not in MATERIAL_FAMILY_SLUGS:
+            raise ValueError(f"Famiglia '{v}' non valida")
+        return v
 
 
 class DrillingTimeCreate(DrillingTimeBase):

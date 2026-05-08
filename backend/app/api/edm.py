@@ -60,7 +60,7 @@ def update_edm_config(data: EdmConfigUpdate, db: Session = Depends(get_db)):
 @router.get("/edm-cut-speeds", response_model=List[EdmCutSpeedOut])
 def list_cut_speeds(db: Session = Depends(get_db)):
     return db.query(EdmCutSpeed).order_by(
-        EdmCutSpeed.material_id, EdmCutSpeed.thickness_min_mm
+        EdmCutSpeed.material_family, EdmCutSpeed.thickness_min_mm
     ).all()
 
 
@@ -146,7 +146,7 @@ def delete_cycle(cid: int, db: Session = Depends(get_db)):
 @router.get("/drilling-times", response_model=List[DrillingTimeOut])
 def list_drilling_times(db: Session = Depends(get_db)):
     return db.query(DrillingTime).order_by(
-        DrillingTime.material_id, DrillingTime.diameter_min_mm, DrillingTime.height_min_mm
+        DrillingTime.material_family, DrillingTime.diameter_min_mm, DrillingTime.height_min_mm
     ).all()
 
 

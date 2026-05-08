@@ -387,18 +387,22 @@ class EdmConfig(Base):
 
 
 class EdmCutSpeed(Base):
-    """Velocità di taglio (sgrossatura) per (materiale × range altezza)."""
+    """Velocità di taglio (sgrossatura) per (famiglia materiale × range altezza).
+
+    L'indicizzazione è per famiglia (acciaio_inox, alluminio, …) e non per
+    singolo materiale: una riga copre tutti i materiali della stessa famiglia.
+    """
     __tablename__ = "edm_cut_speeds"
 
     id = Column(Integer, primary_key=True)
-    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    material_family = Column(String(50), nullable=False)  # slug da core.material_families
     thickness_min_mm = Column(Float, nullable=False, default=0.0)
     thickness_max_mm = Column(Float, nullable=False)
     speed_mm2_min = Column(Float, nullable=False)
     pierce_time_s = Column(Float, nullable=True)  # override del default per range altezza
     notes = Column(Text)
-
-    material = relationship("Material")
+    # Nota: la colonna legacy material_id resta nel DB (SQLite no DROP COLUMN)
+    # ma il modello smette di leggerla. Backfill su material_family in main._run_migrations.
 
 
 class CuttingCycle(Base):
@@ -431,16 +435,18 @@ class CuttingPass(Base):
 
 
 class DrillingTime(Base):
-    """Tempo per foro foratrice per (materiale × diametro × altezza)."""
+    """Tempo per foro foratrice per (famiglia materiale × diametro × altezza).
+
+    Stessa logica di EdmCutSpeed: indice per famiglia, no FK a Material.
+    """
     __tablename__ = "drilling_times"
 
     id = Column(Integer, primary_key=True)
-    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    material_family = Column(String(50), nullable=False)  # slug da core.material_families
     diameter_min_mm = Column(Float, nullable=False, default=0.0)
     diameter_max_mm = Column(Float, nullable=False)
     height_min_mm = Column(Float, nullable=False, default=0.0)
     height_max_mm = Column(Float, nullable=False)
     seconds_per_hole = Column(Float, nullable=False)
     notes = Column(Text)
-
-    material = relationship("Material")
+    # Nota: la colonna legacy material_id resta nel DB ma il modello smette di leggerla.

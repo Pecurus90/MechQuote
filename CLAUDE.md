@@ -366,9 +366,9 @@ backend/app/
   schemas.py       # Pydantic Base/Create/Update/Out
   services/
     calculation.py # recalculate_part — cost engine autoritativo
+    dxf_parser.py  # parse_dxf — analisi DXF in-memory per wizard 2D
     notifications.py # create_notification helper generico
-    seed.py        # seed dati demo
-  main.py          # startup, _run_migrations, router register
+  main.py          # startup, _run_migrations, _seed_categories/_seed_roles/_seed_edm_defaults, router register
 
 frontend/src/
   pages/           # 1 file per route (DashboardPage, QuoteEditor, QuoteArchivePage, NewQuotePage,

@@ -133,8 +133,6 @@ def duplicate_part(
         material_delivery_cost=part.material_delivery_cost,
         margin_percent=part.margin_percent,
         minimum_price=part.minimum_price,
-        rounding_rule=part.rounding_rule,
-        confidence_level=part.confidence_level,
         customer_notes=part.customer_notes,
         internal_notes=part.internal_notes,
     )

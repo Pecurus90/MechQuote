@@ -125,8 +125,6 @@ export interface Part {
   material_delivery_cost?: number
   margin_percent?: number
   minimum_price?: number
-  rounding_rule?: string
-  confidence_level?: string
   total_cost: number
   unit_price: number
   total_price: number

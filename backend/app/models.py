@@ -106,10 +106,10 @@ class Part(Base):
     material_delivery_cost = Column(Float, default=0.0)
     margin_percent = Column(Float)
     minimum_price = Column(Float)
-    rounding_rule = Column(String(20), default="none")
-    confidence_level = Column(String(20), default="high")
     customer_notes = Column(Text)
     internal_notes = Column(Text)
+    # Colonne legacy nel DB ma non mappate (drop dal modello, dati restano):
+    # rounding_rule, confidence_level — mai applicate nel cost engine.
     total_cost = Column(Float, default=0.0)
     unit_price = Column(Float, default=0.0)
     total_price = Column(Float, default=0.0)
@@ -146,16 +146,16 @@ class ManufacturingPhase(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
     setup_hours = Column(Float, default=0.0)
     cycle_hours_per_part = Column(Float, default=0.0)
-    quantity_multiplier = Column(Float, default=1.0)
     fixed_cost = Column(Float, default=0.0)
     variable_cost_per_part = Column(Float, default=0.0)
     hourly_rate_override = Column(Float)
     calculated_cost = Column(Float, default=0.0)
-    margin_percent_override = Column(Float)
     customer_visible = Column(Boolean, default=True)
     is_shared = Column(Boolean, default=False)
     internal_notes = Column(Text)
     customer_notes = Column(Text)
+    # Colonne legacy nel DB ma non mappate (drop dal modello, dati restano):
+    # quantity_multiplier, margin_percent_override — mai applicate.
 
     treatment_id = Column(Integer, ForeignKey("treatments.id"), nullable=True)
 
@@ -222,10 +222,7 @@ class Treatment(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     treatment_type = Column(String(50))
-    fixed_cost = Column(Float, default=0.0)
     cost_per_kg = Column(Float, default=0.0)
-    cost_per_part = Column(Float, default=0.0)
-    cost_per_surface_area = Column(Float, default=0.0)
     minimum_cost = Column(Float, default=0.0)
     minimum_weight_kg = Column(Float, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
@@ -233,6 +230,8 @@ class Treatment(Base):
     notes = Column(Text)
 
     supplier = relationship("Supplier")
+    # Colonne legacy nel DB ma non mappate: fixed_cost, cost_per_part,
+    # cost_per_surface_area — mai usate nel cost engine.
 
 
 class Supplier(Base):

@@ -259,8 +259,6 @@ class PartBase(BaseModel):
     material_delivery_cost: Optional[float] = Field(default=0.0, ge=0)
     margin_percent: Optional[float] = None  # può essere negativo (sconto), niente vincolo
     minimum_price: Optional[float] = Field(default=None, ge=0)
-    rounding_rule: Optional[str] = "none"
-    confidence_level: Optional[str] = "high"
     customer_notes: Optional[str] = None
     internal_notes: Optional[str] = None
     total_cost: Optional[float] = Field(default=0.0, ge=0)

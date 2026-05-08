@@ -7,7 +7,7 @@ Sistema di preventivazione tecnica per lavorazioni meccaniche di precisione.
 **Frontend:** React + TypeScript + Vite + Tailwind CSS  
 **Backend:** Python + FastAPI + SQLAlchemy + SQLite  
 **CAD:** ezdxf (DXF), OCP/OpenCascade (STEP)  
-**PDF:** WeasyPrint
+**PDF:** Playwright (HTML → Chromium → PDF)
 
 ## Quick Start
 

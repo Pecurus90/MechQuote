@@ -9,6 +9,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import QuoteEditor from '@/pages/QuoteEditor'
 import QuoteArchivePage from '@/pages/QuoteArchivePage'
 import NewQuotePage from '@/pages/NewQuotePage'
+import NewQuote2DPage from '@/pages/NewQuote2DPage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import MachinesPage from '@/pages/settings/MachinesPage'
 import TreatmentsPage from '@/pages/settings/TreatmentsPage'
@@ -53,6 +54,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="quotes/new" element={<NewQuotePage />} />
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
+        <Route path="quotes/2d/new" element={<ProtectedRoute permission="quotes.create"><NewQuote2DPage /></ProtectedRoute>} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />

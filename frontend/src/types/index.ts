@@ -263,6 +263,34 @@ export interface DrillingTime {
   notes: string | null
 }
 
+// ─── DXF analysis (in-memory) ───────────────────────────────────────────────
+
+export interface DxfBbox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface DxfProfile {
+  id: number
+  closed: boolean
+  length_mm: number
+  bbox: DxfBbox
+  svg_path: string
+  point_count: number
+}
+
+export interface DxfAnalysis {
+  profiles: DxfProfile[]
+  bbox_global: DxfBbox
+  total_length_mm: number
+  n_closed_profiles: number
+  suggested_pierce: number
+  units: string
+  warnings: string[]
+}
+
 export interface MonthlyData {
   month: string
   year: number

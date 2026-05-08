@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Sun, Moon, Zap, Gauge, Drill, SlidersHorizontal,
+  Sun, Moon, Zap, Gauge, Drill, SlidersHorizontal, Scan,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -109,6 +109,12 @@ export default function Sidebar() {
                 <NavLink to="/quotes/new" className={({ isActive }) => navLinkClass(isActive, true)}>
                   <Plus className="w-3.5 h-3.5 shrink-0" />
                   <span>Nuovo Preventivo</span>
+                </NavLink>
+              )}
+              {canQuote && (
+                <NavLink to="/quotes/2d/new" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <Scan className="w-3.5 h-3.5 shrink-0" />
+                  <span>Preventivo 2D (DXF)</span>
                 </NavLink>
               )}
               <NavLink to="/quotes/archive" className={({ isActive }) => navLinkClass(isActive, true)}>

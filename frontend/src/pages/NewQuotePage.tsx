@@ -15,8 +15,9 @@ const modes = [
     id: '2d',
     icon: Scan,
     title: 'Preventivo 2D',
-    description: 'Carica un file DXF o DWG. Il sistema estrae automaticamente i profili, calcola le lunghezze di taglio e propone le operazioni 2D (EDM a filo, laser, waterjet…).',
-    available: false,
+    description: 'Carica un file DXF. Il sistema estrae i profili, calcola le lunghezze di taglio e crea automaticamente la fase Wire EDM con tempi calcolati.',
+    available: true,
+    to: '/quotes/2d/new',
     color: 'violet',
   },
   {
@@ -45,10 +46,10 @@ const colorMap = {
     button: 'bg-blue-600 hover:bg-blue-700 text-white',
   },
   violet: {
-    card: 'border-gray-200 dark:border-gray-700 opacity-60',
-    icon: 'bg-violet-100 text-violet-500',
-    badge: 'bg-gray-200 text-gray-500 dark:text-gray-400',
-    button: '',
+    card: 'border-violet-200 hover:border-violet-400 hover:shadow-violet-100',
+    icon: 'bg-violet-100 text-violet-600',
+    badge: 'bg-violet-600 text-white',
+    button: 'bg-violet-600 hover:bg-violet-700 text-white',
   },
   emerald: {
     card: 'border-gray-200 dark:border-gray-700 opacity-60',

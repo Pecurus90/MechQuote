@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp, Zap, Unlock } from 'lucide-react'
 import api from '@/lib/api'
-import type { Phase, Machine, Treatment, PhaseTemplate, Supplier } from '@/types'
+import type { Phase, Machine, Treatment, PhaseTemplate, Supplier, CuttingCycle } from '@/types'
 import { PHASE_TYPES } from '@/lib/constants'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
+
+const isEdmAuto = (p: Phase) =>
+  p.phase_type === 'wire_edm' &&
+  !!p.cut_length_mm && p.cut_length_mm > 0 &&
+  !!p.cut_height_mm && p.cut_height_mm > 0 &&
+  !!p.cutting_cycle_id
 
 interface Props {
   partId?: number
@@ -41,6 +47,13 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
 export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, readOnly = false, onChange }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
+  const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
+
+  useEffect(() => {
+    api.get('/cutting-cycles')
+      .then(r => setCuttingCycles(r.data.filter((c: CuttingCycle) => c.active)))
+      .catch(() => { /* tabelle EDM non popolate ancora — ok */ })
+  }, [])
 
   // Quando cambia il peso finito o la quantità, ricalcola i costi delle fasi treatment.
   // Phases/treatments/machines/onChange sono volutamente fuori dalle deps: phases viene
@@ -109,7 +122,26 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
   const savePhase = async (idx: number) => {
     const phase = phases[idx]
     if (!phase.id) return
-    try { await api.put(`/phases/${phase.id}`, phase) } catch (e) {toast.error('Errore nel salvataggio della fase') }
+    try {
+      const res = await api.put(`/phases/${phase.id}`, phase)
+      // Il backend può ricalcolare cycle_hours_per_part (es. fase Wire EDM con dati EDM popolati).
+      // Riportiamo nel state i campi calcolati lato server per tenerli allineati.
+      const saved: Phase = res.data
+      onChange(phases.map((p, i) =>
+        i !== idx ? p : calcPhase({ ...p, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost }, machines, quantity, nParts)
+      ))
+    } catch (e) {toast.error('Errore nel salvataggio della fase') }
+  }
+
+  const unlockManualEdm = (idx: number) => {
+    updateMany(idx, {
+      cut_length_mm: null,
+      cut_height_mm: null,
+      cutting_cycle_id: null,
+      n_pierce: null,
+    })
+    // Salva immediatamente: dopo lo sblocco il backend non ricalcolerà più auto.
+    setTimeout(() => savePhase(idx), 0)
   }
 
   const handleTreatmentSelect = (idx: number, treatmentId: number | undefined) => {
@@ -276,7 +308,10 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                 </div>
 
                 {/* Expanded editor */}
-                {expandedIdx === idx && (
+                {expandedIdx === idx && (() => {
+                  const isWireEdm = phase.phase_type === 'wire_edm'
+                  const edmAuto = isEdmAuto(phase)
+                  return (
                   <div className="p-4 border-t bg-white dark:bg-gray-800 space-y-3">
                     {/* Row 1: Tipo + Macchina/Fornitore + Descrizione */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -378,6 +413,80 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                       </div>
                     </div>
 
+                    {/* Wire EDM block: campi specifici per il calcolo automatico */}
+                    {isWireEdm && (
+                      <div className="rounded-md border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                            <Zap className="w-3.5 h-3.5" />
+                            Parametri taglio EDM
+                            {edmAuto && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200">auto</span>}
+                          </div>
+                          {edmAuto && (
+                            <button
+                              type="button"
+                              onClick={() => unlockManualEdm(idx)}
+                              className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 hover:underline"
+                              title="Sblocca per inserire le ore manualmente"
+                            >
+                              <Unlock className="w-3 h-3" /> Modifica manualmente
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Lunghezza profilo (mm)</label>
+                            <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+                              value={phase.cut_length_mm ?? ''}
+                              placeholder="es. 320"
+                              onChange={e => updateField(idx, 'cut_length_mm', e.target.value === '' ? null : parseFloat(e.target.value))}
+                              onBlur={() => savePhase(idx)} />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Altezza pezzo (mm)</label>
+                            <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                              value={phase.cut_height_mm ?? ''}
+                              placeholder="es. 40"
+                              onChange={e => updateField(idx, 'cut_height_mm', e.target.value === '' ? null : parseFloat(e.target.value))}
+                              onBlur={() => savePhase(idx)} />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ciclo di taglio</label>
+                            <select
+                              className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                              value={phase.cutting_cycle_id ?? ''}
+                              onChange={e => updateField(idx, 'cutting_cycle_id', e.target.value === '' ? null : Number(e.target.value))}
+                              onBlur={() => savePhase(idx)}
+                            >
+                              <option value="">— scegli ciclo —</option>
+                              {cuttingCycles.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} ({c.passes.length} passate)</option>
+                              ))}
+                            </select>
+                            {cuttingCycles.length === 0 && (
+                              <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                                Configura i cicli in Impostazioni → Wire EDM
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">N° pierce (fori partenza)</label>
+                            <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+                              value={phase.n_pierce ?? ''}
+                              placeholder="0"
+                              onChange={e => updateField(idx, 'n_pierce', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                              onBlur={() => savePhase(idx)} />
+                          </div>
+                        </div>
+                        {edmAuto && (
+                          <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-2">
+                            Le ore ciclo sono calcolate automaticamente da area × ciclo + tempo pierce.
+                            Se la coppia materiale/altezza non è in tabella, popolala in Impostazioni → Wire EDM → Velocità di taglio.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Row 2: Ore (solo per fasi non-trattamento) + Costi + Visibile + Condivisa */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {!isTreatment && (
@@ -390,9 +499,14 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                               onBlur={() => savePhase(idx)} />
                           </div>
                           <div>
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ore ciclo / pz</label>
+                            <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                              Ore ciclo / pz {edmAuto && <span className="text-[10px] font-normal text-amber-600">(auto)</span>}
+                            </label>
                             <Input type="number" step="0.05" min="0" className="mt-1 h-9 text-sm"
                               value={phase.cycle_hours_per_part}
+                              readOnly={edmAuto}
+                              disabled={edmAuto}
+                              title={edmAuto ? 'Calcolato dai parametri EDM. Sblocca per modificare manualmente.' : undefined}
                               onChange={e => updateField(idx, 'cycle_hours_per_part', parseFloat(e.target.value) || 0)}
                               onBlur={() => savePhase(idx)} />
                           </div>
@@ -492,7 +606,8 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                       </span>
                     </div>
                   </div>
-                )}
+                  )
+                })()}
               </div>
             )
           })}

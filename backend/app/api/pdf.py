@@ -7,6 +7,7 @@ import math
 
 from app.core.database import get_db
 from app.core.security import require_permission
+from app.core.phase_types import phase_label_short, EXTERNAL_PHASE_SLUGS
 from app.models import Quote, Part, ManufacturingPhase, Material, MaterialSupplier, CompanySettings
 
 router = APIRouter(prefix="/api", tags=["pdf"])
@@ -31,16 +32,8 @@ def _fmt_time(hours: float) -> str:
     return f"{h}h{m:02d}&prime;" if m else f"{h}h"
 
 
-def _phase_label(phase_type: str) -> str:
-    labels = {
-        "cnc": "CNC", "turning": "TORN.", "milling": "FRES.",
-        "grinding": "RETT.", "edm_wire": "EDM FILO", "edm_sink": "EDM TUFF.",
-        "edm_drill": "EDM FOR.", "laser": "LASER", "waterjet": "IDRO",
-        "heat_treatment": "TRATT.", "surface_treatment": "SUPER.",
-        "assembly": "MONT.", "inspection": "CTRL", "external": "CONTO LAV.",
-        "other": "ALTRO",
-    }
-    return labels.get(phase_type, phase_type.upper().replace("_", " "))
+# Etichette compatte e classificazione "esterno" sono in app.core.phase_types
+# (mirror lato backend di frontend/src/lib/constants.ts PHASE_TYPES).
 
 
 CSS = """
@@ -308,9 +301,9 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
                 time_cell = " &nbsp;·&nbsp; ".join(times)
 
                 is_treat = bool(ph.treatment_id)
-                is_ext = ph.phase_type in ("external", "other")
+                is_ext = ph.phase_type in EXTERNAL_PHASE_SLUGS
                 badge_cls = "badge-treat" if is_treat else ("badge-ext" if is_ext else "badge-work")
-                badge_label = _phase_label(ph.phase_type)
+                badge_label = phase_label_short(ph.phase_type)
 
                 sub = ph.machine.name if ph.machine else (ph.supplier.name if ph.supplier else "")
                 mach_div = f'<div class="ops-mach">{_esc(sub)}</div>' if sub else ""

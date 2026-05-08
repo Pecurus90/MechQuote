@@ -1,375 +1,459 @@
-# MechQuote — Developer Guide
+# MechQuote — Manuale operativo
 
-Technical quoting tool for a precision mechanics workshop (Fratelli Dalla Via).  
-Stack: **FastAPI + SQLAlchemy 2 + SQLite** | **React 18 + TypeScript + Vite + Tailwind**
+> **Leggi questo file PRIMA di toccare qualsiasi cosa.** È la fonte di verità su come si lavora qui.
 
-> **Prima di iniziare ogni sessione:** leggi `docs/ROADMAP.md` per sapere cosa c'è da fare.
+Strumento di preventivazione tecnica per officina meccanica di precisione (Fratelli Dalla Via).
 
-**Core concept:** the app is a quoting tool — everything serves the quote workflow.  
-**DRY is a hard rule.** Every piece of logic lives in exactly one place. If it needs to exist in two layers (e.g. cost formula in backend + frontend), those two copies must be kept identical and documented. Duplication found during development must be refactored immediately, not left for later.
+**Stack**: FastAPI + SQLAlchemy 2 + SQLite · React 18 + TypeScript + Vite + Tailwind + shadcn/ui
 
-Three quote modes, all converging into the same `Quote → Parts → ManufacturingPhases` structure:
-- **Manual** — operator enters all phases by hand
-- **2D** — DXF or DWG → profile extraction → operator selects profiles → assigns 2D operations (EDM wire, laser, waterjet, profile grinding…)
-- **3D** — STEP file → bounding box + color/feature detection → suggested phases → operator reviews and adjusts
+**Repo GitHub**: https://github.com/Pecurus90/MechQuote.git (branch `main`)
 
 ---
 
-## Repository
+## 0. Filosofia
 
-Remote GitHub: **https://github.com/Pecurus90/MechQuote.git** (branch `main`)
+Tre principi sopra tutto. Se sono in contrasto, vincono in quest'ordine:
 
-```bash
-git push origin main   # push delle modifiche
-```
+1. **Don't break the user.** Le bozze in lavoro, i preventivi inviati, i dati aziendali sono lavoro reale di persone reali. Migrazioni distruttive, cambi di stato silenti, refactor senza migration → vietati.
+2. **DRY è hard rule.** Una sola fonte di verità per ogni pezzo di logica. Se la stessa formula vive in due layer (es. cost engine backend ↔ frontend live preview), i due punti vanno tenuti **identici** e documentati l'uno con l'altro.
+3. **Less is more.** Niente feature speculative, niente layer di astrazione "per il futuro", niente comment-vetrina. Tre righe simili sono meglio di un'astrazione prematura. Quando in dubbio, cancella.
+
+Quando arriva un task, prima di scrivere codice ragiona in quest'ordine:
+1. Cosa cambia per l'utente finale?
+2. Cosa già esiste e si può riusare?
+3. Qual è il fix minimo che risolve il problema senza creare debito nuovo?
+4. Quali altri layer devo toccare per restare coerente (modello → migration → schema → API → tipo TS → componente)?
+5. Come verifico che non ho rotto niente?
 
 ---
 
-## Quick start
+## 1. Quick start
 
 ```bash
 # Backend
 cd backend
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+venv/bin/uvicorn app.main:app --reload --port 8000
 
-# Frontend (separate terminal)
+# Frontend (terminale separato)
 cd frontend
 npm install
-npm run dev          # http://localhost:5173
+npm run dev   # http://localhost:5173
 ```
 
-Vite proxies `/api/*` → `localhost:8000/api/*` (see `frontend/vite.config.ts`).  
-Database: SQLite at `backend/mechquote.db` — **never commit this file**.
+Vite proxy `/api/*` → `localhost:8000/api/*`.  
+DB: SQLite in `backend/mechquote.db` — **mai committare**.
 
 ---
 
-## Come lavorare
+## 2. Routine di sviluppo (per tipo di task)
 
-### Feedback utente — Toast
+### A — Bug fix mirato
 
-La libreria **sonner** è installata. Il `<Toaster />` è montato in `App.tsx` — disponibile ovunque.
+1. Riproduci il bug (manualmente o con un comando concreto).
+2. Identifica la riga colpevole (un solo file, di solito).
+3. Scrivi il fix minimo. Non rifattorare contestualmente.
+4. Verifica:
+   - Backend: `cd backend && venv/bin/python -c "from app.main import app; print('OK')"`
+   - Frontend: `cd frontend && npx tsc --noEmit`
+   - Prova il flusso utente (apri, clicca, controlla toast/risultato).
+5. Commit con `fix: ...`.
 
-```typescript
-import { toast } from 'sonner'
+### B — Nuova feature backend (campo / endpoint / tabella)
 
-toast.success('Operazione completata')
-toast.error('Qualcosa è andato storto')
-```
+Sequenza obbligatoria:
 
-**Regole:**
-- Ogni operazione API (POST, PUT, DELETE) **deve** avere `toast.success()` on success e `toast.error()` nel catch
-- Mai usare `alert()` — mai
-- Mai creare `useState error` + JSX inline per messaggi transitori — usare `toast.error()`
-- `window.confirm()` per azioni distruttive (delete) è accettabile — non serve sostituirlo con un dialog custom
+1. **`backend/app/models.py`** — aggiungi campo / classe SQLAlchemy.
+2. **`backend/app/main.py`** `_run_migrations()` — aggiungi `ALTER TABLE` o `CREATE TABLE IF NOT EXISTS` dentro la lista. Idempotente: scritto in modo che lanciare il server N volte produce lo stesso DB.
+3. **`backend/app/schemas.py`** — schemi Pydantic. Pattern: `Base → Create → Update → Out` con ereditarietà; `Config.from_attributes = True` su `Out`.
+4. **`backend/app/api/<resource>.py`** — endpoint. Se è file nuovo: registra in `main.py` con `app.include_router(...)` con la dependency giusta.
+5. **Permesso** — se l'endpoint scrive, gating con `require_permission('chiave')`. Se la chiave è nuova, aggiungila a `backend/app/core/permissions.py` `PERMISSION_KEYS` + assegnala ad almeno un ruolo nella migration `role_permissions`.
+6. **Frontend** — tipo in `frontend/src/types/index.ts`, chiamata in `lib/api.ts` o nel componente, UI gated con `hasPermission('chiave')`.
+7. Verifica TS + backend startup, prova a mano il flusso.
+8. Commit `feat: ...`.
+
+### C — Nuova feature frontend / pagina
+
+1. Componente in `frontend/src/pages/<NomePagina>.tsx`.
+2. Route in `App.tsx`. Se richiede auth: avvolgila in `<ProtectedRoute permission="chiave">` (NON `roles=`, salvo casi documentati).
+3. Link in `Sidebar.tsx` gated con `hasPermission('chiave')`.
+4. Tipi in `@/types`, chiamate API tramite `@/lib/api`.
+5. Verifica TS check, prova a mano nel browser.
+
+### D — Refactor
+
+Se non c'è un bug e non c'è una feature, **chiedi prima di fare**. Refactor speculativi sono il debito di domani. Se il refactor è giustificato:
+
+1. Spiega in 3 righe cosa cambia e perché.
+2. Identifica dove la logica si replica (DRY) o dove un file supera la soglia (vedi §6.2).
+3. Esegui il refactor in **un commit separato dal bug fix / feature** che lo motiva.
+4. Verifica che il comportamento è invariato.
 
 ---
 
-### Verifica obbligatoria prima di chiudere qualsiasi task
+## 3. Sicurezza & permessi (non negoziabile)
+
+### Sistema permessi dinamico
+
+I ruoli sono creabili dall'UI (`Impostazioni → Sistema → Ruoli e Permessi`). I **permessi** sono chiavi fisse nel codice (`backend/app/core/permissions.py` → `PERMISSION_KEYS`). L'assegnazione permessi→ruoli è in `role_permissions` (DB), modificabile dall'UI.
+
+Chiavi attuali (`PERMISSION_KEYS`):
+- `dashboard` · `quotes.create` · `quotes.archive` · `quotes.pdf`
+- `quotes.send` (chi può "Invia per revisione")
+- `quotes.complete` (chi marca completato aprendo)
+- `customers` · `settings` (catalogo) · `company` (dati azienda)
+- `users` · `backup` · `notifications`
+
+### Regole di gating
+
+| Layer | Pattern |
+|---|---|
+| Backend endpoint write | `dependencies=[require_permission('chiave')]` o `_=require_permission('chiave')` come parametro |
+| Backend endpoint read | dipendenze di base `_auth = [Depends(get_current_user)]` registrate sul router |
+| Frontend route | `<ProtectedRoute permission="chiave">` |
+| Frontend UI | `hasPermission('chiave')` da `useAuth()` |
+
+**Mai usare `roles=['admin']` per gating se esiste un permesso equivalente.** Il sistema è dinamico: l'admin può ridefinire chi accede a cosa senza redeploy.
+
+### Anti-lockout
+
+Se il ruolo dell'utente non esiste in `roles` ma è `admin` (slug), `get_current_user` gli assegna comunque tutti i `PERMISSION_KEYS`. Garantisce di non chiudersi fuori.
+
+### Bootstrap primo admin
+
+Non esiste registrazione pubblica. Il primo admin si crea in DB:
 
 ```bash
-# TypeScript check — deve terminare senza errori
-cd frontend && npx tsc --noEmit
-
-# Backend health — deve rispondere 200
-curl http://localhost:8000/api/quotes
+cd backend
+venv/bin/python -c "
+from app.models import User
+from app.core.security import get_password_hash
+from app.core.database import SessionLocal
+db = SessionLocal()
+db.add(User(username='admin', hashed_password=get_password_hash('admin'),
+            full_name='Admin', role='admin'))
+db.commit()
+"
 ```
 
-Se il TypeScript check fallisce il task non è completo. Fare sempre questa verifica prima di committare.
+### File upload
+
+Limite hardcoded a **50 MB** in `parts.py upload_file` (stream a chunk). Niente file mai accettati senza autenticazione + permesso scrittura.
+
+### SECRET_KEY
+
+`backend/app/core/config.py` rifiuta l'avvio se `SECRET_KEY` è il default e `ALLOWED_ORIGINS` indica un dominio non-localhost. In dev locale resta solo un warning.
 
 ---
 
-### Flusso per una nuova feature che tocca il backend
+## 4. Architettura
 
-Seguire questa sequenza nell'ordine esatto:
+### Data model
 
-1. **`backend/app/models.py`** — aggiungere il campo/modello SQLAlchemy
-2. **`backend/app/main.py`** — aggiungere `ALTER TABLE` in `_run_migrations()` con try/except
-3. **`backend/app/schemas.py`** — aggiungere/aggiornare gli schemi Pydantic (pattern: `Base → Create → Update → Out`)
-4. **`backend/app/api/<resource>.py`** — aggiungere l'endpoint; chiamare `recalculate_part()` se si tocca Phase o Part
-5. **`backend/app/main.py`** — registrare il router se è un file nuovo (`app.include_router(...)`)
-6. **Frontend** — aggiungere la chiamata API in `src/lib/api.ts` o direttamente nel componente; aggiornare i tipi TypeScript
+```
+User ─┬──> Role ─> RolePermission
+      │
+Quote ──┬─> Customer
+        ├─> created_by_user_id, submitted_by_user_id, completed_by_user_id  (User)
+        └─> Part [N]
+              ├─> Material ─> MaterialSupplier
+              ├─> ManufacturingPhase [N]
+              │     ├─> Machine
+              │     ├─> Supplier
+              │     └─> Treatment
+              ├─> PartFile [N]
+              └─> GeometryAnalysis [0..1]
 
-### Flusso per un nuovo componente UI
+CompanySettings  (singleton id=1: anagrafica + 4 default operativi)
+QuoteCategory    (lettera codice preventivo: A-G)
+PhaseTemplate    (template fasi riusabili)
+StepColorRule    (mapping colori STEP → fasi suggerite, dormiente fino a import 3D)
 
-**Quando estrarre un componente** (almeno una delle condizioni):
-- Il file genitore supera ~300 righe **e** il componente ha uno stato o una responsabilità distinta
-- Il componente è usato da più di una pagina → questo è il trigger più forte, indipendente dalle righe
+Notification ─> NotificationRead  (in-app, generiche, target_roles[]+target_user_id)
+```
 
-**Quando NON estrarre:**
-- Il blocco è JSX inline senza stato proprio (non è davvero un componente)
-- Estrarlo richiederebbe passare 8+ props — segnale che la responsabilità è nel padre
-- Il file è lungo ma coeso (fa una cosa sola, solo quella pagina lo usa)
+### Workflow stati preventivo (interno, 3 stati)
 
-**Dove mettere il file estratto:**
-- Usato da 1 pagina sola → `src/pages/<NomePagina>/NomeComponente.tsx` (co-locazione)
-- Usato da più pagine → `src/components/<feature>/NomeComponente.tsx`
-- Logica pura senza JSX → `src/lib/nomeFile.ts`
+```
+bozza ──[quotes.send]──> inviato ──[GET con quotes.complete]──> completato
+                          │                                      │
+                          └─> notifica a admin+amministrazione    └─> notifica al creatore (1-a-1)
+```
 
-**Regola dopo ogni estrazione:** verificare che costanti e tipi usati nel padre **rimangano nel padre** — non seguono il componente automaticamente.
+Regole:
+- `bozza`: editabile da chi ha `quotes.create`
+- `inviato`/`completato`: lock per tutti tranne `admin` (`ensure_editable()` in `quotes.py`)
+- `completato` è terminale (niente ritorno via UI)
+- Eliminazione preventivo: solo creatore (`Quote.created_by_user_id == current_user.id`) o admin
 
-Stessa logica vale per il backend: un file `api/quotes.py` che supera ~300 righe o gestisce più gruppi logici distinti va spezzato in file separati con router dedicati.
+### Cost engine (DRY hard rule)
 
-### Flusso per aggiungere una nuova pagina
+**Una sola formula, due copie identiche**:
+- Backend: `backend/app/services/calculation.py` `recalculate_part(part_id, db)`
+- Frontend: `frontend/src/components/quotes/PhaseEditor.tsx` `calcPhase()` + `frontend/src/lib/quoteCalc.ts` `calcPartTotals()`
 
-1. Creare `frontend/src/pages/NomePagina.tsx`
-2. Aggiungere la route in `frontend/src/App.tsx` (`<Route path="/percorso" element={<NomePagina />} />`)
-3. Aggiungere il link nella Sidebar (`frontend/src/components/layout/Sidebar.tsx`)
-4. Se la pagina richiede nuovi dati: aggiungere endpoint backend → schema → api call nel componente
+**Formula calculated_cost (per pezzo)**:
+```
+rate    = phase.hourly_rate_override ?? machine.hourly_rate ?? 0
+divisor = quantity × (n_parts if phase.is_shared else 1)
 
-### Flusso per una nuova pagina di Settings
+calculated_cost =
+    (setup_hours × rate)         / divisor   # setup amortizzato sui pezzi
+  + (cycle_hours_per_part × rate)            # già per pezzo
+  + (fixed_cost)                 / divisor   # costo fisso amortizzato
+  + variable_cost_per_part                   # già per pezzo
+```
 
-Seguire il pattern di `frontend/src/pages/settings/QuoteCategoriesPage.tsx`:
-- Tabella con inline edit (edit row state, save on ✓, cancel on ✗)
-- Riga "new row" in fondo con sfondo colorato quando attiva
-- Pulsante azioni con icone Lucide (`Pencil`, `Trash2`, `Check`, `X`)
-- Chiamate API dirette senza store globale (le settings sono rare, non richiedono cache)
+Se `is_shared=true` (es. trattamento batch), setup e fixed sono amortizzati su tutte le parti del preventivo, non solo sulla quantity di una.
+
+**Formula totali parte**:
+```
+total_cost   = material_cost + delivery_per_piece + cutting_per_piece + Σ(phase.calculated_cost)
+unit_price   = max(total_cost, minimum_price) × (1 + margin/100)
+total_price  = unit_price × quantity
+```
+
+Margine: `part.margin_percent ?? quote.global_margin_percent`.
+
+**Default operativi** (popolati al `POST /quotes` da `CompanySettings`):
+- `default_margin_percent` → `Quote.global_margin_percent`
+- `default_minimum_part_price` → `Part.minimum_price`
+- `default_transport_cost` → `Quote.transport_cost`
+- `default_packaging_cost` → `Quote.packaging_cost`
+
+**Campi deferred (esistono ma non applicati nel calcolo, dormienti per feature future)**:
+- `Part.rounding_rule` — applicazione su `unit_price` non implementata
+- `ManufacturingPhase.complexity_coefficient` — campo non esiste sul modello (esiste solo in `StepColorRule`)
+- `Treatment.cost_per_part` / `cost_per_surface_area` / `fixed_cost` — `calculation.py` usa solo `cost_per_kg + minimum_cost + minimum_weight_kg`
+- `Machine.setup_minimum_hours` — non applicato
 
 ---
 
-### DRY — Don't Repeat Yourself
+## 5. Standards di codice
 
-- La formula di costo fase vive in **un solo posto per layer**: `calculation.py` (backend) e `calcPhase()` in `PhaseEditor.tsx` (frontend). Se cambia, aggiornare entrambi — non creare una terza copia.
-- Logica condivisa tra pagine frontend → estrarre in `src/lib/` (es. `quoteCalc.ts`).
-- Schemi Pydantic: usare ereditarietà (`Base → Create → Update → Out`) invece di ridefinire i campi.
-- Tipi TypeScript che rispecchiano schemi Pydantic → tenerli in un unico posto (`src/types/` o vicino al componente che li definisce per primo).
-- Non duplicare chiamate API tra pagine — condividere la stessa funzione di fetch.
+### Backend (Python 3.9+)
+
+- `snake_case` ovunque
+- Type hints su ogni funzione public
+- Pydantic schemas in `schemas.py`, mai esporre modelli SQLAlchemy direttamente nelle response
+- Un router per file in `api/`, registrato in `main.py` con `prefix="/api"`
+- `joinedload` per le relazioni che servono nella response (no N+1)
+- Dopo qualsiasi write su `Part` o `ManufacturingPhase` → `recalculate_part(part_id, db)`
+- Messaggi `HTTPException` in italiano, contestuali ("Preventivo non trovato", "Permesso negato")
+- Try/except solo dove ha senso. Mai `except: pass` nudo. Se necessario, almeno log.
+
+### Frontend (TypeScript strict)
+
+- `PascalCase` per componenti, `camelCase` per variabili
+- Tipi condivisi in `frontend/src/types/index.ts`. **Mai** ridefinire un tipo già lì in modo locale (`interface Supplier {...}` dentro un componente: ❌)
+- Niente `any`. Se serve un escape hatch, usa `unknown` + narrowing
+- API tramite `@/lib/api` (Axios con auth interceptor + 401 → logout). Mai `fetch()` diretto
+- shadcn/ui primitives only (`@/components/ui/*`). No altre UI library
+- Toast per ogni feedback utente: `toast.success()`, `toast.error()`. Mai `alert()`. Mai `useState error` + JSX inline
+- `console.error/log/warn` solo se hai contesto utile, mai nudo nei catch (preferisci toast)
+- Settings page: pattern inline-edit di `QuoteCategoriesPage.tsx` (table + edit row state + new row in fondo)
+
+### File "oversize"
+
+Quando estrarre un componente da un file:
+- Il file genitore supera ~300 righe **e** il componente ha stato/responsabilità distinta
+- Il componente è usato da più di una pagina (trigger più forte, indipendente dalle righe)
+
+Non estrarre se:
+- Il blocco è JSX inline senza stato proprio
+- L'estrazione richiede 8+ props (segnale che la responsabilità è nel padre)
+- Il file è coeso (fa una cosa sola, una sola pagina lo usa)
+
+Dove mettere l'estratto:
+- 1 sola pagina lo usa → co-locato (`pages/<NomePagina>/<NomeComponente>.tsx`)
+- Multi-pagina → `components/<feature>/<NomeComponente>.tsx`
+- Logica pura senza JSX → `lib/<nomeFile>.ts`
 
 ---
 
-### Regola commit
+## 6. Database & migrazioni
 
-- Committare dopo ogni unità di lavoro logicamente completa, non tutto alla fine
-- Formato messaggio: `tipo: descrizione concisa in italiano o inglese`
-  - `feat:` nuova funzionalità
-  - `fix:` correzione bug
-  - `refactor:` riscrittura senza cambiare comportamento
-  - `docs:` solo documentazione
-- Non committare `backend/mechquote.db`
-- Push solo se il TypeScript check è verde
+### Pattern manuale (no Alembic)
+
+Tutte le migrazioni vivono in `backend/app/main.py` `_run_migrations()`, eseguite a startup dentro `try/except` (pass-on-error per idempotenza):
+
+```python
+migrations = [
+    "ALTER TABLE quotes ADD COLUMN new_col VARCHAR(20) DEFAULT 'val'",
+    "CREATE TABLE IF NOT EXISTS new_table (...)",
+    "UPDATE quotes SET status = 'bozza' WHERE status = 'draft'",
+    "DELETE FROM role_permissions WHERE permission_key = 'X'",
+    "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'X' FROM roles WHERE name = 'Y'",
+]
+```
+
+Regole:
+- Mai usare SQLAlchemy `Enum` types (collisioni di nome in SQLite). Usa `String(N)` con valori ammessi documentati nel commento del modello.
+- SQLite non supporta `DROP COLUMN`. Progetta colonne con cura. Se una diventa obsoleta, lascia la colonna e smetti di leggerla — niente drop.
+- Migrazioni `INSERT/UPDATE/DELETE` devono essere **idempotenti** (eseguibili N volte senza danno). Pattern tipici: `WHERE NOT EXISTS`, `INSERT OR IGNORE`, `DELETE` prima di `INSERT` di seed.
+- Aggiungi sempre la colonna **anche** in `_run_migrations()` quando aggiungi un campo al modello, per non rompere DB esistenti.
 
 ---
 
-### Errori classici da non ripetere
+## 7. Verifica obbligatoria prima di committare
+
+```bash
+# 1. TypeScript pulito
+cd frontend && npx tsc --noEmit
+
+# 2. Backend si avvia
+cd backend && venv/bin/python -c "from app.main import app; print('OK')"
+
+# 3. (opzionale ma consigliato) prova manuale del flusso toccato dal cambio
+```
+
+Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
+
+---
+
+## 8. Commit / push / PR
+
+- Conventional Commits in italiano: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`
+- Body: max 72 char per riga, focus sul **perché** del cambiamento, non solo sul cosa
+- Footer: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` quando è co-scritto con Claude
+- Mai committare: `*.db`, `.env`, `node_modules`, `venv`, `dist`
+- Push solo dopo `tsc --noEmit` verde e backend startup OK
+- Mai amend su commit pushati. Mai `--no-verify`.
+
+---
+
+## 9. Errori classici da non ripetere
 
 | Errore | Conseguenza | Regola |
 |--------|-------------|--------|
-| `quote.date` invece di `quote.quote_date` | `AttributeError` al primo render PDF | Il campo sul modello è `quote_date` — usare sempre quello |
-| `email: str` come query param nell'endpoint | Frontend non riesce ad inviare JSON body | Usare sempre `req: SchemaName` come body Pydantic, mai query param per dati strutturati |
-| SQLAlchemy `Enum(name="stato")` con nome già usato | `InvalidRequestError` a startup | Usare `Column(String(20))` — mai `Enum` in SQLite |
-| Nuovo campo in `models.py` senza `_run_migrations()` | DB esistente non ha la colonna, errore runtime | Ogni campo nuovo va anche in `_run_migrations()` con try/except |
-| `joinedload` mancante in GET detail | N+1 query, dati relazionali vuoti nella risposta | Usare sempre `joinedload` per tutte le relazioni usate nella risposta |
-| `recalculate_part()` non chiamato dopo write | Totali disallineati tra DB e UI | Chiamare dopo ogni POST/PUT/DELETE su `ManufacturingPhase` o `Part` |
-| Componente estratto porta con sé le costanti del padre | `ReferenceError` runtime nel padre | Dopo ogni estrazione verificare che le costanti restino nel padre |
-| Tipo TypeScript non aggiornato dopo modifica schema | Errori TS silenziosi, `undefined` a runtime | Aggiornare schema Pydantic e tipo TS nella stessa modifica |
-| Concatenazione in query SQL | Potenziale SQL injection | Usare sempre parametri: `db.execute(text("... WHERE id = :id"), {"id": id})` |
-| `alert()` invece di toast | Esperienza utente scadente, blocca il thread UI | Usare sempre `toast.success()` / `toast.error()` da `sonner` |
-| Operazione API senza feedback visivo | L'utente non sa se l'azione è andata a buon fine | Ogni `await api.post/put/delete` deve avere `toast.success()` on success e `toast.error()` nel catch |
-| `useState error` + JSX inline per messaggi transitori | Stato in più, JSX extra, design inconsistente | Usare `toast.error()` — rimuovere lo stato `error` e il blocco JSX inline |
+| `quote.date` invece di `quote.quote_date` | `AttributeError` al render PDF | Il campo è `quote_date`, sempre |
+| Query param `email: str` invece di body Pydantic | Frontend non riesce a inviare JSON | Usa `req: SchemaName` come body, mai query param per dati strutturati |
+| SQLAlchemy `Enum(name="x")` | `InvalidRequestError` startup | `String(N)` con valori documentati nel commento |
+| Nuovo campo nel modello senza riga in `_run_migrations` | DB esistente non ha la colonna, errore runtime | Modello + migration insieme, sempre |
+| `joinedload` mancante in GET detail | N+1, dati relazionali vuoti | `joinedload` per ogni relazione usata nella response |
+| `recalculate_part()` non chiamato dopo write | Totali disallineati DB ↔ UI | Dopo ogni POST/PUT/DELETE su Phase/Part |
+| Componente estratto porta con sé costanti del padre | `ReferenceError` runtime | Verifica costanti dopo ogni estrazione |
+| Tipo TS non aggiornato dopo modifica schema | Errori TS silenziosi, `undefined` runtime | Schema Pydantic + tipo TS nello stesso commit |
+| Concatenazione in query SQL | SQL injection | `text("... WHERE id = :id"), {"id": id}` |
+| `alert()` invece di toast | UX scadente, blocca thread | `toast.success/error()` da `sonner` |
+| API senza feedback visivo | Utente non sa se è andato | Ogni `await api.post/put/delete` → toast |
+| `useState error` + JSX inline per messaggi | Stato extra, design inconsistente | `toast.error()`, niente JSX |
+| `roles=['admin']` invece di `permission='X'` | Gating hardcoded, sistema dinamico inutile | Sempre `permission=` salvo deroghe documentate |
+| `console.error(e); toast.error(...)` nudo | Rumore senza valore in prod | Solo `toast.error(...)`, oppure log con contesto utile |
+| useEffect deps incomplete + `eslint-disable` | Bug latente: l'effect non rifirà quando dovrebbe | Includi le deps che rappresentano gli input semantici dell'effect (es. quantity per ricalcoli legati alla qty) |
 
 ---
 
-## Project structure
+## 10. Struttura cartelle
 
 ```
-backend/
-  app/
-    api/          # One file per resource group (quotes, parts, phases, settings, pdf…)
-    models.py     # SQLAlchemy ORM models — single source of truth for DB schema
-    schemas.py    # Pydantic request/response schemas (separate from models)
-    services/
-      calculation.py   # recalculate_part() — the authoritative cost engine
-    main.py       # App startup: create tables, _run_migrations(), _seed_categories()
-    core/
-      database.py # SQLAlchemy engine + SessionLocal + Base
+backend/app/
+  api/             # Un file per resource group (auth, quotes, parts, phases, dashboard, pdf, backup,
+                   #  customers, materials, machines, treatments, catalog, roles, notifications,
+                   #  company, quotes_archive)
+  core/
+    config.py      # Settings env-driven (SECRET_KEY, DATABASE_URL, ALLOWED_ORIGINS)
+    database.py    # engine, SessionLocal, Base
+    permissions.py # PERMISSION_KEYS + DEFAULT_ROLE_PERMISSIONS
+    security.py    # JWT, get_current_user (carica permissions[]), require_role, require_permission
+  models.py        # SQLAlchemy ORM, single source of truth schema DB
+  schemas.py       # Pydantic Base/Create/Update/Out
+  services/
+    calculation.py # recalculate_part — cost engine autoritativo
+    notifications.py # create_notification helper generico
+    seed.py        # seed dati demo
+  main.py          # startup, _run_migrations, router register
 
-frontend/
-  src/
-    pages/        # One file per route (QuoteEditor, DashboardPage, QuoteArchivePage, settings/*)
-    components/
-      quotes/     # PhaseEditor, (future: DxfUploader, StepUploader)
-      layout/     # AppLayout, Sidebar
-      ui/         # shadcn/ui primitives (button, input, card…)
-    lib/
-      api.ts      # Axios instance — base URL /api
-    types/        # TypeScript interfaces shared across pages
+frontend/src/
+  pages/           # 1 file per route (DashboardPage, QuoteEditor, QuoteArchivePage, NewQuotePage,
+                   #  LoginPage, settings/*)
+  components/
+    layout/        # AppLayout, Sidebar, NotificationPanel
+    quotes/        # PartCard, PhaseEditor, QuoteWizard
+    ui/            # shadcn primitives
+  lib/
+    api.ts            # Axios instance + interceptor
+    auth.tsx          # AuthProvider, useAuth, hasRole, hasPermission
+    constants.ts      # STATUS_LABELS/COLORS, PHASE_TYPES
+    quoteCalc.ts      # calcMaterialCost, calcTreatmentCost, calcPartTotals, calcQuoteTotal
+    quoteValidation.ts
+    timeAgo.ts        # tempo relativo italiano (riusato ovunque)
+    useNotifications.ts # hook polling + read/clear
+    utils.ts          # cn() per classi tailwind
+  types/index.ts   # tipi TS condivisi (single source of truth)
 ```
 
 ---
 
-## Data model
+## 11. File chiave (mappa rapida)
 
-```
-Quote
-  ├── customer_id → Customer
-  ├── quote_type: "single" | "commessa"
-  └── parts[]
-        ├── material_id → Material
-        ├── phases[] → ManufacturingPhase
-        │     └── machine_id → Machine
-        └── files[] → PartFile
-              └── geometry → GeometryAnalysis
-```
-
-Other tables: `Supplier`, `Treatment`, `CostRule`, `PhaseTemplate`, `StepColorRule`, `QuoteCategory`.
-
----
-
-## Business rules — READ THIS CAREFULLY
-
-### Quote number format
-
-```
-[CCC]-[YY][CAT]_[PPP]
-
-CCC = 3-digit customer code       e.g. 240
-YY  = 2-digit year (auto)         e.g. 26
-CAT = category letter (A-G, configurable via QuoteCategory table)
-PPP = progressive from ERP        e.g. 001
-
-Example: 240-26A_001
-```
-
-The quote number is composed in the frontend wizard and stored as a plain string.
-
-### Quote types
-
-| Type | Parts | part_code |
-|------|-------|-----------|
-| `single` | 1 | = quote_number |
-| `commessa` | N | `{quote_number}_01`, `_02`, …, `_NN` |
-
-Parts are auto-created by `POST /api/quotes` based on `num_components`.
-
-### Cost calculation formulas
-
-**Phase cost — `calculated_cost` is the cost PER PIECE** (`calculation.py` and `PhaseEditor.tsx` must stay identical):
-```
-rate = hourly_rate_override ?? machine.hourly_rate ?? 0
-divisor = quantity × (n_parts if phase.is_shared else 1)
-
-calculated_cost (per piece) =
-    (setup_hours × rate) / divisor               # setup amortized over all pieces
-  + (cycle_hours_per_part × rate)                # already a per-piece value
-  + fixed_cost / divisor                         # one-time fixed cost amortized
-  + variable_cost_per_part                       # already per-piece
-```
-
-> When `is_shared=true` (e.g. heat treatment of a whole batch), setup and fixed_cost are
-> amortized over all parts in the same quote, not just over the quantity of one part.
-
-**Part totals:**
-```
-total_cost = material_cost + Σ(phase_costs)
-unit_price = max(total_cost, minimum_price) × (1 + margin/100)
-total_price = unit_price × quantity
-
-margin resolution: part.margin_percent ?? quote.global_margin_percent
-```
-
-**Quote total** (fields exist on model, not yet in UI):
-```
-quote_total = Σ(part.total_price) + transport_cost + packaging_cost - global_discount_percent
-```
-
-**Material cost** (rectangular stock — cylindrical planned):
-```
-volume_mm3 = raw_x × raw_y × raw_z
-volume_dm3 = volume_mm3 / 1_000_000
-weight_kg  = volume_dm3 × density_kg_dm3
-material_cost = weight_kg × cost_per_kg × (1 + scrap_percent/100)
-```
-
-### Calculation architecture
-
-- **Backend** (`recalculate_part(part_id, db)` in `services/calculation.py`): authoritative, called after every phase/part write.
-- **Frontend** (`calcPhase()` in `PhaseEditor.tsx`, `calcPartTotals()` in `QuoteEditor.tsx`): real-time preview on every keystroke — mirrors the backend formula exactly.
-- Rule: frontend shows live preview; backend confirms on save (onBlur).
-
----
-
-## Database migrations
-
-We use **manual ALTER TABLE** wrapped in `try/except` — no Alembic.  
-All migrations live in `_run_migrations()` in `main.py`.
-
-```python
-# Pattern
-try:
-    db.execute(text("ALTER TABLE quotes ADD COLUMN new_col VARCHAR(20) DEFAULT 'val'"))
-    db.commit()
-except Exception:
-    pass  # column already exists
-```
-
-**Rules:**
-- Never use SQLAlchemy `Enum` types (they cause name-collision issues in SQLite).
-- Use `String` columns with allowed values documented in a comment.
-- SQLite does not support `DROP COLUMN` — design columns carefully.
-- Add all new columns through `_run_migrations()` so existing DBs stay compatible.
-
----
-
-## API conventions
-
-```
-GET    /api/{resource}          list
-POST   /api/{resource}          create
-GET    /api/{resource}/{id}     detail
-PUT    /api/{resource}/{id}     update
-DELETE /api/{resource}/{id}     delete
-```
-
-Always use `joinedload` for relations in GET detail/list endpoints to avoid N+1.  
-Call `recalculate_part(part_id, db)` after every write to `ManufacturingPhase` or `Part`.
-
----
-
-## Code conventions
-
-**Backend:**
-- `snake_case` everywhere
-- Type hints on all functions
-- Pydantic schemas in `schemas.py`, never import models directly in API responses
-- Router per file in `api/`, included in `main.py` with `app.include_router(..., prefix="/api")`
-
-**Frontend:**
-- `PascalCase` components, `camelCase` variables
-- TypeScript strict — no `any`
-- API calls via `src/lib/api.ts` (Axios instance)
-- Settings pages follow the inline-edit table pattern in `QuoteCategoriesPage.tsx`
-- shadcn/ui primitives only — no other component library
-
----
-
-## Key files
-
-| File | Purpose |
+| File | Cosa fa |
 |------|---------|
-| `backend/app/models.py` | DB schema — add columns here + in `_run_migrations()` |
-| `backend/app/schemas.py` | Request/response shapes |
-| `backend/app/services/calculation.py` | Cost engine — keep in sync with frontend |
-| `backend/app/api/quotes.py` | Quote CRUD + email + PDF trigger |
-| `backend/app/api/phases.py` | Phase CRUD — always calls `recalculate_part()` |
-| `backend/app/main.py` | Startup: migrations, seeds, router registration |
-| `frontend/src/pages/QuoteEditor.tsx` | Main quote editing page + wizard |
-| `frontend/src/components/quotes/PhaseEditor.tsx` | Phase list with inline cost calc |
-| `frontend/src/lib/api.ts` | Axios base client |
+| `backend/app/models.py` | Schema DB |
+| `backend/app/main.py` | Startup, migrations, seed, router register |
+| `backend/app/services/calculation.py` | Cost engine — sincrono col frontend |
+| `backend/app/services/notifications.py` | `create_notification()` helper generico |
+| `backend/app/api/quotes.py` | CRUD preventivi, PATCH /status, ensure_editable, auto-mark completato |
+| `backend/app/api/notifications.py` | Lista, unread-count, read, confirm, clear-read |
+| `backend/app/api/dashboard.py` | KPI, monthly multi-metrica, workflow-stats, my-quotes, to-review, activity |
+| `backend/app/api/company.py` | CompanySettings GET/PUT |
+| `backend/app/core/permissions.py` | `PERMISSION_KEYS`, `DEFAULT_ROLE_PERMISSIONS` |
+| `frontend/src/pages/QuoteEditor.tsx` | Editor preventivo (oversize ~640 righe, refactor opportuno) |
+| `frontend/src/pages/DashboardPage.tsx` | Dashboard role-aware (KPI + grafico multi-metrica + sezioni di lavoro) |
+| `frontend/src/components/quotes/PhaseEditor.tsx` | Lista fasi + calcPhase() (gemello di calculation.py) |
+| `frontend/src/lib/quoteCalc.ts` | Calc material/treatment/part/quote |
+| `frontend/src/lib/auth.tsx` | AuthContext, hasPermission |
 
 ---
 
-## Spec documents (`docs/specs/`)
+## 12. Spec docs (`docs/specs/`)
 
-| File | Content |
-|------|---------|
-| `docs/specs/01_product_scope.md` | What the app is and isn't |
-| `docs/specs/03_create_quote_workflows.md` | Quote wizard flow |
-| `docs/specs/04_data_model.md` | Field-level data model spec |
-| `docs/specs/05_manufacturing_cycle.md` | Phase types and cycle logic |
-| `docs/specs/06_cost_engine_formulas.md` | All cost formulas (authoritative) |
-| `docs/specs/07_cnc_officina_logic.md` | CNC complexity, MRR, setups |
-| `docs/specs/08_edm_dxf_logic.md` | DXF parsing, 2D profile calculator |
-| `docs/specs/09_step_3d_logic.md` | STEP import, 3D preview |
-| `docs/specs/10_settings_and_rules.md` | Config tables, cost rules |
-| `docs/specs/11_pdf_output.md` | PDF layout spec |
-| `docs/ROADMAP.md` | What's done, what's next, gap analysis |
+Le spec sono **target documentati**, non sempre allineate al codice corrente. Se cogli una divergenza:
+1. Identifica chi ha ragione (codice vs spec)
+2. Se la divergenza è intenzionale (decisione di prodotto presa in chat), aggiorna la spec
+3. Se la spec è target ancora valido ma il codice è in arretrato, pianifica con l'utente
+
+| File | Stato | Note |
+|------|-------|------|
+| `01_product_scope.md` | Allineato | Visione |
+| `02_ui_dashboard_and_navigation.md` | **Obsoleto** | Sidebar oggi è Operatività + Impostazioni (Catalogo/Azienda/Sistema) |
+| `03_create_quote_workflows.md` | Allineato | Wizard manuale + auto-create part |
+| `04_data_model.md` | **Drift** | Mancano Role/RolePermission/Notification/CompanySettings/campi workflow |
+| `05_manufacturing_cycle.md` | Allineato | Phase types e cycle |
+| `06_cost_engine_formulas.md` | **Drift parziale** | Cita `complexity_coefficient`/`rounding`, non implementati |
+| `07_cnc_officina_logic.md` | Future | Da DXF/STEP in poi |
+| `08_edm_dxf_logic.md` | Future | DXF parsing wireframe |
+| `09_step_3d_logic.md` | Future | STEP import |
+| `10_settings_and_rules.md` | **Drift** | CostRule sostituita da CompanySettings |
+| `11_pdf_output.md` | Allineato | PDF cliente/interno |
+| `14_workflow_notifiche_permessi.md` | **Riscritto** | 3 stati `bozza/inviato/completato` (interni) |
+| `15_acceptance_criteria.md` | Reference | |
+
+`docs/ROADMAP.md` è il diario di stato (cosa è fatto, cosa manca).
+
+---
+
+## 13. Quando chiamare l'utente
+
+- Decisioni di prodotto (es. "il preventivo si può eliminare anche dopo l'invio?")
+- Trade-off non risolvibili dal contesto (es. due implementazioni equivalenti)
+- Refactor non triviale (chiedi prima di iniziare)
+- Operazioni distruttive su DB / git (drop, force-push, hard reset)
+- Quando un audit emerge debito: presentare la lista e farsi approvare gli sprint
+
+Quando NON chiamare l'utente:
+- Bug fix evidenti
+- Cleanup minore (toglier `console.error`, fix imports)
+- Allineamento di terminologia già discussa
+- Implementazione di un piano già approvato
+
+---
+
+## 14. Onboarding di una nuova sessione
+
+Quando inizi una sessione nuova, in quest'ordine:
+1. Leggi `CLAUDE.md` (questo file).
+2. Leggi `docs/ROADMAP.md` per stato corrente.
+3. Se l'utente cita un dominio specifico, leggi la spec relativa in `docs/specs/`.
+4. **Solo poi** proponi/agisci.

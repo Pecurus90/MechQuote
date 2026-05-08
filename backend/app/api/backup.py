@@ -5,7 +5,7 @@ Cosa entra nel backup:
   MaterialSupplier, Material, Supplier, Machine, Treatment, PhaseTemplate,
   StepColorRule, CompanySettings, Customer.
 - Wire EDM: EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime.
-- Operativo: Quote, Part, ManufacturingPhase, PartFile, GeometryAnalysis.
+- Operativo: Quote, Part, ManufacturingPhase, PartFile.
 
 Cosa NON entra (volutamente):
 - Notification/NotificationRead: ephemeral, rigenerati dal workflow.
@@ -34,7 +34,7 @@ from app.models import (
     MaterialSupplier, Material, Supplier, Machine, Treatment,
     PhaseTemplate, StepColorRule, CompanySettings, Customer,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
-    Quote, Part, ManufacturingPhase, PartFile, GeometryAnalysis,
+    Quote, Part, ManufacturingPhase, PartFile,
 )
 
 router = APIRouter(prefix="/api/backup", tags=["backup"])
@@ -74,7 +74,6 @@ EXPORT_ORDER: List[Type] = [
     Part,                   # FK Quote, Material
     ManufacturingPhase,     # FK Part, Machine, Supplier, Treatment, CuttingCycle
     PartFile,               # FK Part
-    GeometryAnalysis,       # FK Part, PartFile
 ]
 
 TABLE_TO_MODEL: Dict[str, Type] = {m.__tablename__: m for m in EXPORT_ORDER}

@@ -7,7 +7,7 @@ import os
 from app.core.database import engine, Base
 from app.core.security import get_current_user, require_role, require_permission
 from app.models import (
-    User, QuoteCategory, Customer, Quote, Part, PartFile, GeometryAnalysis,
+    User, QuoteCategory, Customer, Quote, Part, PartFile,
     ManufacturingPhase, MaterialSupplier, Material, Machine, Treatment,
     Supplier, PhaseTemplate, StepColorRule, Role, RolePermission,
     Notification, NotificationRead, CompanySettings,

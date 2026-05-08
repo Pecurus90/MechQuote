@@ -118,8 +118,6 @@ class Part(Base):
     phases = relationship("ManufacturingPhase", back_populates="part",
                           cascade="all, delete-orphan", order_by="ManufacturingPhase.sequence_number")
     files = relationship("PartFile", back_populates="part", cascade="all, delete-orphan")
-    geometry = relationship("GeometryAnalysis", back_populates="part",
-                            uselist=False, cascade="all, delete-orphan")
     material = relationship("Material")
 
 
@@ -134,29 +132,6 @@ class PartFile(Base):
     uploaded_at = Column(DateTime, server_default=func.now())
 
     part = relationship("Part", back_populates="files")
-
-
-class GeometryAnalysis(Base):
-    __tablename__ = "geometry_analyses"
-
-    id = Column(Integer, primary_key=True, index=True)
-    part_id = Column(Integer, ForeignKey("parts.id"), nullable=False)
-    source_file_id = Column(Integer, ForeignKey("part_files.id"))
-    bounding_box_x = Column(Float)
-    bounding_box_y = Column(Float)
-    bounding_box_z = Column(Float)
-    volume_mm3 = Column(Float)
-    surface_area_mm2 = Column(Float)
-    detected_holes_count = Column(Integer, default=0)
-    detected_pockets_count = Column(Integer, default=0)
-    detected_colors_json = Column(JSON)
-    dxf_total_length_mm = Column(Float)
-    dxf_profile_count = Column(Integer, default=0)
-    confidence_level = Column(String(20), default="high")
-    warnings_json = Column(JSON)
-    raw_analysis_json = Column(JSON)
-
-    part = relationship("Part", back_populates="geometry")
 
 
 class ManufacturingPhase(Base):

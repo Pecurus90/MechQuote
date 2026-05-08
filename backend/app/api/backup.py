@@ -1,66 +1,209 @@
+"""Backup / Restore — export e import JSON di tutto lo stato persistente.
+
+Cosa entra nel backup:
+- Anagrafica/catalogo: User, Role, RolePermission, QuoteCategory,
+  MaterialSupplier, Material, Supplier, Machine, Treatment, PhaseTemplate,
+  StepColorRule, CompanySettings, Customer.
+- Wire EDM: EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime.
+- Operativo: Quote, Part, ManufacturingPhase, PartFile, GeometryAnalysis.
+
+Cosa NON entra (volutamente):
+- Notification/NotificationRead: ephemeral, rigenerati dal workflow.
+- File fisici in uploads/: PartFile contiene solo il record DB (filename, path).
+  Ripristinare i file fisici è responsabilità separata — documenta in UI.
+
+Pattern di import:
+- Payload validato via Pydantic (BackupPayload).
+- Per ogni riga: filtro le chiavi via column introspection (whitelist colonne
+  del modello) → ignora campi obsoleti / impossibili da injectare.
+- Date/datetime ISO → oggetti Python.
+- Mantiene gli ID originali per preservare le FK references.
+- DELETE in ordine reverse (children prima), INSERT in ordine forward (parent prima).
+"""
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional, Type
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import Column
 from sqlalchemy.orm import Session
-from app.core.database import get_db, engine
+
+from app.core.database import get_db
 from app.models import (
-    Quote, Part, ManufacturingPhase, Material, Machine,
-    Treatment, Supplier, PhaseTemplate, StepColorRule, User, CompanySettings,
+    User, Role, RolePermission, QuoteCategory,
+    MaterialSupplier, Material, Supplier, Machine, Treatment,
+    PhaseTemplate, StepColorRule, CompanySettings, Customer,
+    EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
+    Quote, Part, ManufacturingPhase, PartFile, GeometryAnalysis,
 )
-import json
-import io
-from datetime import date
 
 router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 
+BACKUP_VERSION = "2.0"
+
+
+# Ordine parent → child. Usato in forward order per INSERT, reverse per DELETE.
+# Ogni modello dichiara le sue dipendenze FK: tutti i parent compaiono prima.
+EXPORT_ORDER: List[Type] = [
+    # Configurazione globale (nessuna FK)
+    CompanySettings,
+    # Ruoli e utenti
+    Role,
+    User,                   # FK soft a roles.name (non FK reale)
+    RolePermission,         # FK Role.id
+    # Catalogo statico
+    QuoteCategory,
+    MaterialSupplier,
+    Material,               # FK MaterialSupplier
+    Supplier,
+    Machine,
+    Treatment,              # FK Supplier
+    PhaseTemplate,          # FK Machine, Supplier
+    StepColorRule,
+    # Wire EDM
+    EdmConfig,
+    CuttingCycle,
+    CuttingPass,            # FK CuttingCycle
+    DrillingTime,
+    EdmCutSpeed,
+    # Anagrafica clienti
+    Customer,
+    # Operativo
+    Quote,                  # FK Customer, User
+    Part,                   # FK Quote, Material
+    ManufacturingPhase,     # FK Part, Machine, Supplier, Treatment, CuttingCycle
+    PartFile,               # FK Part
+    GeometryAnalysis,       # FK Part, PartFile
+]
+
+TABLE_TO_MODEL: Dict[str, Type] = {m.__tablename__: m for m in EXPORT_ORDER}
+
+
+def _serialize_value(val: Any) -> Any:
+    """Converte valori Python in tipi JSON-serializzabili."""
+    if isinstance(val, datetime):
+        return val.isoformat()
+    if isinstance(val, date):
+        return val.isoformat()
+    return val
+
+
+def _serialize_record(record: Any) -> Dict[str, Any]:
+    """Converte una riga ORM in dict, una colonna alla volta."""
+    out: Dict[str, Any] = {}
+    for col in record.__table__.columns:
+        out[col.name] = _serialize_value(getattr(record, col.name))
+    return out
+
+
+def _deserialize_value(col: Column, val: Any) -> Any:
+    """Converte un valore JSON al tipo Python atteso dalla colonna."""
+    if val is None:
+        return None
+    py_type = getattr(col.type, "python_type", None)
+    try:
+        if py_type is datetime and isinstance(val, str):
+            return datetime.fromisoformat(val)
+        if py_type is date and isinstance(val, str):
+            return date.fromisoformat(val)
+    except (TypeError, ValueError):
+        # tipo non noto o stringa non parsabile: lascia il valore raw, SQLAlchemy
+        # solleverà a tempo di insert se incompatibile
+        pass
+    return val
+
+
+def _filter_to_columns(model_class: Type, record: Dict[str, Any]) -> Dict[str, Any]:
+    """Whitelist: tiene solo le chiavi che esistono come colonne del modello.
+    Rifiuta campi extra o legacy → previene injection di campi inattesi.
+    """
+    cols = {c.name: c for c in model_class.__table__.columns}
+    cleaned: Dict[str, Any] = {}
+    for key, val in record.items():
+        col = cols.get(key)
+        if col is None:
+            continue
+        cleaned[key] = _deserialize_value(col, val)
+    return cleaned
+
+
+# ─── Pydantic ───────────────────────────────────────────────────────────────
+
+class BackupPayload(BaseModel):
+    """Payload accettato dall'endpoint import.
+
+    Supporta due formati:
+    - Nuovo (v2.0): {"version": "...", "exported_at": "...", "tables": {<table>: [<rows>]}}
+    - Legacy (v1, audit pre-fix): {<table>: [<rows>]} flat — accettato ma sconsigliato.
+    """
+    version: Optional[str] = None
+    exported_at: Optional[str] = None
+    tables: Optional[Dict[str, List[Dict[str, Any]]]] = None
+
+    class Config:
+        extra = "allow"  # consente formato legacy (chiavi extra = nomi tabella)
+
+    def normalized_tables(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Ritorna le tabelle a prescindere dal formato (nuovo o legacy)."""
+        if self.tables is not None:
+            return self.tables
+        # Legacy: tutte le chiavi extra che corrispondono a un nome tabella noto
+        out: Dict[str, List[Dict[str, Any]]] = {}
+        for key, val in self.model_extra.items() if self.model_extra else []:
+            if key in TABLE_TO_MODEL and isinstance(val, list):
+                out[key] = val
+        return out
+
+
+# ─── Endpoints ──────────────────────────────────────────────────────────────
+
 @router.get("/export")
-def export_data(db: Session = Depends(get_db)):
-    data = {}
-    # Export all tables
-    for model_class in [Quote, Part, ManufacturingPhase, Material, Machine, Treatment, Supplier, CompanySettings, PhaseTemplate, StepColorRule, User]:
-        table_name = model_class.__tablename__
-        records = db.query(model_class).all()
-        data[table_name] = []
-        for rec in records:
-            rec_dict = {}
-            for col in rec.__table__.columns:
-                val = getattr(rec, col.name)
-                if isinstance(val, date):
-                    val = val.isoformat()
-                rec_dict[col.name] = val
-            data[table_name].append(rec_dict)
-    return data
+def export_data(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Esporta tutto lo stato persistente. Permission gating: 'backup' (vedi main.py)."""
+    tables: Dict[str, List[Dict[str, Any]]] = {}
+    for model_class in EXPORT_ORDER:
+        rows = db.query(model_class).all()
+        tables[model_class.__tablename__] = [_serialize_record(r) for r in rows]
+    return {
+        "version": BACKUP_VERSION,
+        "exported_at": datetime.utcnow().isoformat(),
+        "tables": tables,
+    }
 
 
 @router.post("/import")
-def import_data(payload: dict, db: Session = Depends(get_db)):
-    # Clear existing data (be careful!)
-    # This is a simple implementation - in production you'd want more checks
-    for model_class in [StepColorRule, PhaseTemplate, CompanySettings, Supplier, Treatment, Machine, Material, ManufacturingPhase, Part, Quote]:
+def import_data(payload: BackupPayload, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Sovrascrive lo stato persistente con il contenuto del backup.
+
+    DELETE in ordine reverse (children prima) per non violare FK, INSERT in
+    ordine forward. Mantiene gli ID originali per preservare le FK references.
+    """
+    tables = payload.normalized_tables()
+    if not tables:
+        raise HTTPException(status_code=400, detail="Backup vuoto o formato non riconosciuto")
+
+    # 1. Cancella in ordine reverse (children prima dei parent)
+    for model_class in reversed(EXPORT_ORDER):
         db.query(model_class).delete()
     db.commit()
 
-    # Import data
-    table_map = {
-        'quotes': Quote,
-        'parts': Part,
-        'manufacturing_phases': ManufacturingPhase,
-        'materials': Material,
-        'machines': Machine,
-        'treatments': Treatment,
-        'suppliers': Supplier,
-        'company_settings': CompanySettings,
-        'phase_templates': PhaseTemplate,
-        'step_color_rules': StepColorRule,
-    }
-
-    for table_name, records in payload.items():
-        if table_name not in table_map:
+    # 2. Inserisce in ordine forward (parent prima dei children)
+    counts: Dict[str, int] = {}
+    for model_class in EXPORT_ORDER:
+        table = model_class.__tablename__
+        rows = tables.get(table, [])
+        if not rows:
             continue
-        model_class = table_map[table_name]
-        for rec_data in records:
-            # Remove id to avoid conflicts
-            rec_data.pop('id', None)
-            obj = model_class(**rec_data)
-            db.add(obj)
+        for raw in rows:
+            cleaned = _filter_to_columns(model_class, raw)
+            db.add(model_class(**cleaned))
+        counts[table] = len(rows)
     db.commit()
-    return {"ok": True, "message": "Data imported successfully"}
+
+    return {
+        "ok": True,
+        "imported": counts,
+        "message": f"Ripristinate {sum(counts.values())} righe in {len(counts)} tabelle. "
+                   f"I file fisici in uploads/ vanno ripristinati separatamente.",
+    }

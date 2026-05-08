@@ -31,8 +31,8 @@ export default function BackupSettingsPage() {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json'
-    input.onchange = async (e: any) => {
-      const file = e.target.files?.[0]
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
 
       if (!confirm('Attenzione: l\'importazione sovrascriverà tutti i dati esistenti. Continuare?')) return

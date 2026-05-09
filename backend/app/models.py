@@ -1,11 +1,16 @@
+import logging
+import os
+
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer,
-    String, Text, JSON
+    String, Text, JSON, event,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
+logger = logging.getLogger(__name__)
 
 
 class User(Base):
@@ -424,3 +429,30 @@ class DrillingTime(Base):
     seconds_per_hole = Column(Float, nullable=False)
     notes = Column(Text)
     # Nota: la colonna legacy material_id resta nel DB ma il modello smette di leggerla.
+
+
+# ─── Event listeners ────────────────────────────────────────────────────────
+
+@event.listens_for(PartFile, 'before_delete')
+def _cleanup_partfile_blob(_mapper, _connection, target: PartFile) -> None:
+    """Cancella il blob fisico in uploads/ quando il record PartFile viene eliminato.
+
+    Trigger uniforme per:
+      - DELETE /files/{file_id} (esplicito)
+      - DELETE /parts/{id}    (cascade Part→PartFile)
+      - DELETE /quotes/{id}   (cascade Quote→Part→PartFile)
+
+    Senza questo listener i record DB vengono droppati dalla cascade ma i file
+    su disco restano orfani in uploads/, causando leak storage e potenziale
+    dati sensibili (DXF aziendali post-eliminazione preventivo).
+
+    OSError non blocca il delete: se il file non esiste o non è accessibile,
+    il record DB va comunque rimosso.
+    """
+    if not target.path:
+        return
+    try:
+        if os.path.exists(target.path):
+            os.remove(target.path)
+    except OSError as e:
+        logger.warning("Cleanup blob PartFile %s (%s) fallito: %s", target.id, target.path, e)

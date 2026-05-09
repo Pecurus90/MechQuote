@@ -249,11 +249,7 @@ def delete_file(
     if not pf:
         raise HTTPException(status_code=404, detail="File not found")
     ensure_editable(_quote_for_part(pf.part_id, db), current_user)
-    try:
-        os.remove(pf.path)
-    except OSError as e:
-        # File già eliminato manualmente o permessi mancanti — il record DB va rimosso comunque.
-        logger.warning("Cleanup file fisico fallito per PartFile %s (%s): %s", file_id, pf.path, e)
+    # Il blob fisico viene rimosso dal listener `before_delete` su PartFile (vedi models.py).
     db.delete(pf)
     db.commit()
     return {"ok": True}

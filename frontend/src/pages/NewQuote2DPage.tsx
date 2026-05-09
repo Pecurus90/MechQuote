@@ -478,13 +478,13 @@ export default function NewQuote2DPage() {
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Quantità</label>
-                        <Input type="number" min={1} className="mt-1 h-9 text-sm"
+                        <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-9 text-sm"
                           value={form.default_quantity}
                           onChange={e => set('default_quantity', parseInt(e.target.value) || 1)} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Margine %</label>
-                        <Input type="number" min={0} step={1} className="mt-1 h-9 text-sm"
+                        <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="mt-1 h-9 text-sm"
                           value={form.global_margin_percent}
                           onChange={e => set('global_margin_percent', parseDecimal(e.target.value) || 0)} />
                       </div>
@@ -519,7 +519,7 @@ export default function NewQuote2DPage() {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Altezza pezzo (mm)</label>
-                        <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
                           placeholder="es. 40"
                           value={form.cut_height_mm || ''}
                           onChange={e => set('cut_height_mm', parseDecimal(e.target.value) || 0)} />
@@ -565,7 +565,7 @@ export default function NewQuote2DPage() {
                         <div className="mt-2 grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-xs font-medium text-muted-foreground">Diametro foro (mm)</label>
-                            <Input type="number" step="0.1" min="0" className="mt-1 h-9 text-sm"
+                            <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" min="0" className="mt-1 h-9 text-sm"
                               value={form.drill_diameter_mm}
                               onChange={e => set('drill_diameter_mm', parseDecimal(e.target.value) || 0)} />
                           </div>

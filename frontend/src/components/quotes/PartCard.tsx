@@ -154,7 +154,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             </div>
             <div className="w-20 shrink-0">
               <label className="text-xs font-medium text-gray-600">Qtà</label>
-              <Input type="number" min={1} className="mt-1 h-8 text-sm"
+              <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-8 text-sm"
                 value={part.quantity}
                 onChange={e => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
                 onBlur={onSave} />
@@ -207,14 +207,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             <div className="flex items-end gap-3">
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Ø (mm)</label>
-                <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
+                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_diameter_mm ?? ''}
                   onChange={e => handleDimChange('raw_diameter_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Lungh. (mm)</label>
-                <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
+                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
@@ -235,21 +235,21 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             <div className="flex items-end gap-3">
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">X (mm)</label>
-                <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
+                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_x_mm ?? ''}
                   onChange={e => handleDimChange('raw_x_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Y (mm)</label>
-                <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
+                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_y_mm ?? ''}
                   onChange={e => handleDimChange('raw_y_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Z (mm)</label>
-                <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
+                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
@@ -266,14 +266,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600">Costo mat. (€)</label>
-              <Input type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
+              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
                 value={part.material_cost}
                 onChange={e => onUpdate({ material_cost: parseDecimal(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600">Spediz. mat. (€)</label>
-              <Input type="number" min={0} step={0.5} className="mt-1 h-8 text-sm"
+              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.5} className="mt-1 h-8 text-sm"
                 value={part.material_delivery_cost ?? ''}
                 placeholder="—"
                 onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
@@ -281,7 +281,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>
-              <Input type="number" min={0} step={0.001} className="mt-1 h-8 text-sm"
+              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.001} className="mt-1 h-8 text-sm"
                 value={part.finished_weight_kg ?? ''}
                 placeholder="—"
                 onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
@@ -394,7 +394,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-2">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Margine (%)</label>
-                    <Input type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
+                    <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.margin_percent ?? globalMarginPercent}
                       onChange={e => onUpdate({ margin_percent: parseDecimal(e.target.value) || 0 })}
                       onBlur={onSave} />
@@ -402,7 +402,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Prezzo minimo (€)</label>
-                    <Input type="number" min={0} step={1} className="h-7 w-full text-xs mt-0.5"
+                    <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.minimum_price ?? ''}
                       placeholder="—"
                       onChange={e => onUpdate({

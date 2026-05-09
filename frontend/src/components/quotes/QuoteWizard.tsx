@@ -247,7 +247,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 {form.quote_type === 'commessa' && (
                   <div>
                     <label className="text-xs font-medium text-gray-600">N° componenti</label>
-                    <Input type="number" min={1} max={50} className="mt-1 h-9 w-24 text-sm"
+                    <Input onFocus={e => e.currentTarget.select()} type="number" min={1} max={50} className="mt-1 h-9 w-24 text-sm"
                       value={form.num_components}
                       onChange={e => set('num_components', parseInt(e.target.value) || 1)} />
                   </div>
@@ -259,7 +259,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600">Margine default (%)</label>
-                  <Input type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
+                  <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
                     value={form.global_margin_percent}
                     onChange={e => set('global_margin_percent', parseDecimal(e.target.value) || 0)} />
                 </div>
@@ -267,7 +267,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                   <label className="text-xs font-medium text-gray-600">
                     {form.quote_type === 'commessa' ? 'Qtà per componente' : 'Quantità pezzi'}
                   </label>
-                  <Input type="number" min={1} className="mt-1 h-9 w-24 text-sm"
+                  <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-9 w-24 text-sm"
                     value={form.default_quantity}
                     onChange={e => set('default_quantity', parseInt(e.target.value) || 1)} />
                 </div>

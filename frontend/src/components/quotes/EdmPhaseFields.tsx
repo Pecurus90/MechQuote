@@ -39,7 +39,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, onChange
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
           <label className="text-xs font-medium text-gray-600">Lunghezza profilo (mm)</label>
-          <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+          <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
             value={phase.cut_length_mm ?? ''}
             placeholder="es. 320"
             onChange={e => onChange('cut_length_mm', e.target.value === '' ? null : parseDecimal(e.target.value))}
@@ -47,7 +47,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, onChange
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600">Altezza pezzo (mm)</label>
-          <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+          <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
             value={phase.cut_height_mm ?? ''}
             placeholder="es. 40"
             onChange={e => onChange('cut_height_mm', e.target.value === '' ? null : parseDecimal(e.target.value))}
@@ -74,7 +74,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, onChange
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600">N° pierce (fori partenza)</label>
-          <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+          <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
             value={phase.n_pierce ?? ''}
             placeholder="0"
             onChange={e => onChange('n_pierce', e.target.value === '' ? null : parseInt(e.target.value, 10))}

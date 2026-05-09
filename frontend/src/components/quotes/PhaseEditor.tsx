@@ -432,7 +432,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         <>
                           <div>
                             <label className="text-xs font-medium text-gray-600">Ore setup</label>
-                            <Input type="number" step="0.05" min="0" className="mt-1 h-9 text-sm"
+                            <Input onFocus={e => e.currentTarget.select()} type="number" step="0.05" min="0" className="mt-1 h-9 text-sm"
                               value={phase.setup_hours}
                               onChange={e => updateField(idx, 'setup_hours', parseDecimal(e.target.value) || 0)}
                               onBlur={() => savePhase(idx)} />
@@ -441,7 +441,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                             <label className="text-xs font-medium text-gray-600">
                               Ore ciclo / pz {edmAuto && <span className="text-[10px] font-normal text-amber-600">(auto)</span>}
                             </label>
-                            <Input type="number" step="0.05" min="0" className="mt-1 h-9 text-sm"
+                            <Input onFocus={e => e.currentTarget.select()} type="number" step="0.05" min="0" className="mt-1 h-9 text-sm"
                               value={phase.cycle_hours_per_part}
                               readOnly={edmAuto}
                               disabled={edmAuto}
@@ -456,7 +456,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         <label className="text-xs font-medium text-gray-600">
                           {isTreatment ? 'Spedizione / fisso (€)' : 'Costo fisso (€)'}
                         </label>
-                        <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
                           value={phase.fixed_cost}
                           onChange={e => updateField(idx, 'fixed_cost', parseDecimal(e.target.value) || 0)}
                           onBlur={() => savePhase(idx)} />
@@ -466,7 +466,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         <label className="text-xs font-medium text-gray-600">
                           {isTreatment ? 'Costo / pz (€)' : 'Costo var / pz (€)'}
                         </label>
-                        <Input type="number" step="0.01" min="0" className="mt-1 h-9 text-sm"
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" className="mt-1 h-9 text-sm"
                           value={phase.variable_cost_per_part}
                           onChange={e => updateField(idx, 'variable_cost_per_part', parseDecimal(e.target.value) || 0)}
                           onBlur={() => savePhase(idx)} />
@@ -506,7 +506,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-3">
                           <div>
                             <label className="text-xs font-medium text-gray-600">Tariffa override (€/h)</label>
-                            <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+                            <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
                               value={phase.hourly_rate_override ?? ''}
                               placeholder="Auto"
                               onChange={e => updateField(idx, 'hourly_rate_override', e.target.value === '' ? undefined : parseDecimal(e.target.value))}

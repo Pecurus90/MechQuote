@@ -445,14 +445,14 @@ export default function QuoteEditor() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Margine globale (%)</label>
-                    <Input type="number" min={0} max={500} step={1} className="mt-1 h-9 text-sm"
+                    <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={500} step={1} className="mt-1 h-9 text-sm"
                       value={quote.global_margin_percent}
                       onChange={e => setQuote(q => q ? { ...q, global_margin_percent: parseDecimal(e.target.value) || 0 } : q)}
                       onBlur={saveQuoteAndRecalculate} />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Validità (giorni)</label>
-                    <Input type="number" min={1} className="mt-1 h-9 text-sm"
+                    <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-9 text-sm"
                       value={quote.validity_days}
                       onChange={e => setQuote(q => q ? { ...q, validity_days: parseInt(e.target.value) || 30 } : q)}
                       onBlur={saveQuote} />
@@ -519,7 +519,7 @@ export default function QuoteEditor() {
           <span className="text-sm text-gray-400">|</span>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500 whitespace-nowrap">Trasporto</span>
-            <Input type="number" min={0} step={1} className="h-7 w-20 text-xs"
+            <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-20 text-xs"
               value={quote.transport_cost}
               onChange={e => setQuote(q => q ? { ...q, transport_cost: parseDecimal(e.target.value) || 0 } : q)}
               onBlur={saveQuote} />
@@ -527,7 +527,7 @@ export default function QuoteEditor() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500 whitespace-nowrap">Imballag.</span>
-            <Input type="number" min={0} step={1} className="h-7 w-20 text-xs"
+            <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-20 text-xs"
               value={quote.packaging_cost}
               onChange={e => setQuote(q => q ? { ...q, packaging_cost: parseDecimal(e.target.value) || 0 } : q)}
               onBlur={saveQuote} />
@@ -535,7 +535,7 @@ export default function QuoteEditor() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500 whitespace-nowrap">Sconto</span>
-            <Input type="number" min={0} max={100} step={0.5} className="h-7 w-16 text-xs"
+            <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={100} step={0.5} className="h-7 w-16 text-xs"
               value={quote.global_discount_percent}
               onChange={e => setQuote(q => q ? { ...q, global_discount_percent: parseDecimal(e.target.value) || 0 } : q)}
               onBlur={saveQuote} />

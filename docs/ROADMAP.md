@@ -131,6 +131,7 @@ Lo stato post-audit (chiuso 2026-05-09):
 | 4 | M3, M7 | Migrazioni riorganizzate in sezioni, Supplier vs MaterialSupplier documentato |
 | 5 | A2-1, A2-2/3/4/5 | RBAC dinamico ripristinato (28 endpoint da `require_role('admin')` a `require_permission`), HomePage dead code rimosso, CLAUDE.md §4 campi deferred allineato, passlib non usato rimosso, logging warning su file cleanup |
 | 6 | A3-1, A3-2, A3-3 | Listener `before_delete` su PartFile (cleanup blob fisico su cascade), `require_role` orfana droppata, check SECRET_KEY rinforzato (length+blacklist) |
+| 7 | BUG-1, BUG-2, BUG-3, BUG-4, OSS-1 | Fix critici post test E2E: `Quote.quote_date` default Python (era latente), guard distruttivo in `backup.import_data` (causò incidente data loss), `min_length=1` su `quote_number` e `cutting_cycle.name`, documentato "last write wins" in CLAUDE.md §4 |
 
 ---
 

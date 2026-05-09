@@ -121,7 +121,7 @@ Lo stato post-audit (chiuso 2026-05-09):
 - **Notification/NotificationRead**: ephemeral, esclusi dal backup (decisione esplicita).
 
 ### Audit chiuso
-5 sprint completati (audit-1 + audit-2):
+6 sprint completati (audit-1 + audit-2 + audit-3):
 
 | Sprint | Fix | Riassunto |
 |---|---|---|
@@ -130,6 +130,7 @@ Lo stato post-audit (chiuso 2026-05-09):
 | 3 | B1, B2, B3, M2 | Campi DB dormienti rimossi, app/__init__.py svuotato, datetime.utcnow→utc_now, componenti oversize estratti |
 | 4 | M3, M7 | Migrazioni riorganizzate in sezioni, Supplier vs MaterialSupplier documentato |
 | 5 | A2-1, A2-2/3/4/5 | RBAC dinamico ripristinato (28 endpoint da `require_role('admin')` a `require_permission`), HomePage dead code rimosso, CLAUDE.md §4 campi deferred allineato, passlib non usato rimosso, logging warning su file cleanup |
+| 6 | A3-1, A3-2, A3-3 | Listener `before_delete` su PartFile (cleanup blob fisico su cascade), `require_role` orfana droppata, check SECRET_KEY rinforzato (length+blacklist) |
 
 ---
 

@@ -276,11 +276,8 @@ export interface CuttingCycle {
 export interface DrillingTime {
   id: number
   material_family: string  // slug da MATERIAL_FAMILIES
-  diameter_min_mm: number
-  diameter_max_mm: number
-  height_min_mm: number
-  height_max_mm: number
-  seconds_per_hole: number
+  electrode_diameter_mm: number
+  speed_mm_per_sec: number
   notes: string | null
 }
 

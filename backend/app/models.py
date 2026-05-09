@@ -419,21 +419,25 @@ class CuttingPass(Base):
 
 
 class DrillingTime(Base):
-    """Tempo per foro foratrice per (famiglia materiale × diametro × altezza).
+    """Velocità di foratura per (famiglia materiale × diametro elettrodo).
 
-    Stessa logica di EdmCutSpeed: indice per famiglia, no FK a Material.
+    Schema redesigned in Sprint 11: lookup discreto su (family, electrode_diameter)
+    + velocità lineare mm/sec. Calcolo nel preventivo:
+      tempo_foro_s = part.cut_height_mm / row.speed_mm_per_sec
+      tempo_totale_h = (n_pierce × tempo_foro_s) / 3600
+
+    Lookup discreto perché l'azienda ha un set fisso di elettrodi.
     """
     __tablename__ = "drilling_times"
 
     id = Column(Integer, primary_key=True)
-    material_family = Column(String(50), nullable=False)  # slug da core.material_families
-    diameter_min_mm = Column(Float, nullable=False, default=0.0)
-    diameter_max_mm = Column(Float, nullable=False)
-    height_min_mm = Column(Float, nullable=False, default=0.0)
-    height_max_mm = Column(Float, nullable=False)
-    seconds_per_hole = Column(Float, nullable=False)
+    material_family = Column(String(50), nullable=False)
+    electrode_diameter_mm = Column(Float, nullable=False)
+    speed_mm_per_sec = Column(Float, nullable=False)
     notes = Column(Text)
-    # Nota: la colonna legacy material_id resta nel DB ma il modello smette di leggerla.
+    # Colonne legacy nel DB ma non mappate (Sprint 1.5 + Sprint 11):
+    #   material_id, diameter_min_mm, diameter_max_mm, height_min_mm,
+    #   height_max_mm, seconds_per_hole — il modello smette di leggerle.
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

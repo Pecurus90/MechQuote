@@ -7,34 +7,26 @@ import api from '@/lib/api'
 import type { DrillingTime } from '@/types'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
+import { parseDecimal } from '@/lib/decimalInput'
 
 interface FormState {
   material_family: string
-  diameter_min_mm: string
-  diameter_max_mm: string
-  height_min_mm: string
-  height_max_mm: string
-  seconds_per_hole: string
+  electrode_diameter_mm: string
+  speed_mm_per_sec: string
   notes: string
 }
 
 const empty = (): FormState => ({
   material_family: '',
-  diameter_min_mm: '0',
-  diameter_max_mm: '',
-  height_min_mm: '0',
-  height_max_mm: '',
-  seconds_per_hole: '',
+  electrode_diameter_mm: '',
+  speed_mm_per_sec: '',
   notes: '',
 })
 
 const toPayload = (f: FormState) => ({
   material_family: f.material_family,
-  diameter_min_mm: Number(f.diameter_min_mm) || 0,
-  diameter_max_mm: Number(f.diameter_max_mm) || 0,
-  height_min_mm: Number(f.height_min_mm) || 0,
-  height_max_mm: Number(f.height_max_mm) || 0,
-  seconds_per_hole: Number(f.seconds_per_hole) || 0,
+  electrode_diameter_mm: parseDecimal(f.electrode_diameter_mm),
+  speed_mm_per_sec: parseDecimal(f.speed_mm_per_sec),
   notes: f.notes || null,
 })
 
@@ -56,11 +48,8 @@ export default function DrillingTimesPage() {
     setEditingId(row.id)
     setEditRow({
       material_family: row.material_family,
-      diameter_min_mm: String(row.diameter_min_mm),
-      diameter_max_mm: String(row.diameter_max_mm),
-      height_min_mm: String(row.height_min_mm),
-      height_max_mm: String(row.height_max_mm),
-      seconds_per_hole: String(row.seconds_per_hole),
+      electrode_diameter_mm: String(row.electrode_diameter_mm),
+      speed_mm_per_sec: String(row.speed_mm_per_sec),
       notes: row.notes ?? '',
     })
     setShowNew(false)
@@ -75,8 +64,8 @@ export default function DrillingTimesPage() {
   }
 
   const createRow = async () => {
-    if (!newRow.material_family || !newRow.diameter_max_mm || !newRow.height_max_mm || !newRow.seconds_per_hole) {
-      toast.error('Famiglia, diametro/altezza max e secondi sono obbligatori')
+    if (!newRow.material_family || !newRow.electrode_diameter_mm || !newRow.speed_mm_per_sec) {
+      toast.error('Famiglia, diametro elettrodo e mm/sec sono obbligatori')
       return
     }
     try {
@@ -106,24 +95,12 @@ export default function DrillingTimesPage() {
         </select>
       </td>
       <td className="px-3 py-2">
-        <Input className={inp} type="number" step="0.5" value={form.diameter_min_mm}
-          onChange={e => set({ ...form, diameter_min_mm: e.target.value })} />
+        <Input onFocus={e => e.currentTarget.select()} className={inp} type="number" step="0.1" value={form.electrode_diameter_mm}
+          onChange={e => set({ ...form, electrode_diameter_mm: e.target.value })} />
       </td>
       <td className="px-3 py-2">
-        <Input className={inp} type="number" step="0.5" value={form.diameter_max_mm}
-          onChange={e => set({ ...form, diameter_max_mm: e.target.value })} />
-      </td>
-      <td className="px-3 py-2">
-        <Input className={inp} type="number" step="0.5" value={form.height_min_mm}
-          onChange={e => set({ ...form, height_min_mm: e.target.value })} />
-      </td>
-      <td className="px-3 py-2">
-        <Input className={inp} type="number" step="0.5" value={form.height_max_mm}
-          onChange={e => set({ ...form, height_max_mm: e.target.value })} />
-      </td>
-      <td className="px-3 py-2">
-        <Input className={inp} type="number" step="1" value={form.seconds_per_hole}
-          onChange={e => set({ ...form, seconds_per_hole: e.target.value })} />
+        <Input onFocus={e => e.currentTarget.select()} className={inp} type="number" step="0.5" value={form.speed_mm_per_sec}
+          onChange={e => set({ ...form, speed_mm_per_sec: e.target.value })} />
       </td>
       <td className="px-3 py-2">
         <Input className={inp} value={form.notes}
@@ -133,15 +110,15 @@ export default function DrillingTimesPage() {
   )
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Tempi foratura</h1>
+          <h1 className="text-2xl font-bold">Velocità di foratura</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Tempo per ogni foro pre-EDM in base a famiglia materiale, diametro foro e altezza pezzo.
-            Una riga famiglia copre tutti i materiali della stessa famiglia. Quando un preventivo
-            Wire EDM è impostato come "fori pre-fatti", il sistema aggiunge una fase Foratura
-            con tempi calcolati da questa tabella.
+            Velocità di avanzamento (mm/sec) per ogni famiglia di materiale × diametro elettrodo.
+            Lookup discreto: il diametro elettrodo deve corrispondere esattamente. Tempo per foro
+            calcolato come <code className="px-1 bg-muted rounded">altezza_pezzo / mm_per_sec</code>,
+            poi moltiplicato per il numero di fori del preventivo.
           </p>
         </div>
         {!showNew && (
@@ -158,11 +135,8 @@ export default function DrillingTimesPage() {
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Famiglia</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Ø min (mm)</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Ø max (mm)</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">H min (mm)</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">H max (mm)</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Sec/foro</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Ø elettrodo (mm)</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Velocità (mm/sec)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Note</th>
                   <th className="w-20" />
                 </tr>
@@ -187,11 +161,8 @@ export default function DrillingTimesPage() {
                     ) : (
                       <>
                         <td className="px-4 py-2.5">{familyLabel(r.material_family)}</td>
-                        <td className="px-4 py-2.5">{r.diameter_min_mm}</td>
-                        <td className="px-4 py-2.5">{r.diameter_max_mm}</td>
-                        <td className="px-4 py-2.5">{r.height_min_mm}</td>
-                        <td className="px-4 py-2.5">{r.height_max_mm}</td>
-                        <td className="px-4 py-2.5 font-mono">{r.seconds_per_hole}</td>
+                        <td className="px-4 py-2.5 font-mono">{r.electrode_diameter_mm}</td>
+                        <td className="px-4 py-2.5 font-mono">{r.speed_mm_per_sec}</td>
                         <td className="px-4 py-2.5 text-muted-foreground">{r.notes || '—'}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-1">
@@ -227,8 +198,8 @@ export default function DrillingTimesPage() {
 
                 {rows.length === 0 && !showNew && (
                   <tr>
-                    <td colSpan={8} className="p-6 text-center text-muted-foreground text-sm">
-                      Nessun tempo foratura configurato.
+                    <td colSpan={5} className="p-6 text-center text-muted-foreground text-sm">
+                      Nessuna velocità di foratura configurata.
                     </td>
                   </tr>
                 )}

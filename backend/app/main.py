@@ -214,6 +214,13 @@ def _run_migrations():
         ("UPDATE drilling_times SET material_family = "
          "(SELECT m.family FROM materials m WHERE m.id = drilling_times.material_id) "
          "WHERE material_family IS NULL AND material_id IS NOT NULL"),
+
+        # ═══ Sprint 11 — DrillingTime redesigned (electrode_diameter + mm/sec) ═══
+        # Schema vecchio (range Ø + range altezza + seconds_per_hole) sostituito da:
+        # lookup discreto su (family, electrode_diameter) + velocità lineare. Calcolo
+        # tempo_foro = part.cut_height / row.speed_mm_per_sec.
+        "ALTER TABLE drilling_times ADD COLUMN electrode_diameter_mm FLOAT",
+        "ALTER TABLE drilling_times ADD COLUMN speed_mm_per_sec FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -362,8 +369,65 @@ def _fix_legacy_not_null():
                 conn.rollback()
 
 
+def _fix_drilling_times_schema():
+    """Sprint 11: rende le colonne legacy di drilling_times nullable.
+
+    Dopo Sprint 11 il modello SQLAlchemy DrillingTime ha solo:
+      id, material_family, electrode_diameter_mm, speed_mm_per_sec, notes
+
+    Le colonne legacy (diameter_min/max, height_min/max, seconds_per_hole)
+    erano NOT NULL nel DB → INSERT del nuovo modello falliva. SQLite no
+    ALTER COLUMN, quindi rebuild copy-rename idempotente.
+
+    Trigger: una qualsiasi delle 3 colonne legacy è ancora NOT NULL.
+    """
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if 'drilling_times' not in insp.get_table_names():
+        return
+    cols = {c['name']: c for c in insp.get_columns('drilling_times')}
+    legacy = ['diameter_max_mm', 'height_max_mm', 'seconds_per_hole']
+    needs_rebuild = any(name in cols and not cols[name]['nullable'] for name in legacy)
+    if not needs_rebuild:
+        return
+
+    schema_sql = """
+        CREATE TABLE drilling_times_new (
+            id INTEGER PRIMARY KEY,
+            material_id INTEGER,
+            material_family VARCHAR(50),
+            electrode_diameter_mm FLOAT,
+            speed_mm_per_sec FLOAT,
+            diameter_min_mm FLOAT,
+            diameter_max_mm FLOAT,
+            height_min_mm FLOAT,
+            height_max_mm FLOAT,
+            seconds_per_hole FLOAT,
+            notes TEXT
+        )
+    """
+    columns = ['id', 'material_id', 'material_family',
+               'electrode_diameter_mm', 'speed_mm_per_sec',
+               'diameter_min_mm', 'diameter_max_mm',
+               'height_min_mm', 'height_max_mm',
+               'seconds_per_hole', 'notes']
+    cols_str = ', '.join(columns)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(schema_sql))
+            conn.execute(text(f"INSERT INTO drilling_times_new ({cols_str}) "
+                              f"SELECT {cols_str} FROM drilling_times"))
+            conn.execute(text("DROP TABLE drilling_times"))
+            conn.execute(text("ALTER TABLE drilling_times_new RENAME TO drilling_times"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 _run_migrations()
 _fix_legacy_not_null()
+_fix_drilling_times_schema()
 _seed_categories()
 _seed_roles()
 _seed_edm_defaults()

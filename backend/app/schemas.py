@@ -641,11 +641,8 @@ class CuttingCycleOut(CuttingCycleBase):
 
 class DrillingTimeBase(BaseModel):
     material_family: str
-    diameter_min_mm: float = Field(default=0.0, ge=0)
-    diameter_max_mm: float = Field(ge=0)
-    height_min_mm: float = Field(default=0.0, ge=0)
-    height_max_mm: float = Field(ge=0)
-    seconds_per_hole: float = Field(ge=0)
+    electrode_diameter_mm: float = Field(ge=0)
+    speed_mm_per_sec: float = Field(ge=0)
     notes: Optional[str] = None
 
     @field_validator('material_family')

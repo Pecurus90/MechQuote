@@ -55,16 +55,16 @@ const initialForm = (categories: Category[]): FormState => ({
   drill_diameter_mm: 1.5,
 })
 
-/** Lookup tempo foratura: matcha (famiglia, diametro, altezza) nei range. Ritorna sec/foro o null. */
-function lookupDrillingSeconds(
-  rows: DrillingTime[], materialFamily: string, diameter: number, height: number,
+/** Tempo per foro = altezza_pezzo / mm_per_sec. Match esatto su (famiglia, Ø elettrodo). */
+function lookupDrillingSecondsPerHole(
+  rows: DrillingTime[], materialFamily: string, electrodeDiameter: number, partHeight: number,
 ): number | null {
   const row = rows.find(r =>
     r.material_family === materialFamily &&
-    r.diameter_min_mm <= diameter && diameter <= r.diameter_max_mm &&
-    r.height_min_mm <= height && height <= r.height_max_mm,
+    r.electrode_diameter_mm === electrodeDiameter,
   )
-  return row ? row.seconds_per_hole : null
+  if (!row || !row.speed_mm_per_sec) return null
+  return partHeight / row.speed_mm_per_sec
 }
 
 export default function NewQuote2DPage() {
@@ -198,7 +198,7 @@ export default function NewQuote2DPage() {
     if (!form.material_id || !form.cut_height_mm || !form.drill_diameter_mm) return null
     const family = materials.find(m => m.id === Number(form.material_id))?.family
     if (!family) return null
-    return lookupDrillingSeconds(
+    return lookupDrillingSecondsPerHole(
       drillingRows, family, form.drill_diameter_mm, form.cut_height_mm,
     )
   }, [form.drilling_mode, form.material_id, form.cut_height_mm, form.drill_diameter_mm, drillingRows, materials])

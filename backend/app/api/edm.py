@@ -146,7 +146,7 @@ def delete_cycle(cid: int, db: Session = Depends(get_db)):
 @router.get("/drilling-times", response_model=List[DrillingTimeOut])
 def list_drilling_times(db: Session = Depends(get_db)):
     return db.query(DrillingTime).order_by(
-        DrillingTime.material_family, DrillingTime.diameter_min_mm, DrillingTime.height_min_mm
+        DrillingTime.material_family, DrillingTime.electrode_diameter_mm
     ).all()
 
 

@@ -60,15 +60,6 @@ def get_current_user(
     return user
 
 
-def require_role(*roles: str):
-    """Return a Depends that checks the current user's role."""
-    def _check(current_user=Depends(get_current_user)):
-        if current_user.role not in roles:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permesso negato")
-        return current_user
-    return Depends(_check)
-
-
 def require_permission(key: str):
     """Return a Depends that checks a permission key against the DB-configured role permissions."""
     def _check(current_user=Depends(get_current_user)):

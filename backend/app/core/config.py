@@ -5,6 +5,13 @@ from pydantic_settings import BaseSettings
 
 _INSECURE_DEFAULT_KEY = "change-me-generate-a-real-secret-key"
 
+# Pattern testuali che identificano placeholder/dev keys: se la SECRET_KEY li
+# contiene è quasi certamente non di produzione.
+_INSECURE_KEY_PATTERNS = ("change", "secret", "production", "mechquote", "default", "placeholder")
+
+# Lunghezza minima ragionevole per HS256 (raccomandazione: 256-bit di entropia).
+_MIN_SECRET_KEY_LENGTH = 32
+
 
 class Settings(BaseSettings):
     app_name: str = "MechQuote"
@@ -33,16 +40,32 @@ def _looks_like_production() -> bool:
     return False
 
 
-if settings.secret_key == _INSECURE_DEFAULT_KEY:
+def _looks_insecure(key: str) -> bool:
+    """True se la SECRET_KEY è palesemente debole (default, placeholder, troppo corta).
+
+    Check sintattici, non crypto: una chiave random ad alta entropia che contenga
+    'secret' fallirà comunque — accettabile false-positive per tipare l'utente verso
+    una chiave generata correttamente (`openssl rand -base64 32`).
+    """
+    if key == _INSECURE_DEFAULT_KEY:
+        return True
+    if len(key) < _MIN_SECRET_KEY_LENGTH:
+        return True
+    lower = key.lower()
+    return any(pattern in lower for pattern in _INSECURE_KEY_PATTERNS)
+
+
+if _looks_insecure(settings.secret_key):
     if _looks_like_production():
         sys.stderr.write(
-            "FATAL: SECRET_KEY is the insecure default and ALLOWED_ORIGINS suggests production. "
-            "Set a real SECRET_KEY in backend/.env before starting.\n"
+            "FATAL: SECRET_KEY appare insicura (default, placeholder o troppo corta) "
+            "e ALLOWED_ORIGINS suggerisce production. Genera una chiave reale "
+            "(es. `openssl rand -base64 32`) e settala in backend/.env prima dell'avvio.\n"
         )
         sys.exit(1)
     import warnings
     warnings.warn(
-        "SECRET_KEY is using the insecure default value. "
-        "Set SECRET_KEY in .env before deploying to production.",
+        f"SECRET_KEY appare insicura. Per production genera una chiave reale "
+        f"(min {_MIN_SECRET_KEY_LENGTH} caratteri, no parole comuni).",
         stacklevel=1,
     )

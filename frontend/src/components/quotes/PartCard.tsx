@@ -85,6 +85,18 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
   const treatmentPhaseCost = part.phases.filter(p => p.treatment_id != null).reduce((s, p) => s + p.calculated_cost, 0)
   const phaseCost = workPhaseCost + treatmentPhaseCost
 
+  // Breakdown lavorazioni: somma di cui setup vs ciclo (Sprint 12 cost engine split).
+  // Replica la stessa formula di PhaseEditor.calcPhase per coerenza DRY.
+  const qtyDiv = (part.quantity || 1)
+  const workSetupTotal = part.phases.filter(p => !p.treatment_id).reduce((s, p) => {
+    const machine = machines.find(m => m.id === p.machine_id)
+    const workRate = p.hourly_rate_override ?? machine?.hourly_rate ?? 0
+    const setupRate = (machine?.setup_hourly_rate != null) ? machine.setup_hourly_rate : workRate
+    const divisor = qtyDiv * (p.is_shared ? nParts : 1)
+    return s + (p.setup_hours || 0) * setupRate / divisor
+  }, 0)
+  const workCycleTotal = workPhaseCost - workSetupTotal  // tutto il resto delle lavorazioni
+
   const treatmentPhase = part.phases.find(p => p.treatment_id != null)
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
 
@@ -372,6 +384,18 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                   <span className="text-gray-600">Lavorazioni</span>
                   <span>{workPhaseCost.toFixed(2)} €</span>
                 </div>
+                {workSetupTotal > 0 && (
+                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                    <span>di cui attrezzaggi</span>
+                    <span>{workSetupTotal.toFixed(2)} €</span>
+                  </div>
+                )}
+                {workCycleTotal > 0 && (
+                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                    <span>di cui lavorazione</span>
+                    <span>{workCycleTotal.toFixed(2)} €</span>
+                  </div>
+                )}
                 {treatmentPhaseCost > 0 && (
                   <>
                     <div className="flex justify-between">

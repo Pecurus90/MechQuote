@@ -520,31 +520,14 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                       )}
                     </div>
 
-                    {/* Cost breakdown */}
+                    {/* Total per pezzo (breakdown setup/lavoro spostato nel riepilogo PartCard) */}
                     <div className="pt-1 border-t flex justify-end items-center gap-4">
-                      {(() => {
-                        const machine = machines.find(m => m.id === phase.machine_id)
-                        const workRate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
-                        const setupRate = (machine?.setup_hourly_rate != null) ? machine.setup_hourly_rate : workRate
-                        const divisor = quantity * (phase.is_shared ? nParts : 1)
-                        if (isTreatment) {
-                          const treatSupplierName = selectedTreatment?.supplier?.name
-                          return (
-                            <span className="text-xs text-gray-400">
-                              {treatSupplierName && <span className="mr-2 text-indigo-400">{treatSupplierName}</span>}
-                              {weightThresholdActive && <span className="mr-2 text-amber-500">minimo lotto {'<'}{selectedTreatment!.minimum_weight_kg} kg</span>}
-                              Fisso: {((phase.fixed_cost || 0) / divisor).toFixed(2)} € · Lavorazione: {(phase.variable_cost_per_part || 0).toFixed(2)} €/pz
-                            </span>
-                          )
-                        }
-                        const rateLabel = setupRate !== workRate
-                          ? `Setup ${setupRate.toFixed(0)} / Lavoro ${workRate.toFixed(0)} €/h`
-                          : `Tariffa: ${workRate.toFixed(0)} €/h`
+                      {isTreatment && (() => {
+                        const treatSupplierName = selectedTreatment?.supplier?.name
                         return (
                           <span className="text-xs text-gray-400">
-                            {rateLabel} ·
-                            Setup: {((phase.setup_hours || 0) * setupRate / divisor).toFixed(2)} € (÷{quantity}pz) ·
-                            Ciclo: {((phase.cycle_hours_per_part || 0) * workRate).toFixed(2)} €/pz
+                            {treatSupplierName && <span className="mr-2 text-indigo-400">{treatSupplierName}</span>}
+                            {weightThresholdActive && <span className="mr-2 text-amber-500">minimo lotto {'<'}{selectedTreatment!.minimum_weight_kg} kg</span>}
                           </span>
                         )
                       })()}

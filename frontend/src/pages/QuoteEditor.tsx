@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
+import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
 import api from '@/lib/api'
 import { Trash2, Copy, Plus } from 'lucide-react'
@@ -446,7 +447,7 @@ export default function QuoteEditor() {
                     <label className="text-xs font-medium text-gray-600">Margine globale (%)</label>
                     <Input type="number" min={0} max={500} step={1} className="mt-1 h-9 text-sm"
                       value={quote.global_margin_percent}
-                      onChange={e => setQuote(q => q ? { ...q, global_margin_percent: parseFloat(e.target.value) || 0 } : q)}
+                      onChange={e => setQuote(q => q ? { ...q, global_margin_percent: parseDecimal(e.target.value) || 0 } : q)}
                       onBlur={saveQuoteAndRecalculate} />
                   </div>
                   <div>
@@ -520,7 +521,7 @@ export default function QuoteEditor() {
             <span className="text-xs text-gray-500 whitespace-nowrap">Trasporto</span>
             <Input type="number" min={0} step={1} className="h-7 w-20 text-xs"
               value={quote.transport_cost}
-              onChange={e => setQuote(q => q ? { ...q, transport_cost: parseFloat(e.target.value) || 0 } : q)}
+              onChange={e => setQuote(q => q ? { ...q, transport_cost: parseDecimal(e.target.value) || 0 } : q)}
               onBlur={saveQuote} />
             <span className="text-xs text-gray-400">€</span>
           </div>
@@ -528,7 +529,7 @@ export default function QuoteEditor() {
             <span className="text-xs text-gray-500 whitespace-nowrap">Imballag.</span>
             <Input type="number" min={0} step={1} className="h-7 w-20 text-xs"
               value={quote.packaging_cost}
-              onChange={e => setQuote(q => q ? { ...q, packaging_cost: parseFloat(e.target.value) || 0 } : q)}
+              onChange={e => setQuote(q => q ? { ...q, packaging_cost: parseDecimal(e.target.value) || 0 } : q)}
               onBlur={saveQuote} />
             <span className="text-xs text-gray-400">€</span>
           </div>
@@ -536,7 +537,7 @@ export default function QuoteEditor() {
             <span className="text-xs text-gray-500 whitespace-nowrap">Sconto</span>
             <Input type="number" min={0} max={100} step={0.5} className="h-7 w-16 text-xs"
               value={quote.global_discount_percent}
-              onChange={e => setQuote(q => q ? { ...q, global_discount_percent: parseFloat(e.target.value) || 0 } : q)}
+              onChange={e => setQuote(q => q ? { ...q, global_discount_percent: parseDecimal(e.target.value) || 0 } : q)}
               onBlur={saveQuote} />
             <span className="text-xs text-gray-400">%</span>
           </div>

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Category, Customer } from '@/types'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 
 interface Props {
@@ -260,7 +261,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                   <label className="text-xs font-medium text-gray-600">Margine default (%)</label>
                   <Input type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
                     value={form.global_margin_percent}
-                    onChange={e => set('global_margin_percent', parseFloat(e.target.value) || 0)} />
+                    onChange={e => set('global_margin_percent', parseDecimal(e.target.value) || 0)} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600">

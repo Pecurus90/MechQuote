@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FileText, X, Zap, Drill, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import type {
   DxfAnalysis, Category, Customer, Material, CuttingCycle, DrillingTime,
@@ -125,6 +126,11 @@ export default function NewQuote2DPage() {
     next.has(id) ? next.delete(id) : next.add(id)
     return next
   })
+
+  const selectAllProfiles = (selected: boolean) => {
+    if (!analysis) return
+    setSelectedIds(selected ? new Set(analysis.profiles.map(p => p.id)) : new Set())
+  }
 
   // ─── DXF upload + analyze ──────────────────────────────────────────────
 
@@ -402,7 +408,7 @@ export default function NewQuote2DPage() {
                   </CardContent>
                 </Card>
 
-                <Dxf2dProfileList profiles={analysis.profiles} selectedIds={selectedIds} onToggle={toggleProfile} />
+                <Dxf2dProfileList profiles={analysis.profiles} selectedIds={selectedIds} onToggle={toggleProfile} onSelectAll={selectAllProfiles} />
 
                 <Dxf2dSelectionSummary
                   selectedCount={selectedProfiles.length}
@@ -480,7 +486,7 @@ export default function NewQuote2DPage() {
                         <label className="text-xs font-medium text-muted-foreground">Margine %</label>
                         <Input type="number" min={0} step={1} className="mt-1 h-9 text-sm"
                           value={form.global_margin_percent}
-                          onChange={e => set('global_margin_percent', parseFloat(e.target.value) || 0)} />
+                          onChange={e => set('global_margin_percent', parseDecimal(e.target.value) || 0)} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Data</label>
@@ -516,7 +522,7 @@ export default function NewQuote2DPage() {
                         <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
                           placeholder="es. 40"
                           value={form.cut_height_mm || ''}
-                          onChange={e => set('cut_height_mm', parseFloat(e.target.value) || 0)} />
+                          onChange={e => set('cut_height_mm', parseDecimal(e.target.value) || 0)} />
                       </div>
                     </div>
                     <div>
@@ -561,7 +567,7 @@ export default function NewQuote2DPage() {
                             <label className="text-xs font-medium text-muted-foreground">Diametro foro (mm)</label>
                             <Input type="number" step="0.1" min="0" className="mt-1 h-9 text-sm"
                               value={form.drill_diameter_mm}
-                              onChange={e => set('drill_diameter_mm', parseFloat(e.target.value) || 0)} />
+                              onChange={e => set('drill_diameter_mm', parseDecimal(e.target.value) || 0)} />
                           </div>
                           <div>
                             <label className="text-xs font-medium text-muted-foreground">Tempo stimato</label>

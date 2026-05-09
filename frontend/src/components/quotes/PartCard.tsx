@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { X } from 'lucide-react'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
+import { parseDecimal } from '@/lib/decimalInput'
 import api from '@/lib/api'
 import type { Part, Material, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
 import { toast } from 'sonner'
@@ -208,14 +209,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 <label className="text-xs font-medium text-gray-600">Ø (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_diameter_mm ?? ''}
-                  onChange={e => handleDimChange('raw_diameter_mm', parseFloat(e.target.value) || 0)}
+                  onChange={e => handleDimChange('raw_diameter_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Lungh. (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_z_mm ?? ''}
-                  onChange={e => handleDimChange('raw_z_mm', parseFloat(e.target.value) || 0)}
+                  onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               {selectedMaterial && part.raw_diameter_mm && part.raw_z_mm && (
@@ -236,21 +237,21 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                 <label className="text-xs font-medium text-gray-600">X (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_x_mm ?? ''}
-                  onChange={e => handleDimChange('raw_x_mm', parseFloat(e.target.value) || 0)}
+                  onChange={e => handleDimChange('raw_x_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Y (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_y_mm ?? ''}
-                  onChange={e => handleDimChange('raw_y_mm', parseFloat(e.target.value) || 0)}
+                  onChange={e => handleDimChange('raw_y_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Z (mm)</label>
                 <Input type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_z_mm ?? ''}
-                  onChange={e => handleDimChange('raw_z_mm', parseFloat(e.target.value) || 0)}
+                  onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={onSave} />
               </div>
               {selectedMaterial && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm && (
@@ -267,7 +268,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
               <label className="text-xs font-medium text-gray-600">Costo mat. (€)</label>
               <Input type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
                 value={part.material_cost}
-                onChange={e => onUpdate({ material_cost: parseFloat(e.target.value) || 0 })}
+                onChange={e => onUpdate({ material_cost: parseDecimal(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
             <div>
@@ -275,7 +276,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
               <Input type="number" min={0} step={0.5} className="mt-1 h-8 text-sm"
                 value={part.material_delivery_cost ?? ''}
                 placeholder="—"
-                onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0 })}
+                onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
             <div>
@@ -283,7 +284,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
               <Input type="number" min={0} step={0.001} className="mt-1 h-8 text-sm"
                 value={part.finished_weight_kg ?? ''}
                 placeholder="—"
-                onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0 })}
+                onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
                 onBlur={onSave} />
             </div>
           </div>
@@ -395,7 +396,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                     <label className="text-xs font-medium text-gray-600">Margine (%)</label>
                     <Input type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.margin_percent ?? globalMarginPercent}
-                      onChange={e => onUpdate({ margin_percent: parseFloat(e.target.value) || 0 })}
+                      onChange={e => onUpdate({ margin_percent: parseDecimal(e.target.value) || 0 })}
                       onBlur={onSave} />
                     <p className="text-[10px] text-gray-400 mt-0.5">default: {globalMarginPercent}%</p>
                   </div>
@@ -405,7 +406,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
                       value={part.minimum_price ?? ''}
                       placeholder="—"
                       onChange={e => onUpdate({
-                        minimum_price: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0,
+                        minimum_price: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0,
                       })}
                       onBlur={onSave} />
                     {part.minimum_price && part.total_cost < part.minimum_price && (

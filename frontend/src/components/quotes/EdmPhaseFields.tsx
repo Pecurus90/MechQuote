@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { Zap, Unlock } from 'lucide-react'
 import type { Phase, CuttingCycle } from '@/types'
+import { parseDecimal } from '@/lib/decimalInput'
 
 interface Props {
   phase: Phase
@@ -41,7 +42,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, onChange
           <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
             value={phase.cut_length_mm ?? ''}
             placeholder="es. 320"
-            onChange={e => onChange('cut_length_mm', e.target.value === '' ? null : parseFloat(e.target.value))}
+            onChange={e => onChange('cut_length_mm', e.target.value === '' ? null : parseDecimal(e.target.value))}
             onBlur={onBlur} />
         </div>
         <div>
@@ -49,7 +50,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, onChange
           <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
             value={phase.cut_height_mm ?? ''}
             placeholder="es. 40"
-            onChange={e => onChange('cut_height_mm', e.target.value === '' ? null : parseFloat(e.target.value))}
+            onChange={e => onChange('cut_height_mm', e.target.value === '' ? null : parseDecimal(e.target.value))}
             onBlur={onBlur} />
         </div>
         <div>

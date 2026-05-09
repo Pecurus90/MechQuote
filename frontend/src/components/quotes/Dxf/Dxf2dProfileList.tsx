@@ -5,12 +5,36 @@ interface Props {
   profiles: DxfProfile[]
   selectedIds: Set<number>
   onToggle: (profileId: number) => void
+  onSelectAll: (selected: boolean) => void
 }
 
-export default function Dxf2dProfileList({ profiles, selectedIds, onToggle }: Props) {
+export default function Dxf2dProfileList({ profiles, selectedIds, onToggle, onSelectAll }: Props) {
+  const allSelected = profiles.length > 0 && profiles.every(p => selectedIds.has(p.id))
+  const noneSelected = selectedIds.size === 0
+
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm">Profili rilevati ({profiles.length})</CardTitle></CardHeader>
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-sm">Profili rilevati ({profiles.length})</CardTitle>
+        <div className="flex items-center gap-1 text-[11px]">
+          <button
+            type="button"
+            onClick={() => onSelectAll(true)}
+            disabled={allSelected}
+            className="px-2 py-0.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Seleziona tutti
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectAll(false)}
+            disabled={noneSelected}
+            className="px-2 py-0.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Deseleziona tutti
+          </button>
+        </div>
+      </CardHeader>
       <CardContent className="p-0 max-h-64 overflow-y-auto">
         <ul className="text-sm divide-y">
           {profiles.map(p => (

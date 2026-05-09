@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import type { Phase, Machine, Treatment, PhaseTemplate, Supplier, CuttingCycle } from '@/types'
 import { PHASE_TYPES } from '@/lib/constants'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
@@ -433,7 +434,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                             <label className="text-xs font-medium text-gray-600">Ore setup</label>
                             <Input type="number" step="0.05" min="0" className="mt-1 h-9 text-sm"
                               value={phase.setup_hours}
-                              onChange={e => updateField(idx, 'setup_hours', parseFloat(e.target.value) || 0)}
+                              onChange={e => updateField(idx, 'setup_hours', parseDecimal(e.target.value) || 0)}
                               onBlur={() => savePhase(idx)} />
                           </div>
                           <div>
@@ -445,7 +446,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                               readOnly={edmAuto}
                               disabled={edmAuto}
                               title={edmAuto ? 'Calcolato dai parametri EDM. Sblocca per modificare manualmente.' : undefined}
-                              onChange={e => updateField(idx, 'cycle_hours_per_part', parseFloat(e.target.value) || 0)}
+                              onChange={e => updateField(idx, 'cycle_hours_per_part', parseDecimal(e.target.value) || 0)}
                               onBlur={() => savePhase(idx)} />
                           </div>
                         </>
@@ -457,7 +458,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         </label>
                         <Input type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
                           value={phase.fixed_cost}
-                          onChange={e => updateField(idx, 'fixed_cost', parseFloat(e.target.value) || 0)}
+                          onChange={e => updateField(idx, 'fixed_cost', parseDecimal(e.target.value) || 0)}
                           onBlur={() => savePhase(idx)} />
                       </div>
 
@@ -467,7 +468,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         </label>
                         <Input type="number" step="0.01" min="0" className="mt-1 h-9 text-sm"
                           value={phase.variable_cost_per_part}
-                          onChange={e => updateField(idx, 'variable_cost_per_part', parseFloat(e.target.value) || 0)}
+                          onChange={e => updateField(idx, 'variable_cost_per_part', parseDecimal(e.target.value) || 0)}
                           onBlur={() => savePhase(idx)} />
                         {isTreatment && finishedWeightKg && selectedTreatment?.cost_per_kg ? (
                           <p className="text-[10px] text-gray-400 mt-0.5">
@@ -508,7 +509,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                             <Input type="number" step="1" min="0" className="mt-1 h-9 text-sm"
                               value={phase.hourly_rate_override ?? ''}
                               placeholder="Auto"
-                              onChange={e => updateField(idx, 'hourly_rate_override', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                              onChange={e => updateField(idx, 'hourly_rate_override', e.target.value === '' ? undefined : parseDecimal(e.target.value))}
                               onBlur={() => savePhase(idx)} />
                           </div>
                         </div>

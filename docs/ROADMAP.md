@@ -112,8 +112,8 @@ Modulo dedicato — schema da progettare. Possibilmente come `quote_type` aggiun
 
 Lo stato post-audit (chiuso 2026-05-09):
 
-- **Test automatici**: zero. Da affrontare prima di un deploy multi-cliente.
-- **CI**: zero. Minimal: `tsc --noEmit` + backend startup OK su push a main.
+- **Test automatici**: zero coverage. **Decisione esplicita 2026-05-09 di rinviare la suite completa post-MVP** — il prodotto è in evoluzione attiva (3D, stampi, EDM affinamenti), test scritti ora su API che cambiano = manutenzione doppia. Con 1 utente i bug si vedono in uso reale. **Caveat**: subset minimo raccomandato (~3h, 7 test su `services/calculation.py` + `services/dxf_parser.py`) **prima di iniziare la Modalità 3D STEP**, per proteggere il cost engine dal cablaggio dei coefficienti deferred (`edm_coefficient`, `cnc_machinability_coefficient`, `setup_minimum_hours`, `complexity_coefficient`).
+- **CI**: zero. Minimal: `tsc --noEmit` + backend startup OK su push a main. Da configurare insieme alla suite test post-MVP.
 - **Logging strutturato**: oggi nessuno (solo eccezioni in HTTP response). Per produzione: `logging` builtin + opzionalmente Sentry.
 - **File frontend borderline**: `QuoteEditor` (601), `NewQuote2DPage` (592), `PhaseEditor` (557), `PartCard` (434). PartCard non estratto perché richiederebbe 8+ props (vedi CLAUDE.md §5).
 - **Migrazioni manuali in `_run_migrations()`** (66 statement): riorganizzate in sezioni semantiche, ma nessun versioning Alembic. Ok per un'istanza singola; passare ad Alembic se nasce un team o un branch lungo.

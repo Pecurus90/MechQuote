@@ -44,7 +44,7 @@ export default function DxfViewer({ analysis, selectedIds, onToggle, height = 48
   }
 
   return (
-    <div className="rounded-lg border bg-white dark:bg-gray-900 overflow-hidden" style={{ height }}>
+    <div className="rounded-lg border bg-white overflow-hidden" style={{ height }}>
       <svg
         viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         preserveAspectRatio="xMidYMid meet"

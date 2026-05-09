@@ -175,7 +175,7 @@ export default function DrillingTimesPage() {
                         {renderRow(editRow, setEditRow)}
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => saveEdit(r.id)} className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 rounded">
+                            <button onClick={() => saveEdit(r.id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
                               <Check className="w-3.5 h-3.5" />
                             </button>
                             <button onClick={() => setEditingId(null)} className="p-1 text-muted-foreground hover:bg-muted rounded">
@@ -209,11 +209,11 @@ export default function DrillingTimesPage() {
                 ))}
 
                 {showNew && (
-                  <tr className="bg-blue-50/40 dark:bg-blue-950/20 border-b">
+                  <tr className="bg-blue-50/40 border-b">
                     {renderRow(newRow, setNewRow)}
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
-                        <button onClick={createRow} className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 rounded">
+                        <button onClick={createRow} className="p-1 text-green-600 hover:bg-green-50 rounded">
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => { setShowNew(false); setNewRow(empty()) }}

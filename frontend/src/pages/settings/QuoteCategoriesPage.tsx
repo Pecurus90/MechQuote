@@ -64,7 +64,7 @@ export default function QuoteCategoriesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Categorie Preventivo</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-sm text-gray-500 mt-0.5">
             La lettera appare nel codice preventivo (es. 240-26<strong>A</strong>_001)
           </p>
         </div>
@@ -82,12 +82,12 @@ export default function QuoteCategoriesPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-900 border-b">
+            <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[18%] font-medium text-gray-600 dark:text-gray-300">Codice</th>
-                <th className="text-left p-3 font-medium text-gray-600 dark:text-gray-300">Descrizione</th>
-                <th className="text-center p-3 w-[18%] font-medium text-gray-600 dark:text-gray-300">Ordine</th>
-                <th className="text-center p-3 w-[18%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
+                <th className="text-left p-3 w-[18%] font-medium text-gray-600">Codice</th>
+                <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
+                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Ordine</th>
+                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
@@ -96,7 +96,7 @@ export default function QuoteCategoriesPage() {
               ) : (
                 <>
                   {visible.map(cat => (
-                    <tr key={cat.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
+                    <tr key={cat.id} className="border-b hover:bg-gray-50">
                       {editingId === cat.id ? (
                         <>
                           <td className="p-2">
@@ -115,7 +115,7 @@ export default function QuoteCategoriesPage() {
                             <button onClick={() => saveEdit(cat.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
                               <Check className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
                               <X className="w-4 h-4" />
                             </button>
                           </td>
@@ -127,7 +127,7 @@ export default function QuoteCategoriesPage() {
                           <td className="p-3 text-center text-gray-400">{cat.sort_order}</td>
                           <td className="p-3 text-center">
                             <div className="flex gap-2 justify-center">
-                              <button onClick={() => startEdit(cat)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                              <button onClick={() => startEdit(cat)} className="p-1 hover:bg-gray-100 rounded">
                                 <Pencil className="w-4 h-4 text-blue-600" />
                               </button>
                               <button onClick={() => deleteCategory(cat.id)} className="p-1 hover:bg-red-50 rounded">
@@ -160,7 +160,7 @@ export default function QuoteCategoriesPage() {
                           <Check className="w-4 h-4" />
                         </button>
                         <button onClick={() => { setShowNew(false); setNewRow({ code: '', name: '', sort_order: 0 }) }}
-                          className="p-1 text-gray-400 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                          className="p-1 text-gray-400 hover:bg-gray-100 rounded">
                           <X className="w-4 h-4" />
                         </button>
                       </td>

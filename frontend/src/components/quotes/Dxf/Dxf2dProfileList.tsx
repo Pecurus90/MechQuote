@@ -17,7 +17,7 @@ export default function Dxf2dProfileList({ profiles, selectedIds, onToggle }: Pr
             <li key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/40">
               <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => onToggle(p.id)} />
               <span className="font-mono text-xs text-muted-foreground w-8">#{p.id}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded ${p.closed ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded ${p.closed ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
                 {p.closed ? 'chiuso' : 'aperto'}
               </span>
               <span className="flex-1 text-xs text-muted-foreground">

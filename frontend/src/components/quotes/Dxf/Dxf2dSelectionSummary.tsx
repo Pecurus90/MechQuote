@@ -8,7 +8,7 @@ interface Props {
 
 export default function Dxf2dSelectionSummary({ selectedCount, selectedLengthMm, selectedClosedCount }: Props) {
   return (
-    <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20">
+    <Card className="border-blue-200 bg-blue-50/40">
       <CardContent className="p-3 grid grid-cols-3 gap-3 text-xs">
         <div>
           <p className="text-muted-foreground">Profili selezionati</p>

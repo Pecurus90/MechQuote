@@ -46,25 +46,25 @@ export default function NotificationPanel({
   return createPortal(
     <>
       <div className="fixed inset-0 bg-black/30 z-[9998]" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-screen w-96 bg-white dark:bg-gray-800 shadow-2xl z-[9999] flex flex-col">
+      <aside className="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl z-[9999] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Notifiche</h2>
+            <Bell className="w-4 h-4 text-gray-500" />
+            <h2 className="font-semibold text-gray-900">Notifiche</h2>
           </div>
           <div className="flex items-center gap-1">
             {readCount > 0 && (
               <button
                 onClick={handleClearRead}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50"
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-500 hover:text-red-600 hover:bg-red-50"
                 title="Svuota notifiche lette"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Svuota lette
               </button>
             )}
-            <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:bg-gray-700" title="Chiudi">
-              <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <button onClick={onClose} className="p-1 rounded hover:bg-gray-100" title="Chiudi">
+              <X className="w-4 h-4 text-gray-500" />
             </button>
           </div>
         </div>
@@ -82,7 +82,7 @@ export default function NotificationPanel({
                 return (
                   <li
                     key={n.id}
-                    className={`border-b px-4 py-3 cursor-pointer hover:bg-gray-50 dark:bg-gray-900 ${unread ? 'bg-blue-50/30' : ''}`}
+                    className={`border-b px-4 py-3 cursor-pointer hover:bg-gray-50 ${unread ? 'bg-blue-50/30' : ''}`}
                     onClick={() => handleClick(n)}
                   >
                     <div className="flex gap-2">
@@ -96,10 +96,10 @@ export default function NotificationPanel({
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm ${unread ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200'}`}>
+                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
                           {n.title}
                         </p>
-                        {n.body && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.body}</p>}
+                        {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
                         <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.created_at)}</p>
                         {n.requires_action && !confirmed && (
                           <button

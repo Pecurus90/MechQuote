@@ -72,7 +72,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Clienti</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{customers.length} clienti</p>
+          <p className="text-sm text-gray-500 mt-0.5">{customers.length} clienti</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -88,35 +88,35 @@ export default function CustomersPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-900 border-b">
+            <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[10%] font-medium text-gray-600 dark:text-gray-300">Codice</th>
-                <th className="text-left p-3 w-[22%] font-medium text-gray-600 dark:text-gray-300">Nome</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600 dark:text-gray-300">Indirizzo</th>
-                <th className="text-left p-3 w-[24%] font-medium text-gray-600 dark:text-gray-300">Email</th>
-                <th className="text-left p-3 w-[10%] font-medium text-gray-600 dark:text-gray-300">Telefono</th>
-                <th className="text-center p-3 w-[6%] font-medium text-gray-600 dark:text-gray-300">Azioni</th>
+                <th className="text-left p-3 w-[10%] font-medium text-gray-600">Codice</th>
+                <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Indirizzo</th>
+                <th className="text-left p-3 w-[24%] font-medium text-gray-600">Email</th>
+                <th className="text-left p-3 w-[10%] font-medium text-gray-600">Telefono</th>
+                <th className="text-center p-3 w-[6%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 ? (
                 <tr><td colSpan={6} className="p-6 text-center text-gray-400">Nessun cliente trovato.</td></tr>
               ) : visible.map(c => (
-                <tr key={c.id} className="border-b hover:bg-gray-50 dark:bg-gray-900">
-                  <td className="p-3 font-mono font-medium text-gray-700 dark:text-gray-200">{c.customer_number}</td>
+                <tr key={c.id} className="border-b hover:bg-gray-50">
+                  <td className="p-3 font-mono font-medium text-gray-700">{c.customer_number}</td>
                   <td className="p-3 font-medium truncate">{c.name}</td>
-                  <td className="p-3 text-gray-500 dark:text-gray-400 truncate">
+                  <td className="p-3 text-gray-500 truncate">
                     {c.address
                       ? <a href={`https://maps.google.com/?q=${encodeURIComponent(c.address)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{c.address}</a>
                       : '—'}
                   </td>
-                  <td className="p-3 text-gray-500 dark:text-gray-400 truncate">
+                  <td className="p-3 text-gray-500 truncate">
                     {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : '—'}
                   </td>
-                  <td className="p-3 text-gray-500 dark:text-gray-400 truncate">{c.phone || '—'}</td>
+                  <td className="p-3 text-gray-500 truncate">{c.phone || '—'}</td>
                   <td className="p-3 text-center">
                     <div className="flex gap-1.5 justify-center">
-                      <button onClick={() => startEdit(c)} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                      <button onClick={() => startEdit(c)} className="p-1 hover:bg-gray-100 rounded">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => handleDelete(c.id)} className="p-1 hover:bg-red-50 rounded">
@@ -133,10 +133,10 @@ export default function CustomersPage() {
 
       {editingId !== null && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-lg bg-white dark:bg-gray-800 shadow-xl">
+          <Card className="w-full max-w-lg bg-white shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{editingId > 0 ? 'Modifica Cliente' : 'Nuovo Cliente'}</h3>
-              <button onClick={closeForm} className="p-1 hover:bg-gray-100 dark:bg-gray-700 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={closeForm} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">

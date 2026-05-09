@@ -16,8 +16,8 @@ const navLinkClass = (isActive: boolean, small = false) =>
     'flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors',
     small ? 'text-xs' : 'text-sm',
     isActive
-      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium'
-      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+      ? 'bg-blue-50 text-blue-700 font-medium'
+      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
   )
 
 const sectionLabelClass = 'px-2 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider'
@@ -91,7 +91,7 @@ export default function Sidebar() {
             onClick={() => setQuotesOpen(o => !o)}
             className={cn(
               'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-              isQuotesActive ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+              isQuotesActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
             )}
           >
             <span className="flex items-center gap-2">
@@ -145,7 +145,7 @@ export default function Sidebar() {
               onClick={() => setSettingsOpen(o => !o)}
               className={cn(
                 'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-                isSettingsActive ? 'text-blue-700 dark:text-blue-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                isSettingsActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               )}
             >
               <span className="flex items-center gap-2">
@@ -259,7 +259,7 @@ export default function Sidebar() {
               {notifEnabled && (
                 <button
                   onClick={() => setNotifOpen(true)}
-                  className="relative p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                  className="relative p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                   title="Notifiche"
                 >
                   <Bell className="w-3.5 h-3.5" />
@@ -272,7 +272,7 @@ export default function Sidebar() {
               )}
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                 title="Esci"
               >
                 <LogOut className="w-3.5 h-3.5" />

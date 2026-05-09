@@ -59,7 +59,7 @@ export default function DashboardPage() {
   }, [canReview])
 
   if (loading || !kpi || !stats) return (
-    <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">Caricamento...</div>
+    <div className="flex items-center justify-center h-64 text-gray-500">Caricamento...</div>
   )
 
   return (
@@ -116,8 +116,8 @@ function DashboardHeader({ stats, onNew }: { stats: WorkflowStats; onNew: () => 
   return (
     <div className="flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mr-2">Dashboard</h2>
-        <StatusPill label="Bozza" value={counts.bozza ?? 0} color="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200" />
+        <h2 className="text-2xl font-bold text-gray-900 mr-2">Dashboard</h2>
+        <StatusPill label="Bozza" value={counts.bozza ?? 0} color="bg-gray-100 text-gray-700" />
         <StatusPill label="Inviato" value={counts.inviato ?? 0} color="bg-amber-100 text-amber-700" />
         <StatusPill label="Completato" value={counts.completato ?? 0} color="bg-green-100 text-green-700" />
       </div>
@@ -146,7 +146,7 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
           <CardDescription>Valore totale preventivato</CardDescription>
           <CardTitle className="text-3xl">{fmtEur(kpi.total_quoted_value)} €</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-gray-500 dark:text-gray-400">
+        <CardContent className="text-sm text-gray-500">
           {kpi.total_quotes} preventivi
         </CardContent>
       </Card>
@@ -156,7 +156,7 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
           <CardDescription>Valore mese corrente</CardDescription>
           <CardTitle className="text-3xl">{fmtEur(kpi.quoted_value_this_month)} €</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-gray-500 dark:text-gray-400">
+        <CardContent className="text-sm text-gray-500">
           {kpi.total_quotes_this_month} preventivi
         </CardContent>
       </Card>
@@ -171,7 +171,7 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
             {diffPositive ? '+' : ''}{diff.toFixed(1)}%
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-gray-500 dark:text-gray-400">
+        <CardContent className="text-sm text-gray-500">
           {fmtEur(kpi.quoted_value_prev_month)} € il mese scorso
         </CardContent>
       </Card>
@@ -181,7 +181,7 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
           <CardDescription>Media per preventivo</CardDescription>
           <CardTitle className="text-3xl">{fmtEur(kpi.avg_quote_value)} €</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-gray-500 dark:text-gray-400">
+        <CardContent className="text-sm text-gray-500">
           su {kpi.total_quotes} preventivi
         </CardContent>
       </Card>
@@ -289,10 +289,10 @@ function QuoteListSection({
               <li
                 key={q.id}
                 onClick={() => onClick(q.id)}
-                className="border-b last:border-0 px-4 py-2.5 cursor-pointer hover:bg-gray-50 dark:bg-gray-900 flex items-center gap-3"
+                className="border-b last:border-0 px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex items-center gap-3"
               >
                 <span className="font-mono font-medium text-blue-700 text-sm shrink-0">{q.quote_number}</span>
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{q.customer_name || '—'}</span>
+                <span className="text-sm text-gray-600 truncate flex-1">{q.customer_name || '—'}</span>
                 {showSubmitter && q.submitted_by && (
                   <span className="text-xs text-gray-400 shrink-0">
                     {q.submitted_by.full_name || q.submitted_by.username}
@@ -342,7 +342,7 @@ function ActivityCard({ items, onClick, onSeeAll }: {
                 <li
                   key={a.id}
                   onClick={() => quoteId && onClick(quoteId)}
-                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50 dark:bg-gray-900' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
+                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
                 >
                   <div className="flex items-start gap-2">
                     <div className="pt-1.5 shrink-0">
@@ -356,7 +356,7 @@ function ActivityCard({ items, onClick, onSeeAll }: {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-2 justify-between">
-                        <p className={`text-sm ${unread ? 'font-medium text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200'}`}>{a.title}</p>
+                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>{a.title}</p>
                         {kind && (
                           <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${kind.pillClass}`}>
                             {kind.icon}
@@ -364,7 +364,7 @@ function ActivityCard({ items, onClick, onSeeAll }: {
                           </span>
                         )}
                       </div>
-                      {a.body && <p className="text-xs text-gray-500 dark:text-gray-400">{a.body}</p>}
+                      {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
                       <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(a.created_at)}</p>
                     </div>
                   </div>

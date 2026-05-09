@@ -37,12 +37,12 @@ export default function ActivityPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <ActivityIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <ActivityIcon className="w-6 h-6 text-gray-500" />
           Attività del team
         </h1>
         <div>
-          <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">Filtro tipo</label>
+          <label className="text-sm font-medium text-gray-600 mb-1 block">Filtro tipo</label>
           <select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={typeFilter}
@@ -73,7 +73,7 @@ export default function ActivityPage() {
                     <li
                       key={a.id}
                       onClick={() => onRowClick(a)}
-                      className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50 dark:bg-gray-900' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
+                      className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="text-xs text-gray-400 w-20 shrink-0 pt-0.5">{timeAgo(a.created_at)}</div>
@@ -83,13 +83,13 @@ export default function ActivityPage() {
                             {kind.label}
                           </span>
                         ) : (
-                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
                             {a.type}
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{a.title}</p>
-                          {a.body && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.body}</p>}
+                          <p className="text-sm font-medium text-gray-900 truncate">{a.title}</p>
+                          {a.body && <p className="text-xs text-gray-500 truncate">{a.body}</p>}
                         </div>
                         <div className="text-xs text-gray-400 shrink-0 max-w-[160px] truncate" title={actorName}>
                           {actorName}
@@ -108,7 +108,7 @@ export default function ActivityPage() {
         {page > 1 && (
           <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)}>← Precedente</Button>
         )}
-        <span className="flex items-center px-4 text-sm text-gray-500 dark:text-gray-400">Pagina {page}</span>
+        <span className="flex items-center px-4 text-sm text-gray-500">Pagina {page}</span>
         {items.length >= pageSize && (
           <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>
         )}

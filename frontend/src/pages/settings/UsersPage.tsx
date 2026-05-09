@@ -27,7 +27,7 @@ interface NewRow extends EditRow {
 const COLOR_BADGE: Record<string, string> = {
   green:  'bg-green-100 text-green-800',
   blue:   'bg-blue-100 text-blue-800',
-  gray:   'bg-gray-100 dark:bg-gray-700 text-gray-800',
+  gray:   'bg-gray-100 text-gray-800',
   purple: 'bg-purple-100 text-purple-800',
   amber:  'bg-amber-100 text-amber-800',
   red:    'bg-red-100 text-red-800',
@@ -62,9 +62,9 @@ export default function UsersPage() {
 
   const roleBadge = (roleName: string) => {
     const r = roles.find(r => r.name === roleName)
-    if (!r) return <span className="text-xs text-gray-500 dark:text-gray-400">{roleName}</span>
+    if (!r) return <span className="text-xs text-gray-500">{roleName}</span>
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COLOR_BADGE[r.color] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-800'}`}>
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COLOR_BADGE[r.color] ?? 'bg-gray-100 text-gray-800'}`}>
         {r.label}
       </span>
     )
@@ -129,8 +129,8 @@ export default function UsersPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gestione Utenti</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Crea e gestisci gli account di accesso</p>
+          <h1 className="text-2xl font-bold text-gray-900">Gestione Utenti</h1>
+          <p className="text-sm text-gray-500 mt-1">Crea e gestisci gli account di accesso</p>
         </div>
         {!showNew && (
           <Button size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
@@ -142,22 +142,22 @@ export default function UsersPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-sm text-gray-500 dark:text-gray-400">Caricamento...</div>
+            <div className="p-6 text-sm text-gray-500">Caricamento...</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 dark:bg-gray-900">
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300 text-xs">Nome</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300 text-xs">Username</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300 text-xs">Email</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300 text-xs">Ruolo</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 dark:text-gray-300 text-xs">Attivo</th>
+                <tr className="border-b bg-gray-50">
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs">Nome</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs">Username</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs">Email</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs">Ruolo</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs">Attivo</th>
                   <th className="w-20" />
                 </tr>
               </thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50 dark:bg-gray-900">
+                  <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
                     {editingId === u.id ? (
                       <>
                         <td className="px-3 py-2">
@@ -165,7 +165,7 @@ export default function UsersPage() {
                             onChange={e => setEditRow(r => ({ ...r, full_name: e.target.value }))}
                             placeholder="Nome completo" />
                         </td>
-                        <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{u.username}</td>
+                        <td className="px-3 py-2 text-gray-500 text-xs">{u.username}</td>
                         <td className="px-3 py-2">
                           <Input className={inp} value={editRow.email}
                             onChange={e => setEditRow(r => ({ ...r, email: e.target.value }))}
@@ -173,7 +173,7 @@ export default function UsersPage() {
                         </td>
                         <td className="px-3 py-2">
                           <select
-                            className="h-7 text-xs border rounded px-1.5 bg-white dark:bg-gray-800"
+                            className="h-7 text-xs border rounded px-1.5 bg-white"
                             value={editRow.role}
                             onChange={e => setEditRow(r => ({ ...r, role: e.target.value }))}
                           >
@@ -194,7 +194,7 @@ export default function UsersPage() {
                             <button onClick={() => saveEdit(u.id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
                               <Check className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -203,8 +203,8 @@ export default function UsersPage() {
                     ) : (
                       <>
                         <td className="px-4 py-2.5">{u.full_name ?? <span className="text-gray-400">—</span>}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-gray-600 dark:text-gray-300">{u.username}</td>
-                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{u.email ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-gray-600">{u.username}</td>
+                        <td className="px-4 py-2.5 text-gray-500">{u.email ?? <span className="text-gray-300">—</span>}</td>
                         <td className="px-4 py-2.5">{roleBadge(u.role)}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-xs font-medium ${u.is_active ? 'text-green-600' : 'text-red-400'}`}>
@@ -251,7 +251,7 @@ export default function UsersPage() {
                     </td>
                     <td className="px-3 py-2">
                       <select
-                        className="h-7 text-xs border rounded px-1.5 bg-white dark:bg-gray-800"
+                        className="h-7 text-xs border rounded px-1.5 bg-white"
                         value={newRow.role}
                         onChange={e => setNewRow(r => ({ ...r, role: e.target.value }))}
                       >
@@ -273,7 +273,7 @@ export default function UsersPage() {
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => { setShowNew(false); setNewRow(emptyNew()) }}
-                          className="p-1 text-gray-400 hover:bg-gray-100 dark:bg-gray-700 rounded">
+                          className="p-1 text-gray-400 hover:bg-gray-100 rounded">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>

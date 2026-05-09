@@ -97,7 +97,7 @@ export default function CompanySettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Default Preventivi</CardTitle>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Valori applicati automaticamente ad ogni nuovo preventivo o parte. L'utente può sovrascriverli caso per caso.
           </p>
         </CardHeader>

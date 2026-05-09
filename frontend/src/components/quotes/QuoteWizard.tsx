@@ -71,7 +71,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
     if (!form.customer_code) missing.push('Codice cliente')
     if (!form.progressive) missing.push('Numero progressivo')
     if (missing.length > 0) {
-      toast.error(`Campi mancanti: ${missing.join(', ')}`)
+      toast.error(`Campi mancanti: ${missing.join(',')}`)
       return
     }
     setSaving(true)
@@ -96,25 +96,25 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b px-6 py-4">
-        <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Nuovo Preventivo Manuale</h1>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compila i dati per creare il preventivo</p>
+      <div className="bg-white border-b px-6 py-4">
+        <h1 className="text-lg font-bold text-gray-900">Nuovo Preventivo Manuale</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Compila i dati per creare il preventivo</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-5xl mx-auto space-y-4">
 
           {/* Sezione 1: Cliente + Codice */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border shadow-sm">
+          <div className="bg-white rounded-xl border shadow-sm">
             <div className="px-5 py-3 border-b">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Cliente e Codice Preventivo</h2>
+              <h2 className="text-sm font-semibold text-gray-700">Cliente e Codice Preventivo</h2>
             </div>
             <div className="p-5 grid grid-cols-2 gap-5">
               {/* Cliente — ricerca autocomplete */}
               <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-300 block mb-2">Cliente</label>
+                <label className="text-xs font-medium text-gray-600 block mb-2">Cliente</label>
                 <div ref={customerRef} className="relative">
                   <Input
                     className="h-9 text-sm"
@@ -130,7 +130,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                     }}
                   />
                   {customerOpen && filteredCustomers.length > 0 && (
-                    <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                    <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
                       {filteredCustomers.map(c => (
                         <button
                           key={c.id}
@@ -161,7 +161,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
 
               {/* Codice preventivo */}
               <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-300 block mb-2">Codice Preventivo</label>
+                <label className="text-xs font-medium text-gray-600 block mb-2">Codice Preventivo</label>
                 <div className="flex items-center gap-1.5">
                   <Input
                     className="w-16 text-center font-mono h-9 text-sm"
@@ -202,9 +202,9 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
           </div>
 
           {/* Sezione 2: Tipo · Data · Margine */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border shadow-sm">
+          <div className="bg-white rounded-xl border shadow-sm">
             <div className="px-5 py-3 border-b">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Tipo, Data e Margine</h2>
+              <h2 className="text-sm font-semibold text-gray-700">Tipo, Data e Margine</h2>
             </div>
             <div className="p-5 flex flex-col items-start gap-4">
               {/* Tipo */}
@@ -212,11 +212,11 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 <button
                   onClick={() => set('quote_type', 'single')}
                   className={`px-4 py-2.5 rounded-lg border-2 text-left transition-colors ${
-                    form.quote_type === 'single' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    form.quote_type === 'single' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500 dark:text-gray-400">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500">
                       <rect x="3" y="5" width="14" height="10" rx="1.5"/>
                       <path d="M3 8h14"/>
                       <path d="M10 5v3"/>
@@ -227,11 +227,11 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 <button
                   onClick={() => set('quote_type', 'commessa')}
                   className={`px-4 py-2.5 rounded-lg border-2 text-left transition-colors ${
-                    form.quote_type === 'commessa' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    form.quote_type === 'commessa' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500 dark:text-gray-400">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0 text-gray-500">
                       <rect x="2" y="2" width="7" height="7" rx="1"/>
                       <rect x="11" y="2" width="7" height="7" rx="1"/>
                       <rect x="2" y="11" width="7" height="7" rx="1"/>
@@ -245,25 +245,25 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               <div className="flex gap-4 items-end">
                 {form.quote_type === 'commessa' && (
                   <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-300">N° componenti</label>
+                    <label className="text-xs font-medium text-gray-600">N° componenti</label>
                     <Input type="number" min={1} max={50} className="mt-1 h-9 w-24 text-sm"
                       value={form.num_components}
                       onChange={e => set('num_components', parseInt(e.target.value) || 1)} />
                   </div>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Data</label>
+                  <label className="text-xs font-medium text-gray-600">Data</label>
                   <Input type="date" className="mt-1 h-9 text-sm" value={form.quote_date}
                     onChange={e => set('quote_date', e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Margine default (%)</label>
+                  <label className="text-xs font-medium text-gray-600">Margine default (%)</label>
                   <Input type="number" min={0} max={200} step={1} className="mt-1 h-9 w-24 text-sm"
                     value={form.global_margin_percent}
                     onChange={e => set('global_margin_percent', parseFloat(e.target.value) || 0)} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                  <label className="text-xs font-medium text-gray-600">
                     {form.quote_type === 'commessa' ? 'Qtà per componente' : 'Quantità pezzi'}
                   </label>
                   <Input type="number" min={1} className="mt-1 h-9 w-24 text-sm"

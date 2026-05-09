@@ -52,15 +52,15 @@ const colorMap = {
     button: 'bg-violet-600 hover:bg-violet-700 text-white',
   },
   emerald: {
-    card: 'border-gray-200 dark:border-gray-700 opacity-60',
+    card: 'border-gray-200 opacity-60',
     icon: 'bg-emerald-100 text-emerald-500',
-    badge: 'bg-gray-200 text-gray-500 dark:text-gray-400',
+    badge: 'bg-gray-200 text-gray-500',
     button: '',
   },
   rose: {
-    card: 'border-gray-200 dark:border-gray-700 opacity-60',
+    card: 'border-gray-200 opacity-60',
     icon: 'bg-rose-100 text-rose-500',
-    badge: 'bg-gray-200 text-gray-500 dark:text-gray-400',
+    badge: 'bg-gray-200 text-gray-500',
     button: '',
   },
 }
@@ -71,8 +71,8 @@ export default function NewQuotePage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Nuovo Preventivo</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Scegli come vuoi costruire il preventivo</p>
+        <h1 className="text-2xl font-bold text-gray-900">Nuovo Preventivo</h1>
+        <p className="text-sm text-gray-500 mt-1">Scegli come vuoi costruire il preventivo</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
@@ -87,7 +87,7 @@ export default function NewQuotePage() {
               onClick={() => mode.available && 'to' in mode && navigate(mode.to)}
             >
               {!mode.available && (
-                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-400 font-medium">
+                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">
                   In sviluppo
                 </span>
               )}
@@ -95,8 +95,8 @@ export default function NewQuotePage() {
                 <mode.icon className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{mode.title}</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{mode.description}</p>
+                <h2 className="font-semibold text-gray-900 mb-1">{mode.title}</h2>
+                <p className="text-sm text-gray-500 leading-relaxed">{mode.description}</p>
               </div>
               {mode.available && (
                 <button

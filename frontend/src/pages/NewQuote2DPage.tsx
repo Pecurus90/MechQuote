@@ -239,7 +239,7 @@ export default function NewQuote2DPage() {
 
   const submit = async () => {
     const errs = validate()
-    if (errs.length > 0) { toast.error(`Mancano: ${errs.join(', ')}`); return }
+    if (errs.length > 0) { toast.error(`Mancano: ${errs.join(',')}`); return }
     if (!analysis || !dxfFile) return
 
     setSubmitting(true)
@@ -324,8 +324,8 @@ export default function NewQuote2DPage() {
   if (loadingRefs) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 border-b px-6 py-4">
+    <div className="flex flex-col h-full bg-gray-50">
+      <div className="bg-white border-b px-6 py-4">
         <h1 className="text-lg font-bold">Nuovo Preventivo 2D</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           Carica un DXF, seleziona i profili da tagliare e compila i dati. Il sistema calcola automaticamente
@@ -344,7 +344,7 @@ export default function NewQuote2DPage() {
                   htmlFor="dxf-input"
                   onDragOver={e => e.preventDefault()}
                   onDrop={onDrop}
-                  className="block border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-colors"
+                  className="block border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
                 >
                   <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm font-medium">Trascina qui un file DXF o clicca per selezionarlo</p>
@@ -391,9 +391,9 @@ export default function NewQuote2DPage() {
                       </span>
                     </div>
                     {analysis.warnings.length > 0 && (
-                      <div className="mt-2 p-2 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
+                      <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
                         {analysis.warnings.map((w, i) => (
-                          <p key={i} className="text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1">
+                          <p key={i} className="text-[11px] text-amber-800 flex items-start gap-1">
                             <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {w}
                           </p>
                         ))}
@@ -430,10 +430,10 @@ export default function NewQuote2DPage() {
                             setForm(f => ({ ...f, customer_id: '', customer_name: e.target.value }))
                           }} />
                         {customerOpen && filteredCustomers.length > 0 && (
-                          <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border rounded shadow-lg max-h-56 overflow-y-auto">
+                          <div className="absolute z-50 mt-1 w-full bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
                             {filteredCustomers.map(c => (
                               <button key={c.id} type="button"
-                                className="w-full text-left px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-2 text-xs"
+                                className="w-full text-left px-3 py-1.5 hover:bg-blue-50 flex items-center gap-2 text-xs"
                                 onMouseDown={e => { e.preventDefault(); selectCustomer(c) }}>
                                 <span className="font-mono text-muted-foreground w-10">{String(c.customer_number).padStart(3, '0')}</span>
                                 <span className="truncate">{c.name}</span>
@@ -541,7 +541,7 @@ export default function NewQuote2DPage() {
                         <button type="button"
                           onClick={() => set('drilling_mode', 'pierce')}
                           className={`flex-1 px-3 py-2 rounded-lg border-2 text-left transition-colors ${
-                            form.drilling_mode === 'pierce' ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                            form.drilling_mode === 'pierce' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                           }`}>
                           <p className="text-xs font-medium">Pierce in EDM</p>
                           <p className="text-[10px] text-muted-foreground">Filo perfora il materiale all'inizio del taglio</p>
@@ -549,7 +549,7 @@ export default function NewQuote2DPage() {
                         <button type="button"
                           onClick={() => set('drilling_mode', 'predrilled')}
                           className={`flex-1 px-3 py-2 rounded-lg border-2 text-left transition-colors ${
-                            form.drilling_mode === 'predrilled' ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                            form.drilling_mode === 'predrilled' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                           }`}>
                           <p className="text-xs font-medium">Pre-fori (foratrice)</p>
                           <p className="text-[10px] text-muted-foreground">Fase Foratura aggiuntiva, EDM senza pierce</p>

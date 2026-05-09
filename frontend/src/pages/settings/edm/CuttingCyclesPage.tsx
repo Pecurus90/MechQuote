@@ -8,9 +8,9 @@ import type { CuttingCycle, CuttingPass, PassType } from '@/types'
 import { toast } from 'sonner'
 
 const PASS_TYPES: { value: PassType; label: string; color: string }[] = [
-  { value: 'rough',  label: 'Sgrossatura', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
-  { value: 'semi',   label: 'Semifinitura', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
-  { value: 'finish', label: 'Finitura', color: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' },
+  { value: 'rough',  label: 'Sgrossatura', color: 'bg-amber-100 text-amber-700' },
+  { value: 'semi',   label: 'Semifinitura', color: 'bg-blue-100 text-blue-700' },
+  { value: 'finish', label: 'Finitura', color: 'bg-green-100 text-green-700' },
 ]
 
 const passLabel = (t: PassType) => PASS_TYPES.find(p => p.value === t)?.label ?? t

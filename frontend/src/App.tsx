@@ -37,7 +37,7 @@ function ProtectedRoute({
 }) {
   const { user, loading, hasPermission } = useAuth()
 
-  if (loading) return <div className="p-8 text-center text-gray-500 dark:text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento...</div>
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   if (permission && !hasPermission(permission)) return <Navigate to="/" replace />

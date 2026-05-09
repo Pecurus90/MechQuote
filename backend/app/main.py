@@ -299,7 +299,71 @@ def _seed_edm_defaults():
             db.commit()
 
 
+def _fix_legacy_not_null():
+    """One-shot: rende `material_id` nullable in `edm_cut_speeds` e `drilling_times`.
+
+    Storia: il refactor Sprint EDM 1.5 (audit famiglie materiale, commit 5d4cfdc)
+    ha cambiato la chiave da `material_id` (FK) a `material_family` (slug). La
+    colonna legacy material_id resta nel DB (CLAUDE.md §6 no-DROP), ma con
+    vincolo NOT NULL originale: gli INSERT del modello aggiornato falliscono
+    con `IntegrityError: NOT NULL constraint failed: ...material_id`.
+
+    SQLite non supporta `ALTER COLUMN`, quindi serve copy-rename. Idempotente:
+    controlla via PRAGMA prima di intervenire, no-op se già nullable.
+    """
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    targets = [
+        ('edm_cut_speeds',
+         """CREATE TABLE edm_cut_speeds_new (
+                id INTEGER PRIMARY KEY,
+                material_id INTEGER,
+                material_family VARCHAR(50),
+                thickness_min_mm FLOAT NOT NULL DEFAULT 0,
+                thickness_max_mm FLOAT NOT NULL,
+                speed_mm2_min FLOAT NOT NULL,
+                pierce_time_s FLOAT,
+                notes TEXT
+            )""",
+         ['id', 'material_id', 'material_family', 'thickness_min_mm',
+          'thickness_max_mm', 'speed_mm2_min', 'pierce_time_s', 'notes']),
+        ('drilling_times',
+         """CREATE TABLE drilling_times_new (
+                id INTEGER PRIMARY KEY,
+                material_id INTEGER,
+                material_family VARCHAR(50),
+                diameter_min_mm FLOAT NOT NULL DEFAULT 0,
+                diameter_max_mm FLOAT NOT NULL,
+                height_min_mm FLOAT NOT NULL DEFAULT 0,
+                height_max_mm FLOAT NOT NULL,
+                seconds_per_hole FLOAT NOT NULL,
+                notes TEXT
+            )""",
+         ['id', 'material_id', 'material_family', 'diameter_min_mm',
+          'diameter_max_mm', 'height_min_mm', 'height_max_mm',
+          'seconds_per_hole', 'notes']),
+    ]
+    for tbl, schema_sql, columns in targets:
+        if tbl not in insp.get_table_names():
+            continue
+        mat_col = next((c for c in insp.get_columns(tbl) if c['name'] == 'material_id'), None)
+        if mat_col is None or mat_col['nullable']:
+            continue  # già OK
+        cols = ', '.join(columns)
+        with engine.connect() as conn:
+            try:
+                conn.execute(text(schema_sql))
+                conn.execute(text(f"INSERT INTO {tbl}_new ({cols}) SELECT {cols} FROM {tbl}"))
+                conn.execute(text(f"DROP TABLE {tbl}"))
+                conn.execute(text(f"ALTER TABLE {tbl}_new RENAME TO {tbl}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 _run_migrations()
+_fix_legacy_not_null()
 _seed_categories()
 _seed_roles()
 _seed_edm_defaults()

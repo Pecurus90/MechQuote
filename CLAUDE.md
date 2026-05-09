@@ -161,9 +161,8 @@ Quote ──┬─> Customer
               ├─> ManufacturingPhase [N]
               │     ├─> Machine
               │     ├─> Supplier
-              │     └─> Treatment
-              ├─> PartFile [N]
-              └─> GeometryAnalysis [0..1]
+              │     └─> Treatment ─> Supplier
+              └─> PartFile [N]
 
 CompanySettings  (singleton id=1: anagrafica + 4 default operativi)
 QuoteCategory    (lettera codice preventivo: A-G)
@@ -172,6 +171,19 @@ StepColorRule    (mapping colori STEP → fasi suggerite, dormiente fino a impor
 
 Notification ─> NotificationRead  (in-app, generiche, target_roles[]+target_user_id)
 ```
+
+### `Supplier` vs `MaterialSupplier` — perché due tabelle
+
+I due modelli hanno ~80% dei campi sovrapposti (`name`, `address`, `shipping_cost`, `active`) ma rappresentano domini distinti — l'audit ha valutato l'unificazione e l'ha scartata per ROI basso vs rischio FK su tabelle live.
+
+| | `MaterialSupplier` | `Supplier` |
+|---|---|---|
+| **Cosa rappresenta** | Chi vende il materiale grezzo | Chi fa lavorazioni/trattamenti per conto terzi |
+| **Usato da** | `Material.supplier_id` | `ManufacturingPhase.supplier_id`, `Treatment.supplier_id`, `PhaseTemplate.default_supplier_id` |
+| **Campi extra** | `cutting_cost_per_part` (taglio del grezzo prima della consegna) | `supplier_type` (metadato libero) |
+| **Settings UI** | Materiali → sezione "Fornitori grezzi" | Trattamenti → sezione "Fornitori esterni" |
+
+**Quando aggiungi un fornitore in codice**: scegli `MaterialSupplier` se riguarda l'approvvigionamento materiale grezzo, `Supplier` se riguarda lavorazioni esterne (heat_treatment, surface_treatment, external_supplier phases). Non usare l'uno per l'altro.
 
 ### Workflow stati preventivo (interno, 3 stati)
 

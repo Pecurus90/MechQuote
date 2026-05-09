@@ -8,13 +8,13 @@ import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import type {
-  DxfAnalysis, Category, Customer, Material, CuttingCycle, DrillingTime,
+  DxfAnalysis, Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig,
 } from '@/types'
 import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
 import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
 import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
 
-type DrillingMode = 'pierce' | 'predrilled'
+type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
 
 interface FormState {
   // preventivo
@@ -34,7 +34,8 @@ interface FormState {
   // EDM
   cutting_cycle_id: string
   drilling_mode: DrillingMode
-  drill_diameter_mm: number  // usato solo se drilling_mode === 'predrilled'
+  electrode_diameter_mm: number  // usato in modalità foratrice_edm (selezionato da dropdown)
+  n_holes: number                // numero pre-fori (foratrice) o infilaggi (piastra)
 }
 
 const initialForm = (categories: Category[]): FormState => ({
@@ -51,8 +52,9 @@ const initialForm = (categories: Category[]): FormState => ({
   material_id: '',
   cut_height_mm: 0,
   cutting_cycle_id: '',
-  drilling_mode: 'pierce',
-  drill_diameter_mm: 1.5,
+  drilling_mode: 'foratrice_edm',
+  electrode_diameter_mm: 0,
+  n_holes: 0,
 })
 
 /** Tempo per foro = altezza_pezzo / mm_per_sec. Match esatto su (famiglia, Ø elettrodo). */
@@ -76,6 +78,7 @@ export default function NewQuote2DPage() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [cycles, setCycles] = useState<CuttingCycle[]>([])
   const [drillingRows, setDrillingRows] = useState<DrillingTime[]>([])
+  const [edmConfig, setEdmConfig] = useState<EdmConfig | null>(null)
   const [loadingRefs, setLoadingRefs] = useState(true)
 
   // DXF state
@@ -100,12 +103,14 @@ export default function NewQuote2DPage() {
       api.get('/materials'),
       api.get('/cutting-cycles'),
       api.get('/drilling-times'),
-    ]).then(([cat, cus, mat, cyc, dr]) => {
+      api.get('/edm-config'),
+    ]).then(([cat, cus, mat, cyc, dr, cfg]) => {
       setCategories(cat.data)
       setCustomers(cus.data)
       setMaterials(mat.data)
       setCycles(cyc.data.filter((c: CuttingCycle) => c.active))
       setDrillingRows(dr.data)
+      setEdmConfig(cfg.data)
       setForm(initialForm(cat.data))
     }).catch(() => toast.error('Errore nel caricamento dei dati di riferimento'))
       .finally(() => setLoadingRefs(false))
@@ -193,18 +198,34 @@ export default function NewQuote2DPage() {
     [selectedProfiles],
   )
 
-  const drillSecondsPerHole = useMemo(() => {
-    if (form.drilling_mode !== 'predrilled') return null
-    if (!form.material_id || !form.cut_height_mm || !form.drill_diameter_mm) return null
-    const family = materials.find(m => m.id === Number(form.material_id))?.family
-    if (!family) return null
-    return lookupDrillingSecondsPerHole(
-      drillingRows, family, form.drill_diameter_mm, form.cut_height_mm,
-    )
-  }, [form.drilling_mode, form.material_id, form.cut_height_mm, form.drill_diameter_mm, drillingRows, materials])
+  // Famiglia materiale del pezzo selezionato (per filtrare i Ø elettrodo disponibili)
+  const partFamily = useMemo(
+    () => materials.find(m => m.id === Number(form.material_id))?.family ?? null,
+    [materials, form.material_id],
+  )
 
-  const drillTotalSeconds = drillSecondsPerHole != null
-    ? drillSecondsPerHole * selectedClosedCount
+  // Diametri elettrodo disponibili nella tabella drilling_times per la famiglia corrente.
+  // Lista distinta + ordinata, da usare nel dropdown della modalità "Foratrice EDM".
+  const availableElectrodeDiameters = useMemo(() => {
+    if (!partFamily) return []
+    const set = new Set<number>()
+    for (const r of drillingRows) {
+      if (r.material_family === partFamily) set.add(r.electrode_diameter_mm)
+    }
+    return Array.from(set).sort((a, b) => a - b)
+  }, [drillingRows, partFamily])
+
+  // Tempo per foro in secondi (solo modalità foratrice_edm con Ø valido)
+  const drillSecondsPerHole = useMemo(() => {
+    if (form.drilling_mode !== 'foratrice_edm') return null
+    if (!partFamily || !form.cut_height_mm || !form.electrode_diameter_mm) return null
+    return lookupDrillingSecondsPerHole(
+      drillingRows, partFamily, form.electrode_diameter_mm, form.cut_height_mm,
+    )
+  }, [form.drilling_mode, partFamily, form.cut_height_mm, form.electrode_diameter_mm, drillingRows])
+
+  const drillTotalSeconds = drillSecondsPerHole != null && form.n_holes > 0
+    ? drillSecondsPerHole * form.n_holes
     : null
 
   const quoteNumber = form.customer_code && form.progressive
@@ -237,8 +258,14 @@ export default function NewQuote2DPage() {
     if (!form.material_id) errs.push('Materiale')
     if (!form.cut_height_mm || form.cut_height_mm <= 0) errs.push('Altezza pezzo')
     if (!form.cutting_cycle_id) errs.push('Ciclo di taglio')
-    if (form.drilling_mode === 'predrilled' && (!form.drill_diameter_mm || form.drill_diameter_mm <= 0)) {
-      errs.push('Diametro foro pre-foratura')
+    if (!form.n_holes || form.n_holes <= 0) errs.push('Numero fori/infilaggi')
+    if (form.drilling_mode === 'foratrice_edm') {
+      if (!form.electrode_diameter_mm || form.electrode_diameter_mm <= 0) {
+        errs.push('Ø elettrodo (modalità Foratrice EDM)')
+      }
+      if (!edmConfig?.default_drilling_machine_id) {
+        errs.push('Foratrice EDM di default (configura in Impostazioni → Wire EDM → Parametri globali)')
+      }
     }
     return errs
   }
@@ -278,8 +305,8 @@ export default function NewQuote2DPage() {
       fd.append('file', dxfFile)
       await api.post(`/parts/${partId}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
 
-      // 4. fase Wire EDM
-      const nPierce = form.drilling_mode === 'pierce' ? selectedClosedCount : 0
+      // 4. fase Wire EDM (n_pierce = numero fori/infilaggi inserito dall'utente,
+      //    sia in modalità foratrice_edm che piastra_preforata)
       await api.post(`/parts/${partId}/phases`, {
         sequence_number: 10,
         phase_type: 'wire_edm',
@@ -287,7 +314,7 @@ export default function NewQuote2DPage() {
         cut_length_mm: Math.round(selectedLengthMm * 100) / 100,
         cut_height_mm: form.cut_height_mm,
         cutting_cycle_id: Number(form.cutting_cycle_id),
-        n_pierce: nPierce,
+        n_pierce: form.n_holes,
         dxf_profile_ids: Array.from(selectedIds),
         // setup/fixed/variable a 0: l'utente li affina nel QuoteEditor se serve
         setup_hours: 0,
@@ -298,21 +325,24 @@ export default function NewQuote2DPage() {
         is_shared: false,
       })
 
-      // 5. fase Foratura (solo se modalità pre-fori e abbiamo un tempo dalla tabella)
-      if (form.drilling_mode === 'predrilled' && drillTotalSeconds != null && selectedClosedCount > 0) {
-        await api.post(`/parts/${partId}/phases`, {
-          sequence_number: 5,  // prima della EDM
-          phase_type: 'cnc_milling',
-          description: `Foratura ${selectedClosedCount} fori Ø${form.drill_diameter_mm} mm`,
-          setup_hours: 0,
-          cycle_hours_per_part: Math.round((drillTotalSeconds / 3600) * 10000) / 10000,
-          fixed_cost: 0,
-          variable_cost_per_part: 0,
-          customer_visible: false,
-          is_shared: false,
-        })
-      } else if (form.drilling_mode === 'predrilled' && drillTotalSeconds == null) {
-        toast.warning('Nessun tempo foratura in tabella per questa combinazione: aggiungi la fase manualmente nel preventivo')
+      // 5. fase Foratura aggiuntiva SOLO in modalità foratrice_edm (con macchina dedicata da EdmConfig)
+      if (form.drilling_mode === 'foratrice_edm') {
+        if (drillTotalSeconds != null && form.n_holes > 0 && edmConfig?.default_drilling_machine_id) {
+          await api.post(`/parts/${partId}/phases`, {
+            sequence_number: 5,  // prima della EDM
+            phase_type: 'drilling',
+            description: `Foratura ${form.n_holes} fori Ø${form.electrode_diameter_mm} mm`,
+            machine_id: edmConfig.default_drilling_machine_id,
+            setup_hours: 0,
+            cycle_hours_per_part: Math.round((drillTotalSeconds / 3600) * 10000) / 10000,
+            fixed_cost: 0,
+            variable_cost_per_part: 0,
+            customer_visible: false,
+            is_shared: false,
+          })
+        } else if (drillTotalSeconds == null) {
+          toast.warning('Nessuna velocità foratura in tabella per questa combinazione: aggiungi la fase manualmente nel preventivo')
+        }
       }
 
       toast.success('Preventivo creato')
@@ -541,42 +571,82 @@ export default function NewQuote2DPage() {
                     {/* Modalità foratura */}
                     <div className="border-t pt-3">
                       <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                        <Drill className="w-3.5 h-3.5" /> Modalità foro di partenza
+                        <Drill className="w-3.5 h-3.5" /> Modalità fori di partenza
                       </label>
                       <div className="flex gap-2 mt-1.5">
                         <button type="button"
-                          onClick={() => set('drilling_mode', 'pierce')}
+                          onClick={() => set('drilling_mode', 'foratrice_edm')}
                           className={`flex-1 px-3 py-2 rounded-lg border-2 text-left transition-colors ${
-                            form.drilling_mode === 'pierce' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                            form.drilling_mode === 'foratrice_edm' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                           }`}>
-                          <p className="text-xs font-medium">Pierce in EDM</p>
-                          <p className="text-[10px] text-muted-foreground">Filo perfora il materiale all'inizio del taglio</p>
+                          <p className="text-xs font-medium">Foratrice EDM</p>
+                          <p className="text-[10px] text-muted-foreground">La nostra foratrice fa i fori prima dell'EDM</p>
                         </button>
                         <button type="button"
-                          onClick={() => set('drilling_mode', 'predrilled')}
+                          onClick={() => set('drilling_mode', 'piastra_preforata')}
                           className={`flex-1 px-3 py-2 rounded-lg border-2 text-left transition-colors ${
-                            form.drilling_mode === 'predrilled' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                            form.drilling_mode === 'piastra_preforata' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                           }`}>
-                          <p className="text-xs font-medium">Pre-fori (foratrice)</p>
-                          <p className="text-[10px] text-muted-foreground">Fase Foratura aggiuntiva, EDM senza pierce</p>
+                          <p className="text-xs font-medium">Piastra pre-forata</p>
+                          <p className="text-[10px] text-muted-foreground">Pezzo già forato (no fase Foratura)</p>
                         </button>
                       </div>
-                      {form.drilling_mode === 'predrilled' && (
-                        <div className="mt-2 grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-muted-foreground">Diametro foro (mm)</label>
-                            <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" min="0" className="mt-1 h-9 text-sm"
-                              value={form.drill_diameter_mm}
-                              onChange={e => set('drill_diameter_mm', parseDecimal(e.target.value) || 0)} />
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-muted-foreground">Tempo stimato</label>
-                            <div className="mt-1 h-9 px-2 flex items-center text-sm rounded-md border bg-muted/40">
-                              {drillSecondsPerHole != null
-                                ? `${selectedClosedCount} fori × ${drillSecondsPerHole}s = ${drillTotalSeconds! < 60 ? `${drillTotalSeconds!.toFixed(0)}s` : `${(drillTotalSeconds! / 60).toFixed(1)} min`}`
-                                : <span className="text-amber-700 text-xs">Combinazione non in tabella</span>}
+
+                      {form.drilling_mode === 'foratrice_edm' && (
+                        <div className="mt-2 space-y-2">
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">Ø elettrodo (mm)</label>
+                              <select
+                                className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                                value={form.electrode_diameter_mm || ''}
+                                onChange={e => set('electrode_diameter_mm', e.target.value === '' ? 0 : parseDecimal(e.target.value))}
+                                disabled={availableElectrodeDiameters.length === 0}
+                              >
+                                <option value="">— scegli Ø —</option>
+                                {availableElectrodeDiameters.map(d => (
+                                  <option key={d} value={d}>{d} mm</option>
+                                ))}
+                              </select>
+                              {partFamily && availableElectrodeDiameters.length === 0 && (
+                                <p className="text-[10px] text-amber-700 mt-0.5">
+                                  Nessun Ø in tabella per famiglia "{partFamily}"
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">N° pre-fori</label>
+                              <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+                                value={form.n_holes || ''}
+                                onChange={e => set('n_holes', e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground">Tempo stimato</label>
+                              <div className="mt-1 h-9 px-2 flex items-center text-sm rounded-md border bg-muted/40">
+                                {drillTotalSeconds != null
+                                  ? `${form.n_holes} × ${drillSecondsPerHole!.toFixed(1)}s = ${drillTotalSeconds < 60 ? `${drillTotalSeconds.toFixed(0)}s` : `${(drillTotalSeconds / 60).toFixed(1)} min`}`
+                                  : <span className="text-amber-700 text-xs">Compila famiglia, altezza, Ø, N° fori</span>}
+                              </div>
                             </div>
                           </div>
+                          {!edmConfig?.default_drilling_machine_id && (
+                            <p className="text-[11px] text-amber-700 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Foratrice EDM non configurata: vai in Impostazioni → Wire EDM → Parametri globali
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {form.drilling_mode === 'piastra_preforata' && (
+                        <div className="mt-2 max-w-xs">
+                          <label className="text-xs font-medium text-muted-foreground">N° infilaggi (fori già presenti nella piastra)</label>
+                          <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
+                            value={form.n_holes || ''}
+                            onChange={e => set('n_holes', e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)} />
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Usato per il pierce time del Wire EDM. Nessuna fase Foratura aggiunta al preventivo.
+                          </p>
                         </div>
                       )}
                     </div>

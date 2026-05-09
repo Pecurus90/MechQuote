@@ -244,6 +244,7 @@ export interface EdmConfig {
   semi_speed_factor: number
   finish_speed_factor: number
   default_pierce_time_s: number
+  default_drilling_machine_id?: number | null
   updated_at?: string
 }
 

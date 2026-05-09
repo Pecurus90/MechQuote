@@ -221,6 +221,11 @@ def _run_migrations():
         # tempo_foro = part.cut_height / row.speed_mm_per_sec.
         "ALTER TABLE drilling_times ADD COLUMN electrode_diameter_mm FLOAT",
         "ALTER TABLE drilling_times ADD COLUMN speed_mm_per_sec FLOAT",
+
+        # ═══ Sprint 11.5 — Foratrice EDM dedicata su EdmConfig ═══
+        # Macchina di default usata dal wizard 2D in modalità "Foratrice EDM"
+        # per popolare automaticamente la fase Foratura del preventivo.
+        "ALTER TABLE edm_config ADD COLUMN default_drilling_machine_id INTEGER REFERENCES machines(id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

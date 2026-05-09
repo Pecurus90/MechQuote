@@ -367,7 +367,13 @@ class EdmConfig(Base):
     semi_speed_factor = Column(Float, default=0.9)
     finish_speed_factor = Column(Float, default=0.7)
     default_pierce_time_s = Column(Float, default=2.0)
+    # Macchina dedicata alla foratura pre-EDM (1 sola in azienda). Usata dal
+    # wizard 2D quando l'utente sceglie modalità "Foratrice EDM" per popolare
+    # automaticamente la fase Foratura del preventivo.
+    default_drilling_machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    default_drilling_machine = relationship("Machine")
 
 
 class EdmCutSpeed(Base):

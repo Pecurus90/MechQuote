@@ -559,6 +559,7 @@ class EdmConfigBase(BaseModel):
     semi_speed_factor: float = Field(default=0.9, ge=0)
     finish_speed_factor: float = Field(default=0.7, ge=0)
     default_pierce_time_s: float = Field(default=2.0, ge=0)
+    default_drilling_machine_id: Optional[int] = None
 
 
 class EdmConfigUpdate(EdmConfigBase):

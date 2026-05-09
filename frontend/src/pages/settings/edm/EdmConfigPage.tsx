@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Save } from 'lucide-react'
 import api from '@/lib/api'
-import type { EdmConfig } from '@/types'
+import type { EdmConfig, Machine } from '@/types'
 import { toast } from 'sonner'
 
 const empty: Omit<EdmConfig, 'id' | 'updated_at'> = {
@@ -12,19 +12,25 @@ const empty: Omit<EdmConfig, 'id' | 'updated_at'> = {
   semi_speed_factor: 0.9,
   finish_speed_factor: 0.7,
   default_pierce_time_s: 2.0,
+  default_drilling_machine_id: null,
 }
 
 export default function EdmConfigPage() {
   const [cfg, setCfg] = useState(empty)
+  const [machines, setMachines] = useState<Machine[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    api.get('/edm-config').then(r => {
-      const { id: _id, updated_at: _u, ...rest } = r.data
-      void _id; void _u
-      setCfg(rest)
-    }).catch(() => toast.error('Errore nel caricamento')).finally(() => setLoading(false))
+    Promise.all([api.get('/edm-config'), api.get('/machines')])
+      .then(([cfgRes, mRes]) => {
+        const { id: _id, updated_at: _u, ...rest } = cfgRes.data
+        void _id; void _u
+        setCfg(rest)
+        setMachines(mRes.data)
+      })
+      .catch(() => toast.error('Errore nel caricamento'))
+      .finally(() => setLoading(false))
   }, [])
 
   const handleSave = async () => {
@@ -105,6 +111,43 @@ export default function EdmConfigPage() {
             <label className="text-sm font-medium">Pierce time (sec)</label>
             <Input type="number" step="0.5" min="0" value={cfg.default_pierce_time_s}
               onChange={e => setCfg(c => ({ ...c, default_pierce_time_s: num(e.target.value) }))} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Foratrice EDM dedicata</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            La macchina utilizzata per i pre-fori prima del taglio Wire EDM.
+            Il wizard "Nuovo Preventivo 2D" la usa automaticamente in modalità
+            "Foratrice EDM" per popolare la fase Foratura del preventivo.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-md">
+            <label className="text-sm font-medium">Macchina</label>
+            <select
+              className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={cfg.default_drilling_machine_id ?? ''}
+              onChange={e => setCfg(c => ({
+                ...c,
+                default_drilling_machine_id: e.target.value === '' ? null : Number(e.target.value),
+              }))}
+            >
+              <option value="">— nessuna selezionata —</option>
+              {machines.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({m.hourly_rate.toFixed(0)} €/h{m.machine_type ? ` · ${m.machine_type}` : ''})
+                </option>
+              ))}
+            </select>
+            {!cfg.default_drilling_machine_id && (
+              <p className="text-[11px] text-amber-700 mt-1">
+                ⚠ Senza foratrice EDM dedicata, la modalità "Foratrice EDM" del wizard 2D
+                non potrà creare la fase Foratura automaticamente.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -220,7 +220,8 @@ class Machine(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     machine_type = Column(String(50))
-    hourly_rate = Column(Float, default=0.0)
+    hourly_rate = Column(Float, default=0.0)             # costo orario lavorazione
+    setup_hourly_rate = Column(Float, nullable=True)     # costo orario attrezzaggio; NULL → fallback a hourly_rate
     setup_minimum_hours = Column(Float, default=0.0)
     active = Column(Boolean, default=True)
     notes = Column(Text)

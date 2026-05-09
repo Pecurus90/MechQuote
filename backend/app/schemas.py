@@ -361,6 +361,7 @@ class MachineBase(BaseModel):
     name: str
     machine_type: Optional[str] = None
     hourly_rate: Optional[float] = Field(default=0.0, ge=0)
+    setup_hourly_rate: Optional[float] = Field(default=None, ge=0)
     setup_minimum_hours: Optional[float] = Field(default=0.0, ge=0)
     active: Optional[bool] = True
     notes: Optional[str] = None

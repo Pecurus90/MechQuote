@@ -153,15 +153,24 @@ def recalculate_part(part_id: int, db: Session) -> None:
                 total_batch_cost = (t.cost_per_kg or 0.0) * total_weight
             phase.variable_cost_per_part = round(total_batch_cost / max(qty, 1), 4)
 
-        rate = phase.hourly_rate_override
-        if rate is None:
-            rate = phase.machine.hourly_rate if phase.machine else 0.0
+        # Rate split (Sprint 12): setup costa diversamente dalla lavorazione.
+        # `hourly_rate_override` agisce SOLO sul ciclo (workrate), non sul setup
+        # (un override è semanticamente "questa fase usa una tariffa speciale di
+        # lavorazione"; l'attrezzaggio resta legato alla macchina).
+        # `Machine.setup_hourly_rate` NULL → fallback a hourly_rate (compat).
+        work_rate = phase.hourly_rate_override
+        if work_rate is None:
+            work_rate = phase.machine.hourly_rate if phase.machine else 0.0
+        if phase.machine and phase.machine.setup_hourly_rate is not None:
+            setup_rate = phase.machine.setup_hourly_rate
+        else:
+            setup_rate = work_rate
 
         divisor = qty * (n_parts if phase.is_shared else 1)
 
         cost_per_piece = (
-            (phase.setup_hours or 0.0) * rate / divisor
-            + (phase.cycle_hours_per_part or 0.0) * rate
+            (phase.setup_hours or 0.0) * setup_rate / divisor
+            + (phase.cycle_hours_per_part or 0.0) * work_rate
             + (phase.fixed_cost or 0.0) / divisor
             + (phase.variable_cost_per_part or 0.0)
         )

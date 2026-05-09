@@ -226,6 +226,12 @@ def _run_migrations():
         # Macchina di default usata dal wizard 2D in modalità "Foratrice EDM"
         # per popolare automaticamente la fase Foratura del preventivo.
         "ALTER TABLE edm_config ADD COLUMN default_drilling_machine_id INTEGER REFERENCES machines(id)",
+
+        # ═══ Sprint 12 — Machine: costo orario attrezzaggio separato ═══
+        # In azienda l'attrezzaggio costa meno della lavorazione (operatore senza
+        # macchina in produzione). Cost engine: setup_cost = setup_hours ×
+        # (setup_hourly_rate ?? hourly_rate). NULL → fallback a hourly_rate.
+        "ALTER TABLE machines ADD COLUMN setup_hourly_rate FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

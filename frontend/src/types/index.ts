@@ -58,6 +58,7 @@ export interface Machine {
   id: number
   name: string
   hourly_rate: number
+  setup_hourly_rate?: number | null  // costo orario attrezzaggio, NULL → fallback a hourly_rate
   machine_type: string
   setup_minimum_hours?: number
   active?: boolean

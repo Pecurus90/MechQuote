@@ -24,6 +24,7 @@ export default function MachinesPage() {
   const [name, setName] = useState('')
   const [mtype, setMtype] = useState('')
   const [rate, setRate] = useState('')
+  const [setupRate, setSetupRate] = useState('')
   const [setup, setSetup] = useState('')
   const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -37,16 +38,25 @@ export default function MachinesPage() {
 
   const resetForm = (isNew = false) => {
     setEditingId(isNew ? 0 : null)
-    setName(''); setMtype(''); setRate(''); setSetup(''); setActive(true)
+    setName(''); setMtype(''); setRate(''); setSetupRate(''); setSetup(''); setActive(true)
   }
 
   const startEdit = (m: Machine) => {
     setEditingId(m.id); setName(m.name); setMtype(m.machine_type)
-    setRate(String(m.hourly_rate)); setSetup(String(m.setup_minimum_hours ?? 0)); setActive(m.active ?? true)
+    setRate(String(m.hourly_rate))
+    setSetupRate(m.setup_hourly_rate != null ? String(m.setup_hourly_rate) : '')
+    setSetup(String(m.setup_minimum_hours ?? 0)); setActive(m.active ?? true)
   }
 
   const handleSave = async () => {
-    const payload = { name, machine_type: mtype, hourly_rate: Number(rate), setup_minimum_hours: Number(setup), active }
+    const payload = {
+      name,
+      machine_type: mtype,
+      hourly_rate: Number(rate),
+      setup_hourly_rate: setupRate === '' ? null : Number(setupRate),
+      setup_minimum_hours: Number(setup),
+      active,
+    }
     try {
       if (editingId && editingId > 0) await api.put(`/machines/${editingId}`, payload)
       else await api.post('/machines', payload)
@@ -86,21 +96,25 @@ export default function MachinesPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[38%] font-medium text-gray-600">Nome</th>
-                <th className="text-left p-3 w-[38%] font-medium text-gray-600">Tipo</th>
-                <th className="text-right p-3 w-[14%] font-medium text-gray-600">Tariffa €/h</th>
+                <th className="text-left p-3 w-[34%] font-medium text-gray-600">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Tipo</th>
+                <th className="text-right p-3 w-[14%] font-medium text-gray-600">Lavoro €/h</th>
+                <th className="text-right p-3 w-[14%] font-medium text-gray-600">Setup €/h</th>
                 <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessuna macchina trovata.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessuna macchina trovata.</td></tr>
               )}
               {visible.map(m => (
                 <tr key={m.id} className="border-b hover:bg-gray-50">
                   <td className="p-3 font-medium truncate">{m.name}</td>
                   <td className="p-3 truncate">{MACHINE_TYPES.find(t => t.value === m.machine_type)?.label || m.machine_type}</td>
-                  <td className="p-3 text-right">{m.hourly_rate}</td>
+                  <td className="p-3 text-right font-mono">{m.hourly_rate}</td>
+                  <td className="p-3 text-right font-mono text-muted-foreground">
+                    {m.setup_hourly_rate != null ? m.setup_hourly_rate : <span className="text-gray-400">= {m.hourly_rate}</span>}
+                  </td>
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <button onClick={() => startEdit(m)} className="p-1 hover:bg-gray-100 rounded">
@@ -139,12 +153,18 @@ export default function MachinesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Tariffa €/ora</label>
-                  <Input type="number" step="0.1" value={rate} onChange={e => setRate(e.target.value)} />
+                  <label className="text-sm font-medium">Tariffa lavoro €/ora</label>
+                  <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" value={rate} onChange={e => setRate(e.target.value)} />
+                  <p className="text-[11px] text-gray-400 mt-0.5">Costo orario quando la macchina lavora</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tariffa setup €/ora</label>
+                  <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" placeholder={`default ${rate || '...'}`} value={setupRate} onChange={e => setSetupRate(e.target.value)} />
+                  <p className="text-[11px] text-gray-400 mt-0.5">Costo orario attrezzaggio (operatore senza macchina). Vuoto = stessa di lavoro.</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Setup minimo (h)</label>
-                  <Input type="number" step="0.1" value={setup} onChange={e => setSetup(e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" value={setup} onChange={e => setSetup(e.target.value)} />
                   <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
                 </div>
                 <div className="flex items-center gap-2">

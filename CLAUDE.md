@@ -221,17 +221,23 @@ Regole:
 - Frontend: `frontend/src/lib/quoteCalc.ts` `calcMaterialCost(part, material)`
 Backend ricalcola al `recalculate_part` se `part.material_id` + dimensioni grezzo presenti.
 
-**Formula calculated_cost (per pezzo)**:
+**Formula calculated_cost (per pezzo)** — Sprint 12: rate split setup vs lavoro:
 ```
-rate    = phase.hourly_rate_override ?? machine.hourly_rate ?? 0
-divisor = quantity × (n_parts if phase.is_shared else 1)
+work_rate  = phase.hourly_rate_override ?? machine.hourly_rate ?? 0
+setup_rate = machine.setup_hourly_rate ?? work_rate    # NULL → fallback a work_rate
+divisor    = quantity × (n_parts if phase.is_shared else 1)
 
 calculated_cost =
-    (setup_hours × rate)         / divisor   # setup amortizzato sui pezzi
-  + (cycle_hours_per_part × rate)            # già per pezzo
-  + (fixed_cost)                 / divisor   # costo fisso amortizzato
-  + variable_cost_per_part                   # già per pezzo
+    (setup_hours × setup_rate)         / divisor   # setup amortizzato, rate dedicato
+  + (cycle_hours_per_part × work_rate)             # già per pezzo, rate lavorazione
+  + (fixed_cost)                       / divisor   # costo fisso amortizzato
+  + variable_cost_per_part                         # già per pezzo
 ```
+
+Nota: `hourly_rate_override` su `ManufacturingPhase` agisce **solo sul ciclo**
+(work_rate). L'attrezzaggio resta legato alla macchina perché è semanticamente
+un costo dell'operatore, non della specifica fase. Nuova colonna
+`Machine.setup_hourly_rate` opzionale (NULL = retro-compatibile).
 
 Se `is_shared=true` (es. trattamento batch), setup e fixed sono amortizzati su tutte le parti del preventivo, non solo sulla quantity di una.
 

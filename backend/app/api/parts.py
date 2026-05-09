@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from typing import List
+import logging
 import os
 
 from app.core.database import get_db
@@ -10,6 +11,7 @@ from app.schemas import PartCreate, PartUpdate, PartOut
 from app.services.calculation import recalculate_part
 from app.api.quotes import ensure_editable
 
+logger = logging.getLogger(__name__)
 _can_write = require_permission('quotes.create')
 
 
@@ -214,8 +216,8 @@ def upload_file(
                 buffer.close()
                 try:
                     os.remove(file_path)
-                except Exception:
-                    pass
+                except OSError as e:
+                    logger.warning("Cleanup oversize upload fallito: %s — %s", file_path, e)
                 raise HTTPException(status_code=413, detail="File troppo grande (max 50 MB)")
             buffer.write(chunk)
 
@@ -249,8 +251,9 @@ def delete_file(
     ensure_editable(_quote_for_part(pf.part_id, db), current_user)
     try:
         os.remove(pf.path)
-    except Exception:
-        pass
+    except OSError as e:
+        # File già eliminato manualmente o permessi mancanti — il record DB va rimosso comunque.
+        logger.warning("Cleanup file fisico fallito per PartFile %s (%s): %s", file_id, pf.path, e)
     db.delete(pf)
     db.commit()
     return {"ok": True}

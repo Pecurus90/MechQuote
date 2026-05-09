@@ -240,10 +240,16 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - `default_packaging_cost` → `Quote.packaging_cost`
 
 **Campi deferred (esistono ma non applicati nel calcolo, dormienti per feature future)**:
-- `Part.rounding_rule` — applicazione su `unit_price` non implementata
-- `ManufacturingPhase.complexity_coefficient` — campo non esiste sul modello (esiste solo in `StepColorRule`)
-- `Treatment.cost_per_part` / `cost_per_surface_area` / `fixed_cost` — `calculation.py` usa solo `cost_per_kg + minimum_cost + minimum_weight_kg`
-- `Machine.setup_minimum_hours` — non applicato
+- `Material.edm_coefficient` / `cnc_machinability_coefficient` — UI MaterialsPage compila, mai letti dal cost engine. Da cablare con import 3D.
+- `Machine.setup_minimum_hours` — UI MachinesPage compila, non applicato come pavimento per setup auto-calcolato. Da cablare con import 2D/3D.
+- `StepColorRule.complexity_coefficient` — UI StepColorRulesPage compila, riservato all'import STEP (modulo 3D futuro).
+- `Treatment.treatment_type` — metadato descrittivo (UI TreatmentsPage), non filtrato dal calcolo.
+- `EdmCutSpeed.material_id` — colonna legacy nel DB pre-refactor famiglia (audit#1 sprint EDM 1.5), non più letta dal modello SQLAlchemy.
+
+**Campi rimossi dal modello in audit#2 sprint 3 B1** (colonne legacy DB, non leggibili da SQLAlchemy):
+- `Part.rounding_rule`, `Part.confidence_level`
+- `ManufacturingPhase.quantity_multiplier`, `margin_percent_override`
+- `Treatment.fixed_cost`, `cost_per_part`, `cost_per_surface_area`
 
 ---
 

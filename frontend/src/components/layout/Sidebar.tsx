@@ -4,11 +4,10 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Sun, Moon, Zap, Gauge, Drill, SlidersHorizontal, Scan,
+  Zap, Gauge, Drill, SlidersHorizontal, Scan,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
-import { useTheme } from '@/lib/theme'
 import { useNotifications } from '@/lib/useNotifications'
 import NotificationPanel from '@/components/layout/NotificationPanel'
 
@@ -56,7 +55,6 @@ export default function Sidebar() {
   const [notifOpen, setNotifOpen] = useState(false)
 
   const { enabled: notifEnabled, unreadCount, items, loading: notifLoading, fetchList, markRead, markConfirmed, clearRead } = useNotifications()
-  const { theme, toggleTheme } = useTheme()
 
   const handleLogout = () => {
     logout()
@@ -272,13 +270,6 @@ export default function Sidebar() {
                   )}
                 </button>
               )}
-              <button
-                onClick={toggleTheme}
-                className="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
-                title={theme === 'dark' ? 'Tema chiaro' : 'Tema scuro'}
-              >
-                {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-              </button>
               <button
                 onClick={handleLogout}
                 className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"

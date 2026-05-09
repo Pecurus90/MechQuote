@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import type { UserRole } from '@/lib/auth'
-import { ThemeProvider } from '@/lib/theme'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import AppLayout from '@/components/layout/AppLayout'
@@ -89,11 +88,9 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <Toaster position="top-center" richColors closeButton theme="system" />
-        <AppRoutes />
-      </AuthProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <Toaster position="top-center" richColors closeButton theme="light" />
+      <AppRoutes />
+    </AuthProvider>
   )
 }

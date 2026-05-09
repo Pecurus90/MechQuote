@@ -9,7 +9,6 @@ import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
 import { useAuth } from '@/lib/auth'
-import { useTheme } from '@/lib/theme'
 import { ACTIVITY_KIND } from '@/lib/activity'
 import { toast } from 'sonner'
 import {
@@ -201,8 +200,6 @@ const METRIC_CONFIG: Record<Metric, { label: string; color: string }> = {
 
 function MonthlyChart({ data }: { data: MonthlyData[] }) {
   const [metric, setMetric] = useState<Metric>('value')
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
   // Ultimi 6 mesi: la API ritorna ordinata asc; prendiamo gli ultimi 6
   const last6 = data.slice(-6)
   const formatted = last6.map(d => ({
@@ -211,14 +208,8 @@ function MonthlyChart({ data }: { data: MonthlyData[] }) {
   }))
   const cfg = METRIC_CONFIG[metric]
 
-  // Colori grafico in base al tema (recharts non legge CSS variables)
-  const chartColors = isDark ? {
-    grid: '#383838',     // border dark
-    tick: '#a3a3a3',     // muted-foreground dark
-    tooltipBg: '#1c1c1c', // card dark
-    tooltipBorder: '#383838',
-    tooltipText: '#f2f2f2', // foreground dark
-  } : {
+  // Colori grafico (recharts non legge CSS variables)
+  const chartColors = {
     grid: '#f0f0f0',
     tick: '#6b7280',
     tooltipBg: '#ffffff',

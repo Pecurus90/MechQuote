@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import require_role
+from app.core.security import require_permission
 from app.models import PhaseTemplate, QuoteCategory, StepColorRule
 from app.schemas import (
     PhaseTemplateCreate, PhaseTemplateBase, PhaseTemplateOut,
@@ -20,7 +20,7 @@ def list_categories(db: Session = Depends(get_db)):
     return db.query(QuoteCategory).order_by(QuoteCategory.sort_order, QuoteCategory.code).all()
 
 
-@router.post("/quote-categories", response_model=QuoteCategoryOut, dependencies=[require_role('admin')])
+@router.post("/quote-categories", response_model=QuoteCategoryOut, dependencies=[require_permission('settings')])
 def create_category(data: QuoteCategoryCreate, db: Session = Depends(get_db)):
     cat = QuoteCategory(**data.model_dump())
     db.add(cat)
@@ -29,7 +29,7 @@ def create_category(data: QuoteCategoryCreate, db: Session = Depends(get_db)):
     return cat
 
 
-@router.put("/quote-categories/{cid}", response_model=QuoteCategoryOut, dependencies=[require_role('admin')])
+@router.put("/quote-categories/{cid}", response_model=QuoteCategoryOut, dependencies=[require_permission('settings')])
 def update_category(cid: int, data: QuoteCategoryUpdate, db: Session = Depends(get_db)):
     cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
     if not cat:
@@ -41,7 +41,7 @@ def update_category(cid: int, data: QuoteCategoryUpdate, db: Session = Depends(g
     return cat
 
 
-@router.delete("/quote-categories/{cid}", dependencies=[require_role('admin')])
+@router.delete("/quote-categories/{cid}", dependencies=[require_permission('settings')])
 def delete_category(cid: int, db: Session = Depends(get_db)):
     cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
     if not cat:
@@ -57,7 +57,7 @@ def list_templates(db: Session = Depends(get_db)):
     return db.query(PhaseTemplate).order_by(PhaseTemplate.name).all()
 
 
-@router.post("/phase-templates", response_model=PhaseTemplateOut, dependencies=[require_role('admin')])
+@router.post("/phase-templates", response_model=PhaseTemplateOut, dependencies=[require_permission('settings')])
 def create_template(data: PhaseTemplateCreate, db: Session = Depends(get_db)):
     t = PhaseTemplate(**data.model_dump())
     db.add(t)
@@ -66,7 +66,7 @@ def create_template(data: PhaseTemplateCreate, db: Session = Depends(get_db)):
     return t
 
 
-@router.put("/phase-templates/{tid}", response_model=PhaseTemplateOut, dependencies=[require_role('admin')])
+@router.put("/phase-templates/{tid}", response_model=PhaseTemplateOut, dependencies=[require_permission('settings')])
 def update_template(tid: int, data: PhaseTemplateBase, db: Session = Depends(get_db)):
     t = db.query(PhaseTemplate).filter(PhaseTemplate.id == tid).first()
     if not t:
@@ -78,7 +78,7 @@ def update_template(tid: int, data: PhaseTemplateBase, db: Session = Depends(get
     return t
 
 
-@router.delete("/phase-templates/{tid}", dependencies=[require_role('admin')])
+@router.delete("/phase-templates/{tid}", dependencies=[require_permission('settings')])
 def delete_template(tid: int, db: Session = Depends(get_db)):
     t = db.query(PhaseTemplate).filter(PhaseTemplate.id == tid).first()
     if not t:
@@ -94,7 +94,7 @@ def list_color_rules(db: Session = Depends(get_db)):
     return db.query(StepColorRule).order_by(StepColorRule.color_name).all()
 
 
-@router.post("/step-color-rules", response_model=StepColorRuleOut, dependencies=[require_role('admin')])
+@router.post("/step-color-rules", response_model=StepColorRuleOut, dependencies=[require_permission('settings')])
 def create_color_rule(data: StepColorRuleCreate, db: Session = Depends(get_db)):
     c = StepColorRule(**data.model_dump())
     db.add(c)
@@ -103,7 +103,7 @@ def create_color_rule(data: StepColorRuleCreate, db: Session = Depends(get_db)):
     return c
 
 
-@router.put("/step-color-rules/{cid}", response_model=StepColorRuleOut, dependencies=[require_role('admin')])
+@router.put("/step-color-rules/{cid}", response_model=StepColorRuleOut, dependencies=[require_permission('settings')])
 def update_color_rule(cid: int, data: StepColorRuleBase, db: Session = Depends(get_db)):
     c = db.query(StepColorRule).filter(StepColorRule.id == cid).first()
     if not c:
@@ -115,7 +115,7 @@ def update_color_rule(cid: int, data: StepColorRuleBase, db: Session = Depends(g
     return c
 
 
-@router.delete("/step-color-rules/{cid}", dependencies=[require_role('admin')])
+@router.delete("/step-color-rules/{cid}", dependencies=[require_permission('settings')])
 def delete_color_rule(cid: int, db: Session = Depends(get_db)):
     c = db.query(StepColorRule).filter(StepColorRule.id == cid).first()
     if not c:

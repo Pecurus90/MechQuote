@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import require_role
+from app.core.security import require_permission
 from app.models import Machine
 from app.schemas import MachineCreate, MachineUpdate, MachineOut
 
@@ -15,7 +15,7 @@ def list_machines(db: Session = Depends(get_db)):
     return db.query(Machine).order_by(Machine.name).all()
 
 
-@router.post("/machines", response_model=MachineOut, dependencies=[require_role('admin')])
+@router.post("/machines", response_model=MachineOut, dependencies=[require_permission('settings')])
 def create_machine(data: MachineCreate, db: Session = Depends(get_db)):
     m = Machine(**data.model_dump())
     db.add(m)
@@ -24,7 +24,7 @@ def create_machine(data: MachineCreate, db: Session = Depends(get_db)):
     return m
 
 
-@router.put("/machines/{mid}", response_model=MachineOut, dependencies=[require_role('admin')])
+@router.put("/machines/{mid}", response_model=MachineOut, dependencies=[require_permission('settings')])
 def update_machine(mid: int, data: MachineUpdate, db: Session = Depends(get_db)):
     m = db.query(Machine).filter(Machine.id == mid).first()
     if not m:
@@ -36,7 +36,7 @@ def update_machine(mid: int, data: MachineUpdate, db: Session = Depends(get_db))
     return m
 
 
-@router.delete("/machines/{mid}", dependencies=[require_role('admin')])
+@router.delete("/machines/{mid}", dependencies=[require_permission('settings')])
 def delete_machine(mid: int, db: Session = Depends(get_db)):
     m = db.query(Machine).filter(Machine.id == mid).first()
     if not m:

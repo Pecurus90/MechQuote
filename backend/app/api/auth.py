@@ -4,7 +4,7 @@ from typing import List
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_db
-from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user, require_role, require_permission
+from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user, require_permission
 from app.models import User
 from app.schemas import Token, UserCreate, UserUpdate, UserOut
 
@@ -52,18 +52,19 @@ def get_me(current_user: User = Depends(get_current_user)):
     }
 
 
-# ─── User management (admin only) ────────────────────────────────────────────
+# ─── User management (gating: 'users' permission) ────────────────────────────
 
 users_router = APIRouter(prefix="/api/users", tags=["users"])
+_can_manage_users = require_permission('users')
 
 
-@users_router.get("", response_model=List[UserOut])
-def list_users(db: Session = Depends(get_db), _=require_role('admin')):
+@users_router.get("", response_model=List[UserOut], dependencies=[_can_manage_users])
+def list_users(db: Session = Depends(get_db)):
     return db.query(User).order_by(User.id).all()
 
 
-@users_router.post("", response_model=UserOut)
-def create_user(data: UserCreate, db: Session = Depends(get_db), _=require_role('admin')):
+@users_router.post("", response_model=UserOut, dependencies=[_can_manage_users])
+def create_user(data: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == data.username).first():
         raise HTTPException(status_code=400, detail="Username già esistente")
     user = User(
@@ -80,8 +81,8 @@ def create_user(data: UserCreate, db: Session = Depends(get_db), _=require_role(
     return user
 
 
-@users_router.put("/{user_id}", response_model=UserOut)
-def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), _=require_role('admin')):
+@users_router.put("/{user_id}", response_model=UserOut, dependencies=[_can_manage_users])
+def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utente non trovato")
@@ -101,9 +102,12 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), _
 
 
 @users_router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = require_role('admin')):
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Self-delete check va prima del permission check, perché serve current_user.id
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="Non puoi eliminare il tuo account")
+    if 'users' not in getattr(current_user, '_permissions', []):
+        raise HTTPException(status_code=403, detail="Permesso negato")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utente non trovato")

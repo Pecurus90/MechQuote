@@ -315,7 +315,7 @@ class QuoteBase(BaseModel):
 
 
 class QuoteCreate(QuoteBase):
-    quote_number: str  # obbligatorio per evitare 500 su INSERT NULL su colonna unique
+    quote_number: str = Field(min_length=1, max_length=50)  # unique sul modello
     num_components: Optional[int] = None
     default_quantity: Optional[int] = 1
 
@@ -618,7 +618,7 @@ class CuttingPassOut(CuttingPassBase):
 
 
 class CuttingCycleBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     description: Optional[str] = None
     active: bool = True
 

@@ -185,6 +185,17 @@ I due modelli hanno ~80% dei campi sovrapposti (`name`, `address`, `shipping_cos
 
 **Quando aggiungi un fornitore in codice**: scegli `MaterialSupplier` se riguarda l'approvvigionamento materiale grezzo, `Supplier` se riguarda lavorazioni esterne (heat_treatment, surface_treatment, external_supplier phases). Non usare l'uno per l'altro.
 
+### Concorrenza — last write wins
+
+I modelli SQLAlchemy non hanno `version_id_col`: due update concorrenti sullo stesso record (es. `Part.margin_percent` modificato da 2 sessioni che hanno letto lo stesso valore iniziale) producono **lost update silente**, l'ultima scrittura vince senza warning. Per un'app a 1 utente è ininfluente.
+
+Se in futuro più utenti operano sullo stesso preventivo, valutare:
+1. Optimistic locking via `updated_at` come `If-Match` header (server confronta, 409 se diverso)
+2. Lock pessimistico via `Quote.status='in_edit_da_X'` durante l'editing
+3. Re-fetch automatico in UI dopo ogni save per allineare la copia client
+
+Ad oggi (2026-05-09) **non documentato come bug**, è una scelta esplicita per ridurre complessità in scope MVP.
+
 ### Workflow stati preventivo (interno, 3 stati)
 
 ```

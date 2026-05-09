@@ -60,28 +60,38 @@ app.include_router(dxf.router, dependencies=_auth)
 
 
 def _run_migrations():
-    """Add new columns to existing tables without losing data."""
+    """Migrazioni manuali idempotenti applicate ad ogni boot.
+
+    Ogni statement è in try/except: pass — gli ALTER TABLE falliscono se la
+    colonna esiste già (no-op), gli UPDATE/DELETE sono idempotenti per
+    costruzione (WHERE clause selettive). Vedi CLAUDE.md §6.
+
+    Le sezioni sono ordinate cronologicamente per fase di sviluppo. L'ordine
+    interno conta perché ci sono dipendenze (es. FK references); preserva
+    l'ordine quando aggiungi nuove migrazioni.
+    """
     migrations = [
+        # ═══ Schema base — colonne aggiunte gradualmente ai modelli esistenti ═══
         "ALTER TABLE quotes ADD COLUMN quote_type VARCHAR(20) DEFAULT 'single'",
         "ALTER TABLE quotes ADD COLUMN global_discount_percent FLOAT DEFAULT 0.0",
         "ALTER TABLE quotes ADD COLUMN transport_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE quotes ADD COLUMN packaging_cost FLOAT DEFAULT 0.0",
-        "ALTER TABLE parts ADD COLUMN rounding_rule VARCHAR(20) DEFAULT 'none'",
-        "ALTER TABLE parts ADD COLUMN minimum_price FLOAT",
-        "ALTER TABLE parts ADD COLUMN raw_diameter_mm FLOAT",
-        "ALTER TABLE parts ADD COLUMN finished_weight_kg FLOAT",
-        "ALTER TABLE parts ADD COLUMN raw_weight_kg FLOAT",
-        "ALTER TABLE parts ADD COLUMN confidence_level VARCHAR(20) DEFAULT 'high'",
-        "ALTER TABLE parts ADD COLUMN customer_notes TEXT",
-        "ALTER TABLE parts ADD COLUMN internal_notes TEXT",
         "ALTER TABLE quotes ADD COLUMN currency VARCHAR(10) DEFAULT 'EUR'",
         "ALTER TABLE quotes ADD COLUMN validity_days INTEGER DEFAULT 30",
         "ALTER TABLE quotes ADD COLUMN delivery_text VARCHAR(200)",
         "ALTER TABLE quotes ADD COLUMN customer_reference VARCHAR(200)",
+        "ALTER TABLE parts ADD COLUMN rounding_rule VARCHAR(20) DEFAULT 'none'",  # legacy, non più letto (audit B1)
+        "ALTER TABLE parts ADD COLUMN minimum_price FLOAT",
+        "ALTER TABLE parts ADD COLUMN raw_diameter_mm FLOAT",
+        "ALTER TABLE parts ADD COLUMN finished_weight_kg FLOAT",
+        "ALTER TABLE parts ADD COLUMN raw_weight_kg FLOAT",
+        "ALTER TABLE parts ADD COLUMN confidence_level VARCHAR(20) DEFAULT 'high'",  # legacy, non più letto (audit B1)
+        "ALTER TABLE parts ADD COLUMN customer_notes TEXT",
+        "ALTER TABLE parts ADD COLUMN internal_notes TEXT",
+        "ALTER TABLE parts ADD COLUMN material_delivery_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE manufacturing_phases ADD COLUMN treatment_id INTEGER REFERENCES treatments(id)",
         "ALTER TABLE manufacturing_phases ADD COLUMN is_shared INTEGER DEFAULT 0",
         "ALTER TABLE phase_templates ADD COLUMN is_shared INTEGER DEFAULT 0",
-        "ALTER TABLE parts ADD COLUMN material_delivery_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE materials ADD COLUMN supplier_id INTEGER REFERENCES material_suppliers(id)",
         "ALTER TABLE suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE suppliers ADD COLUMN address TEXT",
@@ -89,33 +99,40 @@ def _run_migrations():
         "ALTER TABLE material_suppliers ADD COLUMN cutting_cost_per_part FLOAT DEFAULT 0.0",
         "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'admin'",
         "ALTER TABLE users ADD COLUMN email VARCHAR(200)",
-        # Workflow status migration — convert legacy English values to Italian
+
+        # ═══ Status preventivo: legacy inglese → italiano, poi 3-stati ═══
         "UPDATE quotes SET status = 'bozza' WHERE status = 'draft'",
         "UPDATE quotes SET status = 'inviato_cliente' WHERE status = 'sent'",
         "UPDATE quotes SET status = 'vinto' WHERE status = 'won'",
         "UPDATE quotes SET status = 'perso' WHERE status = 'lost'",
-        # Ensure roles/role_permissions tables exist (also created by create_all)
-        "CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY, name VARCHAR(50) UNIQUE NOT NULL, label VARCHAR(100) NOT NULL, color VARCHAR(20) DEFAULT 'gray')",
-        "CREATE TABLE IF NOT EXISTS role_permissions (id INTEGER PRIMARY KEY, role_id INTEGER REFERENCES roles(id), permission_key VARCHAR(100) NOT NULL)",
-        # FASE C — workflow interno semplificato (bozza|inviato|completato)
+        # Collassa stati intermedi nel modello a 3 stati (bozza|inviato|completato)
+        "UPDATE quotes SET status = 'completato' WHERE status IN ('inviato_cliente','vinto','perso')",
+
+        # ═══ Workflow tracking — chi-ha-fatto-cosa-quando ═══
         "ALTER TABLE quotes ADD COLUMN submitted_by_user_id INTEGER REFERENCES users(id)",
         "ALTER TABLE quotes ADD COLUMN submitted_at DATETIME",
         "ALTER TABLE quotes ADD COLUMN completed_by_user_id INTEGER REFERENCES users(id)",
         "ALTER TABLE quotes ADD COLUMN completed_at DATETIME",
-        # Collassa i vecchi stati al cliente / vinti / persi in 'completato'
-        "UPDATE quotes SET status = 'completato' WHERE status IN ('inviato_cliente','vinto','perso')",
-        # Pulizia permessi rimossi / rinominati
+        "ALTER TABLE quotes ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)",
+        # Pulizia preventivi orfani con quote_number NULL/'' (residui da test pre-validazione)
+        "DELETE FROM quotes WHERE quote_number IS NULL OR quote_number = ''",
+
+        # ═══ Sistema permessi dinamici: roles + role_permissions ═══
+        "CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY, name VARCHAR(50) UNIQUE NOT NULL, label VARCHAR(100) NOT NULL, color VARCHAR(20) DEFAULT 'gray')",
+        "CREATE TABLE IF NOT EXISTS role_permissions (id INTEGER PRIMARY KEY, role_id INTEGER REFERENCES roles(id), permission_key VARCHAR(100) NOT NULL)",
+        # Cleanup permessi rimossi/rinominati
         "DELETE FROM role_permissions WHERE permission_key IN ('quotes.send_client','quotes.close')",
-        # Inserisce 'quotes.complete' per admin e amministrazione (idempotente: prima cancella, poi reinserisce)
+        # Pattern idempotente per assegnazione permesso (DELETE + INSERT seleziona ruoli):
         "DELETE FROM role_permissions WHERE permission_key = 'quotes.complete'",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.complete' FROM roles WHERE name IN ('admin','amministrazione')",
-        # FASE D — sistema notifiche generico (anche create_all li crea, qui per consistency)
-        "CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY, type VARCHAR(50) NOT NULL, title VARCHAR(200) NOT NULL, body TEXT, data_json JSON, created_by_user_id INTEGER REFERENCES users(id), target_roles JSON, target_user_id INTEGER REFERENCES users(id), requires_action BOOLEAN DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-        "CREATE TABLE IF NOT EXISTS notification_reads (id INTEGER PRIMARY KEY, notification_id INTEGER REFERENCES notifications(id), user_id INTEGER REFERENCES users(id), read_at DATETIME, confirmed_at DATETIME)",
-        "ALTER TABLE notification_reads ADD COLUMN dismissed_at DATETIME",
-        # FASE C rifinitura — chi ha creato il preventivo (per controllo eliminazione)
-        "ALTER TABLE quotes ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)",
-        # CompanySettings — singleton che sostituisce CostRule + 4 default attivi
+        "DELETE FROM role_permissions WHERE permission_key = 'company'",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'company' FROM roles WHERE name = 'admin'",
+
+        # ═══ CompanySettings — singleton che sostituisce CostRule legacy ═══
+        # La tabella cost_rules resta nel DB per backward compat con DB pre-CompanySettings:
+        # alla prima migrazione, il SELECT FROM cost_rules sotto popola company_settings.id=1.
+        # Su DB nuovi cost_rules può non esistere → la statement INSERT viene saltata via
+        # try/except, e il singleton viene popolato con default da CompanySettings model.
         ("CREATE TABLE IF NOT EXISTS company_settings ("
          "id INTEGER PRIMARY KEY, name VARCHAR(200) DEFAULT '', address TEXT DEFAULT '', "
          "vat VARCHAR(50) DEFAULT '', phone VARCHAR(50) DEFAULT '', "
@@ -123,7 +140,6 @@ def _run_migrations():
          "default_margin_percent FLOAT DEFAULT 20.0, default_minimum_part_price FLOAT DEFAULT 0.0, "
          "default_transport_cost FLOAT DEFAULT 0.0, default_packaging_cost FLOAT DEFAULT 0.0, "
          "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
-        # Migrazione idempotente: se non esiste il singleton, lo crea copiando i valori da cost_rules
         ("INSERT INTO company_settings (id, name, address, vat, phone, email, website, "
          "default_margin_percent, default_minimum_part_price, default_transport_cost, default_packaging_cost) "
          "SELECT 1, "
@@ -138,47 +154,47 @@ def _run_migrations():
          "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='transport_default') AS FLOAT), 0.0), "
          "COALESCE(CAST((SELECT value FROM cost_rules WHERE key='packaging_default') AS FLOAT), 0.0) "
          "WHERE NOT EXISTS (SELECT 1 FROM company_settings WHERE id=1)"),
-        # Permesso 'company' aggiunto in audit#3 — di default solo admin
-        "DELETE FROM role_permissions WHERE permission_key = 'company'",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'company' FROM roles WHERE name = 'admin'",
-        # Pulizia preventivi orfani con quote_number NULL/'' (residui da test pre-validazione)
-        "DELETE FROM quotes WHERE quote_number IS NULL OR quote_number = ''",
-        # Dedupe notifiche quote_completed sotto race: target_quote_id + UNIQUE INDEX parziale.
-        # Il secondo INSERT con stesso (type,target_user_id,target_quote_id) fallisce con IntegrityError.
+
+        # ═══ Notifiche — schema + dedupe race conditions ═══
+        "CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY, type VARCHAR(50) NOT NULL, title VARCHAR(200) NOT NULL, body TEXT, data_json JSON, created_by_user_id INTEGER REFERENCES users(id), target_roles JSON, target_user_id INTEGER REFERENCES users(id), requires_action BOOLEAN DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS notification_reads (id INTEGER PRIMARY KEY, notification_id INTEGER REFERENCES notifications(id), user_id INTEGER REFERENCES users(id), read_at DATETIME, confirmed_at DATETIME)",
+        "ALTER TABLE notification_reads ADD COLUMN dismissed_at DATETIME",
+        # target_quote_id + UNIQUE INDEX parziale: blocca duplicati di quote_completed sotto race
         "ALTER TABLE notifications ADD COLUMN target_quote_id INTEGER REFERENCES quotes(id)",
-        # Backfill: estrae quote_id da data_json per le righe esistenti
+        # Backfill: estrae quote_id da data_json per le righe pre-target_quote_id
         ("UPDATE notifications SET target_quote_id = "
          "CAST(json_extract(data_json, '$.quote_id') AS INTEGER) "
          "WHERE target_quote_id IS NULL AND data_json IS NOT NULL"),
-        # Pulizia duplicati esistenti (audit#4 ne aveva creati 7+ per qid 5,6,7,8...): tieni solo il primo
+        # Pulizia duplicati pre-UNIQUE INDEX (audit#4 ne aveva creati 7+ per quote_id)
         ("DELETE FROM notifications WHERE id NOT IN ("
          "SELECT MIN(id) FROM notifications WHERE type='quote_completed' "
          "GROUP BY type, target_user_id, target_quote_id"
          ") AND type='quote_completed'"),
-        # Pulizia notifiche orfane: target_quote_id punta a quote eliminato (id riciclato dal pool SQLite)
+        # Pulizia notifiche orfane (target_quote_id punta a quote eliminato — id riciclato da SQLite)
         ("DELETE FROM notifications "
          "WHERE target_quote_id IS NOT NULL "
          "AND target_quote_id NOT IN (SELECT id FROM quotes)"),
-        # Pulizia notification_reads orfane: notification_id punta a notifiche cancellate.
-        # Critico per evitare che id riciclati ereditino lo stato 'dismessa' del precedente record.
+        # Pulizia notification_reads orfane: critico per evitare che id riciclati ereditino lo stato 'dismessa'
         ("DELETE FROM notification_reads "
          "WHERE notification_id NOT IN (SELECT id FROM notifications)"),
-        # UNIQUE INDEX parziale: blocca INSERT duplicati per quote_completed
         ("CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_unique_quote_completed "
          "ON notifications(type, target_user_id, target_quote_id) "
          "WHERE type='quote_completed' AND target_quote_id IS NOT NULL"),
-        # Wire EDM Step 1 — colonne extra su ManufacturingPhase, popolate solo se phase_type='wire_edm'
+
+        # ═══ Wire EDM Step 1 — campi extra su ManufacturingPhase ═══
+        # Popolati quando phase_type='wire_edm', altrimenti NULL → fallback al manuale.
         "ALTER TABLE manufacturing_phases ADD COLUMN cut_length_mm FLOAT",
         "ALTER TABLE manufacturing_phases ADD COLUMN cut_height_mm FLOAT",
         "ALTER TABLE manufacturing_phases ADD COLUMN cutting_cycle_id INTEGER REFERENCES cutting_cycles(id)",
         "ALTER TABLE manufacturing_phases ADD COLUMN n_pierce INTEGER",
         "ALTER TABLE manufacturing_phases ADD COLUMN dxf_profile_ids JSON",
-        # Wire EDM Step 1.5 — refactor: EdmCutSpeed/DrillingTime indicizzati per famiglia,
-        # non più per FK a Material. material_id legacy resta nel DB (SQLite no DROP COLUMN)
-        # ma il modello smette di leggerlo.
+
+        # ═══ Wire EDM Step 1.5 — EdmCutSpeed/DrillingTime indicizzati per famiglia ═══
+        # Refactor da material_id (FK) a material_family (slug). La colonna material_id
+        # legacy resta nel DB ma il modello smette di leggerla (CLAUDE.md §6: no DROP COLUMN).
         "ALTER TABLE edm_cut_speeds ADD COLUMN material_family VARCHAR(50)",
         "ALTER TABLE drilling_times ADD COLUMN material_family VARCHAR(50)",
-        # Normalizza materials.family ai nuovi slug (idempotente — UPDATE resta no-op se già nuovo slug)
+        # Normalizza materials.family ai nuovi slug (idempotente: UPDATE no-op se già nuovo slug)
         "UPDATE materials SET family='alluminio'        WHERE LOWER(family) IN ('aluminum','aluminium')",
         "UPDATE materials SET family='acciaio_carbonio' WHERE LOWER(family) IN ('carbon steel','carbon_steel')",
         "UPDATE materials SET family='acciaio_inox'     WHERE LOWER(family) IN ('stainless steel','stainless_steel','stainless')",
@@ -188,11 +204,11 @@ def _run_migrations():
         "UPDATE materials SET family='rame'             WHERE LOWER(family) IN ('copper')",
         "UPDATE materials SET family='plastica'         WHERE LOWER(family) IN ('plastic','plastics')",
         "UPDATE materials SET family='carburi'          WHERE LOWER(family) IN ('carbide','carbides')",
-        # Valori non riconosciuti diventano 'altro' (preservando i NULL)
+        # Slug non riconosciuti diventano 'altro' (preservando i NULL)
         ("UPDATE materials SET family='altro' WHERE family IS NOT NULL "
          "AND family NOT IN ('acciaio_carbonio','acciaio_inox','acciaio_utensili','alluminio',"
          "'titanio','ottone','rame','plastica','carburi','altro')"),
-        # Backfill material_family copiando da materials.family via material_id legacy
+        # Backfill material_family su righe esistenti via material_id legacy → materials.family
         ("UPDATE edm_cut_speeds SET material_family = "
          "(SELECT m.family FROM materials m WHERE m.id = edm_cut_speeds.material_id) "
          "WHERE material_family IS NULL AND material_id IS NOT NULL"),

@@ -182,6 +182,23 @@ def import_data(payload: BackupPayload, db: Session = Depends(get_db)) -> Dict[s
     if not tables:
         raise HTTPException(status_code=400, detail="Backup vuoto o formato non riconosciuto")
 
+    # Guard distruttivo: il payload deve contenere righe in almeno una tabella nota.
+    # Senza questo check, un payload con solo chiavi sconosciute o liste vuote
+    # passerebbe il guard `if not tables` ma poi il DELETE successivo svuoterebbe
+    # tutto il DB senza reimportare nulla (incidente del 2026-05-09: chiamata di
+    # test con tables={'unknown_table': [...], 'users': []} ha cancellato 326
+    # customers + 5 users + materials senza recovery possibile).
+    known_with_data = [
+        t for t, rows in tables.items()
+        if t in TABLE_TO_MODEL and isinstance(rows, list) and len(rows) > 0
+    ]
+    if not known_with_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Backup non contiene dati per nessuna tabella riconosciuta — "
+                   "import abortito per evitare DELETE distruttivo del DB attuale.",
+        )
+
     # 1. Cancella in ordine reverse (children prima dei parent)
     for model_class in reversed(EXPORT_ORDER):
         db.query(model_class).delete()

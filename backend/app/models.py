@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import date
 
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer,
@@ -63,7 +64,11 @@ class Quote(Base):
     customer_id = Column(Integer, ForeignKey("customers.id"))
     customer_name = Column(String(200))
     customer_reference = Column(String(200))
-    quote_date = Column(Date, server_default=func.now())
+    # default Python (date.today): server_default=func.now() su SQLite produce
+    # un timestamp 'YYYY-MM-DD HH:MM:SS' che il driver Python non sa parsare
+    # come date pura → ValueError al SELECT successivo. Usare default Python
+    # garantisce un date object pulito (CSPRNG-libero, idempotente per test).
+    quote_date = Column(Date, default=date.today)
 
     customer = relationship("Customer", back_populates="quotes")
     validity_days = Column(Integer, default=30)

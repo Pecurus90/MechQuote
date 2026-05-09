@@ -1,5 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // 'class' disabilita l'auto-switch via prefers-color-scheme (default 'media').
+  // Le classi `dark:*` sparse nei TSX si attivano SOLO se <html> ha class="dark",
+  // che non viene mai aggiunta dopo la rimozione del ThemeProvider — risultato:
+  // tema light fisso, niente cambio automatico al tramonto su macOS/iOS.
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

@@ -1,13 +1,60 @@
 import type { Part, Quote, Material, Treatment } from '@/types'
 
-export function calcTreatmentCost(t: Treatment, finishedWeightKg: number | undefined, qty: number): number {
-  const weight = finishedWeightKg || 0
-  const totalBatchWeight = weight * qty
+/** Sibling part contribution (peso fisico × qty) per le aggregazioni di
+ *  costi tra parti del preventivo commessa. */
+export interface SiblingWeight {
+  finishedWeightKg?: number | null
+  qty: number
+}
+
+/**
+ * Costo trattamento per pezzo.
+ *
+ * Gemello DRY del backend `services/calculation.recalculate_quote` —
+ * stessa formula. Aggrega i pesi delle parti del preventivo che condividono
+ * lo stesso trattamento (`siblings`): la soglia viene applicata sul peso
+ * totale del batch, e il costo distribuito proporzionale al peso.
+ *
+ * Per single quote / chiamata senza `siblings` ([] di default), il
+ * comportamento è identico al pre-refactor (1 sola parte = 1 sola batch).
+ */
+export function calcTreatmentCost(
+  t: Treatment,
+  finishedWeightKg: number | undefined,
+  qty: number,
+  siblings: SiblingWeight[] = [],
+): number {
+  const myWeight = (finishedWeightKg || 0) * Math.max(qty, 1)
+  const siblingsWeight = siblings.reduce(
+    (s, x) => s + (x.finishedWeightKg || 0) * Math.max(x.qty, 1),
+    0,
+  )
+  const totalBatchWeight = myWeight + siblingsWeight
   const belowThreshold = t.minimum_weight_kg != null && t.minimum_weight_kg > 0 && totalBatchWeight < t.minimum_weight_kg
   const totalBatchCost = belowThreshold
     ? (t.minimum_cost || 0)
     : (t.cost_per_kg || 0) * totalBatchWeight
-  return totalBatchCost / Math.max(qty, 1)
+  const myShare = totalBatchWeight > 0
+    ? totalBatchCost * myWeight / totalBatchWeight
+    : totalBatchCost / (1 + siblings.length)
+  return myShare / Math.max(qty, 1)
+}
+
+/**
+ * Quota di parte della spedizione (materiale o trattamento) condivisa
+ * tra le parti che hanno lo stesso supplier. Distribuzione proporzionale
+ * al peso. Edge case nessun peso → parti uguali nel gruppo.
+ */
+export function calcShippingShare(
+  totalShipping: number,
+  myWeight: number,
+  siblingsWeight: number[] = [],
+): number {
+  const totalWeight = myWeight + siblingsWeight.reduce((s, w) => s + w, 0)
+  if (totalWeight <= 0) {
+    return totalShipping / (1 + siblingsWeight.length)
+  }
+  return totalShipping * myWeight / totalWeight
 }
 
 export function calcMaterialCost(part: Part, material: Material | undefined): number {

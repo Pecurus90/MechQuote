@@ -88,6 +88,14 @@ export default function QuoteEditor() {
     })
   }
 
+  const reloadQuote = async () => {
+    if (!quote?.id) return
+    try {
+      const res = await api.get(`/quotes/${quote.id}`)
+      applyQuoteData(res.data)
+    } catch { toast.error('Errore nel ricaricamento del preventivo') }
+  }
+
   const savePart = async (idx: number) => {
     if (!quote) return
     const part = quote.parts[idx]
@@ -112,18 +120,18 @@ export default function QuoteEditor() {
         unit_price: part.unit_price,
         total_price: part.total_price,
       })
+      // Le aggregazioni commessa (trattamenti batch, spedizioni condivise)
+      // possono modificare ANCHE le altre parti: ricarico l'intero quote
+      // per riflettere lo stato del backend coerentemente.
+      await reloadQuote()
     } catch (e) {toast.error('Errore nel salvataggio della parte') }
   }
 
-  const reloadPart = async (idx: number) => {
-    if (!quote) return
-    const part = quote.parts[idx]
-    if (!part?.id) return
-    try {
-      const res = await api.get(`/parts/${part.id}`)
-      const fresh = { ...res.data, phases: res.data.phases || [] }
-      setQuote(q => q ? { ...q, parts: q.parts.map((p, i) => i === idx ? fresh : p) } : q)
-    } catch { toast.error('Errore nel caricamento della parte') }
+  // reloadPart legacy: ricarica l'intero quote (le aggregazioni rendono
+  // la singola parte non più isolabile). Nome lasciato per compatibilità
+  // con i chiamanti (PartCard.onReload).
+  const reloadPart = async (_idx: number) => {
+    await reloadQuote()
   }
 
   const duplicatePart = async (idx: number) => {

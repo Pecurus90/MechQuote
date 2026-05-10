@@ -23,7 +23,13 @@ def _is_target(n: Notification, user: User) -> bool:
 
 
 def _query_for_user(db: Session, user: User):
-    """Notifications visible to this user (escluso dismissed)."""
+    """Notifications visible to this user (escluso dismissed).
+
+    Cap a 200 righe candidate: il filtro fine `target_roles in user.role`
+    avviene in Python (vedi `_is_target`). Senza cap, una notifica con
+    target_roles popolato genererebbe N row caricate per ogni polling.
+    L'inbox UI mostra max 50 — 200 candidate sono un margine confortevole.
+    """
     dismissed_subq = db.query(NotificationRead.notification_id).filter(
         NotificationRead.user_id == user.id,
         NotificationRead.dismissed_at.isnot(None),
@@ -36,7 +42,7 @@ def _query_for_user(db: Session, user: User):
             # For Postgres later, switch to a JSONB containment operator.
             Notification.target_roles.isnot(None),
         )
-    ).order_by(Notification.created_at.desc())
+    ).order_by(Notification.created_at.desc()).limit(200)
 
 
 def serialize_notification(n: Notification, read: Optional[NotificationRead]) -> dict:

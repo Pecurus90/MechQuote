@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
-  Box, Cog, Layers, Ruler, Building2,
+  Box, Cog, Layers, Ruler, Building2, Workflow,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
   Zap, Gauge, Drill, SlidersHorizontal, Scan,
 } from 'lucide-react'
@@ -173,9 +173,13 @@ export default function Sidebar() {
                       <Ruler className="w-3.5 h-3.5 shrink-0" />
                       <span>Trattamenti</span>
                     </NavLink>
-                    <NavLink to="/settings/templates" className={({ isActive }) => navLinkClass(isActive, true)}>
+                    <NavLink to="/settings/operations" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Layers className="w-3.5 h-3.5 shrink-0" />
-                      <span>Template Fasi</span>
+                      <span>Lavorazioni</span>
+                    </NavLink>
+                    <NavLink to="/settings/workflows" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Workflow className="w-3.5 h-3.5 shrink-0" />
+                      <span>Template flusso</span>
                     </NavLink>
                     <NavLink to="/settings/categories" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Tag className="w-3.5 h-3.5 shrink-0" />

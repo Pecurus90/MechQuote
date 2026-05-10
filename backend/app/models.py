@@ -169,21 +169,26 @@ class ManufacturingPhase(Base):
 
     treatment_id = Column(Integer, ForeignKey("treatments.id"), nullable=True)
 
-    # Wire EDM extra fields (popolati quando phase_type='wire_edm', altrimenti NULL).
-    # Se popolati, il cost engine calcola cycle_hours_per_part automaticamente.
+    # Lavorazione (categoria libera dall'utente, sostituisce phase_type).
+    # phase_type resta come colonna legacy nel DB ma non più letta dal modello.
+    operation_id = Column(Integer, ForeignKey("operations.id"), nullable=True)
+
+    # Wire EDM extra: popolati quando si vuole l'autocalc tempo. Si attivano
+    # quando la macchina della fase è di tipo wire_edm (machine.machine_type).
     cut_length_mm = Column(Float, nullable=True)
     cut_height_mm = Column(Float, nullable=True)
     cutting_cycle_id = Column(Integer, ForeignKey("cutting_cycles.id"), nullable=True)
     n_pierce = Column(Integer, nullable=True)
     dxf_profile_ids = Column(JSON, nullable=True)
-    # Colonne legacy in DB ma non mappate (prototipo modulo Volumetric Sprint 13/14
-    # smontato per essere ricostruito separato): operation_id, input_volume_cm3.
+    # Colonne legacy in DB ma non mappate (prototipo Sprint 13c volumetric):
+    # input_volume_cm3 — non più letta.
 
     part = relationship("Part", back_populates="phases")
     machine = relationship("Machine")
     supplier = relationship("Supplier")
     cutting_cycle = relationship("CuttingCycle")
     treatment = relationship("Treatment")
+    operation = relationship("Operation")
 
 
 class MaterialSupplier(Base):
@@ -278,21 +283,70 @@ class CompanySettings(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
-class PhaseTemplate(Base):
-    __tablename__ = "phase_templates"
+class Operation(Base):
+    """Catalogo lavorazioni utente (= "Lavorazioni" nella sidebar).
+
+    Etichetta libera, gestita dall'utente via UI. Sostituisce
+    completamente l'enum hardcoded `phase_type`. Il cost engine non
+    dipende più da questa tabella: i behavior speciali (autocalc EDM)
+    sono dedotti da `machine.machine_type`, i trattamenti da `treatment_id`.
+    """
+    __tablename__ = "operations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False)
+    active = Column(Boolean, default=True)
+
+
+class WorkflowTemplate(Base):
+    """Template di flusso lavoro: sequenza ordinata di PhaseTemplate.
+
+    Es. "Componente di precisione standard": Progettazione CAD →
+    Programmazione CAM → Tornitura Mazak → Foratura EDM → Taglio EDM.
+    Apply nel preventivo crea N fasi pre-popolate (clean slate: cancella
+    le esistenti). I tempi/parametri specifici (cycle_hours, profilo DXF)
+    restano da compilare dall'utente sul preventivo.
+
+    Distinto da PhaseTemplate (= 1 fase singola): qui modelliamo cicli
+    multi-fase via referenza al PhaseTemplate, così se cambia un mattone
+    si aggiornano automaticamente tutti i flussi che lo usano.
+    """
+    __tablename__ = "workflow_templates"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
-    phase_type = Column(String(50), nullable=False)
-    default_machine_id = Column(Integer, ForeignKey("machines.id"))
-    default_supplier_id = Column(Integer, ForeignKey("suppliers.id"))
-    setup_hours = Column(Float, default=0.0)
-    cycle_hours_per_part = Column(Float, default=0.0)
-    fixed_cost = Column(Float, default=0.0)
-    variable_cost_per_part = Column(Float, default=0.0)
-    customer_visible = Column(Boolean, default=True)
-    is_shared = Column(Boolean, default=False)
-    notes = Column(Text)
+    description = Column(Text)
+    active = Column(Boolean, default=True)
+
+    steps = relationship(
+        "WorkflowTemplateStep",
+        back_populates="workflow",
+        cascade="all, delete-orphan",
+        order_by="WorkflowTemplateStep.sequence_number",
+    )
+
+
+class WorkflowTemplateStep(Base):
+    """Singolo step di un WorkflowTemplate: coppia (Macchina, Lavorazione).
+
+    `machine_id` può essere NULL per fasi senza macchina dedicata
+    (es. "Progettazione CAD", "Controllo qualità manuale").
+    `operation_id` punta al catalogo Lavorazioni (Operation) — l'utente
+    sceglie da una lista personalizzabile da UI invece dall'enum fisso.
+    All'apply, `phase_type` della fase viene copiato da `operation.phase_type`,
+    `description` da `operation.name`, `setup_hours` da `machine.setup_minimum_hours`.
+    """
+    __tablename__ = "workflow_template_steps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workflow_id = Column(Integer, ForeignKey("workflow_templates.id"), nullable=False)
+    sequence_number = Column(Integer, nullable=False)
+    machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
+    operation_id = Column(Integer, ForeignKey("operations.id"), nullable=False)
+
+    workflow = relationship("WorkflowTemplate", back_populates="steps")
+    machine = relationship("Machine")
+    operation = relationship("Operation")
 
 
 class StepColorRule(Base):

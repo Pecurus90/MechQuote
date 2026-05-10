@@ -2,8 +2,9 @@
 
 Cosa entra nel backup:
 - Anagrafica/catalogo: User, Role, RolePermission, QuoteCategory,
-  MaterialSupplier, Material, Supplier, Machine, Treatment, PhaseTemplate,
+  MaterialSupplier, Material, Supplier, Machine, Treatment, Operation,
   StepColorRule, CompanySettings, Customer.
+- Workflow: WorkflowTemplate, WorkflowTemplateStep.
 - Wire EDM: EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime.
 - Operativo: Quote, Part, ManufacturingPhase, PartFile.
 
@@ -32,7 +33,8 @@ from app.core.database import get_db, utc_now
 from app.models import (
     User, Role, RolePermission, QuoteCategory,
     MaterialSupplier, Material, Supplier, Machine, Treatment,
-    PhaseTemplate, StepColorRule, CompanySettings, Customer,
+    Operation, WorkflowTemplate, WorkflowTemplateStep,
+    StepColorRule, CompanySettings, Customer,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
     Quote, Part, ManufacturingPhase, PartFile,
 )
@@ -59,7 +61,9 @@ EXPORT_ORDER: List[Type] = [
     Supplier,
     Machine,
     Treatment,              # FK Supplier
-    PhaseTemplate,          # FK Machine, Supplier
+    Operation,              # catalogo Lavorazioni
+    WorkflowTemplate,
+    WorkflowTemplateStep,   # FK WorkflowTemplate, Machine, Operation
     StepColorRule,
     # Wire EDM
     EdmConfig,

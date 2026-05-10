@@ -5,14 +5,19 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Phase, Machine, Treatment, PhaseTemplate, Supplier, CuttingCycle } from '@/types'
-import { PHASE_TYPES } from '@/lib/constants'
+import type { Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
 import EdmPhaseFields from '@/components/quotes/EdmPhaseFields'
 
-const isEdmAuto = (p: Phase) =>
-  p.phase_type === 'wire_edm' &&
+// L'autocalc EDM si attiva quando la macchina è di tipo wire_edm
+// (machine_type) + i 3 campi obbligatori sono popolati. Nessuna dipendenza
+// dal nome della Lavorazione (Operation libera dall'utente).
+const isWireEdmMachine = (p: Phase, machines: Machine[]) =>
+  !!p.machine_id && machines.find(m => m.id === p.machine_id)?.machine_type === 'wire_edm'
+
+const isEdmAuto = (p: Phase, machines: Machine[]) =>
+  isWireEdmMachine(p, machines) &&
   !!p.cut_length_mm && p.cut_length_mm > 0 &&
   !!p.cut_height_mm && p.cut_height_mm > 0 &&
   !!p.cutting_cycle_id
@@ -24,7 +29,6 @@ interface Props {
   nParts?: number
   machines: Machine[]
   suppliers?: Supplier[]
-  templates?: PhaseTemplate[]
   treatments?: Treatment[]
   finishedWeightKg?: number
   /** Altezza grezzo della parte (raw_z_mm). Se popolata, viene suggerita
@@ -41,8 +45,8 @@ interface Props {
   onChange: (phases: Phase[]) => void
 }
 
-const TREATMENT_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment'])
-const SUPPLIER_PHASE_TYPES = new Set(['heat_treatment', 'surface_treatment', 'external_supplier'])
+// "Treatment phase" = ha treatment_id popolato. Niente più check su phase_type
+// (oggi `description` è solo etichetta libera dell'utente).
 
 function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): Phase {
   // Gemello DRY di backend/services/calculation.py recalculate_part (Sprint 12).
@@ -60,15 +64,23 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
+export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
   const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
+  const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([])
+  const [operations, setOperations] = useState<Operation[]>([])
 
   useEffect(() => {
     api.get('/cutting-cycles')
       .then(r => setCuttingCycles(r.data.filter((c: CuttingCycle) => c.active)))
       .catch(() => { /* tabelle EDM non popolate ancora — ok */ })
+    api.get('/workflow-templates')
+      .then(r => setWorkflows(r.data.filter((w: WorkflowTemplate) => w.active)))
+      .catch(() => { /* template flusso non popolati ancora — ok */ })
+    api.get('/operations')
+      .then(r => setOperations(r.data.filter((o: Operation) => o.active !== false)))
+      .catch(() => { /* operations non popolate ancora — ok */ })
   }, [])
 
   // Quando cambia peso finito, quantità o nParts, ricalcola TUTTE le fasi:
@@ -104,7 +116,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     const seq = (phases.length + 1) * 10
     const newPhase: Phase = {
       sequence_number: seq,
-      phase_type: 'cnc_milling',
+      phase_type: '',  // legacy column, non più usato dal cost engine
       description: '',
       setup_hours: 0.5,
       cycle_hours_per_part: 0.25,
@@ -216,31 +228,32 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     })
   }
 
-  const applyTemplate = async (tpl: PhaseTemplate) => {
-    const seq = (phases.length + 1) * 10
-    const newPhase: Phase = {
-      sequence_number: seq,
-      phase_type: tpl.phase_type,
-      description: tpl.name,
-      machine_id: tpl.default_machine_id ?? undefined,
-      supplier_id: tpl.default_supplier_id ?? undefined,
-      setup_hours: tpl.setup_hours,
-      cycle_hours_per_part: tpl.cycle_hours_per_part,
-      fixed_cost: tpl.fixed_cost,
-      variable_cost_per_part: tpl.variable_cost_per_part,
-      calculated_cost: 0,
-      customer_visible: tpl.customer_visible,
-      is_shared: tpl.is_shared,
+  // Applica un Template flusso. CLEAN SLATE: sostituisce TUTTE le fasi
+  // esistenti della parte con quelle del flusso.
+  // Backend: POST /parts/:id/apply-workflow/:workflow_id (cancella + crea atomic).
+  const applyWorkflow = async (wf: WorkflowTemplate) => {
+    if (!partId) {
+      toast.error('Salva prima il preventivo per applicare un flusso')
+      return
     }
-    if (partId) {
-      try {
-        const res = await api.post(`/parts/${partId}/phases`, newPhase)
-        onChange([...phases, calcPhase(res.data, machines, quantity, nParts)])
-        setExpandedIdx(phases.length)
-      } catch (e) {toast.error('Errore nell\'applicazione del template') }
-    } else {
-      onChange([...phases, calcPhase(newPhase, machines, quantity, nParts)])
-      setExpandedIdx(phases.length)
+    if (wf.steps.length === 0) {
+      toast.error('Il flusso non ha fasi')
+      return
+    }
+    if (phases.length > 0) {
+      const ok = confirm(
+        `Applicare "${wf.name}" sostituirà le ${phases.length} fasi esistenti con le ${wf.steps.length} del flusso. Procedere?`
+      )
+      if (!ok) return
+    }
+    try {
+      await api.post(`/parts/${partId}/apply-workflow/${wf.id}`)
+      toast.success(`${wf.steps.length} fasi caricate da "${wf.name}"`)
+      // Le fasi sono cambiate sul backend: chiediamo al parent un reload pieno.
+      onReload?.()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'applicazione del flusso')
     }
   }
 
@@ -268,7 +281,14 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     })
   }
 
-  const phaseLabel = (type: string) => PHASE_TYPES.find(t => t.value === type)?.label || type
+  // Etichetta della fase: nome dalla Operation (FK), fallback su description.
+  const phaseLabel = (phase: Phase) => {
+    if (phase.operation_id) {
+      const op = operations.find(o => o.id === phase.operation_id)
+      if (op) return op.name
+    }
+    return phase.description || '—'
+  }
 
   return (
     <fieldset disabled={readOnly} className="border-0 p-0 m-0 disabled:opacity-90">
@@ -277,18 +297,19 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
         <div className="flex justify-between items-center gap-2 flex-wrap">
           <CardTitle className="text-base">Ciclo di Lavorazione</CardTitle>
           <div className="flex items-center gap-2">
-            {templates.length > 0 && (
+            {workflows.length > 0 && partId && (
               <select
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-md border border-blue-200 bg-blue-50 px-2 text-xs"
                 value=""
                 onChange={e => {
-                  const tpl = templates.find(t => t.id === Number(e.target.value))
-                  if (tpl) applyTemplate(tpl)
+                  const wf = workflows.find(w => w.id === Number(e.target.value))
+                  if (wf) applyWorkflow(wf)
                 }}
+                title="Carica un flusso multi-fase: sostituisce le fasi esistenti"
               >
-                <option value="">Da template...</option>
-                {templates.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                <option value="">Da flusso...</option>
+                {workflows.map(w => (
+                  <option key={w.id} value={w.id}>{w.name} ({w.steps.length} fasi)</option>
                 ))}
               </select>
             )}
@@ -306,7 +327,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
             </p>
           )}
           {phases.map((phase, idx) => {
-            const isTreatment = TREATMENT_PHASE_TYPES.has(phase.phase_type)
+            const isTreatment = phase.treatment_id != null
             const selectedTreatment = treatments.find(t => t.id === phase.treatment_id)
             const totalBatchWeight = (finishedWeightKg || 0) * quantity
             const weightThresholdActive = selectedTreatment?.minimum_weight_kg != null &&
@@ -339,7 +360,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                   </span>
                   <span className="text-xs font-mono w-6 text-gray-400">{phase.sequence_number}</span>
                   <span className="flex-1 text-sm font-medium truncate">
-                    {phaseLabel(phase.phase_type)}
+                    {phaseLabel(phase)}
                     {selectedTreatment && <span className="text-gray-400 font-normal"> — {selectedTreatment.name}</span>}
                   </span>
                   {phase.description && !selectedTreatment && (
@@ -362,37 +383,32 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
 
                 {/* Expanded editor */}
                 {expandedIdx === idx && (() => {
-                  const isWireEdm = phase.phase_type === 'wire_edm'
-                  const edmAuto = isEdmAuto(phase)
+                  const isWireEdm = isWireEdmMachine(phase, machines)
+                  const edmAuto = isEdmAuto(phase, machines)
                   return (
                   <div className="p-4 border-t bg-white space-y-3">
                     {/* Row 1: Tipo + Macchina/Fornitore + Descrizione */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="text-xs font-medium text-gray-600">Tipo Fase</label>
+                        <label className="text-xs font-medium text-gray-600">Lavorazione</label>
                         <select
                           className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                          value={phase.phase_type}
+                          value={phase.operation_id ?? ''}
                           onChange={e => {
-                            const newType = e.target.value
-                            const updates: Partial<Phase> = { phase_type: newType }
-                            // Reset treatment se si esce da fasi trattamento.
-                            if (!TREATMENT_PHASE_TYPES.has(newType) && phase.treatment_id) {
-                              updates.treatment_id = undefined
-                            }
-                            // Auto-seleziona macchina wire_edm se manca: senza machine_id
-                            // la tariffa oraria è 0 e il costo è 0 anche se le ore
-                            // sono ricalcolate dall'autocalc EDM.
-                            if (newType === 'wire_edm' && !phase.machine_id) {
-                              const wireEdm = machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)
-                              if (wireEdm) updates.machine_id = wireEdm.id
+                            const newOpId = e.target.value === '' ? null : Number(e.target.value)
+                            const updates: Partial<Phase> = { operation_id: newOpId }
+                            // Auto-popola description con nome operation se vuota.
+                            const op = newOpId ? operations.find(o => o.id === newOpId) : null
+                            if (op && (!phase.description || phase.description.trim() === '')) {
+                              updates.description = op.name
                             }
                             updateMany(idx, updates)
                           }}
                           onBlur={() => savePhase(idx)}
                         >
-                          {PHASE_TYPES.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
+                          <option value="">— Scegli lavorazione —</option>
+                          {operations.map(o => (
+                            <option key={o.id} value={o.id}>{o.name}</option>
                           ))}
                         </select>
                       </div>
@@ -446,7 +462,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         </div>
                       )}
 
-                      {suppliers.length > 0 && SUPPLIER_PHASE_TYPES.has(phase.phase_type) && (
+                      {suppliers.length > 0 && phase.supplier_id != null && !isTreatment && (
                         <div>
                           <label className="text-xs font-medium text-gray-600">Fornitore</label>
                           <select

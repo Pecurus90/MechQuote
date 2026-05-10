@@ -4,9 +4,8 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import PhaseTemplate, QuoteCategory, StepColorRule
+from app.models import QuoteCategory, StepColorRule
 from app.schemas import (
-    PhaseTemplateCreate, PhaseTemplateBase, PhaseTemplateOut,
     QuoteCategoryCreate, QuoteCategoryUpdate, QuoteCategoryOut,
     StepColorRuleCreate, StepColorRuleBase, StepColorRuleOut,
 )
@@ -47,43 +46,6 @@ def delete_category(cid: int, db: Session = Depends(get_db)):
     if not cat:
         raise HTTPException(404, "Not found")
     db.delete(cat)
-    db.commit()
-    return {"ok": True}
-
-
-# --- Phase Templates ---
-@router.get("/phase-templates", response_model=List[PhaseTemplateOut])
-def list_templates(db: Session = Depends(get_db)):
-    return db.query(PhaseTemplate).order_by(PhaseTemplate.name).all()
-
-
-@router.post("/phase-templates", response_model=PhaseTemplateOut, dependencies=[require_permission('settings')])
-def create_template(data: PhaseTemplateCreate, db: Session = Depends(get_db)):
-    t = PhaseTemplate(**data.model_dump())
-    db.add(t)
-    db.commit()
-    db.refresh(t)
-    return t
-
-
-@router.put("/phase-templates/{tid}", response_model=PhaseTemplateOut, dependencies=[require_permission('settings')])
-def update_template(tid: int, data: PhaseTemplateBase, db: Session = Depends(get_db)):
-    t = db.query(PhaseTemplate).filter(PhaseTemplate.id == tid).first()
-    if not t:
-        raise HTTPException(404, "Not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(t, k, v)
-    db.commit()
-    db.refresh(t)
-    return t
-
-
-@router.delete("/phase-templates/{tid}", dependencies=[require_permission('settings')])
-def delete_template(tid: int, db: Session = Depends(get_db)):
-    t = db.query(PhaseTemplate).filter(PhaseTemplate.id == tid).first()
-    if not t:
-        raise HTTPException(404, "Not found")
-    db.delete(t)
     db.commit()
     return {"ok": True}
 

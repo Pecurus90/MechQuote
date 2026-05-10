@@ -9,9 +9,10 @@ from app.core.security import get_current_user, require_permission
 from app.models import (
     User, QuoteCategory, Customer, Quote, Part, PartFile,
     ManufacturingPhase, MaterialSupplier, Material, Machine, Treatment,
-    Supplier, PhaseTemplate, StepColorRule, Role, RolePermission,
+    Supplier, StepColorRule, Role, RolePermission,
     Notification, NotificationRead, CompanySettings,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
+    WorkflowTemplate, WorkflowTemplateStep, Operation,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -33,6 +34,7 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
+    workflow_templates, operations,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -56,6 +58,8 @@ app.include_router(company.router, dependencies=_auth)
 app.include_router(activity.router, dependencies=_auth)
 app.include_router(edm.router, dependencies=_auth)
 app.include_router(dxf.router, dependencies=_auth)
+app.include_router(workflow_templates.router, dependencies=_auth)
+app.include_router(operations.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -90,7 +94,6 @@ def _run_migrations():
         "ALTER TABLE parts ADD COLUMN material_delivery_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE manufacturing_phases ADD COLUMN treatment_id INTEGER REFERENCES treatments(id)",
         "ALTER TABLE manufacturing_phases ADD COLUMN is_shared INTEGER DEFAULT 0",
-        "ALTER TABLE phase_templates ADD COLUMN is_shared INTEGER DEFAULT 0",
         "ALTER TABLE materials ADD COLUMN supplier_id INTEGER REFERENCES material_suppliers(id)",
         "ALTER TABLE suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE suppliers ADD COLUMN address TEXT",
@@ -232,6 +235,37 @@ def _run_migrations():
         # macchina in produzione). Cost engine: setup_cost = setup_hours ×
         # (setup_hourly_rate ?? hourly_rate). NULL → fallback a hourly_rate.
         "ALTER TABLE machines ADD COLUMN setup_hourly_rate FLOAT",
+
+        # ═══ Operation (catalogo Lavorazioni utente) ═══
+        # Tabella libera, gestita dall'utente da UI. Sostituisce l'enum
+        # PHASE_TYPES hardcoded. Il cost engine non dipende più da questa:
+        # behavior speciali dedotti da machine.machine_type (autocalc EDM)
+        # e da treatment_id (fasi trattamento).
+        # DROP & ricreo: schema cambiato (phase_type rimosso). Nessun dato
+        # utente reale da preservare in questa fase del progetto.
+        "DROP TABLE IF EXISTS workflow_template_steps",
+        "DROP TABLE IF EXISTS workflow_templates",
+        "DROP TABLE IF EXISTS phase_templates",  # rimosso
+        "DROP TABLE IF EXISTS operations",
+        ("CREATE TABLE operations ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(100) UNIQUE NOT NULL, "
+         "active BOOLEAN DEFAULT 1)"),
+        # Aggiungo operation_id su manufacturing_phases. La colonna potrebbe
+        # già esistere come legacy (Sprint 13c volumetric smontato): try/except
+        # del runner ALTER TABLE coprirà il "duplicate column" silenziosamente.
+        "ALTER TABLE manufacturing_phases ADD COLUMN operation_id INTEGER REFERENCES operations(id)",
+        ("CREATE TABLE workflow_templates ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(100) NOT NULL, "
+         "description TEXT, "
+         "active BOOLEAN DEFAULT 1)"),
+        ("CREATE TABLE workflow_template_steps ("
+         "id INTEGER PRIMARY KEY, "
+         "workflow_id INTEGER NOT NULL REFERENCES workflow_templates(id), "
+         "sequence_number INTEGER NOT NULL, "
+         "machine_id INTEGER REFERENCES machines(id), "
+         "operation_id INTEGER NOT NULL REFERENCES operations(id))"),
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -284,6 +318,48 @@ def _seed_roles():
             for key in DEFAULT_ROLE_PERMISSIONS.get(name, []):
                 db.add(RolePermission(role_id=role.id, permission_key=key))
         db.commit()
+
+
+def _seed_operations():
+    """Popola la tabella `operations` con il vocabolario iniziale di
+    lavorazioni (mappato dai vecchi PHASE_TYPES) + backfill di
+    `manufacturing_phases.operation_id` partendo dal vecchio `phase_type`.
+
+    Idempotente: se la tabella ha già voci, non tocca. Il backfill
+    aggiorna solo le righe con operation_id NULL.
+    """
+    from sqlalchemy.orm import Session
+    from app.core.phase_types import PHASE_TYPES as INITIAL_OPS
+
+    with Session(engine) as db:
+        if db.query(Operation).count() == 0:
+            for p in INITIAL_OPS:
+                db.add(Operation(name=p["label"], active=True))
+            db.commit()
+        # Backfill manufacturing_phases.operation_id da phase_type legacy.
+        # Mappa slug → name della voce seed.
+        slug_to_name = {p["slug"]: p["label"] for p in INITIAL_OPS}
+        ops_by_name = {o.name: o.id for o in db.query(Operation).all()}
+        try:
+            rows = db.execute(text(
+                "SELECT id, phase_type FROM manufacturing_phases "
+                "WHERE operation_id IS NULL AND phase_type IS NOT NULL"
+            )).fetchall()
+            for row in rows:
+                phase_id, phase_type = row[0], row[1]
+                name = slug_to_name.get(phase_type)
+                if not name:
+                    continue
+                op_id = ops_by_name.get(name)
+                if not op_id:
+                    continue
+                db.execute(
+                    text("UPDATE manufacturing_phases SET operation_id = :oid WHERE id = :pid"),
+                    {"oid": op_id, "pid": phase_id},
+                )
+            db.commit()
+        except Exception:
+            db.rollback()
 
 
 def _seed_edm_defaults():
@@ -441,6 +517,7 @@ _fix_legacy_not_null()
 _fix_drilling_times_schema()
 _seed_categories()
 _seed_roles()
+_seed_operations()
 _seed_edm_defaults()
 
 

@@ -47,10 +47,12 @@ def _compute_material_cost(part: Part, material: Optional[Material]) -> Optional
 def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session) -> Optional[float]:
     """Calcola cycle_hours_per_part per una fase Wire EDM, dato lunghezza/altezza/ciclo.
 
-    Ritorna None se i campi non sono popolati (lascia il valore manuale) o se manca
-    la riga di velocità per (famiglia materiale, altezza) di questa fase.
+    Si attiva quando la macchina della fase è di tipo `wire_edm` (caratteristica
+    fisica della macchina, non etichetta utente — vedi feedback memory). Ritorna
+    None se i campi non sono popolati (lascia il valore manuale) o se manca la
+    riga di velocità per (famiglia materiale, altezza).
     """
-    if phase.phase_type != 'wire_edm':
+    if not phase.machine or phase.machine.machine_type != 'wire_edm':
         return None
     if not (phase.cut_length_mm and phase.cut_height_mm and phase.cutting_cycle_id):
         return None

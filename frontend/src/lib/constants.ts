@@ -22,21 +22,7 @@ export const STATUS_COLORS: Record<string, string> = {
   perso:           'bg-green-100 text-green-700',
 }
 
-export const PHASE_TYPES = [
-  { value: 'raw_material_cutting', label: 'Taglio materiale grezzo' },
-  { value: 'cnc_milling', label: 'Fresatura CNC' },
-  { value: 'cnc_turning', label: 'Tornitura CNC' },
-  { value: 'drilling', label: 'Foratura' },
-  { value: 'tapping', label: 'Maschiatura' },
-  { value: 'wire_edm', label: 'EDM a filo' },
-  { value: 'sinker_edm', label: 'EDM a tuffo' },
-  { value: 'grinding', label: 'Rettifica' },
-  { value: 'manual_operation', label: 'Operazione manuale' },
-  { value: 'heat_treatment', label: 'Trattamento termico' },
-  { value: 'surface_treatment', label: 'Trattamento superficiale' },
-  { value: 'quality_control', label: 'Controllo qualità' },
-  { value: 'external_supplier', label: 'Fornitore esterno' },
-  { value: 'packaging', label: 'Imballaggio' },
-  { value: 'transport', label: 'Trasporto' },
-  { value: 'custom_extra', label: 'Extra personalizzato' },
-] as const
+// PHASE_TYPES rimosso: il vocabolario delle Lavorazioni è ora nel DB
+// (tabella `operations`) gestito dall'utente da Settings → Catalogo →
+// Lavorazioni. I behavior speciali (autocalc EDM) si attivano in base
+// a `machine.machine_type`, non più al phase_type.

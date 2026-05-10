@@ -149,6 +149,7 @@ class PhaseBase(BaseModel):
     customer_visible: Optional[bool] = True
     is_shared: Optional[bool] = False
     treatment_id: Optional[int] = None
+    operation_id: Optional[int] = None
     internal_notes: Optional[str] = None
     customer_notes: Optional[str] = None
     # Wire EDM extra (popolati solo se phase_type='wire_edm')
@@ -464,27 +465,60 @@ class CompanySettingsOut(CompanySettingsBase):
         from_attributes = True
 
 
-# --- PhaseTemplate ---
-class PhaseTemplateBase(BaseModel):
-    name: str
-    phase_type: str
-    default_machine_id: Optional[int] = None
-    default_supplier_id: Optional[int] = None
-    setup_hours: Optional[float] = 0.0
-    cycle_hours_per_part: Optional[float] = 0.0
-    fixed_cost: Optional[float] = 0.0
-    variable_cost_per_part: Optional[float] = 0.0
-    customer_visible: Optional[bool] = True
-    is_shared: Optional[bool] = False
-    notes: Optional[str] = None
+# --- Operation (catalogo Lavorazioni utente) ---
+class OperationBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    active: bool = True
 
 
-class PhaseTemplateCreate(PhaseTemplateBase):
+class OperationCreate(OperationBase):
     pass
 
 
-class PhaseTemplateOut(PhaseTemplateBase):
+class OperationUpdate(OperationBase):
+    pass
+
+
+class OperationOut(OperationBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+# --- WorkflowTemplate (sequenza di Macchina + Lavorazione) ---
+class WorkflowTemplateStepBase(BaseModel):
+    sequence_number: int
+    machine_id: Optional[int] = None
+    operation_id: int
+
+
+class WorkflowTemplateStepOut(WorkflowTemplateStepBase):
+    id: int
+    machine: Optional[MachineOut] = None
+    operation: Optional[OperationOut] = None
+
+    class Config:
+        from_attributes = True
+
+
+class WorkflowTemplateBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = None
+    active: bool = True
+
+
+class WorkflowTemplateCreate(WorkflowTemplateBase):
+    steps: List[WorkflowTemplateStepBase] = []
+
+
+class WorkflowTemplateUpdate(WorkflowTemplateBase):
+    steps: List[WorkflowTemplateStepBase] = []
+
+
+class WorkflowTemplateOut(WorkflowTemplateBase):
+    id: int
+    steps: List[WorkflowTemplateStepOut] = []
 
     class Config:
         from_attributes = True

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
+import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier } from '@/types'
 import api from '@/lib/api'
 import { Trash2, Copy, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
@@ -28,7 +28,6 @@ export default function QuoteEditor() {
   const [categories, setCategories] = useState<Category[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [templates, setTemplates] = useState<PhaseTemplate[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
@@ -43,15 +42,13 @@ export default function QuoteEditor() {
       api.get('/quote-categories'),
       api.get('/customers'),
       api.get('/suppliers'),
-      api.get('/phase-templates'),
       api.get('/treatments'),
-    ]).then(([m, mat, cat, cust, sup, tpl, tr]) => {
+    ]).then(([m, mat, cat, cust, sup, tr]) => {
       setMachines(m.data)
       setMaterials(mat.data)
       setCategories(cat.data)
       setCustomers(cust.data)
       setSuppliers(sup.data)
-      setTemplates(tpl.data)
       setTreatments(tr.data.filter((t: Treatment) => t.active))
     })
   }, [])
@@ -505,7 +502,6 @@ export default function QuoteEditor() {
               machines={machines}
               materials={materials}
               suppliers={suppliers}
-              templates={templates}
               treatments={treatments}
               nParts={quote.parts.length || 1}
               globalMarginPercent={quote.global_margin_percent}

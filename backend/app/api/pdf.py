@@ -7,7 +7,6 @@ import math
 
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.core.phase_types import phase_label_short, EXTERNAL_PHASE_SLUGS
 from app.models import Quote, Part, ManufacturingPhase, Material, MaterialSupplier, CompanySettings
 
 router = APIRouter(prefix="/api", tags=["pdf"])
@@ -301,9 +300,14 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
                 time_cell = " &nbsp;·&nbsp; ".join(times)
 
                 is_treat = bool(ph.treatment_id)
-                is_ext = ph.phase_type in EXTERNAL_PHASE_SLUGS
-                badge_cls = "badge-treat" if is_treat else ("badge-ext" if is_ext else "badge-work")
-                badge_label = phase_label_short(ph.phase_type)
+                # Operation è il catalogo libero: niente più classificazione
+                # "esterno" automatica. Resta solo treat vs work (dato dal
+                # treatment_id, indipendente dal phase_type).
+                badge_cls = "badge-treat" if is_treat else "badge-work"
+                # Label compatta: se la fase ha un'operation, usa il suo name
+                # (truncato); fallback su description o phase_type legacy.
+                op_label = (ph.operation.name if ph.operation else None) or ph.description or ph.phase_type or ''
+                badge_label = (op_label[:10] or '—').upper()
 
                 sub = ph.machine.name if ph.machine else (ph.supplier.name if ph.supplier else "")
                 mach_div = f'<div class="ops-mach">{_esc(sub)}</div>' if sub else ""

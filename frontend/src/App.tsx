@@ -12,7 +12,8 @@ import NewQuote2DPage from '@/pages/NewQuote2DPage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import MachinesPage from '@/pages/settings/MachinesPage'
 import TreatmentsPage from '@/pages/settings/TreatmentsPage'
-import PhaseTemplatesPage from '@/pages/settings/PhaseTemplatesPage'
+import WorkflowTemplatesPage from '@/pages/settings/WorkflowTemplatesPage'
+import OperationsPage from '@/pages/settings/OperationsPage'
 import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
 import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
 import CustomersPage from '@/pages/settings/CustomersPage'
@@ -61,7 +62,8 @@ function AppRoutes() {
         {/* Settings — gated dal sistema dei permessi dinamici */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />
         <Route path="settings/machines"   element={<ProtectedRoute permission="settings"><MachinesPage /></ProtectedRoute>} />
-        <Route path="settings/templates"  element={<ProtectedRoute permission="settings"><PhaseTemplatesPage /></ProtectedRoute>} />
+        <Route path="settings/operations" element={<ProtectedRoute permission="settings"><OperationsPage /></ProtectedRoute>} />
+        <Route path="settings/workflows"  element={<ProtectedRoute permission="settings"><WorkflowTemplatesPage /></ProtectedRoute>} />
         <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />
         <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />

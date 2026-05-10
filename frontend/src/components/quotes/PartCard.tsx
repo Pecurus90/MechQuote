@@ -6,7 +6,7 @@ import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
 import api from '@/lib/api'
-import type { Part, Material, Machine, Treatment, Supplier, PhaseTemplate } from '@/types'
+import type { Part, Material, Machine, Treatment, Supplier } from '@/types'
 import { toast } from 'sonner'
 
 type StockType = 'none' | 'round' | 'square'
@@ -32,7 +32,6 @@ interface Props {
   machines: Machine[]
   materials: Material[]
   suppliers?: Supplier[]
-  templates?: PhaseTemplate[]
   treatments?: Treatment[]
   nParts?: number
   globalMarginPercent: number
@@ -43,7 +42,7 @@ interface Props {
   onReload?: () => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], templates = [], treatments = [], nParts = 1, globalMarginPercent, readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
+export default function PartCard({ part, machines, materials, suppliers = [], treatments = [], nParts = 1, globalMarginPercent, readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
@@ -350,7 +349,6 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             nParts={nParts}
             machines={machines}
             suppliers={suppliers}
-            templates={templates}
             treatments={treatments}
             finishedWeightKg={part.finished_weight_kg}
             partRawZmm={part.raw_z_mm}

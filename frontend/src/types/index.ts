@@ -38,6 +38,7 @@ export interface Phase {
   machine_id?: number
   supplier_id?: number
   treatment_id?: number
+  operation_id?: number | null
   is_shared?: boolean
   setup_hours: number
   cycle_hours_per_part: number
@@ -209,19 +210,37 @@ export interface QuoteListItem {
   parts: { total_price?: number }[]
 }
 
-export interface PhaseTemplate {
+// Template di flusso lavoro: sequenza di (Macchina + Lavorazione).
+// Apply su una parte del preventivo crea N fasi pre-popolate (clean slate).
+// machine_id può essere null per fasi senza macchina dedicata
+// (es. "Progettazione CAD" manuale).
+// operation_id punta al catalogo Lavorazioni (Operation): l'utente sceglie
+// da una lista personalizzabile invece dall'enum fisso.
+export interface WorkflowTemplateStep {
+  id?: number
+  sequence_number: number
+  machine_id?: number | null
+  operation_id: number
+  machine?: { id: number; name: string; machine_type: string } | null
+  operation?: Operation | null
+}
+
+export interface WorkflowTemplate {
   id: number
   name: string
-  phase_type: string
-  default_machine_id: number | null
-  default_supplier_id: number | null
-  setup_hours: number
-  cycle_hours_per_part: number
-  fixed_cost: number
-  variable_cost_per_part: number
-  customer_visible: boolean
-  is_shared: boolean
-  notes?: string | null
+  description?: string | null
+  active: boolean
+  steps: WorkflowTemplateStep[]
+}
+
+// Catalogo lavorazioni utente (UI: "Lavorazioni"). Etichette libere
+// usate da Workflow e select "Tipo fase" del preventivatore manuale.
+// Niente categoria sotto: i behavior speciali del cost engine (autocalc
+// EDM) sono dedotti da machine.machine_type, non dall'Operation.
+export interface Operation {
+  id: number
+  name: string
+  active: boolean
 }
 
 export interface DashboardKPI {

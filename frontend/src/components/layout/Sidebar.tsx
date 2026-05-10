@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2, Workflow,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Zap, Gauge, Drill, SlidersHorizontal, Scan,
+  Zap, Gauge, Drill, SlidersHorizontal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -109,12 +109,6 @@ export default function Sidebar() {
                   <span>Nuovo Preventivo</span>
                 </NavLink>
               )}
-              {canQuote && (
-                <NavLink to="/quotes/2d/new" className={({ isActive }) => navLinkClass(isActive, true)}>
-                  <Scan className="w-3.5 h-3.5 shrink-0" />
-                  <span>Preventivo 2D (DXF)</span>
-                </NavLink>
-              )}
               <NavLink to="/quotes/archive" className={({ isActive }) => navLinkClass(isActive, true)}>
                 <Archive className="w-3.5 h-3.5 shrink-0" />
                 <span>Archivio Preventivi</span>
@@ -191,6 +185,10 @@ export default function Sidebar() {
                 {showCatalog && (
                   <>
                     <p className={sectionLabelClass}>Wire EDM</p>
+                    <NavLink to="/settings/edm/config" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+                      <span>Parametri globali</span>
+                    </NavLink>
                     <NavLink to="/settings/edm/speeds" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Gauge className="w-3.5 h-3.5 shrink-0" />
                       <span>Velocità di taglio</span>
@@ -202,10 +200,6 @@ export default function Sidebar() {
                     <NavLink to="/settings/edm/drilling" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Drill className="w-3.5 h-3.5 shrink-0" />
                       <span>Tempi foratura</span>
-                    </NavLink>
-                    <NavLink to="/settings/edm/config" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-                      <span>Parametri globali</span>
                     </NavLink>
                   </>
                 )}

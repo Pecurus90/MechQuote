@@ -195,16 +195,10 @@ with sync_playwright() as p:
                 step('Aggiungi fase wire_edm', False, f'HTTP {r.status_code}: {r.text[:200]}')
 
         # ─── 9. PDF export ─────────────────────────────────────────────
-        r = requests.get(f'http://localhost:8000/api/quotes/{quote_id}/pdf/customer',
+        r = requests.get(f'http://localhost:8000/api/quotes/{quote_id}/pdf',
                          headers=headers)
         ok = r.status_code == 200 and r.content[:4] == b'%PDF'
-        step('PDF cliente generato', ok,
-             f'HTTP {r.status_code}, size={len(r.content)}B')
-
-        r = requests.get(f'http://localhost:8000/api/quotes/{quote_id}/pdf/internal',
-                         headers=headers)
-        ok = r.status_code == 200 and r.content[:4] == b'%PDF'
-        step('PDF interno generato', ok,
+        step('PDF generato', ok,
              f'HTTP {r.status_code}, size={len(r.content)}B')
 
         # ─── 10. Cleanup ────────────────────────────────────────────────

@@ -162,7 +162,14 @@ body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #1e2
 """
 
 
-def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
+def generate_quote_pdf(quote_id: int, db: Session) -> str:
+    """Genera il PDF del preventivo (uso interno).
+
+    Il preventivo definitivo per il cliente lo fa il gestionale aziendale
+    separato — questo PDF è per l'ufficio tecnico (vedere costi/margini/
+    fasi tutte). Il badge "USO INTERNO" rosso è mantenuto come safety
+    net visibile se per errore qualcuno gira il PDF a un cliente.
+    """
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
@@ -196,7 +203,7 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
         co_lines += f'<br>{_esc(company_email)}'
     co_lines += '</div>'
 
-    int_tag = '<div class="int-tag">▶ USO INTERNO</div>' if internal else ""
+    int_tag = '<div class="int-tag">▶ USO INTERNO</div>'
 
     # ── Meta boxes ──
     meta_boxes = f"""
@@ -288,10 +295,10 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
 
             html += f'  <div class="matl"><b>Materiale:</b> {mat_str}{extras}</div>\n'
 
-        # ── Phases table ──
-        visible = [ph for ph in part.phases if ph.customer_visible or internal]
+        # ── Phases table ── (sempre tutte le fasi, è PDF interno)
+        visible = list(part.phases)
         if visible:
-            hd_cost = '<td class="ops-cost">€/pz</td>' if internal else ""
+            hd_cost = '<td class="ops-cost">€/pz</td>'
             html += f'  <table class="ops"><tr class="ops-hd"><td class="ops-n">#</td><td class="ops-type">Tipo</td><td>Descrizione</td><td class="ops-time">Tempi</td>{hd_cost}</tr>\n'
             for ph in visible:
                 setup_str = _fmt_time(ph.setup_hours or 0)
@@ -317,10 +324,10 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
                 mach_div = f'<div class="ops-mach">{_esc(sub)}</div>' if sub else ""
 
                 desc_text = _esc(ph.description or "")
-                note = _esc(ph.customer_notes or "") if not internal else _esc(ph.internal_notes or "")
+                note = _esc(ph.internal_notes or "")
                 note_div = f'<div class="ops-note">{note}</div>' if note else ""
 
-                cost_td = f'<td class="ops-cost">{ph.calculated_cost:.2f}</td>' if internal else ""
+                cost_td = f'<td class="ops-cost">{ph.calculated_cost:.2f}</td>'
 
                 html += f"""    <tr>
       <td class="ops-n">{ph.sequence_number}</td>
@@ -334,42 +341,41 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
         else:
             html += '  <div class="no-ops">Nessuna lavorazione definita.</div>\n'
 
-        # ── Internal cost breakdown (after phases) ──
-        if internal:
-            delivery_pp = (part.material_delivery_cost or 0.0) / qty
-            cutting_pp = (mat.material_supplier.cutting_cost_per_part or 0.0) if (mat and mat.material_supplier) else 0.0
-            mat_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
+        # ── Cost breakdown (sempre visibile, è PDF interno) ──
+        delivery_pp = (part.material_delivery_cost or 0.0) / qty
+        cutting_pp = (mat.material_supplier.cutting_cost_per_part or 0.0) if (mat and mat.material_supplier) else 0.0
+        mat_total = (part.material_cost or 0.0) + delivery_pp + cutting_pp
 
-            work_phases = [ph for ph in part.phases if not ph.treatment_id]
-            treat_phases = [ph for ph in part.phases if ph.treatment_id]
-            work_cost = sum(ph.calculated_cost for ph in work_phases)
-            treat_cost = sum(ph.calculated_cost for ph in treat_phases)
-            treat_ship_pp = sum((ph.fixed_cost or 0.0) for ph in treat_phases) / qty
+        work_phases = [ph for ph in part.phases if not ph.treatment_id]
+        treat_phases = [ph for ph in part.phases if ph.treatment_id]
+        work_cost = sum(ph.calculated_cost for ph in work_phases)
+        treat_cost = sum(ph.calculated_cost for ph in treat_phases)
+        treat_ship_pp = sum((ph.fixed_cost or 0.0) for ph in treat_phases) / qty
 
-            # Left: cost items
-            costs_html = f'<div class="cbd-row"><span>Materiale</span><span>{mat_total:.2f}&nbsp;{cur}/pz</span></div>'
-            if delivery_pp > 0.005:
-                costs_html += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f}</span></div>'
-            if cutting_pp > 0.005:
-                costs_html += f'<div class="cbd-sub"><span>di cui taglio grezzo</span><span>{cutting_pp:.2f}</span></div>'
-            if work_cost > 0.005:
-                costs_html += f'<div class="cbd-row"><span>Lavorazioni</span><span>{work_cost:.2f}&nbsp;{cur}/pz</span></div>'
-            if treat_cost > 0.005:
-                costs_html += f'<div class="cbd-row"><span>Trattamenti</span><span>{treat_cost:.2f}&nbsp;{cur}/pz</span></div>'
-                if treat_ship_pp > 0.005:
-                    costs_html += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{treat_ship_pp:.2f}</span></div>'
-            costs_html += f'<div class="cbd-sep"></div>'
-            costs_html += f'<div class="cbd-total-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
+        # Left: cost items
+        costs_html = f'<div class="cbd-row"><span>Materiale</span><span>{mat_total:.2f}&nbsp;{cur}/pz</span></div>'
+        if delivery_pp > 0.005:
+            costs_html += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{delivery_pp:.2f}</span></div>'
+        if cutting_pp > 0.005:
+            costs_html += f'<div class="cbd-sub"><span>di cui taglio grezzo</span><span>{cutting_pp:.2f}</span></div>'
+        if work_cost > 0.005:
+            costs_html += f'<div class="cbd-row"><span>Lavorazioni</span><span>{work_cost:.2f}&nbsp;{cur}/pz</span></div>'
+        if treat_cost > 0.005:
+            costs_html += f'<div class="cbd-row"><span>Trattamenti</span><span>{treat_cost:.2f}&nbsp;{cur}/pz</span></div>'
+            if treat_ship_pp > 0.005:
+                costs_html += f'<div class="cbd-sub"><span>di cui spedizione</span><span>{treat_ship_pp:.2f}</span></div>'
+        costs_html += f'<div class="cbd-sep"></div>'
+        costs_html += f'<div class="cbd-total-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
 
-            # Right: pricing
-            margin = part.margin_percent if part.margin_percent is not None else (quote.global_margin_percent or 0.0)
-            margin_lbl = f"{margin:.0f}%"
-            pricing_html = f'<div class="cbd-pr-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
-            pricing_html += f'<div class="cbd-pr-row"><span>Margine</span><span>{margin_lbl}</span></div>'
-            pricing_html += f'<div class="cbd-pr-row"><span>Prezzo/pz</span><span>{part.unit_price or 0:.2f}&nbsp;{cur}</span></div>'
-            pricing_html += f'<div class="cbd-pr-final"><span>Totale &times;&thinsp;{qty}</span><span>{part.total_price or 0:.2f}&nbsp;{cur}</span></div>'
+        # Right: pricing
+        margin = part.margin_percent if part.margin_percent is not None else (quote.global_margin_percent or 0.0)
+        margin_lbl = f"{margin:.0f}%"
+        pricing_html = f'<div class="cbd-pr-row"><span>Costo/pz</span><span>{part.total_cost or 0:.2f}&nbsp;{cur}</span></div>'
+        pricing_html += f'<div class="cbd-pr-row"><span>Margine</span><span>{margin_lbl}</span></div>'
+        pricing_html += f'<div class="cbd-pr-row"><span>Prezzo/pz</span><span>{part.unit_price or 0:.2f}&nbsp;{cur}</span></div>'
+        pricing_html += f'<div class="cbd-pr-final"><span>Totale &times;&thinsp;{qty}</span><span>{part.total_price or 0:.2f}&nbsp;{cur}</span></div>'
 
-            html += f"""  <div class="cbd">
+        html += f"""  <div class="cbd">
     <div class="cbd-title">Analisi costi &mdash; uso interno</div>
     <div class="cbd-body">
       <div class="cbd-costs">{costs_html}</div>
@@ -418,7 +424,7 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
 
     if quote.notes_customer:
         html += f'<div class="doc-notes"><strong>Note:</strong><br>{_esc(quote.notes_customer)}</div>\n'
-    if internal and quote.notes_internal:
+    if quote.notes_internal:
         html += f'<div class="doc-notes"><strong>Note interne:</strong><br>{_esc(quote.notes_internal)}</div>\n'
 
     html += f'<div class="doc-footer">{_esc(company_name)} &mdash; Generato da MechQuote</div>\n'
@@ -434,9 +440,8 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
         })
         browser.close()
 
-    suffix = "_interno" if internal else "_cliente"
     tmp = tempfile.NamedTemporaryFile(
-        delete=False, suffix=suffix + ".pdf",
+        delete=False, suffix=".pdf",
         prefix=f"preventivo_{quote_id}_"
     )
     tmp.write(pdf_bytes)
@@ -450,23 +455,12 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
 # thread separato. Senza questo wrap, 3 PDF richiesti insieme = 3 PDF
 # generati in serie (9-15s totali); con il wrap si parallelizzano.
 
-@router.get("/quotes/{quote_id}/pdf/customer")
-async def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
-    path = await asyncio.to_thread(generate_quote_pdf, quote_id, False, db)
+@router.get("/quotes/{quote_id}/pdf")
+async def get_quote_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
+    path = await asyncio.to_thread(generate_quote_pdf, quote_id, db)
     background_tasks.add_task(os.unlink, path)
     return FileResponse(
         path=path,
         media_type='application/pdf',
-        filename=f"preventivo_{quote_id}_cliente.pdf"
-    )
-
-
-@router.get("/quotes/{quote_id}/pdf/internal")
-async def get_internal_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
-    path = await asyncio.to_thread(generate_quote_pdf, quote_id, True, db)
-    background_tasks.add_task(os.unlink, path)
-    return FileResponse(
-        path=path,
-        media_type='application/pdf',
-        filename=f"preventivo_{quote_id}_interno.pdf"
+        filename=f"preventivo_{quote_id}.pdf"
     )

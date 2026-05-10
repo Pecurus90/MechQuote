@@ -33,7 +33,7 @@ export default function QuoteEditor() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [validationIssues, setValidationIssues] = useState<PartIssue[] | null>(null)
-  const [pendingPdfType, setPendingPdfType] = useState<'customer' | 'internal' | null>(null)
+  const [pendingPdfType, setPendingPdfType] = useState<boolean>(false)
 
   useEffect(() => {
     Promise.all([
@@ -236,14 +236,14 @@ export default function QuoteEditor() {
     } finally { setSaving(false) }
   }
 
-  const downloadPdf = async (type: 'customer' | 'internal') => {
+  const downloadPdf = async () => {
     if (!quote?.id) return
     try {
-      const res = await api.get(`/quotes/${quote.id}/pdf/${type}`, { responseType: 'blob' })
+      const res = await api.get(`/quotes/${quote.id}/pdf`, { responseType: 'blob' })
       const url = window.URL.createObjectURL(new Blob([res.data]))
       const a = document.createElement('a')
       a.href = url
-      a.download = `preventivo_${quote.quote_number}_${type}.pdf`
+      a.download = `preventivo_${quote.quote_number}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -251,14 +251,14 @@ export default function QuoteEditor() {
     } catch (e) {toast.error('Errore nella generazione del PDF') }
   }
 
-  const handlePdfClick = (type: 'customer' | 'internal') => {
+  const handlePdfClick = () => {
     if (!quote) return
     const issues = validateQuote(quote)
     if (issues.length > 0) {
       setValidationIssues(issues)
-      setPendingPdfType(type)
+      setPendingPdfType(true)
     } else {
-      downloadPdf(type)
+      downloadPdf()
     }
   }
 
@@ -587,13 +587,13 @@ export default function QuoteEditor() {
               <p className="text-xs text-gray-400 pt-1">Clicca sul codice parte per navigare direttamente alla sezione.</p>
             </div>
             <div className="px-5 py-4 border-t flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => { setValidationIssues(null); setPendingPdfType(null) }}>
+              <Button variant="outline" size="sm" onClick={() => { setValidationIssues(null); setPendingPdfType(false) }}>
                 Annulla
               </Button>
               <Button size="sm" onClick={() => {
-                if (pendingPdfType) downloadPdf(pendingPdfType)
+                if (pendingPdfType) downloadPdf()
                 setValidationIssues(null)
-                setPendingPdfType(null)
+                setPendingPdfType(false)
               }}>
                 Genera comunque →
               </Button>

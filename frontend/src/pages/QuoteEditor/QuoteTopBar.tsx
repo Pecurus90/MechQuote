@@ -12,7 +12,7 @@ interface Props {
   canSubmit: boolean
   onSave: () => void
   onSubmitForReview: () => void
-  onPdfClick: (type: 'customer' | 'internal') => void
+  onPdfClick: () => void
 }
 
 /** Top bar del QuoteEditor: numero preventivo, badge status, info workflow,
@@ -56,7 +56,7 @@ export default function QuoteTopBar({
           <Send className="w-3.5 h-3.5 mr-1" /> Invia per revisione
         </Button>
       )}
-      <Button size="sm" variant="outline" onClick={() => onPdfClick('internal')}>
+      <Button size="sm" variant="outline" onClick={onPdfClick}>
         <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
       </Button>
       {!isLocked && (

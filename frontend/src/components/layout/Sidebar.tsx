@@ -167,7 +167,7 @@ export default function Sidebar() {
                     </NavLink>
                     <NavLink to="/settings/machines" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Cog className="w-3.5 h-3.5 shrink-0" />
-                      <span>Macchine</span>
+                      <span>Centri di costo</span>
                     </NavLink>
                     <NavLink to="/settings/treatments" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Ruler className="w-3.5 h-3.5 shrink-0" />

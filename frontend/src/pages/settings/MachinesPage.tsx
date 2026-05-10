@@ -8,14 +8,19 @@ import { toast } from 'sonner'
 import type { Machine } from '@/types'
 
 const MACHINE_TYPES = [
-  { value: 'cnc_3_axis', label: 'CNC 3 assi' },
-  { value: 'cnc_5_axis', label: 'CNC 5 assi' },
-  { value: 'turning', label: 'Tornio' },
-  { value: 'wire_edm', label: 'EDM filo' },
-  { value: 'sinker_edm', label: 'EDM a tuffo' },
-  { value: 'grinding', label: 'Rettifica' },
-  { value: 'manual', label: 'Manuale' },
-  { value: 'inspection', label: 'Controllo' },
+  { value: 'cnc_3_axis',      label: 'CNC 3 assi' },
+  { value: 'cnc_5_axis',      label: 'CNC 5 assi' },
+  { value: 'milling',         label: 'Fresatrice' },
+  { value: 'turning',         label: 'Tornio' },
+  { value: 'wire_edm',        label: 'EDM filo' },
+  { value: 'sinker_edm',      label: 'EDM a tuffo' },
+  { value: 'laser',           label: 'Laser' },
+  { value: 'grinding',        label: 'Rettifica' },
+  { value: 'manual',          label: 'Manuale' },
+  { value: 'cad_design',      label: 'Progettazione CAD' },
+  { value: 'cam_programming', label: 'Programmazione CAM' },
+  { value: 'assembly',        label: 'Montaggio' },
+  { value: 'inspection',      label: 'Controllo CMM' },
 ]
 
 export default function MachinesPage() {
@@ -58,14 +63,14 @@ export default function MachinesPage() {
     try {
       if (editingId && editingId > 0) await api.put(`/machines/${editingId}`, payload)
       else await api.post('/machines', payload)
-      toast.success('Macchina salvata')
+      toast.success('Centro di costo salvato')
       resetForm(); loadData()
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Eliminare questa macchina?')) return
-    try { await api.delete(`/machines/${id}`); toast.success('Macchina eliminata'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+    if (!confirm('Eliminare questo centro di costo?')) return
+    try { await api.delete(`/machines/${id}`); toast.success('Centro di costo eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...machines]
@@ -77,14 +82,14 @@ export default function MachinesPage() {
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Macchine</h1>
+        <h1 className="text-2xl font-bold">Centri di costo</h1>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
           </div>
           <Button size="sm" onClick={() => resetForm(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Nuova
+            <Plus className="w-4 h-4 mr-1" /> Nuovo
           </Button>
         </div>
       </div>
@@ -103,7 +108,7 @@ export default function MachinesPage() {
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessuna macchina trovata.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessun centro di costo trovato.</td></tr>
               )}
               {visible.map(m => (
                 <tr key={m.id} className="border-b hover:bg-gray-50">
@@ -134,7 +139,7 @@ export default function MachinesPage() {
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
           <Card className="w-full max-w-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h3 className="font-semibold">{editingId > 0 ? 'Modifica' : 'Nuova'} Macchina</h3>
+              <h3 className="font-semibold">{editingId > 0 ? 'Modifica' : 'Nuovo'} Centro di costo</h3>
               <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">

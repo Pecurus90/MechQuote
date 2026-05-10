@@ -92,6 +92,9 @@ Tre modalità target, tutte convergenti su `Quote → Parts → ManufacturingPha
 - Cablare `Machine.setup_minimum_hours` come pavimento per setup auto-calcolato
 - Riattivare la NavLink "Colori STEP" in sidebar
 
+### Modulo Volumetric (separato, da rifare)
+Prototipato in sessione (Sprint 13a/b/c/14) con `Operation`, `OperationSpeed`, `OperationCycle/Step` + ramo cost engine + UI settings, **smontato** per non interferire con il flusso manuale snello. Sarà ripreso come modulo dedicato (sezione settings separata, tabelle proprie, wizard 3D dedicato), decoupled dal preventivatore manuale. Vedi git log della sessione di prototipazione per riferimento implementativo.
+
 ### Wire EDM — affinamenti
 - Estrarre diametro foro da CIRCLE entity nei profili chiusi (per pre-popolare `drill_diameter_mm`)
 - Cache persistente del risultato `parse_dxf` (oggi è in-memory, ricomputata ad ogni open) — modello dedicato `DxfAnalysisCache`?

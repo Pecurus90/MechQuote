@@ -176,6 +176,8 @@ class ManufacturingPhase(Base):
     cutting_cycle_id = Column(Integer, ForeignKey("cutting_cycles.id"), nullable=True)
     n_pierce = Column(Integer, nullable=True)
     dxf_profile_ids = Column(JSON, nullable=True)
+    # Colonne legacy in DB ma non mappate (prototipo modulo Volumetric Sprint 13/14
+    # smontato per essere ricostruito separato): operation_id, input_volume_cm3.
 
     part = relationship("Part", back_populates="phases")
     machine = relationship("Machine")

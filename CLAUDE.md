@@ -263,6 +263,10 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - `Treatment.treatment_type` — metadato descrittivo (UI TreatmentsPage), non filtrato dal calcolo.
 - `EdmCutSpeed.material_id` — colonna legacy nel DB pre-refactor famiglia (audit#1 sprint EDM 1.5), non più letta dal modello SQLAlchemy.
 
+**Colonne legacy DB orfane (modulo Volumetric prototipato e smontato)**:
+- Tabelle `operations`, `operation_speeds`, `operation_cycles`, `operation_cycle_steps` — create durante prototipazione Sprint 13/14, smontate per essere ricostruite come modulo separato. Restano nel DB di sviluppo, non più referenziate dal codice.
+- `manufacturing_phases.operation_id`, `manufacturing_phases.input_volume_cm3` — colonne aggiunte in Sprint 13c, ora non più mappate dal modello SQLAlchemy.
+
 **Campi rimossi dal modello in audit#2 sprint 3 B1** (colonne legacy DB, non leggibili da SQLAlchemy):
 - `Part.rounding_rule`, `Part.confidence_level`
 - `ManufacturingPhase.quantity_multiplier`, `margin_percent_override`

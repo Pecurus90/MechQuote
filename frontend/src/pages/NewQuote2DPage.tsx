@@ -7,7 +7,7 @@ import { Zap, Drill, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
-import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig, Machine } from '@/types'
+import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig, Machine, Operation } from '@/types'
 import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
 
 type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
@@ -76,6 +76,7 @@ export default function NewQuote2DPage() {
   const [drillingRows, setDrillingRows] = useState<DrillingTime[]>([])
   const [edmConfig, setEdmConfig] = useState<EdmConfig | null>(null)
   const [machines, setMachines] = useState<Machine[]>([])
+  const [operations, setOperations] = useState<Operation[]>([])
   const [loadingRefs, setLoadingRefs] = useState(true)
 
   // DXF state — gestito da DxfProfilePicker, qui solo mirror per l'invio.
@@ -99,7 +100,8 @@ export default function NewQuote2DPage() {
       api.get('/drilling-times'),
       api.get('/edm-config'),
       api.get('/machines'),
-    ]).then(([cat, cus, mat, cyc, dr, cfg, mc]) => {
+      api.get('/operations'),
+    ]).then(([cat, cus, mat, cyc, dr, cfg, mc, ops]) => {
       setCategories(cat.data)
       setCustomers(cus.data)
       setMaterials(mat.data)
@@ -107,6 +109,7 @@ export default function NewQuote2DPage() {
       setDrillingRows(dr.data)
       setEdmConfig(cfg.data)
       setMachines(mc.data)
+      setOperations(ops.data)
       setForm(initialForm(cat.data))
     }).catch(() => toast.error('Errore nel caricamento dei dati di riferimento'))
       .finally(() => setLoadingRefs(false))
@@ -254,9 +257,11 @@ export default function NewQuote2DPage() {
       //    setup_hours = setup_minimum_hours configurato sulla macchina (UI
       //    Macchine → "Setup minimo"); l'utente può poi affinarlo nel preventivo.
       const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)
+      const edmOperation = operations.find(o => o.name === 'EDM a filo')
       await api.post(`/parts/${partId}/phases`, {
         sequence_number: 10,
-        phase_type: 'wire_edm',
+        phase_type: '',  // legacy column NOT NULL — autocalc EDM si attiva da machine_type='wire_edm'
+        operation_id: edmOperation?.id,
         description: `Taglio EDM filo (${selectedProfiles.length} profili)`,
         machine_id: wireEdmMachine?.id,
         cut_length_mm: Math.round(dxf.selectedLengthMm * 100) / 100,
@@ -276,9 +281,11 @@ export default function NewQuote2DPage() {
       if (form.drilling_mode === 'foratrice_edm') {
         if (drillTotalSeconds != null && form.n_holes > 0 && edmConfig?.default_drilling_machine_id) {
           const drillingMachine = machines.find(m => m.id === edmConfig.default_drilling_machine_id)
+          const drillingOperation = operations.find(o => o.name === 'Foratura')
           await api.post(`/parts/${partId}/phases`, {
             sequence_number: 5,
-            phase_type: 'drilling',
+            phase_type: '',  // legacy column NOT NULL
+            operation_id: drillingOperation?.id,
             description: `Foratura ${form.n_holes} fori Ø${form.electrode_diameter_mm} mm`,
             machine_id: edmConfig.default_drilling_machine_id,
             setup_hours: drillingMachine?.setup_minimum_hours ?? 0,

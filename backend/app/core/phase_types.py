@@ -1,10 +1,13 @@
-"""Tipi di fase di lavorazione — slug stabili usati come `ManufacturingPhase.phase_type`.
+"""Vocabolario iniziale di Lavorazioni — usato SOLO come seed di `Operation`
+al primo boot (vedi `main._seed_operations`).
 
-⚠️  Mirror di frontend/src/lib/constants.ts PHASE_TYPES. Tieni i due file allineati:
-sono lo stesso dato in due rappresentazioni (Python qui per PDF, TS lì per UI).
+Dopo il seed la tabella `Operation` è la single source of truth. L'utente
+modifica/aggiunge/disattiva voci da UI (Settings → Catalogo → Lavorazioni).
+Cambiare questo file non ha effetto retroattivo sui DB già seedati.
 
-`label`        — etichetta italiana piena, usata in UI (frontend) e per leggibilità log
-`label_short`  — etichetta compatta italiana (≤8 char), usata in PDF dove le colonne sono strette
+Il modulo conserva storicamente il nome `phase_types` per evitare di
+toccare l'import in `main.py`. Le voci `slug`/`label_short` restano per
+eventuale rebuild da zero in dev, ma il cost engine non le legge più.
 """
 from typing import Dict, List
 
@@ -26,21 +29,3 @@ PHASE_TYPES: List[Dict[str, str]] = [
     {"slug": "transport",            "label": "Trasporto",                "label_short": "TRASP."},
     {"slug": "custom_extra",         "label": "Extra personalizzato",     "label_short": "EXTRA"},
 ]
-
-_BY_SLUG: Dict[str, Dict[str, str]] = {p["slug"]: p for p in PHASE_TYPES}
-
-
-def phase_label(slug: str) -> str:
-    """Etichetta italiana piena. Fallback: slug rimaiuscolato."""
-    p = _BY_SLUG.get(slug)
-    return p["label"] if p else slug.upper().replace("_", " ")
-
-
-def phase_label_short(slug: str) -> str:
-    """Etichetta compatta per PDF. Fallback: slug rimaiuscolato troncato."""
-    p = _BY_SLUG.get(slug)
-    return p["label_short"] if p else slug.upper().replace("_", " ")[:10]
-
-
-# Slug che identificano fasi "esterne" / "altro" — usato per mostrare un badge speciale nel PDF
-EXTERNAL_PHASE_SLUGS = frozenset({"external_supplier", "custom_extra", "transport"})

@@ -130,6 +130,7 @@ def duplicate_part(
         raw_y_mm=part.raw_y_mm,
         raw_z_mm=part.raw_z_mm,
         raw_diameter_mm=part.raw_diameter_mm,
+        raw_weight_kg=part.raw_weight_kg,
         finished_weight_kg=part.finished_weight_kg,
         material_cost=part.material_cost,
         material_delivery_cost=part.material_delivery_cost,
@@ -162,6 +163,13 @@ def duplicate_part(
             is_shared=ph.is_shared,
             internal_notes=ph.internal_notes,
             customer_notes=ph.customer_notes,
+            # Wire EDM: parametri trigger autocalc. Senza questi il duplicate
+            # perde l'autocalc e i tempi tornano a 0.
+            cut_length_mm=ph.cut_length_mm,
+            cut_height_mm=ph.cut_height_mm,
+            cutting_cycle_id=ph.cutting_cycle_id,
+            n_pierce=ph.n_pierce,
+            dxf_profile_ids=ph.dxf_profile_ids,
         )
         db.add(new_ph)
 

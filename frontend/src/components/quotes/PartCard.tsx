@@ -117,7 +117,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
       }
       const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1)
       const payload = {
-        phase_type: 'heat_treatment',
+        phase_type: '',  // legacy column NOT NULL — la fase trattamento è identificata da treatment_id
         description: t.name,
         treatment_id: treatmentId,
         supplier_id: t.supplier_id ?? undefined,

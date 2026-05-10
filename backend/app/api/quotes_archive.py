@@ -4,15 +4,18 @@ from sqlalchemy import func, extract, or_
 from typing import List, Optional
 
 from app.core.database import get_db
+from app.core.security import require_permission
 from app.models import Quote
 from app.schemas import QuoteOut
 
 
 router = APIRouter(prefix="/api", tags=["quotes-archive"])
 
+_can_view = require_permission('quotes.archive')
+
 
 @router.get("/quotes/years")
-def get_quote_years(db: Session = Depends(get_db)):
+def get_quote_years(db: Session = Depends(get_db), _=_can_view):
     results = db.query(func.strftime("%Y", Quote.quote_date)).distinct().all()
     years = sorted([int(r[0]) for r in results if r[0]], reverse=True)
     return years or [2026]
@@ -25,6 +28,7 @@ def list_archive(
     q: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
+    _=_can_view,
 ):
     # Clamp parametri di paginazione: niente offset negativo, page_size in range sensato
     page = max(1, page)

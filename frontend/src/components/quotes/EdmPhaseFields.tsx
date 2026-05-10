@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Zap, Unlock, FileText, X } from 'lucide-react'
+import { Zap, Unlock, FileText, X, Paperclip } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { Phase, CuttingCycle } from '@/types'
@@ -13,12 +13,24 @@ interface Props {
   edmAuto: boolean
   cuttingCycles: CuttingCycle[]
   partId?: number   // se presente, su conferma DXF il file viene allegato come PartFile
+  /** Altezza grezzo della parte (raw_z_mm). Suggerita come cut_height_mm
+   *  quando si conferma il DXF e cut_height_mm è ancora vuoto. */
+  defaultCutHeightMm?: number
+  /** Se true, la parte ha già un grezzo (X+Y o Ø): non sovrascrivere con la
+   *  bbox del DXF. */
+  partHasRawStock?: boolean
+  /** ID di una macchina wire_edm attiva (la prima trovata). Usato come
+   *  fallback se la fase non ha machine_id al momento del confirm DXF —
+   *  senza macchina la tariffa oraria è 0 e il costo non viene calcolato. */
+  suggestedMachineId?: number
+  /** Callback per ricaricare la parte dal backend dopo aver aggiornato il
+   *  grezzo (raw_x_mm/raw_y_mm) — così PartCard rinfresca la UI. */
+  onReload?: () => void
   onChange: (field: keyof Phase, value: Phase[keyof Phase]) => void
   onBlur: () => void
   onUnlockManual: () => void
-  /** Aggiornamento atomico di più campi (riceve dal PhaseEditor un wrap su updateMany).
-   *  Usato dalla modale DXF per popolare cut_length_mm + dxf_profile_ids + n_pierce
-   *  in un colpo solo (altrimenti tre setState separate causerebbero race sul calcolo). */
+  /** Aggiornamento atomico di più campi nello state locale del PhaseEditor.
+   *  Usato dalla modale DXF per allineare lo state dopo la save sincrona. */
   onPatch?: (updates: Partial<Phase>) => void
 }
 
@@ -26,7 +38,7 @@ interface Props {
  * Quando i 3 campi obbligatori sono valorizzati, il backend ricalcola
  * automaticamente cycle_hours_per_part (edmAuto = true).
  */
-export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, onChange, onBlur, onUnlockManual, onPatch }: Props) {
+export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, defaultCutHeightMm, partHasRawStock, suggestedMachineId, onReload, onChange, onBlur, onUnlockManual, onPatch }: Props) {
   const [showDxfModal, setShowDxfModal] = useState(false)
   const [pendingDxf, setPendingDxf] = useState<DxfPickerState | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -38,8 +50,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
     }
     setSubmitting(true)
     try {
-      // Allega il DXF al pezzo (best-effort: se manca partId o fallisce upload,
-      // proseguiamo comunque con il patch dei campi della fase).
+      // 1. Allega il DXF al pezzo (best-effort).
       if (partId) {
         try {
           const fd = new FormData()
@@ -51,24 +62,61 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           toast.warning('DXF analizzato ma allegato non salvato (riprova manualmente)')
         }
       }
+
+      // 2. Costruisci gli updates per la fase.
       const updates: Partial<Phase> = {
         cut_length_mm: Math.round(pendingDxf.selectedLengthMm * 100) / 100,
         dxf_profile_ids: pendingDxf.selectedIds,
       }
-      // Suggerisci n_pierce solo se l'utente non l'ha ancora compilato.
       if (phase.n_pierce == null || phase.n_pierce === 0) {
         updates.n_pierce = pendingDxf.selectedClosedCount
       }
-      if (onPatch) {
-        onPatch(updates)
-      } else {
-        // Fallback: tre setState separati (può causare un breve sfasamento del calcolo
-        // ma il backend riallinea alla save).
-        onChange('cut_length_mm', updates.cut_length_mm ?? null)
-        onChange('dxf_profile_ids', (updates.dxf_profile_ids ?? null) as Phase[keyof Phase])
-        if (updates.n_pierce != null) onChange('n_pierce', updates.n_pierce)
+      if ((phase.cut_height_mm == null || phase.cut_height_mm === 0) && defaultCutHeightMm) {
+        updates.cut_height_mm = defaultCutHeightMm
       }
-      onBlur()  // triggera la save
+      // Suggerisci una macchina wire_edm se la fase non ne ha una: senza
+      // machine_id la tariffa è 0 → calculated_cost resta 0 anche con ore.
+      if (!phase.machine_id && suggestedMachineId) {
+        updates.machine_id = suggestedMachineId
+      }
+
+      // 3. Save SINCRONA della fase via API. Non deleghiamo a savePhase via
+      //    onBlur(): la sua closure su `phases` legge il valore PRE-patch
+      //    (race con setState non ancora flushato) e finirebbe per inviare
+      //    al backend i campi vecchi, sovrascrivendo lo state pendente.
+      if (phase.id) {
+        try {
+          await api.put<Phase>(`/phases/${phase.id}`, { ...phase, ...updates })
+        } catch {
+          toast.error('Errore nel salvataggio della fase')
+          return
+        }
+      }
+
+      // 4. Aggiorna il grezzo della parte se non è ancora stato impostato.
+      if (partId && !partHasRawStock) {
+        const bbox = pendingDxf.analysis.bbox_global
+        if (bbox.w > 0 && bbox.h > 0) {
+          try {
+            await api.put(`/parts/${partId}`, {
+              raw_x_mm: Math.ceil(bbox.w),
+              raw_y_mm: Math.ceil(bbox.h),
+            })
+          } catch {
+            toast.warning('Grezzo non aggiornato dalla bbox (compilalo manualmente)')
+          }
+        }
+      }
+
+      // 5. Reload completo dal backend: l'unico modo robusto di tornare allo
+      //    stato coerente. Fallback a onPatch solo se onReload non disponibile
+      //    (caso edge — copre comunque i campi della fase, nuovo grezzo perso).
+      if (onReload) {
+        onReload()
+      } else if (onPatch) {
+        onPatch(updates)
+      }
+
       toast.success(`${pendingDxf.selectedIds.length} profili importati (${updates.cut_length_mm} mm)`)
       setShowDxfModal(false)
       setPendingDxf(null)
@@ -84,6 +132,14 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           <Zap className="w-3.5 h-3.5" />
           Parametri taglio EDM
           {edmAuto && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-amber-200 text-amber-800">auto</span>}
+          {phase.dxf_profile_ids && phase.dxf_profile_ids.length > 0 && (
+            <span
+              className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700"
+              title="Profili importati da DXF — riapri 'Carica da DXF' per cambiare selezione"
+            >
+              <Paperclip className="w-3 h-3" /> {phase.dxf_profile_ids.length} profili DXF
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -151,12 +207,6 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             onBlur={onBlur} />
         </div>
       </div>
-      {edmAuto && (
-        <p className="text-[11px] text-amber-700 mt-2">
-          Le ore ciclo sono calcolate automaticamente da area × ciclo + tempo pierce.
-          Se la coppia materiale/altezza non è in tabella, popolala in Impostazioni → Wire EDM → Velocità di taglio.
-        </p>
-      )}
 
       {showDxfModal && (
         <div className="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4">

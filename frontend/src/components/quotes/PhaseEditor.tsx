@@ -27,6 +27,16 @@ interface Props {
   templates?: PhaseTemplate[]
   treatments?: Treatment[]
   finishedWeightKg?: number
+  /** Altezza grezzo della parte (raw_z_mm). Se popolata, viene suggerita
+   *  come `cut_height_mm` quando si carica un DXF su una fase EDM con
+   *  altezza ancora vuota — niente sovrascrittura se già impostata. */
+  partRawZmm?: number
+  /** True se la parte ha già un grezzo selezionato (X+Y o Ø): il modale DXF
+   *  evita di sovrascrivere il grezzo con la bbox. */
+  partHasRawStock?: boolean
+  /** Ricarica la parte dal backend (es. dopo che il modale DXF ha
+   *  aggiornato raw_x_mm/raw_y_mm). */
+  onReload?: () => void
   readOnly?: boolean
   onChange: (phases: Phase[]) => void
 }
@@ -50,7 +60,7 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, readOnly = false, onChange }: Props) {
+export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], templates = [], treatments = [], finishedWeightKg, partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
   const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
@@ -139,15 +149,28 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     } catch (e) {toast.error('Errore nel salvataggio della fase') }
   }
 
-  const unlockManualEdm = (idx: number) => {
-    updateMany(idx, {
+  const unlockManualEdm = async (idx: number) => {
+    const phase = phases[idx]
+    const updates = {
       cut_length_mm: null,
       cut_height_mm: null,
       cutting_cycle_id: null,
       n_pierce: null,
-    })
-    // Salva immediatamente: dopo lo sblocco il backend non ricalcolerà più auto.
-    setTimeout(() => savePhase(idx), 0)
+    }
+    // Save SINCRONA via API con il payload nuovo. setTimeout(savePhase) non
+    // funzionerebbe: la closure di savePhase su `phases` punta al valore
+    // pre-update (campi ancora popolati) → sovrascriverebbe lo sblocco.
+    if (phase.id) {
+      try {
+        await api.put(`/phases/${phase.id}`, { ...phase, ...updates })
+        if (onReload) onReload()
+        else updateMany(idx, updates)
+      } catch {
+        toast.error('Errore nello sblocco')
+      }
+    } else {
+      updateMany(idx, updates)
+    }
   }
 
   const handleTreatmentSelect = (idx: number, treatmentId: number | undefined) => {
@@ -327,11 +350,20 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                           className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                           value={phase.phase_type}
                           onChange={e => {
-                            updateField(idx, 'phase_type', e.target.value)
-                            // reset treatment if switching away from treatment type
-                            if (!TREATMENT_PHASE_TYPES.has(e.target.value) && phase.treatment_id) {
-                              updateMany(idx, { phase_type: e.target.value, treatment_id: undefined })
+                            const newType = e.target.value
+                            const updates: Partial<Phase> = { phase_type: newType }
+                            // Reset treatment se si esce da fasi trattamento.
+                            if (!TREATMENT_PHASE_TYPES.has(newType) && phase.treatment_id) {
+                              updates.treatment_id = undefined
                             }
+                            // Auto-seleziona macchina wire_edm se manca: senza machine_id
+                            // la tariffa oraria è 0 e il costo è 0 anche se le ore
+                            // sono ricalcolate dall'autocalc EDM.
+                            if (newType === 'wire_edm' && !phase.machine_id) {
+                              const wireEdm = machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)
+                              if (wireEdm) updates.machine_id = wireEdm.id
+                            }
+                            updateMany(idx, updates)
                           }}
                           onBlur={() => savePhase(idx)}
                         >
@@ -425,6 +457,10 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         edmAuto={edmAuto}
                         cuttingCycles={cuttingCycles}
                         partId={partId}
+                        defaultCutHeightMm={partRawZmm}
+                        partHasRawStock={partHasRawStock}
+                        suggestedMachineId={machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)?.id}
+                        onReload={onReload}
                         onChange={(field, value) => updateField(idx, field, value)}
                         onBlur={() => savePhase(idx)}
                         onUnlockManual={() => unlockManualEdm(idx)}

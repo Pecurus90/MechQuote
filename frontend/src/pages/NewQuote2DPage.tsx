@@ -7,7 +7,7 @@ import { Zap, Drill, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
-import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig } from '@/types'
+import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig, Machine } from '@/types'
 import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
 
 type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
@@ -75,6 +75,7 @@ export default function NewQuote2DPage() {
   const [cycles, setCycles] = useState<CuttingCycle[]>([])
   const [drillingRows, setDrillingRows] = useState<DrillingTime[]>([])
   const [edmConfig, setEdmConfig] = useState<EdmConfig | null>(null)
+  const [machines, setMachines] = useState<Machine[]>([])
   const [loadingRefs, setLoadingRefs] = useState(true)
 
   // DXF state — gestito da DxfProfilePicker, qui solo mirror per l'invio.
@@ -97,13 +98,15 @@ export default function NewQuote2DPage() {
       api.get('/cutting-cycles'),
       api.get('/drilling-times'),
       api.get('/edm-config'),
-    ]).then(([cat, cus, mat, cyc, dr, cfg]) => {
+      api.get('/machines'),
+    ]).then(([cat, cus, mat, cyc, dr, cfg, mc]) => {
       setCategories(cat.data)
       setCustomers(cus.data)
       setMaterials(mat.data)
       setCycles(cyc.data.filter((c: CuttingCycle) => c.active))
       setDrillingRows(dr.data)
       setEdmConfig(cfg.data)
+      setMachines(mc.data)
       setForm(initialForm(cat.data))
     }).catch(() => toast.error('Errore nel caricamento dei dati di riferimento'))
       .finally(() => setLoadingRefs(false))
@@ -207,12 +210,12 @@ export default function NewQuote2DPage() {
 
   const submit = async () => {
     const errs = validate()
-    if (errs.length > 0) { toast.error(`Mancano: ${errs.join(',')}`); return }
+    if (errs.length > 0) { toast.error(`Mancano: ${errs.join(', ')}`); return }
     if (!dxf) return
 
     setSubmitting(true)
     try {
-      // 1. crea preventivo (auto-crea 1 part)
+      // 1. Crea preventivo (auto-crea 1 part)
       const quoteRes = await api.post('/quotes', {
         quote_number: quoteNumber,
         quote_type: 'single',
@@ -222,11 +225,16 @@ export default function NewQuote2DPage() {
         global_margin_percent: form.global_margin_percent,
         quote_date: form.quote_date,
       })
-      const quoteId = quoteRes.data.id as number
-      const partId = quoteRes.data.parts?.[0]?.id as number | undefined
-      if (!partId) throw new Error('Part non trovata dopo creazione preventivo')
+      const quoteId = quoteRes.data?.id
+      const partId = quoteRes.data?.parts?.[0]?.id
+      if (typeof quoteId !== 'number') {
+        throw new Error(`Risposta /quotes priva di id valido: ${JSON.stringify(quoteRes.data)}`)
+      }
+      if (typeof partId !== 'number') {
+        throw new Error('Part non trovata dopo creazione preventivo')
+      }
 
-      // 2. aggiorna part con dati pezzo (materiale, dimensioni grezzo da bbox + cut height)
+      // 2. Aggiorna la part con dati pezzo (materiale, dimensioni grezzo da bbox + altezza)
       await api.put(`/parts/${partId}`, {
         description: form.description,
         material_id: Number(form.material_id),
@@ -235,36 +243,38 @@ export default function NewQuote2DPage() {
         raw_z_mm: form.cut_height_mm,
       })
 
-      // 3. upload DXF
+      // 3. Upload DXF
       const fd = new FormData()
       fd.append('file', dxf.file)
       await api.post(`/parts/${partId}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
 
-      // 4. fase Wire EDM (n_pierce = numero fori/infilaggi inserito dall'utente,
-      //    sia in modalità foratrice_edm che piastra_preforata)
+      // 4. Fase Wire EDM. Assegno una macchina wire_edm: senza machine_id la
+      //    tariffa oraria è 0 e il costo della fase resta 0 anche se le ore
+      //    sono auto-calcolate dal backend (area × ciclo / velocità).
+      const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)
       await api.post(`/parts/${partId}/phases`, {
         sequence_number: 10,
         phase_type: 'wire_edm',
         description: `Taglio EDM filo (${selectedProfiles.length} profili)`,
+        machine_id: wireEdmMachine?.id,
         cut_length_mm: Math.round(dxf.selectedLengthMm * 100) / 100,
         cut_height_mm: form.cut_height_mm,
         cutting_cycle_id: Number(form.cutting_cycle_id),
         n_pierce: form.n_holes,
         dxf_profile_ids: dxf.selectedIds,
-        // setup/fixed/variable a 0: l'utente li affina nel QuoteEditor se serve
         setup_hours: 0,
-        cycle_hours_per_part: 0,  // sarà ricalcolato dal backend
+        cycle_hours_per_part: 0,  // sarà ricalcolato dal backend (autocalc EDM)
         fixed_cost: 0,
         variable_cost_per_part: 0,
         customer_visible: true,
         is_shared: false,
       })
 
-      // 5. fase Foratura aggiuntiva SOLO in modalità foratrice_edm (con macchina dedicata da EdmConfig)
+      // 5. Fase Foratura aggiuntiva SOLO in modalità foratrice_edm
       if (form.drilling_mode === 'foratrice_edm') {
         if (drillTotalSeconds != null && form.n_holes > 0 && edmConfig?.default_drilling_machine_id) {
           await api.post(`/parts/${partId}/phases`, {
-            sequence_number: 5,  // prima della EDM
+            sequence_number: 5,
             phase_type: 'drilling',
             description: `Foratura ${form.n_holes} fori Ø${form.electrode_diameter_mm} mm`,
             machine_id: edmConfig.default_drilling_machine_id,
@@ -283,8 +293,13 @@ export default function NewQuote2DPage() {
       toast.success('Preventivo creato')
       navigate(`/quotes/${quoteId}`)
     } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nella creazione del preventivo')
+      // Stampa lo stack in console per facilitare il debug se la pagina sembra
+      // bloccata (es. eccezione async non visibile sotto forma di toast).
+      console.error('[NewQuote2DPage.submit]', e)
+      const err = e as { message?: string; response?: { status?: number; data?: { detail?: string } } }
+      const detail = err?.response?.data?.detail
+      const status = err?.response?.status
+      toast.error(detail || err?.message || `Errore nella creazione del preventivo${status ? ` (HTTP ${status})` : ''}`)
     } finally {
       setSubmitting(false)
     }

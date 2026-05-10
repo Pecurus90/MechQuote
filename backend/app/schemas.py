@@ -271,7 +271,10 @@ class PartCreate(PartBase):
 
 
 class PartUpdate(PartBase):
-    pass
+    # Tutti i campi opzionali per le PUT parziali (il pattern Update accetta
+    # qualunque sottoinsieme di campi). PartBase rende `part_code` required
+    # perché lo è in PartCreate; qui lo facciamo opzionale.
+    part_code: Optional[str] = None
 
 
 class PartFileOut(BaseModel):

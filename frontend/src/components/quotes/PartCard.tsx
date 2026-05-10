@@ -148,19 +148,19 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
           <div className="flex items-end gap-3">
             <div className="w-44 shrink-0">
               <label className="text-xs font-medium text-gray-600">Codice Parte</label>
-              <Input className="mt-1 h-8 font-mono text-sm" value={part.part_code}
+              <Input className="mt-1 h-8 font-mono text-sm" value={part.part_code ?? ''}
                 onChange={e => onUpdate({ part_code: e.target.value })}
                 onBlur={onSave} />
             </div>
             <div className="flex-1 min-w-0">
               <label className="text-xs font-medium text-gray-600">Descrizione</label>
-              <Input className="mt-1 h-8 text-sm" value={part.description}
+              <Input className="mt-1 h-8 text-sm" value={part.description ?? ''}
                 onChange={e => onUpdate({ description: e.target.value })}
                 onBlur={onSave} placeholder="Descrizione del pezzo" />
             </div>
             <div className="w-16 shrink-0">
               <label className="text-xs font-medium text-gray-600">Rev.</label>
-              <Input className="mt-1 h-8 text-sm" value={part.revision}
+              <Input className="mt-1 h-8 text-sm" value={part.revision ?? ''}
                 onChange={e => onUpdate({ revision: e.target.value })}
                 onBlur={onSave} />
             </div>
@@ -353,6 +353,9 @@ export default function PartCard({ part, machines, materials, suppliers = [], te
             templates={templates}
             treatments={treatments}
             finishedWeightKg={part.finished_weight_kg}
+            partRawZmm={part.raw_z_mm}
+            partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
+            onReload={onReload}
             readOnly={readOnly}
             onChange={onPhasesChange}
           />

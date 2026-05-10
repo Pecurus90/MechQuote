@@ -21,6 +21,7 @@ Pattern di import:
 - Mantiene gli ID originali per preservare le FK references.
 - DELETE in ordine reverse (children prima), INSERT in ordine forward (parent prima).
 """
+import logging
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Type
 
@@ -30,6 +31,7 @@ from sqlalchemy import Column
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, utc_now
+from app.core.security import get_current_user
 from app.models import (
     User, Role, RolePermission, QuoteCategory,
     MaterialSupplier, Material, Supplier, Machine, Treatment,
@@ -39,6 +41,7 @@ from app.models import (
     Quote, Part, ManufacturingPhase, PartFile,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 
@@ -184,12 +187,18 @@ class BackupPayload(BaseModel):
 # ─── Endpoints ──────────────────────────────────────────────────────────────
 
 @router.get("/export")
-def export_data(db: Session = Depends(get_db)) -> Dict[str, Any]:
+def export_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """Esporta tutto lo stato persistente. Permission gating: 'backup' (vedi main.py)."""
     tables: Dict[str, List[Dict[str, Any]]] = {}
     for model_class in EXPORT_ORDER:
         rows = db.query(model_class).all()
         tables[model_class.__tablename__] = [_serialize_record(r) for r in rows]
+    total_rows = sum(len(rows) for rows in tables.values())
+    logger.info("Backup export: by=%s tabelle=%d righe=%d",
+                current_user.username, len(tables), total_rows)
     return {
         "version": BACKUP_VERSION,
         "exported_at": utc_now().isoformat(),
@@ -198,11 +207,17 @@ def export_data(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 
 @router.post("/import")
-def import_data(payload: BackupPayload, db: Session = Depends(get_db)) -> Dict[str, Any]:
+def import_data(
+    payload: BackupPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
     """Sovrascrive lo stato persistente con il contenuto del backup.
 
-    DELETE in ordine reverse (children prima) per non violare FK, INSERT in
-    ordine forward. Mantiene gli ID originali per preservare le FK references.
+    DELETE + INSERT in **transazione unica**: se l'INSERT fallisce a metà
+    (riga corrotta, FK violata, schema obsoleto…), rollback completo e
+    DB integro al pre-import. Senza questo wrapping un commit intermedio
+    lasciava il DB svuotato e non ripopolato in caso di errore.
     """
     tables = payload.normalized_tables()
     if not tables:
@@ -225,27 +240,40 @@ def import_data(payload: BackupPayload, db: Session = Depends(get_db)) -> Dict[s
                    "import abortito per evitare DELETE distruttivo del DB attuale.",
         )
 
-    # 1. Cancella in ordine reverse (children prima dei parent)
-    for model_class in reversed(EXPORT_ORDER):
-        db.query(model_class).delete()
-    db.commit()
-
-    # 2. Inserisce in ordine forward (parent prima dei children)
     counts: Dict[str, int] = {}
-    for model_class in EXPORT_ORDER:
-        table = model_class.__tablename__
-        rows = tables.get(table, [])
-        if not rows:
-            continue
-        for raw in rows:
-            cleaned = _filter_to_columns(model_class, raw)
-            db.add(model_class(**cleaned))
-        counts[table] = len(rows)
-    db.commit()
+    try:
+        # 1. Cancella in ordine reverse (children prima dei parent), no commit.
+        for model_class in reversed(EXPORT_ORDER):
+            db.query(model_class).delete(synchronize_session=False)
 
+        # 2. Inserisce in ordine forward (parent prima dei children), no commit.
+        for model_class in EXPORT_ORDER:
+            table = model_class.__tablename__
+            rows = tables.get(table, [])
+            if not rows:
+                continue
+            for raw in rows:
+                cleaned = _filter_to_columns(model_class, raw)
+                db.add(model_class(**cleaned))
+            counts[table] = len(rows)
+
+        # Unico commit: o tutto o niente.
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error("Backup import FALLITO: by=%s error=%s", current_user.username, e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Import fallito — rollback eseguito, DB integro al pre-import. "
+                   f"Errore: {e!s}",
+        )
+
+    total_rows = sum(counts.values())
+    logger.info("Backup import OK: by=%s tabelle=%d righe=%d",
+                current_user.username, len(counts), total_rows)
     return {
         "ok": True,
         "imported": counts,
-        "message": f"Ripristinate {sum(counts.values())} righe in {len(counts)} tabelle. "
+        "message": f"Ripristinate {total_rows} righe in {len(counts)} tabelle. "
                    f"I file fisici in uploads/ vanno ripristinati separatamente.",
     }

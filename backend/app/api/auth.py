@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -8,6 +10,7 @@ from app.core.security import verify_password, get_password_hash, create_access_
 from app.models import User
 from app.schemas import Token, UserCreate, UserUpdate, UserOut
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -33,9 +36,13 @@ def register(user: UserCreate, db: Session = Depends(get_db), _=require_permissi
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
+        # Log username MA NON la password. Utile per intercettare brute force.
+        logger.warning("Login fallito per username=%r", form_data.username)
         raise HTTPException(status_code=401, detail="Credenziali non valide")
     if not user.is_active:
+        logger.warning("Login rifiutato — account disattivato: username=%r", user.username)
         raise HTTPException(status_code=403, detail="Account disabilitato")
+    logger.info("Login OK: username=%s role=%s", user.username, user.role)
     token = create_access_token({"sub": user.username})
     return {"access_token": token, "token_type": "bearer"}
 

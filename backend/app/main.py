@@ -2,7 +2,16 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+import logging
 import os
+
+# Logging strutturato base. Livello configurabile via env var.
+# Override LOG_LEVEL=DEBUG per vedere SQL/dettagli, default INFO.
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 from app.core.database import engine, Base
 from app.core.security import get_current_user, require_permission

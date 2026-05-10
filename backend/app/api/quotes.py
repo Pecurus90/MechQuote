@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
@@ -10,6 +12,7 @@ from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
 from app.services.calculation import recalculate_part
 from app.services.notifications import create_notification
 
+logger = logging.getLogger(__name__)
 _can_write = require_permission('quotes.create')
 _can_send = require_permission('quotes.send')
 
@@ -118,6 +121,9 @@ def create_quote(
 
     db.commit()
 
+    logger.info("Quote creato: id=%s number=%r by=%s parts=%d",
+                quote.id, quote.quote_number, current_user.username,
+                num_components if num_components else 1)
     result = _load_quote(quote.id, db)
     return result
 
@@ -271,6 +277,8 @@ def delete_quote(
     db.execute(text("DELETE FROM notifications WHERE target_quote_id = :qid"), {"qid": quote_id})
     db.delete(quote)
     db.commit()
+    logger.info("Quote eliminato: id=%s number=%r by=%s",
+                quote_id, quote.quote_number, current_user.username)
     return {"ok": True}
 
 

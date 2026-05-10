@@ -147,7 +147,8 @@ def duplicate_part(
         new_ph = ManufacturingPhase(
             part_id=new_part.id,
             sequence_number=ph.sequence_number,
-            phase_type=ph.phase_type,
+            phase_type=ph.phase_type,           # legacy DB col, NOT NULL
+            operation_id=ph.operation_id,        # FK Lavorazione (catalogo utente)
             description=ph.description,
             machine_id=ph.machine_id,
             supplier_id=ph.supplier_id,

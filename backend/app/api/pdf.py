@@ -1,9 +1,13 @@
+import asyncio
+import math
+import os
+import tempfile
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
-import tempfile
-import os
-import math
+
+
 
 from app.core.database import get_db
 from app.core.security import require_permission
@@ -440,9 +444,15 @@ def generate_quote_pdf(quote_id: int, internal: bool, db: Session) -> str:
     return tmp.name
 
 
+# `generate_quote_pdf` usa Playwright sync_api: ~2-5s di rendering Chromium
+# bloccante. Wrappato in `asyncio.to_thread` qui sotto: il worker uvicorn
+# resta libero a servire altre richieste mentre il PDF si genera in un
+# thread separato. Senza questo wrap, 3 PDF richiesti insieme = 3 PDF
+# generati in serie (9-15s totali); con il wrap si parallelizzano.
+
 @router.get("/quotes/{quote_id}/pdf/customer")
-def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
-    path = generate_quote_pdf(quote_id, internal=False, db=db)
+async def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
+    path = await asyncio.to_thread(generate_quote_pdf, quote_id, False, db)
     background_tasks.add_task(os.unlink, path)
     return FileResponse(
         path=path,
@@ -452,8 +462,8 @@ def get_customer_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Sessi
 
 
 @router.get("/quotes/{quote_id}/pdf/internal")
-def get_internal_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
-    path = generate_quote_pdf(quote_id, internal=True, db=db)
+async def get_internal_pdf(quote_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _=_can_pdf):
+    path = await asyncio.to_thread(generate_quote_pdf, quote_id, True, db)
     background_tasks.add_task(os.unlink, path)
     return FileResponse(
         path=path,

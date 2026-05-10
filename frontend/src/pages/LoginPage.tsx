@@ -25,8 +25,11 @@ export default function LoginPage() {
       const me = await api.get('/auth/me')
       setUser(me.data)
       navigate('/')
-    } catch {
-      toast.error('Credenziali non valide')
+    } catch (e) {
+      // Mostra il messaggio dal backend (es. 429 rate limit, 403 disattivato),
+      // fallback al generico "Credenziali non valide" su 401
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Credenziali non valide')
     } finally {
       setLoading(false)
     }

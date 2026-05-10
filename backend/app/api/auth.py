@@ -1,11 +1,12 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user, require_permission
 from app.models import User
 from app.schemas import Token, UserCreate, UserUpdate, UserOut
@@ -33,7 +34,12 @@ def register(user: UserCreate, db: Session = Depends(get_db), _=require_permissi
 
 
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(
+    request: Request,  # required by slowapi to extract client IP
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         # Log username MA NON la password. Utile per intercettare brute force.

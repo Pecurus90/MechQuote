@@ -1,6 +1,8 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 import logging
 import os
@@ -14,6 +16,7 @@ logging.basicConfig(
 )
 
 from app.core.database import engine, Base
+from app.core.rate_limit import limiter
 from app.core.security import get_current_user, require_permission
 from app.models import (
     User, QuoteCategory, Customer, Quote, Part, PartFile,
@@ -27,6 +30,19 @@ from app.models import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="MechQuote API", version="1.0.0")
+
+# Rate limiter (slowapi). Vedi `app/core/rate_limit.py`. L'handler
+# 429 ritorna un detail in italiano coerente col resto delle API.
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Troppi tentativi. Riprova tra qualche minuto."},
+    )
+
 
 _allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(

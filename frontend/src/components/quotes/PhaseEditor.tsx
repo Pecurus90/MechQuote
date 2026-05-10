@@ -424,9 +424,11 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         phase={phase}
                         edmAuto={edmAuto}
                         cuttingCycles={cuttingCycles}
+                        partId={partId}
                         onChange={(field, value) => updateField(idx, field, value)}
                         onBlur={() => savePhase(idx)}
                         onUnlockManual={() => unlockManualEdm(idx)}
+                        onPatch={(updates) => updateMany(idx, updates)}
                       />
                     )}
 

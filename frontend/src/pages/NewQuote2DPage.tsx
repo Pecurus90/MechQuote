@@ -3,16 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, FileText, X, Zap, Drill, AlertTriangle } from 'lucide-react'
+import { Zap, Drill, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
-import type {
-  DxfAnalysis, Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig,
-} from '@/types'
-import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
-import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
-import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
+import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig } from '@/types'
+import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
 
 type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
 
@@ -81,11 +77,8 @@ export default function NewQuote2DPage() {
   const [edmConfig, setEdmConfig] = useState<EdmConfig | null>(null)
   const [loadingRefs, setLoadingRefs] = useState(true)
 
-  // DXF state
-  const [dxfFile, setDxfFile] = useState<File | null>(null)
-  const [analysis, setAnalysis] = useState<DxfAnalysis | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  // DXF state — gestito da DxfProfilePicker, qui solo mirror per l'invio.
+  const [dxf, setDxf] = useState<DxfPickerState | null>(null)
 
   // Form
   const [form, setForm] = useState<FormState>(initialForm([]))
@@ -126,77 +119,19 @@ export default function NewQuote2DPage() {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(f => ({ ...f, [k]: v }))
 
-  const toggleProfile = (id: number) => setSelectedIds(prev => {
-    const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  })
-
-  const selectAllProfiles = (selected: boolean) => {
-    if (!analysis) return
-    setSelectedIds(selected ? new Set(analysis.profiles.map(p => p.id)) : new Set())
-  }
-
-  // ─── DXF upload + analyze ──────────────────────────────────────────────
-
-  const handleFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.dxf')) {
-      toast.error('Solo file .dxf supportati (DWG va convertito esternamente)')
-      return
-    }
-    setDxfFile(file)
-    setAnalyzing(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api.post<DxfAnalysis>('/dxf/analyze', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      setAnalysis(res.data)
-      // Pre-seleziona i profili chiusi (sono quelli da tagliare)
-      setSelectedIds(new Set(res.data.profiles.filter(p => p.closed).map(p => p.id)))
-      // Pre-popola descrizione con nome file (senza estensione)
-      const baseName = file.name.replace(/\.dxf$/i, '')
-      if (!form.description) set('description', baseName)
-      // Warning unità
-      if (res.data.units && res.data.units !== 'mm' && res.data.units !== 'unitless') {
-        toast.warning(`Unità DXF rilevate: ${res.data.units}. Verifica le dimensioni.`)
-      }
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nell\'analisi del DXF')
-      setDxfFile(null)
-    } finally {
-      setAnalyzing(false)
+  // Pre-popola la descrizione con il nome del file alla prima analisi (se vuota).
+  const handleDxfChange = (state: DxfPickerState | null) => {
+    setDxf(state)
+    if (state && !form.description) {
+      set('description', state.file.name.replace(/\.dxf$/i, ''))
     }
   }
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }
+  // ─── derived dal DXF ───────────────────────────────────────────────────
 
-  const clearDxf = () => {
-    setDxfFile(null)
-    setAnalysis(null)
-    setSelectedIds(new Set())
-  }
-
-  // ─── derived ───────────────────────────────────────────────────────────
-
-  const selectedProfiles = useMemo(
-    () => analysis?.profiles.filter(p => selectedIds.has(p.id)) ?? [],
-    [analysis, selectedIds],
-  )
-  const selectedLengthMm = useMemo(
-    () => selectedProfiles.reduce((s, p) => s + p.length_mm, 0),
-    [selectedProfiles],
-  )
-  const selectedClosedCount = useMemo(
-    () => selectedProfiles.filter(p => p.closed).length,
-    [selectedProfiles],
-  )
+  const analysis = dxf?.analysis ?? null
+  const selectedProfiles = dxf?.selectedProfiles ?? []
+  const selectedLengthMm = dxf?.selectedLengthMm ?? 0
 
   // Famiglia materiale del pezzo selezionato (per filtrare i Ø elettrodo disponibili)
   const partFamily = useMemo(
@@ -251,7 +186,7 @@ export default function NewQuote2DPage() {
 
   const validate = (): string[] => {
     const errs: string[] = []
-    if (!analysis || !dxfFile) errs.push('Carica un DXF')
+    if (!dxf) errs.push('Carica un DXF')
     if (selectedProfiles.length === 0) errs.push('Seleziona almeno un profilo')
     if (!form.customer_code) errs.push('Codice cliente')
     if (!form.progressive) errs.push('Progressivo')
@@ -273,7 +208,7 @@ export default function NewQuote2DPage() {
   const submit = async () => {
     const errs = validate()
     if (errs.length > 0) { toast.error(`Mancano: ${errs.join(',')}`); return }
-    if (!analysis || !dxfFile) return
+    if (!dxf) return
 
     setSubmitting(true)
     try {
@@ -295,14 +230,14 @@ export default function NewQuote2DPage() {
       await api.put(`/parts/${partId}`, {
         description: form.description,
         material_id: Number(form.material_id),
-        raw_x_mm: Math.ceil(analysis.bbox_global.w),
-        raw_y_mm: Math.ceil(analysis.bbox_global.h),
+        raw_x_mm: Math.ceil(dxf.analysis.bbox_global.w),
+        raw_y_mm: Math.ceil(dxf.analysis.bbox_global.h),
         raw_z_mm: form.cut_height_mm,
       })
 
       // 3. upload DXF
       const fd = new FormData()
-      fd.append('file', dxfFile)
+      fd.append('file', dxf.file)
       await api.post(`/parts/${partId}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
 
       // 4. fase Wire EDM (n_pierce = numero fori/infilaggi inserito dall'utente,
@@ -311,11 +246,11 @@ export default function NewQuote2DPage() {
         sequence_number: 10,
         phase_type: 'wire_edm',
         description: `Taglio EDM filo (${selectedProfiles.length} profili)`,
-        cut_length_mm: Math.round(selectedLengthMm * 100) / 100,
+        cut_length_mm: Math.round(dxf.selectedLengthMm * 100) / 100,
         cut_height_mm: form.cut_height_mm,
         cutting_cycle_id: Number(form.cutting_cycle_id),
         n_pierce: form.n_holes,
-        dxf_profile_ids: Array.from(selectedIds),
+        dxf_profile_ids: dxf.selectedIds,
         // setup/fixed/variable a 0: l'utente li affina nel QuoteEditor se serve
         setup_hours: 0,
         cycle_hours_per_part: 0,  // sarà ricalcolato dal backend
@@ -370,85 +305,17 @@ export default function NewQuote2DPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-4">
+        <div className={`max-w-7xl mx-auto ${analysis ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : 'space-y-4'}`}>
 
-          {/* STEP 1: upload DXF */}
-          {!analysis && (
-            <Card>
-              <CardContent className="p-0">
-                <label
-                  htmlFor="dxf-input"
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={onDrop}
-                  className="block border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
-                >
-                  <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm font-medium">Trascina qui un file DXF o clicca per selezionarlo</p>
-                  <p className="text-xs text-muted-foreground mt-1">Solo formato .dxf · max 50 MB</p>
-                  {analyzing && <p className="text-xs text-blue-600 mt-2 animate-pulse">Analisi in corso...</p>}
-                  <input
-                    id="dxf-input" type="file" accept=".dxf" className="hidden"
-                    onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
-                  />
-                </label>
-              </CardContent>
-            </Card>
-          )}
+          {/* Pannello sinistro / unico: viewer DXF (sempre montato per
+              preservare lo state interno tra dropzone → analisi) */}
+          <div className="space-y-3">
+            <DxfProfilePicker onChange={handleDxfChange} />
+          </div>
 
-          {/* STEP 2: viewer + form */}
+          {/* Pannello destro: form (solo se DXF caricato) */}
           {analysis && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-              {/* Pannello sinistro: viewer + lista profili */}
-              <div className="space-y-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        {dxfFile?.name}
-                      </CardTitle>
-                      <button onClick={clearDxf} className="text-xs text-muted-foreground hover:text-red-500 flex items-center gap-1">
-                        <X className="w-3.5 h-3.5" /> Cambia file
-                      </button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={420} />
-                    <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <span className="inline-block w-3 h-0.5 bg-blue-600" /> chiuso selezionato
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="inline-block w-3 h-0.5 bg-slate-400" /> chiuso non selezionato
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="inline-block w-3 h-0.5 bg-amber-400" style={{ borderTop: '1px dashed #fbbf24' }} /> aperto
-                      </span>
-                    </div>
-                    {analysis.warnings.length > 0 && (
-                      <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
-                        {analysis.warnings.map((w, i) => (
-                          <p key={i} className="text-[11px] text-amber-800 flex items-start gap-1">
-                            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {w}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Dxf2dProfileList profiles={analysis.profiles} selectedIds={selectedIds} onToggle={toggleProfile} onSelectAll={selectAllProfiles} />
-
-                <Dxf2dSelectionSummary
-                  selectedCount={selectedProfiles.length}
-                  selectedLengthMm={selectedLengthMm}
-                  selectedClosedCount={selectedClosedCount}
-                />
-              </div>
-
-              {/* Pannello destro: form */}
-              <div className="space-y-3">
+            <div className="space-y-3">
 
                 {/* Cliente + codice */}
                 <Card>
@@ -657,7 +524,6 @@ export default function NewQuote2DPage() {
                   {submitting ? 'Creazione in corso...' : 'Crea Preventivo →'}
                 </Button>
 
-              </div>
             </div>
           )}
 

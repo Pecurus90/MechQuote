@@ -159,7 +159,6 @@ def duplicate_part(
             fixed_cost=ph.fixed_cost,
             variable_cost_per_part=ph.variable_cost_per_part,
             hourly_rate_override=ph.hourly_rate_override,
-            customer_visible=ph.customer_visible,
             is_shared=ph.is_shared,
             internal_notes=ph.internal_notes,
             customer_notes=ph.customer_notes,

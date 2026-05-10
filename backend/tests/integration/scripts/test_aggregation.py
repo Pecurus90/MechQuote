@@ -76,7 +76,7 @@ requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 
 q2 = requests.get(f'{API}/quotes/{qid}', headers=H).json()
 p2 = q2['parts'][0]
@@ -112,7 +112,7 @@ requests.post(f'{API}/parts/{A_id}/phases', headers=H, json={
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 
 requests.put(f'{API}/parts/{B_id}', headers=H,
              json={'material_id': m['id'], 'finished_weight_kg': 1, 'quantity': 2})
@@ -121,7 +121,7 @@ requests.post(f'{API}/parts/{B_id}/phases', headers=H, json={
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 
 q2 = requests.get(f'{API}/quotes/{qid}', headers=H).json()
 A, B = q2['parts'][0], q2['parts'][1]
@@ -161,7 +161,7 @@ requests.post(f'{API}/parts/{A_id}/phases', headers=H, json={
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 requests.put(f'{API}/parts/{B_id}', headers=H,
              json={'material_id': m['id'], 'finished_weight_kg': 2, 'quantity': 2})
 requests.post(f'{API}/parts/{B_id}/phases', headers=H, json={
@@ -169,7 +169,7 @@ requests.post(f'{API}/parts/{B_id}/phases', headers=H, json={
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 
 q3 = requests.get(f'{API}/quotes/{qid}', headers=H).json()
 A, B = q3['parts'][0], q3['parts'][1]
@@ -213,7 +213,7 @@ requests.post(f'{API}/parts/{A_id}/phases', headers=H, json={
     'sequence_number': 10, 'phase_type': 'heat_treatment',
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0, 'fixed_cost': 0,
-    'variable_cost_per_part': 0, 'customer_visible': True, 'is_shared': False})
+    'variable_cost_per_part': 0, 'is_shared': False})
 
 requests.put(f'{API}/parts/{B_id}', headers=H,
              json={'material_id': m['id'], 'finished_weight_kg': 2, 'quantity': 1})
@@ -221,7 +221,7 @@ requests.post(f'{API}/parts/{B_id}/phases', headers=H, json={
     'sequence_number': 10, 'phase_type': 'heat_treatment',
     'treatment_id': t2['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0, 'fixed_cost': 0,
-    'variable_cost_per_part': 0, 'customer_visible': True, 'is_shared': False})
+    'variable_cost_per_part': 0, 'is_shared': False})
 
 q4 = requests.get(f'{API}/quotes/{qid}', headers=H).json()
 A, B = q4['parts'][0], q4['parts'][1]
@@ -259,14 +259,14 @@ requests.post(f'{API}/parts/{A_id}/phases', headers=H, json={
     'sequence_number': 10, 'phase_type': 'heat_treatment',
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0, 'fixed_cost': 0,
-    'variable_cost_per_part': 0, 'customer_visible': True, 'is_shared': False})
+    'variable_cost_per_part': 0, 'is_shared': False})
 requests.put(f'{API}/parts/{B_id}', headers=H,
              json={'material_id': m['id'], 'finished_weight_kg': 1, 'quantity': 1})  # qty=1 inizialmente
 requests.post(f'{API}/parts/{B_id}/phases', headers=H, json={
     'sequence_number': 10, 'phase_type': 'heat_treatment',
     'treatment_id': t['id'], 'supplier_id': tsup['id'],
     'setup_hours': 0, 'cycle_hours_per_part': 0, 'fixed_cost': 0,
-    'variable_cost_per_part': 0, 'customer_visible': True, 'is_shared': False})
+    'variable_cost_per_part': 0, 'is_shared': False})
 
 # Stato iniziale: WA=5, WB=1, WT=6
 q5a = requests.get(f'{API}/quotes/{qid}', headers=H).json()
@@ -307,7 +307,7 @@ requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     'machine_id': mc['id'],
     'setup_hours': 0.5, 'cycle_hours_per_part': 0.25,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 
 q6 = requests.get(f'{API}/quotes/{qid}', headers=H).json()
 p = q6['parts'][0]

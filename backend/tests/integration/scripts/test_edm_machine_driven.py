@@ -46,7 +46,7 @@ phA = requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     'cutting_cycle_id': cycle['id'], 'n_pierce': 0,
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False}).json()
+    'is_shared': False}).json()
 chk('Macchina wire_edm + 3 campi → cycle_h > 0',
     (phA.get('cycle_hours_per_part') or 0) > 0,
     f'cycle_h={phA.get("cycle_hours_per_part")}')
@@ -59,7 +59,7 @@ phB = requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     'cutting_cycle_id': cycle['id'], 'n_pierce': 0,
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False}).json()
+    'is_shared': False}).json()
 chk('Macchina CNC (non wire_edm) → cycle_h = 0 (autocalc skip)',
     (phB.get('cycle_hours_per_part') or 0) == 0,
     f'cycle_h={phB.get("cycle_hours_per_part")}')
@@ -72,7 +72,7 @@ phC = requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     'cutting_cycle_id': cycle['id'], 'n_pierce': 0,
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False}).json()
+    'is_shared': False}).json()
 chk('Nessuna macchina → cycle_h = 0',
     (phC.get('cycle_hours_per_part') or 0) == 0)
 
@@ -83,7 +83,7 @@ phD = requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     # cut_length/height/cycle non passati
     'setup_hours': 0, 'cycle_hours_per_part': 0,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False}).json()
+    'is_shared': False}).json()
 chk('Macchina wire_edm ma campi mancanti → cycle_h = 0',
     (phD.get('cycle_hours_per_part') or 0) == 0)
 

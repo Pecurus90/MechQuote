@@ -120,7 +120,6 @@ def apply_workflow_to_part(part_id: int, workflow_id: int, db: Session = Depends
             cycle_hours_per_part=0.0,
             fixed_cost=0.0,
             variable_cost_per_part=0.0,
-            customer_visible=True,
             is_shared=False,
         ))
     db.commit()

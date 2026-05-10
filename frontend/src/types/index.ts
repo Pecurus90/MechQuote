@@ -46,7 +46,6 @@ export interface Phase {
   variable_cost_per_part: number
   hourly_rate_override?: number
   calculated_cost: number
-  customer_visible: boolean
   // Wire EDM extra (popolati solo se phase_type === 'wire_edm')
   cut_length_mm?: number | null
   cut_height_mm?: number | null

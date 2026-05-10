@@ -150,7 +150,7 @@ with sync_playwright() as p:
                                     'machine_id': cnc_machine['id'],
                                     'setup_hours': 1, 'cycle_hours_per_part': 0.5,
                                     'fixed_cost': 0, 'variable_cost_per_part': 0,
-                                    'customer_visible': True, 'is_shared': False})
+                                    'is_shared': False})
             if r.status_code == 200:
                 phase = r.json()
                 # Setup 1h × setup_rate + ciclo 0.5h × work_rate, qty 1
@@ -182,7 +182,7 @@ with sync_playwright() as p:
                                     'dxf_profile_ids': [1, 2],
                                     'setup_hours': 0, 'cycle_hours_per_part': 0,
                                     'fixed_cost': 0, 'variable_cost_per_part': 0,
-                                    'customer_visible': True, 'is_shared': False})
+                                    'is_shared': False})
             if r.status_code == 200:
                 phase = r.json()
                 ok = (phase['cycle_hours_per_part'] is not None and

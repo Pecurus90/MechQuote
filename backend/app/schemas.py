@@ -146,7 +146,6 @@ class PhaseBase(BaseModel):
     variable_cost_per_part: Optional[float] = Field(default=0.0, ge=0)
     hourly_rate_override: Optional[float] = Field(default=None, ge=0)
     calculated_cost: Optional[float] = Field(default=0.0, ge=0)
-    customer_visible: Optional[bool] = True
     is_shared: Optional[bool] = False
     treatment_id: Optional[int] = None
     operation_id: Optional[int] = None

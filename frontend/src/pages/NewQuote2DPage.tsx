@@ -273,7 +273,6 @@ export default function NewQuote2DPage() {
         cycle_hours_per_part: 0,  // sarà ricalcolato dal backend (autocalc EDM)
         fixed_cost: 0,
         variable_cost_per_part: 0,
-        customer_visible: true,
         is_shared: false,
       })
 
@@ -292,7 +291,6 @@ export default function NewQuote2DPage() {
             cycle_hours_per_part: Math.round((drillTotalSeconds / 3600) * 10000) / 10000,
             fixed_cost: 0,
             variable_cost_per_part: 0,
-            customer_visible: false,
             is_shared: false,
           })
         } else if (drillTotalSeconds == null) {

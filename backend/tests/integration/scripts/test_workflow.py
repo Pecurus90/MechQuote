@@ -94,7 +94,7 @@ requests.post(f'{API}/parts/{pid}/phases', headers=H, json={
     'sequence_number': 99, 'phase_type': 'manual_operation',
     'description': 'NUKED', 'setup_hours': 99, 'cycle_hours_per_part': 99,
     'fixed_cost': 0, 'variable_cost_per_part': 0,
-    'customer_visible': True, 'is_shared': False})
+    'is_shared': False})
 
 r = requests.post(f'{API}/parts/{pid}/apply-workflow/{wf["id"]}', headers=H)
 chk('Apply 200', r.status_code == 200)

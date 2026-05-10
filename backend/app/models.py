@@ -160,12 +160,13 @@ class ManufacturingPhase(Base):
     variable_cost_per_part = Column(Float, default=0.0)
     hourly_rate_override = Column(Float)
     calculated_cost = Column(Float, default=0.0)
-    customer_visible = Column(Boolean, default=True)
     is_shared = Column(Boolean, default=False)
     internal_notes = Column(Text)
     customer_notes = Column(Text)
     # Colonne legacy nel DB ma non mappate (drop dal modello, dati restano):
     # quantity_multiplier, margin_percent_override — mai applicate.
+    # customer_visible — era per nascondere fasi nel PDF cliente, rimosso
+    # quando il PDF cliente è stato eliminato (un solo PDF interno).
 
     treatment_id = Column(Integer, ForeignKey("treatments.id"), nullable=True)
 

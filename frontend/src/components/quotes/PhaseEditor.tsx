@@ -123,7 +123,6 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
       fixed_cost: 0,
       variable_cost_per_part: 0,
       calculated_cost: 0,
-      customer_visible: true,
       is_shared: false,
     }
     if (partId) {
@@ -559,19 +558,6 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         ) : null}
                       </div>
 
-                      <div className="flex flex-col gap-2 justify-end pb-1">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id={`vis-${idx}`}
-                            checked={phase.customer_visible}
-                            onChange={e => { updateField(idx, 'customer_visible', e.target.checked); savePhase(idx) }}
-                          />
-                          <label htmlFor={`vis-${idx}`} className="text-xs text-gray-600 cursor-pointer">
-                            Visibile al cliente
-                          </label>
-                        </div>
-                      </div>
                     </div>
 
                     {/* Advanced section (collapsible) */}

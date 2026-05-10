@@ -126,7 +126,6 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
         setup_hours: 0,
         cycle_hours_per_part: 0,
         fixed_cost: t.supplier?.shipping_cost ?? 0,
-        customer_visible: true,
         is_shared: false,
       }
       if (treatmentPhase?.id) {

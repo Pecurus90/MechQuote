@@ -315,7 +315,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                   onChange={e => handleTreatmentSelect(Number(e.target.value) || undefined)}
                 >
                   <option value="">Nessun trattamento</option>
-                  {treatments.filter(t => t.active).sort((a, b) => a.name.localeCompare(b.name, 'it')).map(t => (
+                  {[...treatments].sort((a, b) => a.name.localeCompare(b.name, 'it')).map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>

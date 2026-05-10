@@ -7,8 +7,8 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { Supplier, Treatment } from '@/types'
 
-interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string; active: boolean }
-const emptySupplier = (): SupForm => ({ id: null, name: '', supplierType: '', address: '', shippingCost: '0', active: true })
+interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string }
+const emptySupplier = (): SupForm => ({ id: null, name: '', supplierType: '', address: '', shippingCost: '0' })
 
 interface TreatForm {
   id: number | null
@@ -18,12 +18,11 @@ interface TreatForm {
   minimumCost: string
   minimumWeightKg: string
   supplierId: string
-  active: boolean
   notes: string
 }
 const emptyTreat = (): TreatForm => ({
   id: null, name: '', treatmentType: '', costPerKg: '0',
-  minimumCost: '0', minimumWeightKg: '', supplierId: '', active: true, notes: '',
+  minimumCost: '0', minimumWeightKg: '', supplierId: '', notes: '',
 })
 
 export default function TreatmentsPage() {
@@ -48,7 +47,7 @@ export default function TreatmentsPage() {
   // --- Supplier CRUD ---
   const saveSupplier = async () => {
     if (!supForm) return
-    const payload = { name: supForm.name, supplier_type: supForm.supplierType || null, address: supForm.address || null, shipping_cost: Number(supForm.shippingCost), active: supForm.active }
+    const payload = { name: supForm.name, supplier_type: supForm.supplierType || null, address: supForm.address || null, shipping_cost: Number(supForm.shippingCost) }
     try {
       if (supForm.id) await api.put(`/suppliers/${supForm.id}`, payload)
       else await api.post('/suppliers', payload)
@@ -72,7 +71,6 @@ export default function TreatmentsPage() {
       minimum_cost: Number(treatForm.minimumCost),
       minimum_weight_kg: treatForm.minimumWeightKg !== '' ? Number(treatForm.minimumWeightKg) : null,
       supplier_id: treatForm.supplierId ? Number(treatForm.supplierId) : null,
-      active: treatForm.active,
       notes: treatForm.notes,
     }
     try {
@@ -94,7 +92,7 @@ export default function TreatmentsPage() {
     minimumCost: String(t.minimum_cost || 0),
     minimumWeightKg: t.minimum_weight_kg != null ? String(t.minimum_weight_kg) : '',
     supplierId: t.supplier_id ? String(t.supplier_id) : '',
-    active: t.active, notes: t.notes || '',
+    notes: t.notes || '',
   })
 
   const visibleSup = [...suppliers]
@@ -160,7 +158,7 @@ export default function TreatmentsPage() {
                       <td className="p-3 text-right font-mono">{(s.shipping_cost ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost ?? 0), active: s.active ?? true })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost ?? 0) })} className="p-1 hover:bg-gray-100 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -292,7 +290,7 @@ export default function TreatmentsPage() {
                     onChange={e => setTreatForm(f => f ? { ...f, supplierId: e.target.value } : f)}
                   >
                     <option value="">Nessun fornitore</option>
-                    {[...suppliers].filter(s => s.active).sort((a, b) => a.name.localeCompare(b.name, 'it')).map(s => (
+                    {[...suppliers].sort((a, b) => a.name.localeCompare(b.name, 'it')).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
@@ -300,10 +298,6 @@ export default function TreatmentsPage() {
                 <div>
                   <label className="text-sm font-medium">Note</label>
                   <Input value={treatForm.notes} onChange={e => setTreatForm(f => f ? { ...f, notes: e.target.value } : f)} />
-                </div>
-                <div className="flex items-center gap-2 self-end">
-                  <input type="checkbox" checked={treatForm.active} onChange={e => setTreatForm(f => f ? { ...f, active: e.target.checked } : f)} />
-                  <label className="text-sm">Attivo</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">

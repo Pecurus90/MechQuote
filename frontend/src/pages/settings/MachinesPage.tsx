@@ -26,7 +26,6 @@ export default function MachinesPage() {
   const [rate, setRate] = useState('')
   const [setupRate, setSetupRate] = useState('')
   const [setup, setSetup] = useState('')
-  const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -38,14 +37,14 @@ export default function MachinesPage() {
 
   const resetForm = (isNew = false) => {
     setEditingId(isNew ? 0 : null)
-    setName(''); setMtype(''); setRate(''); setSetupRate(''); setSetup(''); setActive(true)
+    setName(''); setMtype(''); setRate(''); setSetupRate(''); setSetup('')
   }
 
   const startEdit = (m: Machine) => {
     setEditingId(m.id); setName(m.name); setMtype(m.machine_type)
     setRate(String(m.hourly_rate))
     setSetupRate(m.setup_hourly_rate != null ? String(m.setup_hourly_rate) : '')
-    setSetup(String(m.setup_minimum_hours ?? 0)); setActive(m.active ?? true)
+    setSetup(String(m.setup_minimum_hours ?? 0))
   }
 
   const handleSave = async () => {
@@ -55,7 +54,6 @@ export default function MachinesPage() {
       hourly_rate: Number(rate),
       setup_hourly_rate: setupRate === '' ? null : Number(setupRate),
       setup_minimum_hours: Number(setup),
-      active,
     }
     try {
       if (editingId && editingId > 0) await api.put(`/machines/${editingId}`, payload)
@@ -166,10 +164,6 @@ export default function MachinesPage() {
                   <label className="text-sm font-medium">Setup minimo (h)</label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" value={setup} onChange={e => setSetup(e.target.value)} />
                   <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
-                  <label className="text-sm">Attivo</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">

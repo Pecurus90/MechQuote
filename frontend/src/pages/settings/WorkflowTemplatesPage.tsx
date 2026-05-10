@@ -11,11 +11,10 @@ import type { WorkflowTemplate, WorkflowTemplateStep, Machine, Operation } from 
 interface EditState {
   name: string
   description: string
-  active: boolean
   steps: WorkflowTemplateStep[]
 }
 
-const empty = (): EditState => ({ name: '', description: '', active: true, steps: [] })
+const empty = (): EditState => ({ name: '', description: '', steps: [] })
 
 export default function WorkflowTemplatesPage() {
   const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([])
@@ -31,8 +30,8 @@ export default function WorkflowTemplatesPage() {
     api.get('/operations'),
   ]).then(([w, mc, op]) => {
     setWorkflows(w.data)
-    setMachines(mc.data.filter((m: Machine) => m.active !== false))
-    setOperations(op.data.filter((o: Operation) => o.active !== false))
+    setMachines(mc.data)
+    setOperations(op.data)
     setLoading(false)
   })
   useEffect(() => { load() }, [])
@@ -43,7 +42,6 @@ export default function WorkflowTemplatesPage() {
     setEdit({
       name: w.name,
       description: w.description ?? '',
-      active: w.active,
       steps: w.steps.map((s, i) => ({
         sequence_number: i + 1,
         machine_id: s.machine_id ?? null,
@@ -91,7 +89,6 @@ export default function WorkflowTemplatesPage() {
     const payload = {
       name: edit.name.trim(),
       description: edit.description || null,
-      active: edit.active,
       steps: edit.steps.map((s, i) => ({
         sequence_number: i + 1,
         machine_id: s.machine_id ?? null,
@@ -258,12 +255,6 @@ export default function WorkflowTemplatesPage() {
               <Button variant="outline" onClick={() => setEditingId(null)}>
                 <X className="w-4 h-4 mr-1" /> Annulla
               </Button>
-              <div className="flex-1" />
-              <label className="text-sm flex items-center gap-2">
-                <input type="checkbox" checked={edit.active}
-                  onChange={e => setEdit(s => ({ ...s, active: e.target.checked }))} />
-                Attivo
-              </label>
             </div>
           </CardContent>
         </Card>
@@ -271,7 +262,7 @@ export default function WorkflowTemplatesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {workflows.map(w => (
-          <Card key={w.id} className={!w.active ? 'opacity-50' : ''}>
+          <Card key={w.id}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-start justify-between">
                 <div>

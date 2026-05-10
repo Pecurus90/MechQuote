@@ -49,7 +49,7 @@ export default function QuoteEditor() {
       setCategories(cat.data)
       setCustomers(cust.data)
       setSuppliers(sup.data)
-      setTreatments(tr.data.filter((t: Treatment) => t.active))
+      setTreatments(tr.data)
     })
   }, [])
 

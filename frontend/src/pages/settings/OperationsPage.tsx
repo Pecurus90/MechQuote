@@ -11,7 +11,6 @@ export default function OperationsPage() {
   const [operations, setOperations] = useState<Operation[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [name, setName] = useState('')
-  const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -23,18 +22,16 @@ export default function OperationsPage() {
   const reset = (isNew = false) => {
     setEditingId(isNew ? 0 : null)
     setName('')
-    setActive(true)
   }
 
   const startEdit = (o: Operation) => {
     setEditingId(o.id)
     setName(o.name)
-    setActive(o.active)
   }
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Nome obbligatorio'); return }
-    const payload = { name: name.trim(), active }
+    const payload = { name: name.trim() }
     try {
       if (editingId && editingId > 0) await api.put(`/operations/${editingId}`, payload)
       else await api.post('/operations', payload)
@@ -93,19 +90,17 @@ export default function OperationsPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[70%] font-medium text-gray-600">Nome</th>
-                <th className="text-center p-3 w-[15%] font-medium text-gray-600">Attiva</th>
-                <th className="text-center p-3 w-[15%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[80%] font-medium text-gray-600">Nome</th>
+                <th className="text-center p-3 w-[20%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={3} className="p-6 text-center text-gray-400">Nessuna lavorazione.</td></tr>
+                <tr><td colSpan={2} className="p-6 text-center text-gray-400">Nessuna lavorazione.</td></tr>
               )}
               {visible.map(o => (
                 <tr key={o.id} className="border-b hover:bg-gray-50">
                   <td className="p-3 font-medium truncate">{o.name}</td>
-                  <td className="p-3 text-center text-xs">{o.active ? '✓' : '—'}</td>
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <button onClick={() => startEdit(o)} className="p-1 hover:bg-gray-100 rounded">
@@ -134,10 +129,6 @@ export default function OperationsPage() {
               <div>
                 <label className="text-sm font-medium">Nome</label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="es. Tornitura sgrossatura" autoFocus />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
-                <label className="text-sm">Attiva</label>
               </div>
               <div className="flex gap-2 mt-4">
                 <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>

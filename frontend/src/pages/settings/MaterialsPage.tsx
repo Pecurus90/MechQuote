@@ -8,14 +8,14 @@ import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 import type { Material, MaterialSupplier } from '@/types'
 
-interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string; active: boolean }
-const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', cutting_cost_per_part: '0', active: true })
+interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string }
+const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', cutting_cost_per_part: '0' })
 
 interface MatForm {
   id: number | null; name: string; family: string; density: string; cost: string
-  edm: string; cnc: string; scrap: string; active: boolean; supplier_id: string
+  edm: string; cnc: string; scrap: string; supplier_id: string
 }
-const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', active: true, supplier_id: '' })
+const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', supplier_id: '' })
 
 export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
@@ -38,7 +38,7 @@ export default function MaterialsPage() {
 
   const saveSupplier = async () => {
     if (!supForm) return
-    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), cutting_cost_per_part: Number(supForm.cutting_cost_per_part), active: supForm.active }
+    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), cutting_cost_per_part: Number(supForm.cutting_cost_per_part) }
     try {
       if (supForm.id) await api.put(`/material-suppliers/${supForm.id}`, payload)
       else await api.post('/material-suppliers', payload)
@@ -58,7 +58,7 @@ export default function MaterialsPage() {
       name: matForm.name, family: matForm.family,
       density_kg_dm3: Number(matForm.density), cost_per_kg: Number(matForm.cost),
       edm_coefficient: Number(matForm.edm), cnc_machinability_coefficient: Number(matForm.cnc),
-      default_scrap_percent: Number(matForm.scrap), active: matForm.active,
+      default_scrap_percent: Number(matForm.scrap),
       supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
     }
     try {
@@ -78,7 +78,7 @@ export default function MaterialsPage() {
     id: m.id, name: m.name, family: m.family,
     density: String(m.density_kg_dm3), cost: String(m.cost_per_kg),
     edm: String(m.edm_coefficient), cnc: String(m.cnc_machinability_coefficient),
-    scrap: String(m.default_scrap_percent), active: m.active ?? true,
+    scrap: String(m.default_scrap_percent),
     supplier_id: m.supplier_id ? String(m.supplier_id) : '',
   })
 
@@ -154,7 +154,7 @@ export default function MaterialsPage() {
                       <td className="p-3 text-right font-mono">{(s.cutting_cost_per_part ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0), active: s.active })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0) })} className="p-1 hover:bg-gray-100 rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -302,10 +302,6 @@ export default function MaterialsPage() {
                       <option key={s.id} value={s.id}>{s.name} — {s.shipping_cost.toFixed(2)} € spedizione</option>
                     ))}
                   </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={matForm.active} onChange={e => setMatForm(f => f ? { ...f, active: e.target.checked } : f)} />
-                  <label className="text-sm">Attivo</label>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">

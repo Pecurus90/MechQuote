@@ -16,7 +16,6 @@ export default function StepColorRulesPage() {
   const [phaseType, setPhaseType] = useState('')
   const [complexity, setComplexity] = useState('1.0')
   const [notes, setNotes] = useState('')
-  const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -29,17 +28,17 @@ export default function StepColorRulesPage() {
   const resetForm = (isNew = false) => {
     setEditingId(isNew ? 0 : null)
     setColorHex('#000000'); setColorName(''); setMeaning(''); setPhaseType('')
-    setComplexity('1.0'); setNotes(''); setActive(true)
+    setComplexity('1.0'); setNotes('')
   }
 
   const startEdit = (r: StepColorRule) => {
     setEditingId(r.id); setColorHex(r.color_hex); setColorName(r.color_name || '')
     setMeaning(r.meaning || ''); setPhaseType(r.suggested_phase_type || '')
-    setComplexity(String(r.complexity_coefficient || 1.0)); setNotes(r.notes || ''); setActive(r.active)
+    setComplexity(String(r.complexity_coefficient || 1.0)); setNotes(r.notes || '')
   }
 
   const handleSave = async () => {
-    const payload = { color_hex: colorHex, color_name: colorName, meaning, suggested_phase_type: phaseType, complexity_coefficient: Number(complexity), notes, active }
+    const payload = { color_hex: colorHex, color_name: colorName, meaning, suggested_phase_type: phaseType, complexity_coefficient: Number(complexity), notes }
     try {
       if (editingId && editingId > 0) await api.put(`/step-color-rules/${editingId}`, payload)
       else await api.post('/step-color-rules', payload)
@@ -82,13 +81,12 @@ export default function StepColorRulesPage() {
                 <th className="text-left p-3 w-[20%] font-medium text-gray-600">Nome</th>
                 <th className="text-left p-3 w-[28%] font-medium text-gray-600">Significato</th>
                 <th className="text-left p-3 w-[28%] font-medium text-gray-600">Fase Suggerita</th>
-                <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
-                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
+                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={6} className="p-6 text-center text-gray-400">Nessuna regola trovata.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessuna regola trovata.</td></tr>
               )}
               {visible.map(r => (
                 <tr key={r.id} className="border-b hover:bg-gray-50">
@@ -98,7 +96,6 @@ export default function StepColorRulesPage() {
                   <td className="p-3 font-medium truncate">{r.color_name || '—'}</td>
                   <td className="p-3 truncate">{r.meaning || '—'}</td>
                   <td className="p-3 truncate">{r.suggested_phase_type || '—'}</td>
-                  <td className="p-3 text-center">{r.active ? 'Sì' : 'No'}</td>
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <button onClick={() => startEdit(r)} className="p-1 hover:bg-gray-100 rounded">
@@ -147,10 +144,6 @@ export default function StepColorRulesPage() {
                 <div>
                   <label className="text-sm font-medium">Coefficiente Complessità</label>
                   <Input type="number" step="0.1" value={complexity} onChange={e => setComplexity(e.target.value)} />
-                </div>
-                <div className="flex items-center gap-2 self-end">
-                  <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
-                  <label className="text-sm">Attivo</label>
                 </div>
                 <div className="col-span-2">
                   <label className="text-sm font-medium">Note</label>

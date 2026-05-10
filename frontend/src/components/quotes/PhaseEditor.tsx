@@ -73,13 +73,13 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
 
   useEffect(() => {
     api.get('/cutting-cycles')
-      .then(r => setCuttingCycles(r.data.filter((c: CuttingCycle) => c.active)))
+      .then(r => setCuttingCycles(r.data))
       .catch(() => { /* tabelle EDM non popolate ancora — ok */ })
     api.get('/workflow-templates')
-      .then(r => setWorkflows(r.data.filter((w: WorkflowTemplate) => w.active)))
+      .then(r => setWorkflows(r.data))
       .catch(() => { /* template flusso non popolati ancora — ok */ })
     api.get('/operations')
-      .then(r => setOperations(r.data.filter((o: Operation) => o.active !== false)))
+      .then(r => setOperations(r.data))
       .catch(() => { /* operations non popolate ancora — ok */ })
   }, [])
 
@@ -440,7 +440,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                             onBlur={() => savePhase(idx)}
                           >
                             <option value="">Seleziona...</option>
-                            {treatments.filter(t => t.active).map(t => (
+                            {treatments.map(t => (
                               <option key={t.id} value={t.id}>
                                 {t.name}{t.cost_per_kg ? ` — ${t.cost_per_kg} €/kg` : ''}
                               </option>
@@ -499,7 +499,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
                         partId={partId}
                         defaultCutHeightMm={partRawZmm}
                         partHasRawStock={partHasRawStock}
-                        suggestedMachineId={machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)?.id}
+                        suggestedMachineId={machines.find(m => m.machine_type === 'wire_edm')?.id}
                         onReload={onReload}
                         onChange={(field, value) => updateField(idx, field, value)}
                         onBlur={() => savePhase(idx)}

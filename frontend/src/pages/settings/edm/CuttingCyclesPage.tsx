@@ -19,11 +19,10 @@ const passColor = (t: PassType) => PASS_TYPES.find(p => p.value === t)?.color ??
 interface EditState {
   name: string
   description: string
-  active: boolean
   passes: CuttingPass[]
 }
 
-const empty = (): EditState => ({ name: '', description: '', active: true, passes: [] })
+const empty = (): EditState => ({ name: '', description: '', passes: [] })
 
 export default function CuttingCyclesPage() {
   const [cycles, setCycles] = useState<CuttingCycle[]>([])
@@ -39,7 +38,6 @@ export default function CuttingCyclesPage() {
     setEdit({
       name: c.name,
       description: c.description ?? '',
-      active: c.active,
       passes: c.passes.map((p, i) => ({ id: p.id, sequence_number: i + 1, pass_type: p.pass_type })),
     })
   }
@@ -73,7 +71,6 @@ export default function CuttingCyclesPage() {
     const payload = {
       name: edit.name,
       description: edit.description || null,
-      active: edit.active,
       passes: edit.passes.map((p, i) => ({ sequence_number: i + 1, pass_type: p.pass_type })),
     }
     try {
@@ -185,12 +182,6 @@ export default function CuttingCyclesPage() {
               <Button variant="outline" onClick={() => setEditingId(null)}>
                 <X className="w-4 h-4 mr-1" /> Annulla
               </Button>
-              <div className="flex-1" />
-              <label className="text-sm flex items-center gap-2">
-                <input type="checkbox" checked={edit.active}
-                  onChange={e => setEdit(s => ({ ...s, active: e.target.checked }))} />
-                Attivo
-              </label>
             </div>
           </CardContent>
         </Card>
@@ -198,7 +189,7 @@ export default function CuttingCyclesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {cycles.map(c => (
-          <Card key={c.id} className={!c.active ? 'opacity-50' : ''}>
+          <Card key={c.id}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-start justify-between">
                 <div>

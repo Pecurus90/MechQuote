@@ -105,7 +105,7 @@ export default function NewQuote2DPage() {
       setCategories(cat.data)
       setCustomers(cus.data)
       setMaterials(mat.data)
-      setCycles(cyc.data.filter((c: CuttingCycle) => c.active))
+      setCycles(cyc.data)
       setDrillingRows(dr.data)
       setEdmConfig(cfg.data)
       setMachines(mc.data)
@@ -256,7 +256,7 @@ export default function NewQuote2DPage() {
       //    sono auto-calcolate dal backend (area × ciclo / velocità).
       //    setup_hours = setup_minimum_hours configurato sulla macchina (UI
       //    Macchine → "Setup minimo"); l'utente può poi affinarlo nel preventivo.
-      const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)
+      const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm')
       const edmOperation = operations.find(o => o.name === 'EDM a filo')
       await api.post(`/parts/${partId}/phases`, {
         sequence_number: 10,

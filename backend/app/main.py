@@ -275,6 +275,15 @@ def _run_migrations():
          "sequence_number INTEGER NOT NULL, "
          "machine_id INTEGER REFERENCES machines(id), "
          "operation_id INTEGER NOT NULL REFERENCES operations(id))"),
+
+        # ═══ Cleanup tabella `cost_rules` legacy (audit sprint E) ═══
+        # Sostituita da CompanySettings (singleton id=1) da molto tempo.
+        # Il backfill INSERT INTO company_settings ... SELECT FROM cost_rules
+        # qui sopra è già stato eseguito su tutti i DB di prod (la condizione
+        # WHERE NOT EXISTS company_settings.id=1 lo rende no-op da boot ≥2).
+        # Posso droppare la tabella senza perdere dati: il singleton ne ha
+        # ricopiato anagrafica + 4 default operativi. Idempotente: IF EXISTS.
+        "DROP TABLE IF EXISTS cost_rules",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -402,128 +411,15 @@ def _seed_edm_defaults():
             db.commit()
 
 
-def _fix_legacy_not_null():
-    """One-shot: rende `material_id` nullable in `edm_cut_speeds` e `drilling_times`.
-
-    Storia: il refactor Sprint EDM 1.5 (audit famiglie materiale, commit 5d4cfdc)
-    ha cambiato la chiave da `material_id` (FK) a `material_family` (slug). La
-    colonna legacy material_id resta nel DB (CLAUDE.md §6 no-DROP), ma con
-    vincolo NOT NULL originale: gli INSERT del modello aggiornato falliscono
-    con `IntegrityError: NOT NULL constraint failed: ...material_id`.
-
-    SQLite non supporta `ALTER COLUMN`, quindi serve copy-rename. Idempotente:
-    controlla via PRAGMA prima di intervenire, no-op se già nullable.
-    """
-    from sqlalchemy import inspect
-
-    insp = inspect(engine)
-    targets = [
-        ('edm_cut_speeds',
-         """CREATE TABLE edm_cut_speeds_new (
-                id INTEGER PRIMARY KEY,
-                material_id INTEGER,
-                material_family VARCHAR(50),
-                thickness_min_mm FLOAT NOT NULL DEFAULT 0,
-                thickness_max_mm FLOAT NOT NULL,
-                speed_mm2_min FLOAT NOT NULL,
-                pierce_time_s FLOAT,
-                notes TEXT
-            )""",
-         ['id', 'material_id', 'material_family', 'thickness_min_mm',
-          'thickness_max_mm', 'speed_mm2_min', 'pierce_time_s', 'notes']),
-        ('drilling_times',
-         """CREATE TABLE drilling_times_new (
-                id INTEGER PRIMARY KEY,
-                material_id INTEGER,
-                material_family VARCHAR(50),
-                diameter_min_mm FLOAT NOT NULL DEFAULT 0,
-                diameter_max_mm FLOAT NOT NULL,
-                height_min_mm FLOAT NOT NULL DEFAULT 0,
-                height_max_mm FLOAT NOT NULL,
-                seconds_per_hole FLOAT NOT NULL,
-                notes TEXT
-            )""",
-         ['id', 'material_id', 'material_family', 'diameter_min_mm',
-          'diameter_max_mm', 'height_min_mm', 'height_max_mm',
-          'seconds_per_hole', 'notes']),
-    ]
-    for tbl, schema_sql, columns in targets:
-        if tbl not in insp.get_table_names():
-            continue
-        mat_col = next((c for c in insp.get_columns(tbl) if c['name'] == 'material_id'), None)
-        if mat_col is None or mat_col['nullable']:
-            continue  # già OK
-        cols = ', '.join(columns)
-        with engine.connect() as conn:
-            try:
-                conn.execute(text(schema_sql))
-                conn.execute(text(f"INSERT INTO {tbl}_new ({cols}) SELECT {cols} FROM {tbl}"))
-                conn.execute(text(f"DROP TABLE {tbl}"))
-                conn.execute(text(f"ALTER TABLE {tbl}_new RENAME TO {tbl}"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-
-
-def _fix_drilling_times_schema():
-    """Sprint 11: rende le colonne legacy di drilling_times nullable.
-
-    Dopo Sprint 11 il modello SQLAlchemy DrillingTime ha solo:
-      id, material_family, electrode_diameter_mm, speed_mm_per_sec, notes
-
-    Le colonne legacy (diameter_min/max, height_min/max, seconds_per_hole)
-    erano NOT NULL nel DB → INSERT del nuovo modello falliva. SQLite no
-    ALTER COLUMN, quindi rebuild copy-rename idempotente.
-
-    Trigger: una qualsiasi delle 3 colonne legacy è ancora NOT NULL.
-    """
-    from sqlalchemy import inspect
-
-    insp = inspect(engine)
-    if 'drilling_times' not in insp.get_table_names():
-        return
-    cols = {c['name']: c for c in insp.get_columns('drilling_times')}
-    legacy = ['diameter_max_mm', 'height_max_mm', 'seconds_per_hole']
-    needs_rebuild = any(name in cols and not cols[name]['nullable'] for name in legacy)
-    if not needs_rebuild:
-        return
-
-    schema_sql = """
-        CREATE TABLE drilling_times_new (
-            id INTEGER PRIMARY KEY,
-            material_id INTEGER,
-            material_family VARCHAR(50),
-            electrode_diameter_mm FLOAT,
-            speed_mm_per_sec FLOAT,
-            diameter_min_mm FLOAT,
-            diameter_max_mm FLOAT,
-            height_min_mm FLOAT,
-            height_max_mm FLOAT,
-            seconds_per_hole FLOAT,
-            notes TEXT
-        )
-    """
-    columns = ['id', 'material_id', 'material_family',
-               'electrode_diameter_mm', 'speed_mm_per_sec',
-               'diameter_min_mm', 'diameter_max_mm',
-               'height_min_mm', 'height_max_mm',
-               'seconds_per_hole', 'notes']
-    cols_str = ', '.join(columns)
-    with engine.connect() as conn:
-        try:
-            conn.execute(text(schema_sql))
-            conn.execute(text(f"INSERT INTO drilling_times_new ({cols_str}) "
-                              f"SELECT {cols_str} FROM drilling_times"))
-            conn.execute(text("DROP TABLE drilling_times"))
-            conn.execute(text("ALTER TABLE drilling_times_new RENAME TO drilling_times"))
-            conn.commit()
-        except Exception:
-            conn.rollback()
+# NOTA: i fix one-shot per le colonne legacy NOT NULL (edm_cut_speeds,
+# drilling_times) vivevano qui ed erano eseguiti ad ogni boot. Sono
+# stati spostati in `backend/scripts/one_shot_db_fixes.py` (audit sprint E):
+# sui DB attuali sono no-op da molto tempo, non vale la pena fare introspect
+# del DB ad ogni avvio. Eseguire a mano se serve sistemare un DB legacy:
+#   venv/bin/python -m scripts.one_shot_db_fixes
 
 
 _run_migrations()
-_fix_legacy_not_null()
-_fix_drilling_times_schema()
 _seed_categories()
 _seed_roles()
 _seed_operations()

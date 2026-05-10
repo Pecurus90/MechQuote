@@ -86,9 +86,28 @@ Sequenza obbligatoria:
 Se non c'è un bug e non c'è una feature, **chiedi prima di fare**. Refactor speculativi sono il debito di domani. Se il refactor è giustificato:
 
 1. Spiega in 3 righe cosa cambia e perché.
-2. Identifica dove la logica si replica (DRY) o dove un file supera la soglia (vedi §6.2).
+2. Identifica dove la logica si replica (DRY) o dove un file supera la soglia (vedi §5).
 3. Esegui il refactor in **un commit separato dal bug fix / feature** che lo motiva.
 4. Verifica che il comportamento è invariato.
+
+### E — Smoke test / esperimenti contro DB locale (REGOLA CRITICA)
+
+⚠️  **PRIMA di chiamare endpoint distruttivi o di lanciare integration test che toccano il DB di sviluppo, fai sempre backup.**
+
+Endpoint distruttivi:
+- `POST /api/backup/import` (svuota tutte le tabelle prima di reimportare)
+- DELETE batch su Quote/Part/Phase senza filtro mirato
+- Qualsiasi `db.query(Model).delete()` da script ad-hoc
+- Suite pytest `tests/integration/*` (ricreano user/role e fanno DELETE+INSERT su quotes per testare isolamento)
+
+Workflow obbligatorio:
+1. **Snapshot DB**: `cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)` — un secondo, costo zero.
+2. Esegui il test/smoke.
+3. Se è andato bene puoi lasciare il `.bak`; se è andato male `cp .bak mechquote.db` ti riporta indietro istantaneo.
+
+**Perché è critico**: SQLite non enforce le foreign key di default (`PRAGMA foreign_keys` è OFF). Un payload "test" con FK violate viene accettato e committato → DELETE+INSERT genera DB inconsistente o vuoto, **senza recovery automatico**. Episodio reale: 2026-05-10, smoke test backup ha cancellato customers/materials/preventivi/CompanySettings perché il payload corrotto è passato il check FK (silenzioso) e il commit è stato persistito.
+
+Vale anche se "ho appena fatto un commit" — il commit git non protegge il DB SQLite (non è versionato).
 
 ---
 
@@ -122,7 +141,7 @@ Se il ruolo dell'utente non esiste in `roles` ma è `admin` (slug), `get_current
 
 ### Bootstrap primo admin
 
-Non esiste registrazione pubblica. Il primo admin si crea in DB:
+Non esiste registrazione pubblica. Il primo admin si crea (o si reimposta dopo un disastro) in DB con questo upsert idempotente:
 
 ```bash
 cd backend
@@ -131,11 +150,21 @@ from app.models import User
 from app.core.security import get_password_hash
 from app.core.database import SessionLocal
 db = SessionLocal()
-db.add(User(username='admin', hashed_password=get_password_hash('admin'),
-            full_name='Admin', role='admin'))
+existing = db.query(User).filter(User.username == 'admin').first()
+if existing:
+    existing.hashed_password = get_password_hash('admin')
+    existing.is_active = True
+    existing.role = 'admin'
+    print('Admin esistente: password resettata a admin')
+else:
+    db.add(User(username='admin', hashed_password=get_password_hash('admin'),
+                full_name='Admin', role='admin', is_active=True))
+    print('Admin creato')
 db.commit()
 "
 ```
+
+Lo snippet è idempotente: lanciato N volte produce lo stesso stato (admin attivo, password = `admin`, role = `admin`).
 
 ### File upload
 
@@ -160,13 +189,16 @@ Quote ──┬─> Customer
               ├─> Material ─> MaterialSupplier
               ├─> ManufacturingPhase [N]
               │     ├─> Machine
+              │     ├─> Operation      (catalogo Lavorazioni, FK opzionale)
               │     ├─> Supplier
               │     └─> Treatment ─> Supplier
               └─> PartFile [N]
 
 CompanySettings  (singleton id=1: anagrafica + 4 default operativi)
 QuoteCategory    (lettera codice preventivo: A-G)
-PhaseTemplate    (template fasi riusabili)
+Operation        (catalogo Lavorazioni libero — sostituisce enum PHASE_TYPES legacy)
+WorkflowTemplate ─> WorkflowTemplateStep  (sequenza riusabile Macchina+Lavorazione,
+                                            applicabile a una Part via clean-slate)
 StepColorRule    (mapping colori STEP → fasi suggerite, dormiente fino a import 3D)
 
 Notification ─> NotificationRead  (in-app, generiche, target_roles[]+target_user_id)
@@ -179,7 +211,7 @@ I due modelli hanno ~80% dei campi sovrapposti (`name`, `address`, `shipping_cos
 | | `MaterialSupplier` | `Supplier` |
 |---|---|---|
 | **Cosa rappresenta** | Chi vende il materiale grezzo | Chi fa lavorazioni/trattamenti per conto terzi |
-| **Usato da** | `Material.supplier_id` | `ManufacturingPhase.supplier_id`, `Treatment.supplier_id`, `PhaseTemplate.default_supplier_id` |
+| **Usato da** | `Material.supplier_id` | `ManufacturingPhase.supplier_id`, `Treatment.supplier_id` |
 | **Campi extra** | `cutting_cost_per_part` (taglio del grezzo prima della consegna) | `supplier_type` (metadato libero) |
 | **Settings UI** | Materiali → sezione "Fornitori grezzi" | Trattamenti → sezione "Fornitori esterni" |
 
@@ -264,8 +296,10 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - `EdmCutSpeed.material_id` — colonna legacy nel DB pre-refactor famiglia (audit#1 sprint EDM 1.5), non più letta dal modello SQLAlchemy.
 
 **Colonne legacy DB orfane (modulo Volumetric prototipato e smontato)**:
-- Tabelle `operations`, `operation_speeds`, `operation_cycles`, `operation_cycle_steps` — create durante prototipazione Sprint 13/14, smontate per essere ricostruite come modulo separato. Restano nel DB di sviluppo, non più referenziate dal codice.
-- `manufacturing_phases.operation_id`, `manufacturing_phases.input_volume_cm3` — colonne aggiunte in Sprint 13c, ora non più mappate dal modello SQLAlchemy.
+- Tabelle `operation_speeds`, `operation_cycles`, `operation_cycle_steps` — create durante prototipazione Sprint 13/14, smontate per essere ricostruite come modulo separato. Restano nel DB di sviluppo, non più referenziate dal codice.
+- `manufacturing_phases.input_volume_cm3` — colonna aggiunta in Sprint 13c, ora non più mappata dal modello SQLAlchemy.
+
+> Nota: la tabella `operations` e la colonna `manufacturing_phases.operation_id` (nominate in commenti storici come "legacy volumetric") sono state **riattivate** dal refactor Operation. Oggi sono il catalogo Lavorazioni utente: vivi e referenziati dal modello.
 
 **Campi rimossi dal modello in audit#2 sprint 3 B1** (colonne legacy DB, non leggibili da SQLAlchemy):
 - `Part.rounding_rule`, `Part.confidence_level`
@@ -386,6 +420,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | `roles=['admin']` invece di `permission='X'` | Gating hardcoded, sistema dinamico inutile | Sempre `permission=` salvo deroghe documentate |
 | `console.error(e); toast.error(...)` nudo | Rumore senza valore in prod | Solo `toast.error(...)`, oppure log con contesto utile |
 | useEffect deps incomplete + `eslint-disable` | Bug latente: l'effect non rifirà quando dovrebbe | Includi le deps che rappresentano gli input semantici dell'effect (es. quantity per ricalcoli legati alla qty) |
+| Smoke test su endpoint distruttivi senza backup DB | DB locale svuotato/corrotto, perdita dati irrecuperabile (SQLite no FK enforce) | Prima di chiamare `/api/backup/import`, DELETE batch o pytest integration: `cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)`. Vedi §2.E |
 
 ---
 
@@ -419,7 +454,7 @@ frontend/src/
   lib/
     api.ts            # Axios instance + interceptor
     auth.tsx          # AuthProvider, useAuth, hasRole, hasPermission
-    constants.ts      # STATUS_LABELS/COLORS, PHASE_TYPES
+    constants.ts      # STATUS_LABELS/COLORS (PHASE_TYPES rimosso post-refactor Operation)
     quoteCalc.ts      # calcMaterialCost, calcTreatmentCost, calcPartTotals, calcQuoteTotal
     quoteValidation.ts
     timeAgo.ts        # tempo relativo italiano (riusato ovunque)
@@ -439,6 +474,8 @@ frontend/src/
 | `backend/app/services/calculation.py` | Cost engine — sincrono col frontend |
 | `backend/app/services/notifications.py` | `create_notification()` helper generico |
 | `backend/app/api/quotes.py` | CRUD preventivi, PATCH /status, ensure_editable, auto-mark completato |
+| `backend/app/api/operations.py` | CRUD catalogo Lavorazioni utente |
+| `backend/app/api/workflow_templates.py` | CRUD WorkflowTemplate + endpoint apply (clean-slate sulla Part) |
 | `backend/app/api/notifications.py` | Lista, unread-count, read, confirm, clear-read |
 | `backend/app/api/dashboard.py` | KPI, monthly multi-metrica, workflow-stats, my-quotes, to-review, activity |
 | `backend/app/api/company.py` | CompanySettings GET/PUT |

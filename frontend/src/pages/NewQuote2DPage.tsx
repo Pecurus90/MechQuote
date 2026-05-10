@@ -251,6 +251,8 @@ export default function NewQuote2DPage() {
       // 4. Fase Wire EDM. Assegno una macchina wire_edm: senza machine_id la
       //    tariffa oraria è 0 e il costo della fase resta 0 anche se le ore
       //    sono auto-calcolate dal backend (area × ciclo / velocità).
+      //    setup_hours = setup_minimum_hours configurato sulla macchina (UI
+      //    Macchine → "Setup minimo"); l'utente può poi affinarlo nel preventivo.
       const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm' && m.active !== false)
       await api.post(`/parts/${partId}/phases`, {
         sequence_number: 10,
@@ -262,7 +264,7 @@ export default function NewQuote2DPage() {
         cutting_cycle_id: Number(form.cutting_cycle_id),
         n_pierce: form.n_holes,
         dxf_profile_ids: dxf.selectedIds,
-        setup_hours: 0,
+        setup_hours: wireEdmMachine?.setup_minimum_hours ?? 0,
         cycle_hours_per_part: 0,  // sarà ricalcolato dal backend (autocalc EDM)
         fixed_cost: 0,
         variable_cost_per_part: 0,
@@ -273,12 +275,13 @@ export default function NewQuote2DPage() {
       // 5. Fase Foratura aggiuntiva SOLO in modalità foratrice_edm
       if (form.drilling_mode === 'foratrice_edm') {
         if (drillTotalSeconds != null && form.n_holes > 0 && edmConfig?.default_drilling_machine_id) {
+          const drillingMachine = machines.find(m => m.id === edmConfig.default_drilling_machine_id)
           await api.post(`/parts/${partId}/phases`, {
             sequence_number: 5,
             phase_type: 'drilling',
             description: `Foratura ${form.n_holes} fori Ø${form.electrode_diameter_mm} mm`,
             machine_id: edmConfig.default_drilling_machine_id,
-            setup_hours: 0,
+            setup_hours: drillingMachine?.setup_minimum_hours ?? 0,
             cycle_hours_per_part: Math.round((drillTotalSeconds / 3600) * 10000) / 10000,
             fixed_cost: 0,
             variable_cost_per_part: 0,

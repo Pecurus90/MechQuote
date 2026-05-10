@@ -89,10 +89,22 @@ def _serialize_value(val: Any) -> Any:
 
 
 def _serialize_record(record: Any) -> Dict[str, Any]:
-    """Converte una riga ORM in dict, una colonna alla volta."""
+    """Converte una riga ORM in dict, una colonna alla volta.
+
+    Usa il nome di colonna nel DB (`col.name`) come chiave per coerenza con
+    il payload importato. Per leggere il valore usa il mapper SQLAlchemy
+    (che conosce eventuali alias attribute←→colonna, es. `speed_mm_per_min`
+    su `speed_mm2_min`); fallback su `getattr` per casi dove l'attribute
+    coincide col nome di colonna.
+    """
+    from sqlalchemy import inspect as sa_inspect
+    mapper = sa_inspect(type(record))
+    # Mappa nome colonna DB → chiave attribute Python
+    col_to_attr = {c.name: prop.key for prop in mapper.column_attrs for c in prop.columns}
     out: Dict[str, Any] = {}
     for col in record.__table__.columns:
-        out[col.name] = _serialize_value(getattr(record, col.name))
+        attr = col_to_attr.get(col.name, col.name)
+        out[col.name] = _serialize_value(getattr(record, attr, None))
     return out
 
 
@@ -116,14 +128,24 @@ def _deserialize_value(col: Column, val: Any) -> Any:
 def _filter_to_columns(model_class: Type, record: Dict[str, Any]) -> Dict[str, Any]:
     """Whitelist: tiene solo le chiavi che esistono come colonne del modello.
     Rifiuta campi extra o legacy → previene injection di campi inattesi.
+
+    Le chiavi del dict di output sono gli attribute Python (necessari per il
+    costruttore SQLAlchemy `Model(**cleaned)`). Quando un attribute ha alias
+    diverso dal nome colonna in DB (es. `speed_mm_per_min` su colonna
+    `speed_mm2_min`), il payload arriva con la chiave nome-colonna ma va
+    rimappata sull'attribute.
     """
+    from sqlalchemy import inspect as sa_inspect
+    mapper = sa_inspect(model_class)
+    col_to_attr = {c.name: prop.key for prop in mapper.column_attrs for c in prop.columns}
     cols = {c.name: c for c in model_class.__table__.columns}
     cleaned: Dict[str, Any] = {}
     for key, val in record.items():
         col = cols.get(key)
         if col is None:
             continue
-        cleaned[key] = _deserialize_value(col, val)
+        attr = col_to_attr.get(key, key)
+        cleaned[attr] = _deserialize_value(col, val)
     return cleaned
 
 

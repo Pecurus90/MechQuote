@@ -380,10 +380,19 @@ class EdmConfig(Base):
 
 
 class EdmCutSpeed(Base):
-    """Velocità di taglio (sgrossatura) per (famiglia materiale × range altezza).
+    """Velocità di taglio per (famiglia materiale × range altezza).
 
     L'indicizzazione è per famiglia (acciaio_inox, alluminio, …) e non per
     singolo materiale: una riga copre tutti i materiali della stessa famiglia.
+
+    `speed_mm_per_min` è l'avanzamento LINEARE del filo (mm/min). Lo spessore
+    serve a scegliere la riga giusta della tabella (di solito step di 10mm:
+    0-10, 10-20, 20-30, …) ma NON entra nella formula del tempo: il calcolo
+    è `tempo = cut_length / (speed × cycle_factor) + pierce`.
+
+    Il nome di colonna in DB è `speed_mm2_min` per ragioni storiche (era
+    interpretato come area/min), ma l'attribute Python è `speed_mm_per_min`
+    coerente con la semantica corrente.
     """
     __tablename__ = "edm_cut_speeds"
 
@@ -391,7 +400,7 @@ class EdmCutSpeed(Base):
     material_family = Column(String(50), nullable=False)  # slug da core.material_families
     thickness_min_mm = Column(Float, nullable=False, default=0.0)
     thickness_max_mm = Column(Float, nullable=False)
-    speed_mm2_min = Column(Float, nullable=False)
+    speed_mm_per_min = Column('speed_mm2_min', Float, nullable=False)
     pierce_time_s = Column(Float, nullable=True)  # override del default per range altezza
     notes = Column(Text)
     # Nota: la colonna legacy material_id resta nel DB (SQLite no DROP COLUMN)

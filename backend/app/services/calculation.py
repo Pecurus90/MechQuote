@@ -72,7 +72,7 @@ def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session)
         EdmCutSpeed.thickness_min_mm <= phase.cut_height_mm,
         EdmCutSpeed.thickness_max_mm >= phase.cut_height_mm,
     ).first()
-    if not speed_row or not speed_row.speed_mm2_min:
+    if not speed_row or not speed_row.speed_mm_per_min:
         return None
 
     cycle = db.query(CuttingCycle).options(joinedload(CuttingCycle.passes)).filter(
@@ -86,16 +86,19 @@ def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session)
         'semi': cfg.semi_speed_factor,
         'finish': cfg.finish_speed_factor,
     }
-    base_speed = speed_row.speed_mm2_min
+    base_speed = speed_row.speed_mm_per_min  # mm/min lineari (avanzamento filo)
     pierce_time = speed_row.pierce_time_s if speed_row.pierce_time_s is not None else cfg.default_pierce_time_s
-    area_mm2 = phase.cut_length_mm * phase.cut_height_mm
 
+    # Formula corretta (no area-based): lo spessore serve solo al lookup della
+    # riga in EdmCutSpeed (range step 10mm: 0-10, 10-20, …). Il tempo di taglio
+    # dipende dalla LUNGHEZZA del profilo e dalla velocità lineare per quel
+    # range × fattore di passata.
     total_min = 0.0
     for p in cycle.passes:
         factor = factor_for.get(p.pass_type, 1.0)
         speed_pass = base_speed * factor
         if speed_pass > 0:
-            total_min += area_mm2 / speed_pass
+            total_min += phase.cut_length_mm / speed_pass
 
     total_min += (phase.n_pierce or 0) * pierce_time / 60.0
     return round(total_min / 60.0, 4)  # ore

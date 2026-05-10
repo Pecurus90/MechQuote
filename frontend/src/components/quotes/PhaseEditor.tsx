@@ -71,24 +71,37 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
       .catch(() => { /* tabelle EDM non popolate ancora — ok */ })
   }, [])
 
-  // Quando cambia il peso finito o la quantità, ricalcola i costi delle fasi treatment.
-  // Phases/treatments/machines/onChange sono volutamente fuori dalle deps: phases viene
-  // ricreata ad ogni render del parent (riferimento nuovo) e onChange è una callback inline,
-  // metterli innescherebbe rerender continui. Il check `changed` evita loop comunque.
+  // Quando cambia peso finito, quantità o nParts, ricalcola TUTTE le fasi:
+  //  - treatment: variable_cost_per_part da calcTreatmentCost(weight × qty),
+  //    poi calcPhase per il calculated_cost
+  //  - non-treatment: solo calcPhase (setup_hours / divisor varia con qty)
+  // Phases/treatments/machines/onChange sono volutamente fuori dalle deps: phases
+  // viene ricreata ad ogni render del parent (riferimento nuovo) e onChange è una
+  // callback inline; metterli causerebbe rerender continui. Il check `changed`
+  // basato su calculated_cost evita loop comunque (idempotente se nulla cambia).
   useEffect(() => {
     const updated = phases.map(ph => {
-      if (!ph.treatment_id) return ph
-      const t = treatments.find(t => t.id === ph.treatment_id)
-      if (!t) return ph
-      const varCost = calcTreatmentCost(t, finishedWeightKg, quantity)
-      return calcPhase({ ...ph, variable_cost_per_part: varCost }, machines, quantity, nParts)
+      let next = ph
+      if (ph.treatment_id) {
+        const t = treatments.find(t => t.id === ph.treatment_id)
+        if (t) {
+          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity)
+          next = { ...ph, variable_cost_per_part: varCost }
+        }
+      }
+      return calcPhase(next, machines, quantity, nParts)
     })
-    const changed = updated.some((ph, i) => ph.variable_cost_per_part !== phases[i].variable_cost_per_part)
+    const changed = updated.some((ph, i) =>
+      ph.calculated_cost !== phases[i].calculated_cost ||
+      ph.variable_cost_per_part !== phases[i].variable_cost_per_part
+    )
     if (changed) onChange(updated)
-  }, [finishedWeightKg, quantity]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [finishedWeightKg, quantity, nParts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addPhase = async () => {
-    const seq = phases.length > 0 ? Math.max(...phases.map(p => p.sequence_number)) + 10 : 10
+    // Numerazione progressiva basata sulla posizione: 10, 20, 30, … sempre.
+    // Indipendente da gap o numerazioni anomale già presenti.
+    const seq = (phases.length + 1) * 10
     const newPhase: Phase = {
       sequence_number: seq,
       phase_type: 'cnc_milling',
@@ -119,8 +132,19 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
     if (phase.id) {
       try { await api.delete(`/phases/${phase.id}`) } catch (e) {toast.error('Errore nell\'eliminazione della fase') }
     }
-    onChange(phases.filter((_, i) => i !== idx))
+    // Rinumera le fasi rimanenti come 10, 20, 30, … e persiste via reorder.
+    const remaining = phases.filter((_, i) => i !== idx).map((p, i) => ({
+      ...p, sequence_number: (i + 1) * 10,
+    }))
+    onChange(remaining)
     if (expandedIdx === idx) setExpandedIdx(null)
+    if (partId && remaining.length > 0) {
+      const ids = remaining.filter(p => p.id).map(p => p.id as number)
+      if (ids.length > 0) {
+        api.post(`/parts/${partId}/phases/reorder`, ids)
+          .catch(() => toast.error('Errore nella rinumerazione delle fasi'))
+      }
+    }
   }
 
   const updateField = (idx: number, field: keyof Phase, value: Phase[keyof Phase]) => {
@@ -193,7 +217,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
   }
 
   const applyTemplate = async (tpl: PhaseTemplate) => {
-    const seq = phases.length > 0 ? Math.max(...phases.map(p => p.sequence_number)) + 10 : 10
+    const seq = (phases.length + 1) * 10
     const newPhase: Phase = {
       sequence_number: seq,
       phase_type: tpl.phase_type,

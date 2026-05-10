@@ -582,7 +582,7 @@ class EdmCutSpeedBase(BaseModel):
     material_family: str
     thickness_min_mm: float = Field(default=0.0, ge=0)
     thickness_max_mm: float = Field(ge=0)
-    speed_mm2_min: float = Field(ge=0)
+    speed_mm_per_min: float = Field(ge=0)  # avanzamento lineare del filo
     pierce_time_s: Optional[float] = Field(default=None, ge=0)
     notes: Optional[str] = None
 

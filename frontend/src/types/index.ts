@@ -254,7 +254,7 @@ export interface EdmCutSpeed {
   material_family: string  // slug da MATERIAL_FAMILIES
   thickness_min_mm: number
   thickness_max_mm: number
-  speed_mm2_min: number
+  speed_mm_per_min: number
   pierce_time_s: number | null
   notes: string | null
 }

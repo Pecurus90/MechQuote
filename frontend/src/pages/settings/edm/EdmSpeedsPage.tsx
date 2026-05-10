@@ -12,7 +12,7 @@ interface FormState {
   material_family: string
   thickness_min_mm: string
   thickness_max_mm: string
-  speed_mm2_min: string
+  speed_mm_per_min: string
   pierce_time_s: string
   notes: string
 }
@@ -21,7 +21,7 @@ const empty = (): FormState => ({
   material_family: '',
   thickness_min_mm: '0',
   thickness_max_mm: '',
-  speed_mm2_min: '',
+  speed_mm_per_min: '',
   pierce_time_s: '',
   notes: '',
 })
@@ -30,7 +30,7 @@ const toPayload = (f: FormState) => ({
   material_family: f.material_family,
   thickness_min_mm: Number(f.thickness_min_mm) || 0,
   thickness_max_mm: Number(f.thickness_max_mm) || 0,
-  speed_mm2_min: Number(f.speed_mm2_min) || 0,
+  speed_mm_per_min: Number(f.speed_mm_per_min) || 0,
   pierce_time_s: f.pierce_time_s ? Number(f.pierce_time_s) : null,
   notes: f.notes || null,
 })
@@ -55,7 +55,7 @@ export default function EdmSpeedsPage() {
       material_family: row.material_family,
       thickness_min_mm: String(row.thickness_min_mm),
       thickness_max_mm: String(row.thickness_max_mm),
-      speed_mm2_min: String(row.speed_mm2_min),
+      speed_mm_per_min: String(row.speed_mm_per_min),
       pierce_time_s: row.pierce_time_s != null ? String(row.pierce_time_s) : '',
       notes: row.notes ?? '',
     })
@@ -71,7 +71,7 @@ export default function EdmSpeedsPage() {
   }
 
   const createRow = async () => {
-    if (!newRow.material_family || !newRow.thickness_max_mm || !newRow.speed_mm2_min) {
+    if (!newRow.material_family || !newRow.thickness_max_mm || !newRow.speed_mm_per_min) {
       toast.error('Famiglia, altezza max e velocità sono obbligatori')
       return
     }
@@ -110,8 +110,8 @@ export default function EdmSpeedsPage() {
           onChange={e => set({ ...form, thickness_max_mm: e.target.value })} />
       </td>
       <td className="px-3 py-2">
-        <Input className={inp} type="number" step="1" value={form.speed_mm2_min}
-          onChange={e => set({ ...form, speed_mm2_min: e.target.value })} />
+        <Input className={inp} type="number" step="1" value={form.speed_mm_per_min}
+          onChange={e => set({ ...form, speed_mm_per_min: e.target.value })} />
       </td>
       <td className="px-3 py-2">
         <Input className={inp} type="number" step="0.5" placeholder="default" value={form.pierce_time_s}
@@ -130,8 +130,8 @@ export default function EdmSpeedsPage() {
         <div>
           <h1 className="text-2xl font-bold">Velocità di taglio Wire EDM</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Velocità base (sgrossatura) in mm²/min per ogni famiglia di materiale e range di altezza.
-            Una riga famiglia copre tutti i materiali della stessa famiglia.
+            Avanzamento lineare del filo in <strong>mm/min</strong> per ogni famiglia di
+            materiale e range di altezza (di solito step di 10mm: 0-10, 10-20, …).
             Le velocità delle altre passate sono derivate dai fattori in <em>Parametri globali</em>.
           </p>
         </div>
@@ -151,7 +151,7 @@ export default function EdmSpeedsPage() {
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Famiglia</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Altezza min (mm)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Altezza max (mm)</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Velocità (mm²/min)</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Velocità (mm/min)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Pierce (s, override)</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Note</th>
                   <th className="w-20" />
@@ -179,7 +179,7 @@ export default function EdmSpeedsPage() {
                         <td className="px-4 py-2.5">{familyLabel(r.material_family)}</td>
                         <td className="px-4 py-2.5">{r.thickness_min_mm}</td>
                         <td className="px-4 py-2.5">{r.thickness_max_mm}</td>
-                        <td className="px-4 py-2.5 font-mono">{r.speed_mm2_min}</td>
+                        <td className="px-4 py-2.5 font-mono">{r.speed_mm_per_min}</td>
                         <td className="px-4 py-2.5">{r.pierce_time_s ?? <span className="text-muted-foreground">—</span>}</td>
                         <td className="px-4 py-2.5 text-muted-foreground">{r.notes || '—'}</td>
                         <td className="px-4 py-2.5">

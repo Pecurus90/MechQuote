@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { timeAgo } from '@/lib/timeAgo'
 import { ACTIVITY_KIND } from '@/lib/activity'
 import type { ActivityRow } from '@/types'
-import { Activity as ActivityIcon } from 'lucide-react'
+import { Activity as ActivityIcon, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
-type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed'
+type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered'
 
 export default function ActivityPage() {
   const navigate = useNavigate()
   const [items, setItems] = useState<ActivityRow[]>([])
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 30
   const [loading, setLoading] = useState(true)
@@ -23,11 +25,15 @@ export default function ActivityPage() {
     setLoading(true)
     const params: Record<string, string | number> = { page, page_size: pageSize }
     if (typeFilter !== 'all') params.type = typeFilter
-    api.get('/activity', { params })
-      .then(r => setItems(r.data))
-      .catch(() => toast.error('Errore nel caricamento attività'))
-      .finally(() => setLoading(false))
-  }, [page, typeFilter])
+    if (search.trim()) params.q = search.trim()
+    const t = setTimeout(() => {
+      api.get('/activity', { params })
+        .then(r => setItems(r.data))
+        .catch(() => toast.error('Errore nel caricamento attività'))
+        .finally(() => setLoading(false))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [page, typeFilter, search])
 
   const onRowClick = (a: ActivityRow) => {
     const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
@@ -36,22 +42,37 @@ export default function ActivityPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <ActivityIcon className="w-6 h-6 text-gray-500" />
           Attività del team
         </h1>
-        <div>
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Filtro tipo</label>
-          <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            value={typeFilter}
-            onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}
-          >
-            <option value="all">Tutti</option>
-            <option value="quote_submitted">Inviati</option>
-            <option value="quote_completed">Completati</option>
-          </select>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="w-72">
+            <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input
+                placeholder="titolo, preventivo, autore..."
+                value={search}
+                onChange={e => { setPage(1); setSearch(e.target.value) }}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600 mb-1 block">Filtro tipo</label>
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={typeFilter}
+              onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}
+            >
+              <option value="all">Tutti</option>
+              <option value="quote_submitted">Inviati</option>
+              <option value="quote_completed">Completati</option>
+              <option value="materials_ordered">Ordini materiali</option>
+            </select>
+          </div>
         </div>
       </div>
 

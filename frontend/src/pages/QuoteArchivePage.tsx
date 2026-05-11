@@ -181,10 +181,10 @@ export default function QuoteArchivePage() {
                         </span>
                         {q.material_ordered_at && (
                           <span
-                            className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800"
+                            className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700"
                             title={`Ordinato il ${new Date(q.material_ordered_at).toLocaleString('it-IT')}${q.material_ordered_by ? ' da ' + (q.material_ordered_by.full_name || q.material_ordered_by.username) : ''}`}
                           >
-                            Materiale ordinato
+                            Ordine materiale
                           </span>
                         )}
                       </td>

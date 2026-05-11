@@ -49,13 +49,33 @@ def list_activity(
     page: int = 1,
     page_size: int = 20,
     type: Optional[str] = None,
+    q: Optional[str] = None,
 ):
-    """Lista paginata attività globali. Filtro opzionale per `type` (es. 'quote_completed')."""
+    """Lista paginata attività globali.
+
+    Filtri opzionali:
+    - `type` (es. 'quote_completed', 'materials_ordered')
+    - `q` ricerca testuale su titolo, body, username/full_name del creatore
+    """
     if page_size > 100:
         page_size = 100
     query = db.query(Notification).options(joinedload(Notification.created_by))
     if type:
         query = query.filter(Notification.type == type)
+    if q and q.strip():
+        from sqlalchemy import or_
+        like = f"%{q.strip()}%"
+        query = (
+            query
+            .outerjoin(User, User.id == Notification.created_by_user_id)
+            .filter(or_(
+                Notification.title.ilike(like),
+                Notification.body.ilike(like),
+                User.username.ilike(like),
+                User.full_name.ilike(like),
+            ))
+            .distinct()
+        )
     query = query.order_by(Notification.created_at.desc())
     offset = (page - 1) * page_size
     notifications = query.offset(offset).limit(page_size).all()

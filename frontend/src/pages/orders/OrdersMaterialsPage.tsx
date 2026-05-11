@@ -379,11 +379,12 @@ export default function OrdersMaterialsPage() {
               <Button
                 onClick={exportOrder}
                 disabled={exporting || selectedIds.size === 0}
-                className="w-full"
+                variant="outline"
                 size="lg"
+                className="w-full"
               >
                 <FileDown className="w-4 h-4 mr-2" />
-                {exporting ? 'Generazione in corso...' : `Esporta PDF ordine (${selectedIds.size} preventivi)`}
+                {exporting ? 'Generazione in corso...' : `PDF ordine (${selectedIds.size} preventiv${selectedIds.size === 1 ? 'o' : 'i'})`}
               </Button>
               <p className="text-[11px] text-gray-400 text-center">
                 I preventivi selezionati saranno marcati come "materiale ordinato"

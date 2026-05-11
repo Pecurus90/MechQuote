@@ -264,12 +264,54 @@ def create_order(
 
 
 @router.get("", response_model=List[MaterialOrderOut])
-def list_orders(db: Session = Depends(get_db), _=_can_orders, limit: int = 50):
-    """Storico ordini, ultimi N in ordine cronologico desc."""
-    orders = db.query(MaterialOrder).options(
+def list_orders(
+    db: Session = Depends(get_db),
+    _=_can_orders,
+    limit: int = 50,
+    q: Optional[str] = None,
+):
+    """Storico ordini, ultimi N in ordine cronologico desc.
+
+    `q` (opzionale) cerca in:
+    - numero ordine (es. "23" o "MO-0023" match l'id 23)
+    - numero preventivo incluso (via join, es. "240-26A_010")
+    - username o nome del creatore
+    """
+    query = db.query(MaterialOrder).options(
         joinedload(MaterialOrder.created_by),
         joinedload(MaterialOrder.quotes),
-    ).order_by(MaterialOrder.created_at.desc()).limit(limit).all()
+    )
+
+    if q and q.strip():
+        from sqlalchemy import or_
+        term = q.strip()
+        like = f"%{term}%"
+
+        # Estrai eventuale id numerico (anche dopo "MO-")
+        id_match: Optional[int] = None
+        digits = term.replace('MO-', '').replace('mo-', '').lstrip('0')
+        if digits.isdigit():
+            id_match = int(digits)
+
+        # JOIN espliciti su tabella associativa + Quote + User creatore.
+        # Uso outer join per non escludere ordini senza quote (edge case) o
+        # senza created_by_user_id (admin diretto su DB).
+        query = (
+            query
+            .outerjoin(MaterialOrderQuote, MaterialOrderQuote.material_order_id == MaterialOrder.id)
+            .outerjoin(Quote, Quote.id == MaterialOrderQuote.quote_id)
+            .outerjoin(User, User.id == MaterialOrder.created_by_user_id)
+        )
+        conditions = [
+            Quote.quote_number.ilike(like),
+            User.username.ilike(like),
+            User.full_name.ilike(like),
+        ]
+        if id_match is not None:
+            conditions.append(MaterialOrder.id == id_match)
+        query = query.filter(or_(*conditions)).distinct()
+
+    orders = query.order_by(MaterialOrder.created_at.desc()).limit(limit).all()
     return [_order_to_out(o, db) for o in orders]
 
 

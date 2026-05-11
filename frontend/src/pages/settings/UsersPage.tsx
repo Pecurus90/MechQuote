@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { ApiUser, Role as ApiRole } from '@/types'
 
 // Alias locale: la tabella users mostra l'utente backend (ApiUser), non l'utente
@@ -48,6 +49,7 @@ export default function UsersPage() {
   const [editRow, setEditRow] = useState<EditRow>(emptyEdit())
   const [newRow, setNewRow] = useState<NewRow>(emptyNew())
   const [showNew, setShowNew] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<User | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -92,9 +94,14 @@ export default function UsersPage() {
     } catch { toast.error('Errore nel salvataggio') }
   }
 
-  const deleteUser = async (u: User) => {
+  const deleteUser = (u: User) => {
     if (u.id === currentUser?.id) return
-    if (!confirm(`Eliminare l'utente "${u.username}"?`)) return
+    setPendingDelete(u)
+  }
+  const confirmDeleteUser = async () => {
+    if (!pendingDelete) return
+    const u = pendingDelete
+    setPendingDelete(null)
     try {
       await api.delete(`/users/${u.id}`)
       toast.success('Utente eliminato')
@@ -285,6 +292,13 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title={`Eliminare l'utente "${pendingDelete?.username ?? ''}"?`}
+        confirmLabel="Elimina"
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

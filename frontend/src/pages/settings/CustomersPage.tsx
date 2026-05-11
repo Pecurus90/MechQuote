@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Save, X, Search, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { Customer } from '@/types'
 
 interface FormState {
@@ -27,6 +28,7 @@ export default function CustomersPage() {
   const [importing, setImporting] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  useEscapeKey(() => setEditingId(null), editingId !== null)
 
   const loadData = () => {
     api.get('/customers').then(res => { setCustomers(res.data); setLoading(false) })

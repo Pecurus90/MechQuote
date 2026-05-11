@@ -6,6 +6,8 @@ import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Material, MaterialSupplier } from '@/types'
 
 interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string }
@@ -25,6 +27,10 @@ export default function MaterialsPage() {
   const [matForm, setMatForm] = useState<MatForm | null>(null)
   const [searchSup, setSearchSup] = useState('')
   const [searchMat, setSearchMat] = useState('')
+  const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
+  const [pendingDelMaterial, setPendingDelMaterial] = useState<number | null>(null)
+  useEscapeKey(() => setSupForm(null), !!supForm)
+  useEscapeKey(() => setMatForm(null), !!matForm)
 
   const loadData = () => {
     Promise.all([api.get('/material-suppliers'), api.get('/materials')]).then(([sRes, mRes]) => {
@@ -47,9 +53,12 @@ export default function MaterialsPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const deleteSupplier = async (id: number) => {
-    if (!confirm('Eliminare questo fornitore?')) return
-    try { await api.delete(`/material-suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+  const deleteSupplier = (id: number) => setPendingDelSupplier(id)
+  const confirmDeleteSupplier = async () => {
+    if (pendingDelSupplier == null) return
+    const id = pendingDelSupplier; setPendingDelSupplier(null)
+    try { await api.delete(`/material-suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() }
+    catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   const saveMaterial = async () => {
@@ -69,9 +78,12 @@ export default function MaterialsPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const deleteMaterial = async (id: number) => {
-    if (!confirm('Eliminare questo materiale?')) return
-    try { await api.delete(`/materials/${id}`); toast.success('Materiale eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+  const deleteMaterial = (id: number) => setPendingDelMaterial(id)
+  const confirmDeleteMaterial = async () => {
+    if (pendingDelMaterial == null) return
+    const id = pendingDelMaterial; setPendingDelMaterial(null)
+    try { await api.delete(`/materials/${id}`); toast.success('Materiale eliminato'); loadData() }
+    catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   const startEditMat = (m: Material) => setMatForm({
@@ -312,6 +324,20 @@ export default function MaterialsPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelSupplier != null}
+        title="Eliminare questo fornitore?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDeleteSupplier}
+        onCancel={() => setPendingDelSupplier(null)}
+      />
+      <ConfirmDialog
+        open={pendingDelMaterial != null}
+        title="Eliminare questo materiale?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDeleteMaterial}
+        onCancel={() => setPendingDelMaterial(null)}
+      />
     </div>
   )
 }

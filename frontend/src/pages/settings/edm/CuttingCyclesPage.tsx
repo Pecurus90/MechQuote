@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Save, X } from 'lucide-react'
 import api from '@/lib/api'
 import type { CuttingCycle, CuttingPass, PassType } from '@/types'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 const PASS_TYPES: { value: PassType; label: string; color: string }[] = [
   { value: 'rough',  label: 'Sgrossatura', color: 'bg-amber-100 text-amber-700' },
@@ -29,6 +30,7 @@ export default function CuttingCyclesPage() {
   const [editingId, setEditingId] = useState<number | null>(null)  // 0 = nuovo
   const [edit, setEdit] = useState<EditState>(empty())
   const [loading, setLoading] = useState(true)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   const load = () => api.get('/cutting-cycles').then(r => { setCycles(r.data); setLoading(false) })
   useEffect(() => { load() }, [])
@@ -85,12 +87,14 @@ export default function CuttingCyclesPage() {
     } catch {toast.error('Errore nel salvataggio') }
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('Eliminare questo ciclo?')) return
+  const remove = (id: number) => setPendingDelete(id)
+  const confirmRemove = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/cutting-cycles/${id}`)
       toast.success('Ciclo eliminato'); load()
-    } catch {toast.error('Errore') }
+    } catch { toast.error('Errore') }
   }
 
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
@@ -225,6 +229,13 @@ export default function CuttingCyclesPage() {
           </Card>
         )}
       </div>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo ciclo?"
+        confirmLabel="Elimina"
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

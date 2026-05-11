@@ -7,6 +7,7 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Supplier } from '@/types'
 
 interface FormState {
@@ -28,6 +29,7 @@ export default function TreatmentSuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
   useEscapeKey(() => setForm(null), !!form)
 
   const load = () => {
@@ -74,8 +76,10 @@ export default function TreatmentSuppliersPage() {
     }
   }
 
-  const del = async (id: number) => {
-    if (!confirm('Eliminare questo fornitore?')) return
+  const del = (id: number) => setPendingDelete(id)
+  const confirmDel = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/suppliers/${id}`)
       toast.success('Fornitore eliminato')
@@ -180,6 +184,13 @@ export default function TreatmentSuppliersPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo fornitore?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDel}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

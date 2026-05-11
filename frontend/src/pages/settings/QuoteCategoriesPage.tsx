@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Category } from '@/types'
 
 interface EditRow { code: string; name: string; sort_order: number }
@@ -17,6 +18,7 @@ export default function QuoteCategoriesPage() {
   const [newRow, setNewRow] = useState<EditRow>({ code: '', name: '', sort_order: 0 })
   const [showNew, setShowNew] = useState(false)
   const [search, setSearch] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -38,12 +40,14 @@ export default function QuoteCategoriesPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const deleteCategory = async (id: number) => {
-    if (!confirm('Eliminare questa categoria?')) return
+  const deleteCategory = (id: number) => setPendingDelete(id)
+  const confirmDelete = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/quote-categories/${id}`)
       toast.success('Categoria eliminata'); load()
-    } catch (e) {toast.error('Errore nell\'eliminazione') }
+    } catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   const createCategory = async () => {
@@ -176,6 +180,13 @@ export default function QuoteCategoriesPage() {
           </table>
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questa categoria?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

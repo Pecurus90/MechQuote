@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Role } from '@/types'
 
 const COLOR_OPTIONS = [
@@ -28,6 +29,7 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [newRole, setNewRole] = useState(emptyNew())
+  const [pendingDelete, setPendingDelete] = useState<Role | null>(null)
   const [toggling, setToggling] = useState<string | null>(null)  // "roleId:key"
 
   useEffect(() => { load() }, [])
@@ -76,8 +78,11 @@ export default function RolesPage() {
     }
   }
 
-  const deleteRole = async (role: Role) => {
-    if (!confirm(`Eliminare il ruolo "${role.label}"?`)) return
+  const deleteRole = (role: Role) => setPendingDelete(role)
+  const confirmDeleteRole = async () => {
+    if (!pendingDelete) return
+    const role = pendingDelete
+    setPendingDelete(null)
     try {
       await api.delete(`/roles/${role.id}`)
       setRoles(prev => prev.filter(r => r.id !== role.id))
@@ -217,6 +222,13 @@ export default function RolesPage() {
           </CardContent>
         </Card>
       )}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title={`Eliminare il ruolo "${pendingDelete?.label ?? ''}"?`}
+        confirmLabel="Elimina"
+        onConfirm={confirmDeleteRole}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

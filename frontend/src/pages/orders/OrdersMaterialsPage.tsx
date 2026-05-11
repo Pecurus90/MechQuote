@@ -6,6 +6,7 @@ import { Search, Package, FileDown, History, X } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { STATUS_LABELS } from '@/lib/constants'
+import { useEscapeKey } from '@/lib/useEscapeKey'
 import type {
   MaterialAggregateResult, MaterialOrder, QuoteListItem,
 } from '@/types'
@@ -29,6 +30,7 @@ export default function OrdersMaterialsPage() {
   const [exporting, setExporting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
+  useEscapeKey(() => setShowHistory(false), showHistory)
 
   const loadQuotes = () => {
     const params = new URLSearchParams()

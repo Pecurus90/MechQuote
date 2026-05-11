@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Machine } from '@/types'
 
 const MACHINE_TYPES = [
@@ -33,6 +35,8 @@ export default function MachinesPage() {
   const [setup, setSetup] = useState('')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  useEscapeKey(() => setEditingId(null), editingId !== null)
 
   const loadData = () => {
     api.get('/machines').then(res => { setMachines(res.data); setLoading(false) })
@@ -68,9 +72,12 @@ export default function MachinesPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Eliminare questo centro di costo?')) return
-    try { await api.delete(`/machines/${id}`); toast.success('Centro di costo eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+  const handleDelete = (id: number) => setPendingDelete(id)
+  const confirmDelete = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
+    try { await api.delete(`/machines/${id}`); toast.success('Centro di costo eliminato'); loadData() }
+    catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...machines]
@@ -179,6 +186,13 @@ export default function MachinesPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo centro di costo?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

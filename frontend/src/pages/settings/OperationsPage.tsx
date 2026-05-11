@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Operation } from '@/types'
 
 export default function OperationsPage() {
@@ -13,6 +15,8 @@ export default function OperationsPage() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  useEscapeKey(() => setEditingId(null), editingId !== null)
 
   const load = () => {
     api.get('/operations').then(r => { setOperations(r.data); setLoading(false) })
@@ -43,8 +47,10 @@ export default function OperationsPage() {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Eliminare questa lavorazione?')) return
+  const handleDelete = (id: number) => setPendingDelete(id)
+  const confirmDelete = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/operations/${id}`)
       toast.success('Lavorazione eliminata')
@@ -138,6 +144,14 @@ export default function OperationsPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questa lavorazione?"
+        description="Se usata in un Template flusso o in una fase preventivo, l'eliminazione verrà bloccata."
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

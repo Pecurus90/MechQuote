@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Supplier, Treatment } from '@/types'
 
 interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string }
@@ -33,6 +35,10 @@ export default function TreatmentsPage() {
   const [treatForm, setTreatForm] = useState<TreatForm | null>(null)
   const [searchSup, setSearchSup] = useState('')
   const [searchTreat, setSearchTreat] = useState('')
+  const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
+  const [pendingDelTreat, setPendingDelTreat] = useState<number | null>(null)
+  useEscapeKey(() => setSupForm(null), !!supForm)
+  useEscapeKey(() => setTreatForm(null), !!treatForm)
 
   const loadData = () => {
     Promise.all([api.get('/suppliers'), api.get('/treatments')]).then(([sRes, tRes]) => {
@@ -56,9 +62,12 @@ export default function TreatmentsPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const deleteSupplier = async (id: number) => {
-    if (!confirm('Eliminare questo fornitore?')) return
-    try { await api.delete(`/suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+  const deleteSupplier = (id: number) => setPendingDelSupplier(id)
+  const confirmDeleteSupplier = async () => {
+    if (pendingDelSupplier == null) return
+    const id = pendingDelSupplier; setPendingDelSupplier(null)
+    try { await api.delete(`/suppliers/${id}`); toast.success('Fornitore eliminato'); loadData() }
+    catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   // --- Treatment CRUD ---
@@ -81,9 +90,12 @@ export default function TreatmentsPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const deleteTreat = async (id: number) => {
-    if (!confirm('Eliminare questo trattamento?')) return
-    try { await api.delete(`/treatments/${id}`); toast.success('Trattamento eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+  const deleteTreat = (id: number) => setPendingDelTreat(id)
+  const confirmDeleteTreat = async () => {
+    if (pendingDelTreat == null) return
+    const id = pendingDelTreat; setPendingDelTreat(null)
+    try { await api.delete(`/treatments/${id}`); toast.success('Trattamento eliminato'); loadData() }
+    catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   const startEditTreat = (t: Treatment) => setTreatForm({
@@ -308,6 +320,20 @@ export default function TreatmentsPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelSupplier != null}
+        title="Eliminare questo fornitore?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDeleteSupplier}
+        onCancel={() => setPendingDelSupplier(null)}
+      />
+      <ConfirmDialog
+        open={pendingDelTreat != null}
+        title="Eliminare questo trattamento?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDeleteTreat}
+        onCancel={() => setPendingDelTreat(null)}
+      />
     </div>
   )
 }

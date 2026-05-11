@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { X, Check, Bell, Trash2 } from 'lucide-react'
 import type { Notification } from '@/lib/useNotifications'
 import { timeAgo } from '@/lib/timeAgo'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 interface Props {
   open: boolean
@@ -21,10 +22,14 @@ export default function NotificationPanel({
 }: Props) {
   const navigate = useNavigate()
   const readCount = items.filter(n => n.read_at).length
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const handleClearRead = () => {
     if (readCount === 0) return
-    if (!confirm(`Svuotare ${readCount} notifiche già lette?`)) return
+    setConfirmClear(true)
+  }
+  const doClearRead = () => {
+    setConfirmClear(false)
     onClearRead()
   }
 
@@ -118,6 +123,13 @@ export default function NotificationPanel({
           )}
         </div>
       </aside>
+      <ConfirmDialog
+        open={confirmClear}
+        title={`Svuotare ${readCount} notifiche già lette?`}
+        confirmLabel="Svuota"
+        onConfirm={doClearRead}
+        onCancel={() => setConfirmClear(false)}
+      />
     </>,
     document.body,
   )

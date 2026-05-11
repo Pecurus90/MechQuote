@@ -7,6 +7,7 @@ import api from '@/lib/api'
 import type { EdmCutSpeed } from '@/types'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 interface FormState {
   material_family: string
@@ -42,6 +43,7 @@ export default function EdmSpeedsPage() {
   const [showNew, setShowNew] = useState(false)
   const [newRow, setNewRow] = useState<FormState>(empty())
   const [loading, setLoading] = useState(true)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -82,12 +84,14 @@ export default function EdmSpeedsPage() {
     } catch {toast.error('Errore nella creazione') }
   }
 
-  const removeRow = async (id: number) => {
-    if (!confirm('Eliminare questa riga?')) return
+  const removeRow = (id: number) => setPendingDelete(id)
+  const confirmRemove = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/edm-cut-speeds/${id}`)
       toast.success('Eliminata'); load()
-    } catch {toast.error('Errore') }
+    } catch { toast.error('Errore') }
   }
 
   const inp = 'h-7 text-xs px-2'
@@ -226,6 +230,13 @@ export default function EdmSpeedsPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questa riga?"
+        confirmLabel="Elimina"
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

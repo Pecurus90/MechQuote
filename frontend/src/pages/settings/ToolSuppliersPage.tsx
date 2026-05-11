@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Save, X, Wrench } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { ToolSupplier } from '@/types'
 
 interface FormState {
@@ -24,6 +25,7 @@ export default function ToolSuppliersPage() {
   const [suppliers, setSuppliers] = useState<ToolSupplier[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
   useEscapeKey(() => setForm(null), !!form)
 
   const load = () => {
@@ -65,8 +67,10 @@ export default function ToolSuppliersPage() {
     }
   }
 
-  const del = async (id: number) => {
-    if (!confirm('Eliminare questo fornitore? (Se utilizzato da utensili, il delete fallirà.)')) return
+  const del = (id: number) => setPendingDelete(id)
+  const confirmDel = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/tools/suppliers/${id}`)
       toast.success('Fornitore eliminato')
@@ -169,6 +173,14 @@ export default function ToolSuppliersPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo fornitore?"
+        description="Se utilizzato da utensili, l'eliminazione verrà bloccata dal backend."
+        confirmLabel="Elimina"
+        onConfirm={confirmDel}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

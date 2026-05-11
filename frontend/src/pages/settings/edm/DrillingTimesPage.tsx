@@ -8,6 +8,7 @@ import type { DrillingTime } from '@/types'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 import { parseDecimal } from '@/lib/decimalInput'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 interface FormState {
   material_family: string
@@ -37,6 +38,7 @@ export default function DrillingTimesPage() {
   const [showNew, setShowNew] = useState(false)
   const [newRow, setNewRow] = useState<FormState>(empty())
   const [loading, setLoading] = useState(true)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -75,12 +77,14 @@ export default function DrillingTimesPage() {
     } catch {toast.error('Errore nella creazione') }
   }
 
-  const removeRow = async (id: number) => {
-    if (!confirm('Eliminare questa riga?')) return
+  const removeRow = (id: number) => setPendingDelete(id)
+  const confirmRemove = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/drilling-times/${id}`)
       toast.success('Eliminata'); load()
-    } catch {toast.error('Errore') }
+    } catch { toast.error('Errore') }
   }
 
   const inp = 'h-7 text-xs px-2'
@@ -208,6 +212,13 @@ export default function DrillingTimesPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questa riga?"
+        confirmLabel="Elimina"
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

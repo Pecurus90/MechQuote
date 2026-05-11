@@ -4,10 +4,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Download, Upload, FileJson } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 export default function BackupSettingsPage() {
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null)
 
   const handleExport = async () => {
     setExporting(true)
@@ -31,28 +33,31 @@ export default function BackupSettingsPage() {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json'
-    input.onchange = async (e: Event) => {
+    input.onchange = (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-
-      if (!confirm('Attenzione: l\'importazione sovrascriverà tutti i dati esistenti. Continuare?')) return
-
-      setImporting(true)
-      const reader = new FileReader()
-      reader.onload = async (ev) => {
-        try {
-          const data = JSON.parse(ev.target?.result as string)
-          await api.post('/backup/import', data)
-          toast.success('Dati importati con successo!')
-        } catch {
-          toast.error('Errore durante l\'importazione')
-        } finally {
-          setImporting(false)
-        }
-      }
-      reader.readAsText(file)
+      if (file) setPendingImportFile(file)
     }
     input.click()
+  }
+
+  const doImport = () => {
+    const file = pendingImportFile
+    setPendingImportFile(null)
+    if (!file) return
+    setImporting(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string)
+        await api.post('/backup/import', data)
+        toast.success('Dati importati con successo!')
+      } catch {
+        toast.error('Errore durante l\'importazione')
+      } finally {
+        setImporting(false)
+      }
+    }
+    reader.readAsText(file)
   }
 
   return (
@@ -94,6 +99,14 @@ export default function BackupSettingsPage() {
           </CardContent>
         </Card>
       </div>
+      <ConfirmDialog
+        open={pendingImportFile != null}
+        title="Sovrascrivere tutti i dati?"
+        description={`L'importazione di "${pendingImportFile?.name ?? ''}" cancellerà i dati esistenti e li sostituirà con quelli del file. Operazione non reversibile — il backup file è la tua unica fonte di recupero.`}
+        confirmLabel="Importa e sovrascrivi"
+        onConfirm={doImport}
+        onCancel={() => setPendingImportFile(null)}
+      />
     </div>
   )
 }

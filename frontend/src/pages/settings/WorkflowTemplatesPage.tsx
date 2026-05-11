@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom'
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Workflow } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { WorkflowTemplate, WorkflowTemplateStep, Machine, Operation } from '@/types'
 
 interface EditState {
@@ -23,6 +25,8 @@ export default function WorkflowTemplatesPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [edit, setEdit] = useState<EditState>(empty())
   const [loading, setLoading] = useState(true)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  useEscapeKey(() => setEditingId(null), editingId !== null)
 
   const load = () => Promise.all([
     api.get('/workflow-templates'),
@@ -105,8 +109,10 @@ export default function WorkflowTemplatesPage() {
     }
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('Eliminare questo flusso?')) return
+  const remove = (id: number) => setPendingDelete(id)
+  const confirmRemove = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
     try {
       await api.delete(`/workflow-templates/${id}`)
       toast.success('Flusso eliminato'); load()
@@ -302,6 +308,13 @@ export default function WorkflowTemplatesPage() {
           </Card>
         )}
       </div>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo flusso?"
+        confirmLabel="Elimina"
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

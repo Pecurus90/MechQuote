@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '@/lib/api'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { StepColorRule } from '@/types'
 
 export default function StepColorRulesPage() {
@@ -18,6 +20,8 @@ export default function StepColorRulesPage() {
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  useEscapeKey(() => setEditingId(null), editingId !== null)
 
   const loadData = () => {
     api.get('/step-color-rules').then(res => { setRules(res.data); setLoading(false) })
@@ -46,9 +50,12 @@ export default function StepColorRulesPage() {
     } catch { toast.error('Errore nel salvataggio') }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Eliminare questa regola?')) return
-    try { await api.delete(`/step-color-rules/${id}`); loadData() } catch { toast.error('Errore nell\'eliminazione') }
+  const handleDelete = (id: number) => setPendingDelete(id)
+  const confirmDelete = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete; setPendingDelete(null)
+    try { await api.delete(`/step-color-rules/${id}`); loadData() }
+    catch { toast.error('Errore nell\'eliminazione') }
   }
 
   const visible = [...rules]
@@ -158,6 +165,13 @@ export default function StepColorRulesPage() {
           </Card>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questa regola?"
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

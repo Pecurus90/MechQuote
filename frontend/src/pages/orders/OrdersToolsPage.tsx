@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Search, Wrench, FileDown, History, X, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { ToolLowStockPreview, ToolOrder } from '@/types'
 
 export default function OrdersToolsPage() {
@@ -13,6 +14,7 @@ export default function OrdersToolsPage() {
   const [creating, setCreating] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
+  useEscapeKey(() => setShowHistory(false), showHistory)
 
   const loadPreview = () => {
     api.get('/orders/tools/preview')

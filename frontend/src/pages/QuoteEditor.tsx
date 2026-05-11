@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
 import QuoteValidationModal from '@/components/quotes/QuoteValidationModal'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
@@ -35,6 +36,7 @@ export default function QuoteEditor() {
   const [saving, setSaving] = useState(false)
   const [validationIssues, setValidationIssues] = useState<PartIssue[] | null>(null)
   const [pendingPdfType, setPendingPdfType] = useState<boolean>(false)
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -212,9 +214,13 @@ export default function QuoteEditor() {
     } catch (e) {toast.error('Errore nel ricalcolo') }
   }
 
-  const submitForReview = async () => {
+  const submitForReview = () => {
     if (!quote?.id) return
-    if (!confirm('Inviare il preventivo per revisione? Non potrai più modificarlo come bozza.')) return
+    setConfirmSubmit(true)
+  }
+  const doSubmitForReview = async () => {
+    setConfirmSubmit(false)
+    if (!quote?.id) return
     setSaving(true)
     try {
       // Salva pending edits prima dell'invio
@@ -575,6 +581,15 @@ export default function QuoteEditor() {
           }}
         />
       )}
+      <ConfirmDialog
+        open={confirmSubmit}
+        variant="default"
+        title="Inviare il preventivo per revisione?"
+        description="Non potrai più modificarlo come bozza."
+        confirmLabel="Invia"
+        onConfirm={doSubmitForReview}
+        onCancel={() => setConfirmSubmit(false)}
+      />
     </div>
   )
 }

@@ -212,6 +212,15 @@ body {
 .sec-info { font-size: 10px; color: var(--gray-700); margin-bottom: 5px; }
 .sec-info .accent { color: var(--gray-500); }
 
+/* Badge "conto lavoro": materiale fornito dal cliente, costi materiale a 0 */
+.cl-badge {
+  display: inline-block; background: var(--gold-soft); color: var(--gold);
+  font-size: 7.5px; font-weight: 700; letter-spacing: 1.2px;
+  padding: 2px 7px; border-radius: 3px; text-transform: uppercase;
+  margin-left: 8px;
+}
+.cl-note { font-size: 9px; color: var(--gold); font-style: italic; margin-top: 4px; }
+
 /* Tabella costi (materiale, trattamento) */
 .cost-rows { font-size: 10px; }
 .cost-row { display: flex; justify-content: space-between;
@@ -423,6 +432,18 @@ def _render_material_section(part: Part, cur: str) -> str:
     if part.finished_weight_kg:
         info_parts.append(f'<span class="accent">{part.finished_weight_kg:.3f} kg finito</span>')
     info_line = ' &nbsp;·&nbsp; '.join(info_parts) if info_parts else ''
+
+    # Conto lavoro: niente costi materiale, ma il riferimento + dimensioni
+    # restano visibili (utili per autocalc EDM, peso finito, info cliente).
+    if part.customer_supplied_material:
+        return f"""
+<div class="section">
+  <div class="sec-head">{ICON_CUBE}<span>Materiale</span><span class="cl-badge">Conto lavoro</span></div>
+  <div class="sec-info">{mat_label}</div>
+  {('<div class="sec-info">' + info_line + '</div>') if info_line else ''}
+  <div class="cl-note">Materiale fornito dal cliente — nessun costo materiale a carico dell'officina.</div>
+</div>
+"""
 
     # Costi: grezzo + spedizione/pezzo + taglio/pezzo
     delivery_pp = (part.material_delivery_cost or 0.0) / qty

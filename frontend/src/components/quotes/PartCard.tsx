@@ -37,7 +37,7 @@ interface Props {
   globalMarginPercent: number
   readOnly?: boolean
   onUpdate: (updates: Partial<Part>) => void
-  onSave: () => void
+  onSave: (override?: Partial<Part>) => void
   onPhasesChange: (phases: Part['phases']) => void
   onReload?: () => void
 }
@@ -99,9 +99,15 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
   const treatmentPhase = part.phases.find(p => p.treatment_id != null)
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
 
-  const deliveryPerPiece = (part.material_delivery_cost ?? 0) / (part.quantity || 1)
-  const cuttingPerPiece = selectedMaterial?.material_supplier?.cutting_cost_per_part ?? 0
-  const materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
+  const deliveryPerPiece = part.customer_supplied_material
+    ? 0
+    : (part.material_delivery_cost ?? 0) / (part.quantity || 1)
+  const cuttingPerPiece = part.customer_supplied_material
+    ? 0
+    : (selectedMaterial?.material_supplier?.cutting_cost_per_part ?? 0)
+  const materialTotal = part.customer_supplied_material
+    ? 0
+    : part.material_cost + deliveryPerPiece + cuttingPerPiece
   const treatmentShippingPerPiece = (treatmentPhase?.fixed_cost ?? 0) / (part.quantity || 1)
 
   const handleTreatmentSelect = async (treatmentId: number | undefined) => {
@@ -148,26 +154,26 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
               <label className="text-xs font-medium text-gray-600">Codice Parte</label>
               <Input className="mt-1 h-8 font-mono text-sm" value={part.part_code ?? ''}
                 onChange={e => onUpdate({ part_code: e.target.value })}
-                onBlur={onSave} />
+                onBlur={() => onSave()} />
             </div>
             <div className="flex-1 min-w-0">
               <label className="text-xs font-medium text-gray-600">Descrizione</label>
               <Input className="mt-1 h-8 text-sm" value={part.description ?? ''}
                 onChange={e => onUpdate({ description: e.target.value })}
-                onBlur={onSave} placeholder="Descrizione del pezzo" />
+                onBlur={() => onSave()} placeholder="Descrizione del pezzo" />
             </div>
             <div className="w-16 shrink-0">
               <label className="text-xs font-medium text-gray-600">Rev.</label>
               <Input className="mt-1 h-8 text-sm" value={part.revision ?? ''}
                 onChange={e => onUpdate({ revision: e.target.value })}
-                onBlur={onSave} />
+                onBlur={() => onSave()} />
             </div>
             <div className="w-20 shrink-0">
               <label className="text-xs font-medium text-gray-600">Qtà</label>
               <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-8 text-sm"
                 value={part.quantity}
                 onChange={e => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
-                onBlur={onSave} />
+                onBlur={() => onSave()} />
             </div>
           </div>
 
@@ -179,7 +185,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 className="mt-1 flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
                 value={part.material_id || ''}
                 onChange={e => handleMaterialChange(Number(e.target.value) || undefined)}
-                onBlur={onSave}
+                onBlur={() => onSave()}
               >
                 <option value="">Seleziona materiale...</option>
                 {materials.map(m => (
@@ -210,6 +216,25 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 ))}
               </div>
             </div>
+            <div className="shrink-0 pb-1">
+              <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={part.customer_supplied_material ?? false}
+                  onChange={e => {
+                    const newVal = e.target.checked
+                    onUpdate({ customer_supplied_material: newVal })
+                    // Passo il valore via override: quote in closure di onSave
+                    // è ancora vecchio (setQuote è asincrono).
+                    onSave({ customer_supplied_material: newVal })
+                  }}
+                  className="cursor-pointer"
+                />
+                <span title="Il cliente porta il materiale (conto lavoro). Materiale, spedizione e taglio vanno a 0.">
+                  Conto lavoro
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Riga B: Dimensioni grezzo (condizionale) */}
@@ -220,14 +245,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_diameter_mm ?? ''}
                   onChange={e => handleDimChange('raw_diameter_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={onSave} />
+                  onBlur={() => onSave()} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Lungh. (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={onSave} />
+                  onBlur={() => onSave()} />
               </div>
               {selectedMaterial && part.raw_diameter_mm && part.raw_z_mm && (
                 <p className="text-xs text-gray-400 pb-2 whitespace-nowrap">
@@ -248,21 +273,21 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_x_mm ?? ''}
                   onChange={e => handleDimChange('raw_x_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={onSave} />
+                  onBlur={() => onSave()} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Y (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_y_mm ?? ''}
                   onChange={e => handleDimChange('raw_y_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={onSave} />
+                  onBlur={() => onSave()} />
               </div>
               <div className="shrink-0">
                 <label className="text-xs font-medium text-gray-600">Z (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={onSave} />
+                  onBlur={() => onSave()} />
               </div>
               {selectedMaterial && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm && (
                 <p className="text-xs text-gray-400 pb-2 whitespace-nowrap">
@@ -279,7 +304,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
               <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
                 value={part.material_cost}
                 onChange={e => onUpdate({ material_cost: parseDecimal(e.target.value) || 0 })}
-                onBlur={onSave} />
+                onBlur={() => onSave()} />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600">Spediz. mat. (€)</label>
@@ -287,7 +312,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 value={part.material_delivery_cost ?? ''}
                 placeholder="—"
                 onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
-                onBlur={onSave} />
+                onBlur={() => onSave()} />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>
@@ -295,7 +320,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 value={part.finished_weight_kg ?? ''}
                 placeholder="—"
                 onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
-                onBlur={onSave} />
+                onBlur={() => onSave()} />
             </div>
           </div>
         </CardContent>
@@ -421,7 +446,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                     <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.margin_percent ?? globalMarginPercent}
                       onChange={e => onUpdate({ margin_percent: parseDecimal(e.target.value) || 0 })}
-                      onBlur={onSave} />
+                      onBlur={() => onSave()} />
                     <p className="text-[10px] text-gray-400 mt-0.5">default: {globalMarginPercent}%</p>
                   </div>
                   <div>
@@ -432,7 +457,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                       onChange={e => onUpdate({
                         minimum_price: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0,
                       })}
-                      onBlur={onSave} />
+                      onBlur={() => onSave()} />
                     {part.minimum_price && part.total_cost < part.minimum_price && (
                       <p className="text-[10px] text-amber-600 mt-0.5">⚠ minimo attivo</p>
                     )}

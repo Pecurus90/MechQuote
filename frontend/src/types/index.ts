@@ -124,6 +124,7 @@ export interface Part {
   raw_weight_kg?: number
   material_cost: number
   material_delivery_cost?: number
+  customer_supplied_material?: boolean  // conto lavoro: materiale fornito dal cliente
   margin_percent?: number
   minimum_price?: number
   total_cost: number

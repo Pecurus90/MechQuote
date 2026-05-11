@@ -114,6 +114,11 @@ class Part(Base):
     raw_weight_kg = Column(Float)
     material_cost = Column(Float, default=0.0)
     material_delivery_cost = Column(Float, default=0.0)
+    # Conto lavoro: cliente porta lui il materiale. Quando True il cost
+    # engine azzera material_cost, material_delivery_cost, cutting_per_piece.
+    # Le info di materiale/dimensioni restano visibili (utili per autocalc
+    # EDM, peso finito, PDF).
+    customer_supplied_material = Column(Boolean, default=False)
     margin_percent = Column(Float)
     minimum_price = Column(Float)
     customer_notes = Column(Text)

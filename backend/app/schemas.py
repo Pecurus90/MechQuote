@@ -257,6 +257,7 @@ class PartBase(BaseModel):
     raw_weight_kg: Optional[float] = Field(default=None, ge=0)
     material_cost: Optional[float] = Field(default=0.0, ge=0)
     material_delivery_cost: Optional[float] = Field(default=0.0, ge=0)
+    customer_supplied_material: Optional[bool] = False
     margin_percent: Optional[float] = None  # può essere negativo (sconto), niente vincolo
     minimum_price: Optional[float] = Field(default=None, ge=0)
     customer_notes: Optional[str] = None

@@ -292,6 +292,12 @@ def _run_migrations():
          "machine_id INTEGER REFERENCES machines(id), "
          "operation_id INTEGER NOT NULL REFERENCES operations(id))"),
 
+        # ═══ Conto lavoro: materiale fornito dal cliente ═══
+        # Flag boolean su Part. Quando True il cost engine azzera material
+        # costs (materiale + spedizione + taglio). Le info dimensionali
+        # restano per autocalc EDM e PDF.
+        "ALTER TABLE parts ADD COLUMN customer_supplied_material INTEGER DEFAULT 0",
+
         # ═══ Cleanup tabella `cost_rules` legacy (audit sprint E) ═══
         # Sostituita da CompanySettings (singleton id=1) da molto tempo.
         # Il backfill INSERT INTO company_settings ... SELECT FROM cost_rules

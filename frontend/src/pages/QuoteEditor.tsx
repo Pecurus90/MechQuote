@@ -93,9 +93,12 @@ export default function QuoteEditor() {
     } catch { toast.error('Errore nel ricaricamento del preventivo') }
   }
 
-  const savePart = async (idx: number) => {
+  const savePart = async (idx: number, override?: Partial<Part>) => {
     if (!quote) return
-    const part = quote.parts[idx]
+    // `override` consente al chiamante di passare valori freschi senza
+    // aspettare il re-render: utile per i toggle (checkbox) dove
+    // `quote` in closure è ancora il valore vecchio.
+    const part = { ...quote.parts[idx], ...(override ?? {}) }
     if (!part?.id) return
     try {
       await api.put(`/parts/${part.id}`, {
@@ -111,6 +114,7 @@ export default function QuoteEditor() {
         finished_weight_kg: part.finished_weight_kg,
         material_cost: part.material_cost,
         material_delivery_cost: part.material_delivery_cost,
+        customer_supplied_material: part.customer_supplied_material ?? false,
         margin_percent: part.margin_percent,
         minimum_price: part.minimum_price,
         total_cost: part.total_cost,
@@ -507,7 +511,7 @@ export default function QuoteEditor() {
               globalMarginPercent={quote.global_margin_percent}
               readOnly={isLocked}
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
-              onSave={() => savePart(selectedPartIdx)}
+              onSave={(override) => savePart(selectedPartIdx, override)}
               onPhasesChange={phases => updatePart(selectedPartIdx, { phases })}
               onReload={() => reloadPart(selectedPartIdx)}
             />

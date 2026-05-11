@@ -168,7 +168,10 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
 
     for p in parts:
         weight = (p.finished_weight_kg or 0.0) * (p.quantity or 1)
-        if p.material and p.material.supplier_id:
+        # Conto lavoro: il materiale arriva dal cliente → la parte NON entra
+        # nel batch spedizione materiale (sennò ne paga una quota senza
+        # consumare materiale dell'officina).
+        if p.material and p.material.supplier_id and not p.customer_supplied_material:
             material_shipping[p.material.supplier_id] += weight
             material_shipping_n[p.material.supplier_id] += 1
         for ph in p.phases:
@@ -184,31 +187,40 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         qty = part.quantity or 1
         weight = (part.finished_weight_kg or 0.0) * qty
 
-        # Costo materiale (invariato).
-        if part.material_id and part.material:
-            recomputed = _compute_material_cost(part, part.material)
-            if recomputed is not None:
-                part.material_cost = recomputed
+        # Conto lavoro: materiale fornito dal cliente → tutti i costi
+        # materia (grezzo + spedizione + taglio) vanno a zero per la parte.
+        # Info dimensionali e material_id restano popolati (utili per
+        # autocalc EDM, PDF).
+        if part.customer_supplied_material:
+            part.material_cost = 0.0
+            part.material_delivery_cost = 0.0
+            delivery_per_piece = 0.0
+            cutting_per_piece = 0.0
+        else:
+            # Costo materiale (calcolato da volume × densità × €/kg × scrap).
+            if part.material_id and part.material:
+                recomputed = _compute_material_cost(part, part.material)
+                if recomputed is not None:
+                    part.material_cost = recomputed
 
-        # Spedizione materiale: quota di parte = supplier.shipping × peso/totale.
-        # Sovrascrive part.material_delivery_cost (single source of truth backend).
-        if part.material and part.material.material_supplier:
-            sup = part.material.material_supplier
-            sup_id = part.material.supplier_id
-            total_w = material_shipping.get(sup_id, 0.0)
-            n_grp = material_shipping_n.get(sup_id, 1)
-            if total_w > 0:
-                share = (sup.shipping_cost or 0.0) * weight / total_w
-            else:
-                # Edge case: nessun peso → distribuisci in parti uguali nel gruppo.
-                share = (sup.shipping_cost or 0.0) / max(n_grp, 1)
-            part.material_delivery_cost = round(share, 4)
+            # Spedizione materiale: quota di parte = supplier.shipping × peso/totale.
+            if part.material and part.material.material_supplier:
+                sup = part.material.material_supplier
+                sup_id = part.material.supplier_id
+                total_w = material_shipping.get(sup_id, 0.0)
+                n_grp = material_shipping_n.get(sup_id, 1)
+                if total_w > 0:
+                    share = (sup.shipping_cost or 0.0) * weight / total_w
+                else:
+                    # Edge case: nessun peso → distribuisci in parti uguali nel gruppo.
+                    share = (sup.shipping_cost or 0.0) / max(n_grp, 1)
+                part.material_delivery_cost = round(share, 4)
 
-        delivery_per_piece = (part.material_delivery_cost or 0.0) / qty
-        cutting_per_piece = (
-            part.material.material_supplier.cutting_cost_per_part or 0.0
-            if part.material and part.material.material_supplier else 0.0
-        )
+            delivery_per_piece = (part.material_delivery_cost or 0.0) / qty
+            cutting_per_piece = (
+                part.material.material_supplier.cutting_cost_per_part or 0.0
+                if part.material and part.material.material_supplier else 0.0
+            )
 
         phase_total_per_piece = 0.0
         for phase in part.phases:

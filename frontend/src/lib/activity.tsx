@@ -1,4 +1,4 @@
-import { Send, CheckCircle2, Package } from 'lucide-react'
+import { Send, CheckCircle2, Package, AlertTriangle } from 'lucide-react'
 
 /** Mappa tipo evento → label/colore/icona, condivisa fra Dashboard e ActivityPage. */
 export type ActivityKind = {
@@ -22,5 +22,10 @@ export const ACTIVITY_KIND: Record<string, ActivityKind> = {
     label: 'Ordine materiale',
     pillClass: 'bg-rose-100 text-rose-700',
     icon: <Package className="w-3 h-3" />,
+  },
+  tools_low_stock_alert: {
+    label: 'Utensili sotto minimo',
+    pillClass: 'bg-orange-100 text-orange-700',
+    icon: <AlertTriangle className="w-3 h-3" />,
   },
 }

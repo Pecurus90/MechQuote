@@ -810,7 +810,6 @@ class ToolBase(BaseModel):
     tool_type: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None
-    material: Optional[str] = None
     diameter_mm: Optional[float] = Field(default=None, ge=0)
     toroidal_mm: Optional[float] = Field(default=None, ge=0)
     quantity: int = Field(default=0, ge=0)
@@ -830,7 +829,6 @@ class ToolUpdate(BaseModel):
     tool_type: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None
-    material: Optional[str] = None
     diameter_mm: Optional[float] = Field(default=None, ge=0)
     toroidal_mm: Optional[float] = Field(default=None, ge=0)
     quantity: Optional[int] = Field(default=None, ge=0)
@@ -839,6 +837,29 @@ class ToolUpdate(BaseModel):
     tool_supplier_id: Optional[int] = None
     notes: Optional[str] = None
     active: Optional[bool] = None
+
+
+# Attributi utensile (Tipo / Marchio / Posizione) — catalog semplice
+class ToolAttributeBase(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    active: bool = True
+
+
+class ToolAttributeCreate(ToolAttributeBase):
+    pass
+
+
+class ToolAttributeUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    active: Optional[bool] = None
+
+
+class ToolAttributeOut(ToolAttributeBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class ToolOut(ToolBase):

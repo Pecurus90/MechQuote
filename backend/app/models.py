@@ -579,6 +579,37 @@ class ToolSupplier(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class ToolType(Base):
+    """Catalogo Tipi utensile (es. Cilindrica, Sferica, Conica).
+    Gestito da Settings → Catalogo → Attributi utensili. `Tool.tool_type` è
+    una stringa libera che fa lookup per nome — niente FK per non rompere
+    utensili esistenti se un Tipo viene rinominato/eliminato.
+    """
+    __tablename__ = "tool_types"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(80), unique=True, nullable=False)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class ToolBrand(Base):
+    """Catalogo Marchi utensile (es. Sandvik, JJ Tools, OSG)."""
+    __tablename__ = "tool_brands"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(80), unique=True, nullable=False)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class ToolLocation(Base):
+    """Catalogo Posizioni magazzino utensili (es. 1-C-2)."""
+    __tablename__ = "tool_locations"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(80), unique=True, nullable=False)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class Tool(Base):
     """Catalogo utensili officina con gestione scorta + low-stock alert.
 
@@ -592,7 +623,8 @@ class Tool(Base):
     tool_type = Column(String(80))
     brand = Column(String(50))
     model = Column(String(80))
-    material = Column(String(50))
+    # Colonna legacy `material` resta nel DB (SQLite no DROP COLUMN) ma non
+    # più mappata dal modello: richiesta utente del 2026-05-11.
     diameter_mm = Column(Float, nullable=True)
     toroidal_mm = Column(Float, nullable=True)
     quantity = Column(Integer, default=0)

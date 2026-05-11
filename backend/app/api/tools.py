@@ -7,13 +7,16 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
-from app.models import Notification, Tool, ToolSupplier, User
+from app.models import (
+    Notification, Tool, ToolBrand, ToolLocation, ToolSupplier, ToolType, User,
+)
 from app.schemas import (
+    ToolAttributeCreate, ToolAttributeOut, ToolAttributeUpdate,
     ToolCreate, ToolOut, ToolScanRequest, ToolUpdate,
     ToolSupplierCreate, ToolSupplierOut, ToolSupplierUpdate,
 )
@@ -65,6 +68,91 @@ def delete_tool_supplier(sid: int, db: Session = Depends(get_db), _=_can_tools):
     db.delete(sup)
     db.commit()
     return {"ok": True}
+
+
+# ─── Attributi utensile (Tipo / Marchio / Posizione) ───────────────────────
+#
+# Stessa logica per le 3 risorse (tabelle catalogo semplici): factory
+# che monta i 4 endpoint CRUD su un router secondario. Niente astrazioni
+# fancy — solo evita di scrivere 3 volte lo stesso codice.
+
+def _mount_tool_attribute_crud(prefix: str, model, label: str, tool_column: str):
+    """Monta CRUD per una tabella attributi (Tipo / Marchio / Posizione).
+
+    `tool_column` è il nome della colonna stringa su `tools` che usa
+    questo attributo: rinominando una voce nel catalogo, propaghiamo
+    il rename su tutti gli utensili che usavano il vecchio nome.
+    Senza cascade i Tool diventerebbero "valori legacy" silenziosi.
+    """
+    @router.get(prefix, response_model=List[ToolAttributeOut])
+    def _list(db: Session = Depends(get_db), _=_can_tools):
+        return db.query(model).order_by(model.name).all()
+
+    @router.post(prefix, response_model=ToolAttributeOut)
+    def _create(data: ToolAttributeCreate, db: Session = Depends(get_db), _=_can_tools):
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Nome obbligatorio")
+        existing = db.query(model).filter(model.name.ilike(name)).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"{label} '{name}' già esistente")
+        obj = model(name=name, active=data.active)
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    @router.put(prefix + "/{oid}", response_model=ToolAttributeOut)
+    def _update(oid: int, data: ToolAttributeUpdate, db: Session = Depends(get_db), _=_can_tools):
+        obj = db.query(model).filter(model.id == oid).first()
+        if not obj:
+            raise HTTPException(status_code=404, detail=f"{label} non trovato")
+        old_name = obj.name
+        payload = data.model_dump(exclude_unset=True)
+        new_name = None
+        if 'name' in payload and payload['name']:
+            payload['name'] = payload['name'].strip()
+            dup = db.query(model).filter(model.name.ilike(payload['name']), model.id != oid).first()
+            if dup:
+                raise HTTPException(status_code=400, detail=f"{label} '{payload['name']}' già esistente")
+            new_name = payload['name']
+        for k, v in payload.items():
+            setattr(obj, k, v)
+        # Cascade rename sugli utensili che usavano il vecchio nome.
+        if new_name and new_name != old_name:
+            res = db.execute(
+                text(f"UPDATE tools SET {tool_column} = :new WHERE {tool_column} = :old"),
+                {"new": new_name, "old": old_name},
+            )
+            logger.info("Cascade rename %s: '%s'→'%s' su %d utensili",
+                        tool_column, old_name, new_name, res.rowcount)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    @router.delete(prefix + "/{oid}")
+    def _delete(oid: int, db: Session = Depends(get_db), _=_can_tools):
+        obj = db.query(model).filter(model.id == oid).first()
+        if not obj:
+            raise HTTPException(status_code=404, detail=f"{label} non trovato")
+        # Blocca eliminazione se in uso da utensili (evita "valori orfani" sui Tool).
+        n = db.execute(
+            text(f"SELECT COUNT(*) FROM tools WHERE {tool_column} = :name"),
+            {"name": obj.name},
+        ).scalar() or 0
+        if n > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{label} '{obj.name}' in uso da {n} utensili — rinominalo o riassegnali prima"
+            )
+        db.delete(obj)
+        db.commit()
+        return {"ok": True}
+
+
+_mount_tool_attribute_crud("/types",     ToolType,     "Tipo",      "tool_type")
+_mount_tool_attribute_crud("/brands",    ToolBrand,    "Marchio",   "brand")
+_mount_tool_attribute_crud("/locations", ToolLocation, "Posizione", "location")
 
 
 # ─── CRUD utensili ──────────────────────────────────────────────────────────

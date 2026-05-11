@@ -219,7 +219,6 @@ export interface Tool {
   tool_type?: string | null
   brand?: string | null
   model?: string | null
-  material?: string | null
   diameter_mm?: number | null
   toroidal_mm?: number | null
   quantity: number
@@ -229,6 +228,12 @@ export interface Tool {
   tool_supplier?: ToolSupplier | null
   notes?: string | null
   active?: boolean
+}
+
+export interface ToolAttribute {
+  id: number
+  name: string
+  active: boolean
 }
 
 export interface ToolOrderItem {

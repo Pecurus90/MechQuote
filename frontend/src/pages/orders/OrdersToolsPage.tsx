@@ -82,9 +82,21 @@ export default function OrdersToolsPage() {
             scaricato e il documento viene salvato nello storico (UO-NNNN).
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
-          <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={createOrder}
+            disabled={creating || !hasItems}
+            title={hasItems ? 'Crea ordine + scarica PDF' : 'Nessun utensile sotto minimo'}
+          >
+            <FileDown className="w-4 h-4 mr-1" />
+            {creating ? 'Genero...' : 'Esporta PDF ordine'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
+            <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
+          </Button>
+        </div>
       </div>
 
       {/* Preview low-stock */}
@@ -152,16 +164,6 @@ export default function OrdersToolsPage() {
             ))}
           </div>
 
-          <Button
-            onClick={createOrder}
-            disabled={creating || !hasItems}
-            variant="outline"
-            size="lg"
-            className="w-full"
-          >
-            <FileDown className="w-4 h-4 mr-2" />
-            {creating ? 'Generazione in corso...' : 'Esporta PDF ordine'}
-          </Button>
         </>
       )}
 

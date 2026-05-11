@@ -365,6 +365,31 @@ def _run_migrations():
         # restano per autocalc EDM e PDF.
         "ALTER TABLE parts ADD COLUMN customer_supplied_material INTEGER DEFAULT 0",
 
+        # ═══ Attributi utensili (Tipo / Marchio / Posizione) ═══
+        # Tabelle di catalogo gestite da Settings → Attributi utensili.
+        # Tool.tool_type / brand / location restano stringhe libere; queste
+        # tabelle servono solo come registry per popolare i dropdown.
+        ("CREATE TABLE IF NOT EXISTS tool_types ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(80) UNIQUE NOT NULL, "
+         "active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        ("CREATE TABLE IF NOT EXISTS tool_brands ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(80) UNIQUE NOT NULL, "
+         "active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        ("CREATE TABLE IF NOT EXISTS tool_locations ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(80) UNIQUE NOT NULL, "
+         "active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        # Seed: estrai i valori distinti già presenti negli utensili.
+        # INSERT OR IGNORE → idempotente (UNIQUE su name).
+        "INSERT OR IGNORE INTO tool_types (name, active) SELECT DISTINCT tool_type, 1 FROM tools WHERE tool_type IS NOT NULL AND TRIM(tool_type) != ''",
+        "INSERT OR IGNORE INTO tool_brands (name, active) SELECT DISTINCT brand, 1 FROM tools WHERE brand IS NOT NULL AND TRIM(brand) != ''",
+        "INSERT OR IGNORE INTO tool_locations (name, active) SELECT DISTINCT location, 1 FROM tools WHERE location IS NOT NULL AND TRIM(location) != ''",
+
         # ═══ Cleanup tabella `cost_rules` legacy (audit sprint E) ═══
         # Sostituita da CompanySettings (singleton id=1) da molto tempo.
         # Il backfill INSERT INTO company_settings ... SELECT FROM cost_rules

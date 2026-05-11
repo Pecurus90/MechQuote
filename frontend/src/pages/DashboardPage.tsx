@@ -75,18 +75,18 @@ export default function DashboardPage() {
       <DashboardHeader stats={stats} onNew={() => navigate('/quotes/new')} />
       {canTools && lowStockCount > 0 && (
         <button
-          onClick={() => navigate('/tools?low_stock=1')}
-          className="w-full bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-4 py-3 flex items-center gap-3 text-left transition-colors"
+          onClick={() => navigate('/orders/tools')}
+          className="w-full bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg px-4 py-3 flex items-center gap-3 text-left transition-colors"
         >
-          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
           <div className="flex-1">
-            <div className="text-sm font-semibold text-rose-800">
+            <div className="text-sm font-semibold text-orange-800">
               {lowStockCount} utensil{lowStockCount === 1 ? 'e' : 'i'} sotto la quantità minima
             </div>
-            <div className="text-xs text-rose-600">Clicca per visualizzare la lista e generare il PDF ordine</div>
+            <div className="text-xs text-orange-700">Apri Ordini utensili per generare il PDF aggregato per fornitore</div>
           </div>
-          <Wrench className="w-4 h-4 text-rose-500 shrink-0" />
-          <ChevronRight className="w-4 h-4 text-rose-400 shrink-0" />
+          <Wrench className="w-4 h-4 text-orange-500 shrink-0" />
+          <ChevronRight className="w-4 h-4 text-orange-400 shrink-0" />
         </button>
       )}
       <KPIGrid kpi={kpi} />

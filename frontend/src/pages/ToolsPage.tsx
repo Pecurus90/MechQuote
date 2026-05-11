@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,7 +7,7 @@ import { Plus, Pencil, Trash2, Save, X, Search, Wrench, AlertTriangle, ArrowDown
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Tool, ToolSupplier } from '@/types'
+import type { Tool, ToolAttribute, ToolSupplier } from '@/types'
 
 type ScanMode = 'load' | 'unload'
 
@@ -17,7 +17,6 @@ interface FormState {
   tool_type: string
   brand: string
   model: string
-  material: string
   diameter_mm: string
   toroidal_mm: string
   quantity: string
@@ -29,15 +28,57 @@ interface FormState {
 }
 
 const emptyForm = (): FormState => ({
-  id: null, code: '', tool_type: '', brand: '', model: '', material: '',
+  id: null, code: '', tool_type: '', brand: '', model: '',
   diameter_mm: '', toroidal_mm: '', quantity: '0', minimum_quantity: '0',
   location: '', tool_supplier_id: '', notes: '', active: true,
 })
+
+/** Dropdown vincolato + fallback testuale per valori legacy non più in catalogo. */
+function AttributeSelect({
+  value, options, onChange, placeholder,
+}: {
+  value: string
+  options: ToolAttribute[]
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  const activeNames = options.filter(o => o.active).map(o => o.name)
+  // Se il valore corrente non è nel catalogo attivo (es. valore legacy),
+  // mostro un input read-only con bottone per resettare → torna a select.
+  const isLegacy = value !== '' && !activeNames.includes(value)
+  if (isLegacy) {
+    return (
+      <div className="flex gap-1">
+        <Input value={value} readOnly className="bg-amber-50" title="Valore non in catalogo — modificalo per riallinearti" />
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className="px-2 text-gray-500 hover:text-gray-700"
+          title="Pulisci e scegli dal catalogo"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+  return (
+    <select
+      className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+    >
+      <option value="">{placeholder ?? '— Seleziona —'}</option>
+      {activeNames.map(n => <option key={n} value={n}>{n}</option>)}
+    </select>
+  )
+}
 
 export default function ToolsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [tools, setTools] = useState<Tool[]>([])
   const [suppliers, setSuppliers] = useState<ToolSupplier[]>([])
+  const [types, setTypes] = useState<ToolAttribute[]>([])
+  const [brands, setBrands] = useState<ToolAttribute[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
 
@@ -90,14 +131,9 @@ export default function ToolsPage() {
 
   useEffect(() => {
     api.get('/tools/suppliers').then(r => setSuppliers(r.data)).catch(() => undefined)
+    api.get('/tools/types').then(r => setTypes(r.data)).catch(() => undefined)
+    api.get('/tools/brands').then(r => setBrands(r.data)).catch(() => undefined)
   }, [])
-
-  const uniqueTypes = useMemo(() =>
-    Array.from(new Set(tools.map(t => t.tool_type).filter(Boolean))).sort() as string[],
-    [tools])
-  const uniqueBrands = useMemo(() =>
-    Array.from(new Set(tools.map(t => t.brand).filter(Boolean))).sort() as string[],
-    [tools])
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,7 +168,6 @@ export default function ToolsPage() {
     tool_type: t.tool_type ?? '',
     brand: t.brand ?? '',
     model: t.model ?? '',
-    material: t.material ?? '',
     diameter_mm: t.diameter_mm != null ? String(t.diameter_mm) : '',
     toroidal_mm: t.toroidal_mm != null ? String(t.toroidal_mm) : '',
     quantity: String(t.quantity),
@@ -150,7 +185,6 @@ export default function ToolsPage() {
       tool_type: form.tool_type || null,
       brand: form.brand || null,
       model: form.model || null,
-      material: form.material || null,
       diameter_mm: form.diameter_mm ? parseDecimal(form.diameter_mm) : null,
       toroidal_mm: form.toroidal_mm ? parseDecimal(form.toroidal_mm) : null,
       quantity: parseInt(form.quantity) || 0,
@@ -255,14 +289,14 @@ export default function ToolsPage() {
           value={filterType} onChange={e => setFilterType(e.target.value)}
         >
           <option value="">Tutti i tipi</option>
-          {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+          {types.filter(t => t.active).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
         </select>
         <select
           className="h-9 rounded-md border border-input bg-background px-2 text-sm"
           value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
         >
           <option value="">Tutti i marchi</option>
-          {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+          {brands.filter(b => b.active).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
         </select>
         <select
           className="h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -286,21 +320,20 @@ export default function ToolsPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-2 w-[18%] font-medium text-gray-600">Codice</th>
-                <th className="text-left p-2 w-[12%] font-medium text-gray-600">Tipo</th>
-                <th className="text-left p-2 w-[18%] font-medium text-gray-600">Marchio · Modello</th>
-                <th className="text-right p-2 w-[8%] font-medium text-gray-600">Ø (mm)</th>
-                <th className="text-left p-2 w-[10%] font-medium text-gray-600">Posizione</th>
+                <th className="text-left p-2 w-[20%] font-medium text-gray-600">Codice</th>
+                <th className="text-left p-2 w-[14%] font-medium text-gray-600">Tipo</th>
+                <th className="text-left p-2 w-[20%] font-medium text-gray-600">Marchio · Modello</th>
+                <th className="text-right p-2 w-[10%] font-medium text-gray-600">Ø (mm)</th>
                 <th className="text-right p-2 w-[10%] font-medium text-gray-600">Qtà / Min</th>
-                <th className="text-left p-2 w-[14%] font-medium text-gray-600">Fornitore</th>
+                <th className="text-left p-2 w-[16%] font-medium text-gray-600">Fornitore</th>
                 <th className="text-center p-2 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="p-6 text-center text-gray-400">Caricamento...</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-gray-400">Caricamento...</td></tr>
               ) : tools.length === 0 ? (
-                <tr><td colSpan={8} className="p-6 text-center text-gray-400">Nessun utensile trovato.</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun utensile trovato.</td></tr>
               ) : tools.map(t => {
                 const isLow = t.quantity < t.minimum_quantity && t.minimum_quantity > 0
                 return (
@@ -312,7 +345,6 @@ export default function ToolsPage() {
                       {t.model && <span className="text-gray-500"> · {t.model}</span>}
                     </td>
                     <td className="p-2 text-right font-mono">{t.diameter_mm ?? '—'}</td>
-                    <td className="p-2 text-xs font-mono text-gray-500">{t.location || '—'}</td>
                     <td className="p-2 text-right font-mono">
                       <span className={isLow ? 'text-rose-700 font-bold' : 'text-gray-800'}>{t.quantity}</span>
                       <span className="text-gray-400"> / {t.minimum_quantity}</span>
@@ -354,15 +386,13 @@ export default function ToolsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tipo</label>
-                  <Input value={form.tool_type} onChange={e => set('tool_type', e.target.value)} placeholder="Cilindrica, Sferica, Conica" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Materiale</label>
-                  <Input value={form.material} onChange={e => set('material', e.target.value)} placeholder="<52 HRC" />
+                  <AttributeSelect value={form.tool_type} options={types}
+                    onChange={v => set('tool_type', v)} placeholder="— Seleziona —" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Marchio</label>
-                  <Input value={form.brand} onChange={e => set('brand', e.target.value)} />
+                  <AttributeSelect value={form.brand} options={brands}
+                    onChange={v => set('brand', v)} placeholder="— Seleziona —" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Modello</label>
@@ -386,7 +416,7 @@ export default function ToolsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Posizione</label>
-                  <Input value={form.location} onChange={e => set('location', e.target.value)} placeholder="1-C-2" />
+                  <Input value={form.location} onChange={e => set('location', e.target.value)} placeholder="es. 1-C-2" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Fornitore</label>

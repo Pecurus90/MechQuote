@@ -10,7 +10,7 @@ import type { ActivityRow } from '@/types'
 import { Activity as ActivityIcon, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
-type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered'
+type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert'
 
 export default function ActivityPage() {
   const navigate = useNavigate()
@@ -71,6 +71,7 @@ export default function ActivityPage() {
               <option value="quote_submitted">Inviati</option>
               <option value="quote_completed">Completati</option>
               <option value="materials_ordered">Ordini materiali</option>
+              <option value="tools_low_stock_alert">Utensili sotto minimo</option>
             </select>
           </div>
         </div>

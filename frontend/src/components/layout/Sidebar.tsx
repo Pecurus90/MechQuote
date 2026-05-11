@@ -50,7 +50,8 @@ export default function Sidebar() {
   const showCatalog = canSettings
   const showAziendaSection = canCompany
   const showSystemSection = canUsers || canBackup
-  const showSettingsRoot = showCatalog || showAziendaSection || showSystemSection
+  const canTools = hasPermission('tools')
+  const showSettingsRoot = showCatalog || canTools || showAziendaSection || showSystemSection
 
   const [quotesOpen, setQuotesOpen] = useState(isQuotesActive)
   const [ordersOpen, setOrdersOpen] = useState(isOrdersActive)
@@ -212,12 +213,6 @@ export default function Sidebar() {
                       <Layers className="w-3.5 h-3.5 shrink-0" />
                       <span>Lavorazioni</span>
                     </NavLink>
-                    {hasPermission('tools') && (
-                      <NavLink to="/settings/tool-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <Wrench className="w-3.5 h-3.5 shrink-0" />
-                        <span>Fornitori utensili</span>
-                      </NavLink>
-                    )}
                     <NavLink to="/settings/workflows" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Workflow className="w-3.5 h-3.5 shrink-0" />
                       <span>Template flusso</span>
@@ -226,6 +221,40 @@ export default function Sidebar() {
                       <Tag className="w-3.5 h-3.5 shrink-0" />
                       <span>Categorie</span>
                     </NavLink>
+                  </>
+                )}
+
+                {hasPermission('tools') && (
+                  <>
+                    <p className={sectionLabelClass}>Utensili</p>
+                    <NavLink to="/settings/tool-attributes" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Wrench className="w-3.5 h-3.5 shrink-0" />
+                      <span>Attributi utensili</span>
+                    </NavLink>
+                  </>
+                )}
+
+                {(showCatalog || hasPermission('tools')) && (
+                  <>
+                    <p className={sectionLabelClass}>Fornitori</p>
+                    {showCatalog && (
+                      <NavLink to="/settings/material-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                        <Box className="w-3.5 h-3.5 shrink-0" />
+                        <span>Fornitori materiali</span>
+                      </NavLink>
+                    )}
+                    {showCatalog && (
+                      <NavLink to="/settings/treatment-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                        <Ruler className="w-3.5 h-3.5 shrink-0" />
+                        <span>Fornitori trattamenti</span>
+                      </NavLink>
+                    )}
+                    {hasPermission('tools') && (
+                      <NavLink to="/settings/tool-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                        <Wrench className="w-3.5 h-3.5 shrink-0" />
+                        <span>Fornitori utensili</span>
+                      </NavLink>
+                    )}
                   </>
                 )}
 

@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, Wrench, FileDown, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Wrench, AlertTriangle, ArrowDown, ArrowUp } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Supplier, Tool } from '@/types'
+import type { Tool, ToolSupplier } from '@/types'
+
+type ScanMode = 'load' | 'unload'
 
 interface FormState {
   id: number | null
@@ -21,7 +23,7 @@ interface FormState {
   quantity: string
   minimum_quantity: string
   location: string
-  supplier_id: string
+  tool_supplier_id: string
   notes: string
   active: boolean
 }
@@ -29,21 +31,27 @@ interface FormState {
 const emptyForm = (): FormState => ({
   id: null, code: '', tool_type: '', brand: '', model: '', material: '',
   diameter_mm: '', toroidal_mm: '', quantity: '0', minimum_quantity: '0',
-  location: '', supplier_id: '', notes: '', active: true,
+  location: '', tool_supplier_id: '', notes: '', active: true,
 })
 
 export default function ToolsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [tools, setTools] = useState<Tool[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [suppliers, setSuppliers] = useState<ToolSupplier[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
+
+  // Scan
+  const [scanMode, setScanMode] = useState<ScanMode>('unload')
+  const [scanCode, setScanCode] = useState('')
+  const scanInputRef = useRef<HTMLInputElement>(null)
+
+  // Filtri lista
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterBrand, setFilterBrand] = useState('')
   const [filterSupplier, setFilterSupplier] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(searchParams.get('low_stock') === '1')
-  const [pdfBusy, setPdfBusy] = useState(false)
 
   // Sync URL ↔ lowStockOnly
   useEffect(() => {
@@ -54,11 +62,16 @@ export default function ToolsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lowStockOnly])
 
+  // Autofocus scan input al mount + quando si chiude un modal
+  useEffect(() => {
+    if (!form) scanInputRef.current?.focus()
+  }, [form])
+
   const loadTools = () => {
     const params = new URLSearchParams()
     if (filterType) params.set('tool_type', filterType)
     if (filterBrand) params.set('brand', filterBrand)
-    if (filterSupplier) params.set('supplier_id', filterSupplier)
+    if (filterSupplier) params.set('tool_supplier_id', filterSupplier)
     if (lowStockOnly) params.set('low_stock_only', 'true')
     if (search.trim()) params.set('q', search.trim())
     setLoading(true)
@@ -76,7 +89,7 @@ export default function ToolsPage() {
   }, [search])
 
   useEffect(() => {
-    api.get('/suppliers').then(r => setSuppliers(r.data)).catch(() => undefined)
+    api.get('/tools/suppliers').then(r => setSuppliers(r.data)).catch(() => undefined)
   }, [])
 
   const uniqueTypes = useMemo(() =>
@@ -85,6 +98,29 @@ export default function ToolsPage() {
   const uniqueBrands = useMemo(() =>
     Array.from(new Set(tools.map(t => t.brand).filter(Boolean))).sort() as string[],
     [tools])
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const code = scanCode.trim()
+    if (!code) return
+    try {
+      const res = await api.post('/tools/scan', { code, mode: scanMode, quantity: 1 })
+      const t = res.data as Tool
+      const symbol = scanMode === 'load' ? '+1' : '−1'
+      toast.success(`${t.code}: ${symbol} → qty ${t.quantity}`, {
+        description: t.quantity < t.minimum_quantity ? `⚠ Sotto minimo (${t.minimum_quantity})` : undefined,
+      })
+      setScanCode('')
+      loadTools()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore scan')
+      setScanCode('')
+    } finally {
+      // refocus input subito per scan rapidi consecutivi
+      scanInputRef.current?.focus()
+    }
+  }
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm(f => (f ? { ...f, [k]: v } : f))
@@ -102,7 +138,7 @@ export default function ToolsPage() {
     quantity: String(t.quantity),
     minimum_quantity: String(t.minimum_quantity),
     location: t.location ?? '',
-    supplier_id: t.supplier_id ? String(t.supplier_id) : '',
+    tool_supplier_id: t.tool_supplier_id ? String(t.tool_supplier_id) : '',
     notes: t.notes ?? '',
     active: t.active ?? true,
   })
@@ -120,7 +156,7 @@ export default function ToolsPage() {
       quantity: parseInt(form.quantity) || 0,
       minimum_quantity: parseInt(form.minimum_quantity) || 0,
       location: form.location || null,
-      supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
+      tool_supplier_id: form.tool_supplier_id ? Number(form.tool_supplier_id) : null,
       notes: form.notes || null,
       active: form.active,
     }
@@ -144,23 +180,6 @@ export default function ToolsPage() {
     } catch { toast.error('Errore nell\'eliminazione') }
   }
 
-  const downloadPdf = async () => {
-    setPdfBusy(true)
-    try {
-      const res = await api.get('/tools/low-stock/pdf', { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a')
-      a.href = url
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      a.download = `ordine_utensili_${today}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      toast.success('PDF ordine generato')
-    } catch { toast.error('Errore generazione PDF') }
-    finally { setPdfBusy(false) }
-  }
-
   const supplierName = (id?: number | null) => suppliers.find(s => s.id === id)?.name ?? '—'
 
   return (
@@ -174,15 +193,55 @@ export default function ToolsPage() {
             {tools.length} utensil{tools.length === 1 ? 'e' : 'i'} mostrati
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" disabled={pdfBusy} onClick={downloadPdf}>
-            <FileDown className="w-4 h-4 mr-1" /> {pdfBusy ? 'Genero...' : 'PDF ordine'}
-          </Button>
-          <Button size="sm" onClick={startNew}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo
-          </Button>
-        </div>
+        <Button size="sm" onClick={startNew}>
+          <Plus className="w-4 h-4 mr-1" /> Nuovo utensile
+        </Button>
       </div>
+
+      {/* Scan zone */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex border rounded-md overflow-hidden shrink-0">
+              <button
+                type="button"
+                onClick={() => setScanMode('load')}
+                className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors ${
+                  scanMode === 'load'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <ArrowUp className="w-4 h-4" /> Carico
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanMode('unload')}
+                className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors ${
+                  scanMode === 'unload'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <ArrowDown className="w-4 h-4" /> Scarico
+              </button>
+            </div>
+            <form onSubmit={handleScan} className="flex-1 min-w-[260px]">
+              <Input
+                ref={scanInputRef}
+                value={scanCode}
+                onChange={e => setScanCode(e.target.value)}
+                placeholder={scanMode === 'load' ? 'Spara il codice per AGGIUNGERE 1 pz...' : 'Spara il codice per RIMUOVERE 1 pz...'}
+                autoFocus
+                className="h-11 text-base font-mono"
+              />
+            </form>
+            <span className="text-xs text-gray-400">
+              Pistola barcode → premi Enter per confermare automaticamente
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filtri */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -258,7 +317,7 @@ export default function ToolsPage() {
                       <span className={isLow ? 'text-rose-700 font-bold' : 'text-gray-800'}>{t.quantity}</span>
                       <span className="text-gray-400"> / {t.minimum_quantity}</span>
                     </td>
-                    <td className="p-2 truncate text-gray-600">{t.supplier?.name ?? supplierName(t.supplier_id)}</td>
+                    <td className="p-2 truncate text-gray-600">{t.tool_supplier?.name ?? supplierName(t.tool_supplier_id)}</td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1.5 justify-center">
                         <button onClick={() => startEdit(t)} className="p-1 hover:bg-gray-100 rounded">
@@ -277,7 +336,7 @@ export default function ToolsPage() {
         </CardContent>
       </Card>
 
-      {/* Modal */}
+      {/* Modal CRUD */}
       {form && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-2xl bg-white shadow-xl">
@@ -295,13 +354,11 @@ export default function ToolsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tipo</label>
-                  <Input value={form.tool_type} onChange={e => set('tool_type', e.target.value)}
-                    placeholder="es. Cilindrica, Sferica, Conica" />
+                  <Input value={form.tool_type} onChange={e => set('tool_type', e.target.value)} placeholder="Cilindrica, Sferica, Conica" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Materiale (applicabilità)</label>
-                  <Input value={form.material} onChange={e => set('material', e.target.value)}
-                    placeholder="es. <52 HRC" />
+                  <label className="text-sm font-medium">Materiale</label>
+                  <Input value={form.material} onChange={e => set('material', e.target.value)} placeholder="<52 HRC" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Marchio</label>
@@ -313,34 +370,29 @@ export default function ToolsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Diametro (mm)</label>
-                  <Input type="number" step="0.01" value={form.diameter_mm}
-                    onChange={e => set('diameter_mm', e.target.value)} />
+                  <Input type="number" step="0.01" value={form.diameter_mm} onChange={e => set('diameter_mm', e.target.value)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Raggio torico (mm)</label>
-                  <Input type="number" step="0.01" value={form.toroidal_mm}
-                    onChange={e => set('toroidal_mm', e.target.value)} />
+                  <Input type="number" step="0.01" value={form.toroidal_mm} onChange={e => set('toroidal_mm', e.target.value)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Quantità</label>
-                  <Input type="number" min={0} value={form.quantity}
-                    onChange={e => set('quantity', e.target.value)} />
+                  <Input type="number" min={0} value={form.quantity} onChange={e => set('quantity', e.target.value)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Quantità minima</label>
-                  <Input type="number" min={0} value={form.minimum_quantity}
-                    onChange={e => set('minimum_quantity', e.target.value)} />
+                  <Input type="number" min={0} value={form.minimum_quantity} onChange={e => set('minimum_quantity', e.target.value)} />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Posizione</label>
-                  <Input value={form.location} onChange={e => set('location', e.target.value)}
-                    placeholder="es. 1-C-2" />
+                  <Input value={form.location} onChange={e => set('location', e.target.value)} placeholder="1-C-2" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Fornitore</label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-                    value={form.supplier_id} onChange={e => set('supplier_id', e.target.value)}
+                    value={form.tool_supplier_id} onChange={e => set('tool_supplier_id', e.target.value)}
                   >
                     <option value="">Nessuno</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}

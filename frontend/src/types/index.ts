@@ -203,6 +203,16 @@ export interface MaterialAggregateResult {
 
 // ─── Utensili ──────────────────────────────────────────────────────────────
 
+export interface ToolSupplier {
+  id: number
+  name: string
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  notes?: string | null
+  active?: boolean
+}
+
 export interface Tool {
   id: number
   code: string
@@ -215,10 +225,60 @@ export interface Tool {
   quantity: number
   minimum_quantity: number
   location?: string | null
-  supplier_id?: number | null
-  supplier?: Supplier | null
+  tool_supplier_id?: number | null
+  tool_supplier?: ToolSupplier | null
   notes?: string | null
   active?: boolean
+}
+
+export interface ToolOrderItem {
+  id: number
+  tool_id?: number | null
+  code_snapshot: string
+  tool_type_snapshot?: string | null
+  brand_snapshot?: string | null
+  model_snapshot?: string | null
+  diameter_snapshot?: number | null
+  supplier_name_snapshot?: string | null
+  quantity_at_time: number
+  minimum_at_time: number
+  quantity_to_order: number
+}
+
+export interface ToolOrder {
+  id: number
+  created_at: string
+  created_by: UserMinimal | null
+  triggered_by: string
+  item_count: number
+  total_quantity: number
+}
+
+export interface ToolOrderDetail extends ToolOrder {
+  items: ToolOrderItem[]
+}
+
+export interface ToolLowStockPreviewItem {
+  tool_id: number
+  code: string
+  tool_type: string | null
+  brand: string | null
+  model: string | null
+  diameter_mm: number | null
+  quantity: number
+  minimum_quantity: number
+  quantity_to_order: number
+}
+
+export interface ToolLowStockPreviewGroup {
+  supplier_name: string
+  items: ToolLowStockPreviewItem[]
+}
+
+export interface ToolLowStockPreview {
+  groups: ToolLowStockPreviewGroup[]
+  total_tools: number
+  total_quantity: number
 }
 
 export interface ActivityRow {

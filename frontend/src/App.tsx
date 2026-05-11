@@ -23,7 +23,9 @@ import UsersPage from '@/pages/settings/UsersPage'
 import RolesPage from '@/pages/settings/RolesPage'
 import ActivityPage from '@/pages/ActivityPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
-import ToolsPage from '@/pages/settings/ToolsPage'
+import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
+import ToolsPage from '@/pages/ToolsPage'
+import ToolSuppliersPage from '@/pages/settings/ToolSuppliersPage'
 import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
 import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
 import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
@@ -60,13 +62,15 @@ function AppRoutes() {
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
+        <Route path="orders/tools" element={<ProtectedRoute permission="tools"><OrdersToolsPage /></ProtectedRoute>} />
+        <Route path="tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
 
         {/* Settings — gated dal sistema dei permessi dinamici */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />
         <Route path="settings/machines"   element={<ProtectedRoute permission="settings"><MachinesPage /></ProtectedRoute>} />
         <Route path="settings/operations" element={<ProtectedRoute permission="settings"><OperationsPage /></ProtectedRoute>} />
-        <Route path="settings/tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />
+        <Route path="settings/tool-suppliers" element={<ProtectedRoute permission="tools"><ToolSuppliersPage /></ProtectedRoute>} />
         <Route path="settings/workflows"  element={<ProtectedRoute permission="settings"><WorkflowTemplatesPage /></ProtectedRoute>} />
         <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />

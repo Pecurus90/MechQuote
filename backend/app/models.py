@@ -560,32 +560,99 @@ class MaterialOrderQuote(Base):
 
 # ─── Utensili (porting da legacy `utensili`) ───────────────────────────────
 
+class ToolSupplier(Base):
+    """Fornitori di utensili (es. Hypertools, UTF, OSG, Sandvik).
+
+    Distinto da `Supplier` (fornitori di trattamenti/lavorazioni esterne
+    come Haerta) e da `MaterialSupplier` (fornitori di materiale grezzo).
+    Domini diversi, niente sovrapposizioni voluta dal cliente.
+    """
+    __tablename__ = "tool_suppliers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    address = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(100), nullable=True)
+    notes = Column(Text, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class Tool(Base):
     """Catalogo utensili officina con gestione scorta + low-stock alert.
 
     Migrazione dalla tabella `utensili` del MySQL legacy (PRV/Lavoro.sql).
-    Nuova rispetto al legacy: FK Supplier, audit timestamps, soft active flag.
+    Nuova rispetto al legacy: FK ToolSupplier, audit timestamps, soft active.
     """
     __tablename__ = "tools"
 
     id = Column(Integer, primary_key=True)
     code = Column(String(50), unique=True, nullable=False, index=True)
-    tool_type = Column(String(80))                              # "Conica 60°", "Sferica", "Cilindrica"
-    brand = Column(String(50))                                  # "Sandvik", "JJ Tools"
-    model = Column(String(80))                                  # "4STE", "1K333"
-    material = Column(String(50))                               # "<52 HRC" — applicabilità (string libera)
+    tool_type = Column(String(80))
+    brand = Column(String(50))
+    model = Column(String(80))
+    material = Column(String(50))
     diameter_mm = Column(Float, nullable=True)
-    toroidal_mm = Column(Float, nullable=True)                  # raggio torico (sferiche)
-    quantity = Column(Integer, default=0)                       # disponibilità attuale
-    minimum_quantity = Column(Integer, default=0)               # soglia reorder (low-stock trigger)
-    location = Column(String(50), nullable=True)                # "1-C-2"
-    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    toroidal_mm = Column(Float, nullable=True)
+    quantity = Column(Integer, default=0)
+    minimum_quantity = Column(Integer, default=0)
+    location = Column(String(50), nullable=True)
+    # FK al nuovo elenco fornitori utensili. Colonna legacy `supplier_id`
+    # (FK Supplier) resta nel DB ma non più mappata dal modello.
+    tool_supplier_id = Column(Integer, ForeignKey("tool_suppliers.id"), nullable=True)
     notes = Column(Text, nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    supplier = relationship("Supplier")
+    tool_supplier = relationship("ToolSupplier")
+
+
+class ToolOrder(Base):
+    """Ordine utensili (snapshot del momento in cui si è generato il PDF).
+
+    A differenza di MaterialOrder, qui salviamo uno snapshot dei dati
+    (codice, marchio, fornitore, qty da ordinare) perché gli utensili
+    sono in continuo aggiornamento e il PDF storico deve riflettere
+    il momento esatto dell'ordine.
+    """
+    __tablename__ = "tool_orders"
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    triggered_by = Column(String(20), default='manual')  # 'manual' | 'weekly_auto'
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+    items = relationship(
+        "ToolOrderItem",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="ToolOrderItem.id",
+    )
+
+
+class ToolOrderItem(Base):
+    """Singolo utensile incluso in un ToolOrder. Snapshot dei dati."""
+    __tablename__ = "tool_order_items"
+
+    id = Column(Integer, primary_key=True)
+    tool_order_id = Column(Integer, ForeignKey("tool_orders.id"), nullable=False)
+    tool_id = Column(Integer, ForeignKey("tools.id"), nullable=True)  # null se utensile cancellato dopo
+
+    # Snapshot al momento della creazione dell'ordine
+    code_snapshot = Column(String(50), nullable=False)
+    tool_type_snapshot = Column(String(80))
+    brand_snapshot = Column(String(50))
+    model_snapshot = Column(String(80))
+    diameter_snapshot = Column(Float, nullable=True)
+    supplier_name_snapshot = Column(String(100))   # nome ToolSupplier al momento
+    quantity_at_time = Column(Integer, default=0)  # qty attuale al momento
+    minimum_at_time = Column(Integer, default=0)
+    quantity_to_order = Column(Integer, default=0) # max(min - qty, 1)
+
+    order = relationship("ToolOrder", back_populates="items")
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

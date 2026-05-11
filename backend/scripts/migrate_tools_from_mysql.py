@@ -31,7 +31,7 @@ from typing import Iterator, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, engine
-from app.models import Supplier, Tool
+from app.models import Tool, ToolSupplier
 
 
 # ─── Smart-title (riusato dalla logica di customers.py) ──────────────────────
@@ -155,20 +155,24 @@ def _parse_value_tuples(values_block: str) -> Iterator[Tuple[Optional[str], ...]
 # ─── Supplier helper ────────────────────────────────────────────────────────
 
 def _get_or_create_supplier(db: Session, name: str) -> Optional[int]:
-    """Lookup case-insensitive Supplier per nome. Crea se manca."""
+    """Lookup case-insensitive ToolSupplier per nome. Crea se manca.
+
+    NB: i fornitori di utensili sono distinti da quelli di trattamenti
+    (tabella `suppliers`) e di materiale (`material_suppliers`).
+    """
     if not name or not name.strip():
         return None
     name_norm = _smart_title(name.strip())
-    existing = db.query(Supplier).filter(
-        Supplier.name.ilike(name_norm)
+    existing = db.query(ToolSupplier).filter(
+        ToolSupplier.name.ilike(name_norm)
     ).first()
     if existing:
         return existing.id
     # Crea nuovo
-    sup = Supplier(name=name_norm, active=True)
+    sup = ToolSupplier(name=name_norm, active=True)
     db.add(sup)
     db.flush()
-    print(f"  [+supplier] '{name_norm}' creato (id={sup.id})")
+    print(f"  [+tool-supplier] '{name_norm}' creato (id={sup.id})")
     return sup.id
 
 
@@ -228,7 +232,7 @@ def migrate(sql_path: Path) -> None:
                 existing.quantity = qty
                 existing.minimum_quantity = min_qty
                 existing.location = location
-                existing.supplier_id = supplier_id
+                existing.tool_supplier_id = supplier_id
                 updated += 1
             else:
                 db.add(Tool(
@@ -242,7 +246,7 @@ def migrate(sql_path: Path) -> None:
                     quantity=qty,
                     minimum_quantity=min_qty,
                     location=location,
-                    supplier_id=supplier_id,
+                    tool_supplier_id=supplier_id,
                     active=True,
                 ))
                 created += 1

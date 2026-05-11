@@ -780,6 +780,31 @@ class MaterialAggregateOut(BaseModel):
 
 # ─── Utensili ──────────────────────────────────────────────────────────────
 
+class ToolSupplierBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    notes: Optional[str] = None
+    active: bool = True
+
+
+class ToolSupplierCreate(ToolSupplierBase):
+    pass
+
+
+class ToolSupplierUpdate(ToolSupplierBase):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+
+class ToolSupplierOut(ToolSupplierBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ToolBase(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     tool_type: Optional[str] = None
@@ -791,7 +816,7 @@ class ToolBase(BaseModel):
     quantity: int = Field(default=0, ge=0)
     minimum_quantity: int = Field(default=0, ge=0)
     location: Optional[str] = None
-    supplier_id: Optional[int] = None
+    tool_supplier_id: Optional[int] = None
     notes: Optional[str] = None
     active: bool = True
 
@@ -811,17 +836,56 @@ class ToolUpdate(BaseModel):
     quantity: Optional[int] = Field(default=None, ge=0)
     minimum_quantity: Optional[int] = Field(default=None, ge=0)
     location: Optional[str] = None
-    supplier_id: Optional[int] = None
+    tool_supplier_id: Optional[int] = None
     notes: Optional[str] = None
     active: Optional[bool] = None
 
 
 class ToolOut(ToolBase):
     id: int
-    supplier: Optional[SupplierOut] = None
+    tool_supplier: Optional[ToolSupplierOut] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class ToolScanRequest(BaseModel):
+    code: str = Field(min_length=1)
+    mode: str = Field(pattern=r'^(load|unload)$')   # 'load' = +1, 'unload' = -1
+    quantity: int = Field(default=1, ge=1)
+
+
+class ToolOrderItemOut(BaseModel):
+    id: int
+    tool_id: Optional[int] = None
+    code_snapshot: str
+    tool_type_snapshot: Optional[str] = None
+    brand_snapshot: Optional[str] = None
+    model_snapshot: Optional[str] = None
+    diameter_snapshot: Optional[float] = None
+    supplier_name_snapshot: Optional[str] = None
+    quantity_at_time: int
+    minimum_at_time: int
+    quantity_to_order: int
+
+    class Config:
+        from_attributes = True
+
+
+class ToolOrderOut(BaseModel):
+    id: int
+    created_at: datetime
+    created_by: Optional[UserMinimal] = None
+    triggered_by: str
+    item_count: int
+    total_quantity: int
+
+    class Config:
+        from_attributes = True
+
+
+class ToolOrderDetailOut(ToolOrderOut):
+    items: List[ToolOrderItemOut] = []
 

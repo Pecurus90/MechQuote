@@ -142,6 +142,10 @@ export default function Sidebar() {
                   <Package className="w-3.5 h-3.5 shrink-0" />
                   <span>Ordini materiali</span>
                 </NavLink>
+                <NavLink to="/orders/tools" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <Wrench className="w-3.5 h-3.5 shrink-0" />
+                  <span>Ordini utensili</span>
+                </NavLink>
               </div>
             )}
           </div>
@@ -151,6 +155,13 @@ export default function Sidebar() {
           <NavLink to="/settings/customers" className={({ isActive }) => navLinkClass(isActive)}>
             <Users className="w-4 h-4 shrink-0" />
             <span>Clienti</span>
+          </NavLink>
+        )}
+
+        {hasPermission('tools') && (
+          <NavLink to="/tools" className={({ isActive }) => navLinkClass(isActive)}>
+            <Wrench className="w-4 h-4 shrink-0" />
+            <span>Utensili</span>
           </NavLink>
         )}
 
@@ -202,9 +213,9 @@ export default function Sidebar() {
                       <span>Lavorazioni</span>
                     </NavLink>
                     {hasPermission('tools') && (
-                      <NavLink to="/settings/tools" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <NavLink to="/settings/tool-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
                         <Wrench className="w-3.5 h-3.5 shrink-0" />
-                        <span>Utensili</span>
+                        <span>Fornitori utensili</span>
                       </NavLink>
                     )}
                     <NavLink to="/settings/workflows" className={({ isActive }) => navLinkClass(isActive, true)}>

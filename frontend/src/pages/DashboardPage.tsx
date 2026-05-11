@@ -75,7 +75,7 @@ export default function DashboardPage() {
       <DashboardHeader stats={stats} onNew={() => navigate('/quotes/new')} />
       {canTools && lowStockCount > 0 && (
         <button
-          onClick={() => navigate('/settings/tools?low_stock=1')}
+          onClick={() => navigate('/tools?low_stock=1')}
           className="w-full bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-4 py-3 flex items-center gap-3 text-left transition-colors"
         >
           <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />

@@ -1,10 +1,6 @@
-"""PDF ordine utensili low-stock — stesso look del PDF preventivo/materiali.
+"""PDF ordine utensili dallo snapshot di un ToolOrder.
 
-Aggregato per fornitore: una card per fornitore con tabella di utensili
-sotto la quantità minima. Quantità da ordinare = max(min - corrente, 1).
-
-Niente storico/snapshot: il PDF rigenera ogni volta lo stato corrente
-del magazzino. Lo "storico" sarà eventualmente un'evoluzione futura.
+Stesso look del PDF preventivo/materiali. Aggregato per fornitore.
 """
 import tempfile
 from collections import defaultdict
@@ -13,16 +9,14 @@ from typing import Dict, List
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.pdf import CSS, ICON_CUBE, _esc, _fmt_date_it
-from app.core.database import utc_now
-from app.models import CompanySettings, Tool
+from app.models import CompanySettings, ToolOrder, ToolOrderItem
 
 
-# CSS aggiuntivo per le colonne specifiche dell'ordine utensili
+# CSS aggiuntivo per le colonne specifiche
 EXTRA_CSS = """
 .tool-code  { width: 130px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--gray-900); font-weight: 600; }
 .tool-spec  { color: var(--gray-700); }
 .tool-spec .accent { color: var(--gray-500); font-size: 9px; }
-.tool-loc   { width: 60px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--gray-500); }
 .tool-qty   { width: 55px; text-align: right; font-family: 'JetBrains Mono', monospace; }
 .tool-qty.low { color: #b91c1c; font-weight: 700; }
 .tool-min   { width: 50px; text-align: right; font-family: 'JetBrains Mono', monospace; color: var(--gray-500); }
@@ -30,7 +24,7 @@ EXTRA_CSS = """
 """
 
 
-def _render_header(cs) -> str:
+def _render_header(order: ToolOrder, cs) -> str:
     co_name = (cs.name if cs and cs.name else 'Fratelli Dalla Via')
     co_addr = (cs.address if cs and cs.address else 'Officina Meccanica di Precisione')
     info_lines = []
@@ -42,7 +36,7 @@ def _render_header(cs) -> str:
         info_lines.append(_esc(cs.email))
     co_info = ' &nbsp;·&nbsp; '.join(info_lines)
     mono_letters = ''.join(w[0] for w in co_name.split()[:3]).upper()[:3] or 'FDV'
-    date_str = _fmt_date_it(utc_now().date())
+    date_str = _fmt_date_it(order.created_at.date() if order.created_at else None)
     return f"""
 <div class="hdr">
   <div class="hdr-left">
@@ -55,50 +49,48 @@ def _render_header(cs) -> str:
   </div>
   <div class="hdr-right">
     <div class="q-tag">Ordine utensili</div>
-    <div class="q-num">{date_str.replace(' ', '-').upper()}</div>
-    <div class="q-date">Utensili sotto quantità minima</div>
+    <div class="q-num">UO-{order.id:04d}</div>
+    <div class="q-date">{date_str}</div>
   </div>
 </div>
 <div class="hdr-band"></div>
 """
 
 
-def _render_meta(total_tools: int, total_qty_to_order: int) -> str:
+def _render_meta(order: ToolOrder, items: List[ToolOrderItem]) -> str:
+    creator = order.created_by
+    creator_name = (creator.full_name or creator.username) if creator else '—'
+    total_qty = sum(it.quantity_to_order for it in items)
     return f"""
 <div class="meta">
   <div class="meta-item">
+    <div class="meta-label">Creato da</div>
+    <div class="meta-value">{_esc(creator_name)}</div>
+  </div>
+  <div class="meta-item">
     <div class="meta-label">Utensili</div>
-    <div class="meta-value">{total_tools}</div>
+    <div class="meta-value">{len(items)}</div>
   </div>
   <div class="meta-item">
     <div class="meta-label">Quantità totale</div>
-    <div class="meta-value">{total_qty_to_order} pz</div>
-  </div>
-  <div class="meta-item" style="flex: 2;">
-    <div class="meta-label">Stato</div>
-    <div class="meta-value" style="font-size: 9.5px; color: var(--gold);">
-      Tutti gli utensili sotto la quantità minima configurata
-    </div>
+    <div class="meta-value">{total_qty} pz</div>
   </div>
 </div>
 """
 
 
-def _render_supplier_card(supplier_name: str, tools: List[Tool]) -> str:
+def _render_supplier_card(supplier_name: str, items: List[ToolOrderItem]) -> str:
     rows = []
-    for i, t in enumerate(tools, start=1):
-        qty_order = max(t.minimum_quantity - t.quantity, 1)
+    for i, it in enumerate(items, start=1):
         spec_parts = []
-        if t.brand or t.model:
-            top = ' '.join(filter(None, [t.brand, t.model]))
+        if it.brand_snapshot or it.model_snapshot:
+            top = ' '.join(filter(None, [it.brand_snapshot, it.model_snapshot]))
             spec_parts.append(f'<div>{_esc(top)}</div>')
         sub_parts = []
-        if t.tool_type:
-            sub_parts.append(_esc(t.tool_type))
-        if t.diameter_mm:
-            sub_parts.append(f'Ø{t.diameter_mm:g} mm')
-        if t.material:
-            sub_parts.append(_esc(t.material))
+        if it.tool_type_snapshot:
+            sub_parts.append(_esc(it.tool_type_snapshot))
+        if it.diameter_snapshot:
+            sub_parts.append(f'Ø{it.diameter_snapshot:g} mm')
         if sub_parts:
             spec_parts.append(f'<div class="accent">{" · ".join(sub_parts)}</div>')
         spec_html = ''.join(spec_parts) or '—'
@@ -106,19 +98,18 @@ def _render_supplier_card(supplier_name: str, tools: List[Tool]) -> str:
         rows.append(f"""
 <tr>
   <td class="c-n">{i}</td>
-  <td class="tool-code">{_esc(t.code)}</td>
+  <td class="tool-code">{_esc(it.code_snapshot)}</td>
   <td class="tool-spec">{spec_html}</td>
-  <td class="tool-loc">{_esc(t.location or '')}</td>
-  <td class="tool-qty low">{t.quantity}</td>
-  <td class="tool-min">{t.minimum_quantity}</td>
-  <td class="tool-order">{qty_order}</td>
+  <td class="tool-qty low">{it.quantity_at_time}</td>
+  <td class="tool-min">{it.minimum_at_time}</td>
+  <td class="tool-order">{it.quantity_to_order}</td>
 </tr>
 """)
     return f"""
 <div class="part-card">
   <div class="part-head">
     <span class="part-code">{_esc(supplier_name)}</span>
-    <span class="part-desc">{len(tools)} {'utensile' if len(tools) == 1 else 'utensili'}</span>
+    <span class="part-desc">{len(items)} {'utensile' if len(items) == 1 else 'utensili'}</span>
   </div>
   <div class="section">
     <div class="sec-head">{ICON_CUBE}<span>Utensili da ordinare</span></div>
@@ -128,7 +119,6 @@ def _render_supplier_card(supplier_name: str, tools: List[Tool]) -> str:
           <td class="c-n">#</td>
           <td class="tool-code">Codice</td>
           <td>Tipo / Marchio / Modello</td>
-          <td class="tool-loc">Pos.</td>
           <td class="tool-qty">Qtà</td>
           <td class="tool-min">Min</td>
           <td class="tool-order">Ord.</td>
@@ -141,37 +131,37 @@ def _render_supplier_card(supplier_name: str, tools: List[Tool]) -> str:
 """
 
 
-def generate_tools_low_stock_pdf(db: Session) -> str:
-    """Genera il PDF dell'ordine utensili sotto-minimo, raggruppato per fornitore."""
-    low_stock = db.query(Tool).options(joinedload(Tool.supplier)).filter(
-        Tool.active == True,  # noqa: E712
-        Tool.quantity < Tool.minimum_quantity,
-        Tool.minimum_quantity > 0,
-    ).order_by(Tool.code).all()
+def generate_tool_order_pdf(order_id: int, db: Session) -> str:
+    """Genera il PDF di un ToolOrder dal suo snapshot (sempre lo stesso PDF
+    se l'ordine non viene modificato — gli items sono dati storici)."""
+    order = db.query(ToolOrder).options(
+        joinedload(ToolOrder.created_by),
+        joinedload(ToolOrder.items),
+    ).filter(ToolOrder.id == order_id).first()
+    if not order:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Ordine utensili non trovato")
 
     cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
     co_name = (cs.name if cs and cs.name else 'Fratelli Dalla Via')
 
-    # Raggruppo per supplier
-    by_supplier: Dict[str, List[Tool]] = defaultdict(list)
-    for t in low_stock:
-        name = t.supplier.name if t.supplier else 'Senza fornitore'
-        by_supplier[name].append(t)
-
-    total_qty = sum(max(t.minimum_quantity - t.quantity, 1) for t in low_stock)
+    # Raggruppo per supplier_name_snapshot
+    by_supplier: Dict[str, List[ToolOrderItem]] = defaultdict(list)
+    for it in order.items:
+        name = it.supplier_name_snapshot or 'Senza fornitore'
+        by_supplier[name].append(it)
 
     html_parts = [
         '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">',
         f'<style>{CSS}{EXTRA_CSS}</style></head><body>',
-        _render_header(cs),
-        _render_meta(len(low_stock), total_qty),
+        _render_header(order, cs),
+        _render_meta(order, list(order.items)),
     ]
 
-    if not low_stock:
+    if not order.items:
         html_parts.append(
             '<div class="part-card"><div class="section">'
-            '<div class="no-ops">Nessun utensile sotto la quantità minima. '
-            'Tutti gli utensili in stock sono sopra soglia configurata.</div>'
+            '<div class="no-ops">Nessun utensile in questo ordine.</div>'
             '</div></div>'
         )
     else:
@@ -197,7 +187,7 @@ def generate_tools_low_stock_pdf(db: Session) -> str:
 
     tmp = tempfile.NamedTemporaryFile(
         delete=False, suffix=".pdf",
-        prefix=f"ordine_utensili_",
+        prefix=f"ordine_utensili_{order_id}_",
     )
     tmp.write(pdf_bytes)
     tmp.close()

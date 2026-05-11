@@ -25,7 +25,8 @@ from app.models import (
     Notification, NotificationRead, CompanySettings,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
     WorkflowTemplate, WorkflowTemplateStep, Operation,
-    MaterialOrder, MaterialOrderQuote, Tool,
+    MaterialOrder, MaterialOrderQuote, Tool, ToolSupplier,
+    ToolOrder, ToolOrderItem,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -60,7 +61,7 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
-    workflow_templates, operations, orders, tools,
+    workflow_templates, operations, orders, tools, orders_tools,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -88,6 +89,7 @@ app.include_router(workflow_templates.router, dependencies=_auth)
 app.include_router(operations.router, dependencies=_auth)
 app.include_router(orders.router, dependencies=_auth)
 app.include_router(tools.router, dependencies=_auth)
+app.include_router(orders_tools.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -308,6 +310,37 @@ def _run_migrations():
          "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
         "DELETE FROM role_permissions WHERE permission_key = 'tools'",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'tools' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina')",
+
+        # ═══ Refactor utensili: ToolSupplier separato da Supplier ═══
+        # I fornitori di utensili (Hypertools, UTF, OSG) sono distinti dai
+        # fornitori esterni di trattamenti (Haerta). Nuova tabella +
+        # nuova colonna su tools. La vecchia tools.supplier_id resta nel DB
+        # ma il modello smette di leggerla (CLAUDE.md §6: no DROP COLUMN).
+        ("CREATE TABLE IF NOT EXISTS tool_suppliers ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(100) NOT NULL, "
+         "address TEXT, phone VARCHAR(50), email VARCHAR(100), "
+         "notes TEXT, active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        "ALTER TABLE tools ADD COLUMN tool_supplier_id INTEGER REFERENCES tool_suppliers(id)",
+
+        # ═══ Storico ordini utensili (snapshot) ═══
+        ("CREATE TABLE IF NOT EXISTS tool_orders ("
+         "id INTEGER PRIMARY KEY, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "created_by_user_id INTEGER REFERENCES users(id), "
+         "triggered_by VARCHAR(20) DEFAULT 'manual')"),
+        ("CREATE TABLE IF NOT EXISTS tool_order_items ("
+         "id INTEGER PRIMARY KEY, "
+         "tool_order_id INTEGER NOT NULL REFERENCES tool_orders(id), "
+         "tool_id INTEGER REFERENCES tools(id), "
+         "code_snapshot VARCHAR(50) NOT NULL, "
+         "tool_type_snapshot VARCHAR(80), brand_snapshot VARCHAR(50), "
+         "model_snapshot VARCHAR(80), diameter_snapshot FLOAT, "
+         "supplier_name_snapshot VARCHAR(100), "
+         "quantity_at_time INTEGER DEFAULT 0, "
+         "minimum_at_time INTEGER DEFAULT 0, "
+         "quantity_to_order INTEGER DEFAULT 0)"),
 
         # ═══ Ordini materiali ═══
         # Tracking ordine materiale sui quote + tabella MaterialOrder per

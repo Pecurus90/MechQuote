@@ -25,7 +25,7 @@ from app.models import (
     Notification, NotificationRead, CompanySettings,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
     WorkflowTemplate, WorkflowTemplateStep, Operation,
-    MaterialOrder, MaterialOrderQuote,
+    MaterialOrder, MaterialOrderQuote, Tool,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -60,7 +60,7 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
-    workflow_templates, operations, orders,
+    workflow_templates, operations, orders, tools,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -87,6 +87,7 @@ app.include_router(dxf.router, dependencies=_auth)
 app.include_router(workflow_templates.router, dependencies=_auth)
 app.include_router(operations.router, dependencies=_auth)
 app.include_router(orders.router, dependencies=_auth)
+app.include_router(tools.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -293,6 +294,20 @@ def _run_migrations():
          "sequence_number INTEGER NOT NULL, "
          "machine_id INTEGER REFERENCES machines(id), "
          "operation_id INTEGER NOT NULL REFERENCES operations(id))"),
+
+        # ═══ Utensili (porting legacy `utensili`) ═══
+        ("CREATE TABLE IF NOT EXISTS tools ("
+         "id INTEGER PRIMARY KEY, "
+         "code VARCHAR(50) UNIQUE NOT NULL, "
+         "tool_type VARCHAR(80), brand VARCHAR(50), model VARCHAR(80), "
+         "material VARCHAR(50), diameter_mm FLOAT, toroidal_mm FLOAT, "
+         "quantity INTEGER DEFAULT 0, minimum_quantity INTEGER DEFAULT 0, "
+         "location VARCHAR(50), supplier_id INTEGER REFERENCES suppliers(id), "
+         "notes TEXT, active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        "DELETE FROM role_permissions WHERE permission_key = 'tools'",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'tools' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina')",
 
         # ═══ Ordini materiali ═══
         # Tracking ordine materiale sui quote + tabella MaterialOrder per

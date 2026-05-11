@@ -30,3 +30,7 @@ backend/uploads/*
 *.log
 .DS_Store
 clienti.csv
+
+# Vecchio sito aziendale (reference locale, non va nel repo)
+PRV/
+prv/

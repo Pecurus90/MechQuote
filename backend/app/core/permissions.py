@@ -12,6 +12,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",
     "orders.materials": "Ordini materiali (lista + PDF)",
+    "tools": "Gestione utensili e ordini utensili",
 }
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
@@ -19,12 +20,13 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "ufficio_tecnico": [
         "dashboard", "quotes.create", "quotes.archive", "quotes.pdf",
         "quotes.send", "customers", "notifications", "orders.materials",
+        "tools",
     ],
     "officina": [
-        "quotes.archive", "quotes.pdf", "notifications",
+        "quotes.archive", "quotes.pdf", "notifications", "tools",
     ],
     "amministrazione": [
         "dashboard", "quotes.archive", "quotes.pdf",
-        "quotes.complete", "notifications", "orders.materials",
+        "quotes.complete", "notifications", "orders.materials", "tools",
     ],
 }

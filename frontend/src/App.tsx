@@ -23,6 +23,7 @@ import UsersPage from '@/pages/settings/UsersPage'
 import RolesPage from '@/pages/settings/RolesPage'
 import ActivityPage from '@/pages/ActivityPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
+import ToolsPage from '@/pages/settings/ToolsPage'
 import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
 import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
 import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />
         <Route path="settings/machines"   element={<ProtectedRoute permission="settings"><MachinesPage /></ProtectedRoute>} />
         <Route path="settings/operations" element={<ProtectedRoute permission="settings"><OperationsPage /></ProtectedRoute>} />
+        <Route path="settings/tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />
         <Route path="settings/workflows"  element={<ProtectedRoute permission="settings"><WorkflowTemplatesPage /></ProtectedRoute>} />
         <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />

@@ -344,6 +344,80 @@ I backup si accumuleranno in `C:\MechQuote\backups\` (ultimi 30 conservati). Con
 
 ---
 
+## 9.bis Notifica settimanale "ordina utensili"
+
+MechQuote tiene traccia degli **utensili sotto la quantità minima**.
+Vogliamo che ogni martedì alle 8:00 l'ufficio tecnico + amministrazione
+ricevano automaticamente una notifica "Ordinare utensili" cliccabile per
+generare il PDF aggregato per fornitore.
+
+L'endpoint da chiamare è `POST /api/tools/notify-low-stock` (idempotente
+per giorno: se ne esiste già una della stessa data, non duplica).
+
+### 9.bis.1 Token di servizio
+
+Crea un utente dedicato per il task (per non hardcodare la password admin):
+
+```cmd
+cd C:\MechQuote\backend
+venv\Scripts\activate
+python -c "
+from app.models import User
+from app.core.security import get_password_hash
+from app.core.database import SessionLocal
+db = SessionLocal()
+db.add(User(username='scheduler', hashed_password=get_password_hash('PASSWORD-LUNGA-CASUALE-QUI'),
+            full_name='Task Scheduler', role='amministrazione', is_active=True))
+db.commit()
+print('scheduler user OK')
+"
+```
+
+(In alternativa puoi usare admin se preferisci, ma un utente dedicato è
+più pulito per audit.)
+
+### 9.bis.2 Script PowerShell `tools_alert.ps1`
+
+Crea `C:\MechQuote\tools_alert.ps1`:
+
+```powershell
+# Login e chiamata /api/tools/notify-low-stock
+$body = "username=scheduler&password=PASSWORD-LUNGA-CASUALE-QUI"
+$loginRes = Invoke-RestMethod -Uri "http://localhost:8000/api/auth/login" `
+    -Method Post -Body $body `
+    -ContentType "application/x-www-form-urlencoded"
+$token = $loginRes.access_token
+
+$headers = @{ "Authorization" = "Bearer $token" }
+$res = Invoke-RestMethod -Uri "http://localhost:8000/api/tools/notify-low-stock" `
+    -Method Post -Headers $headers
+
+# Log file rotante
+$logLine = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | low_stock=$($res.low_stock_count) created=$($res.notification_created) reason=$($res.reason)"
+Add-Content -Path "C:\MechQuote\logs\tools_alert.log" -Value $logLine
+```
+
+### 9.bis.3 Schedula con Task Scheduler
+
+- Apri **Utilità di pianificazione** (Task Scheduler)
+- Crea attività di base → Nome: `MechQuote Tools Alert`
+- Trigger: **Settimanale**, ogni **martedì** alle **08:00**
+- Azione: **Avvia un programma**
+  - Programma: `powershell.exe`
+  - Argomenti: `-ExecutionPolicy Bypass -File "C:\MechQuote\tools_alert.ps1"`
+
+Risultato: ogni martedì mattina, se ci sono utensili sotto minimo,
+gli utenti `ufficio_tecnico` e `amministrazione` vedono nel pannello
+notifiche la voce "Ordinare utensili — N sotto minimo". Click → si
+apre la pagina Utensili dove possono generare il PDF aggregato per
+fornitore.
+
+In qualsiasi momento, dalla pagina **Catalogo → Utensili**, il bottone
+**"PDF ordine"** in alto a destra genera lo stesso PDF on-demand
+(stato attuale del magazzino).
+
+---
+
 ## 10. Aggiornamenti futuri di MechQuote
 
 Quando ci sono nuove versioni sul repo GitHub:

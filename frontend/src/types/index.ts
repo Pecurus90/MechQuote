@@ -201,6 +201,26 @@ export interface MaterialAggregateResult {
   groups: MaterialAggregateBySupplier[]
 }
 
+// ─── Utensili ──────────────────────────────────────────────────────────────
+
+export interface Tool {
+  id: number
+  code: string
+  tool_type?: string | null
+  brand?: string | null
+  model?: string | null
+  material?: string | null
+  diameter_mm?: number | null
+  toroidal_mm?: number | null
+  quantity: number
+  minimum_quantity: number
+  location?: string | null
+  supplier_id?: number | null
+  supplier?: Supplier | null
+  notes?: string | null
+  active?: boolean
+}
+
 export interface ActivityRow {
   id: number
   type: string

@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight, AlertTriangle, Wrench } from 'lucide-react'
 import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
@@ -22,6 +22,8 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
   const canReview = hasPermission('quotes.complete')
+  const canTools = hasPermission('tools')
+  const [lowStockCount, setLowStockCount] = useState(0)
 
   const [kpi, setKpi] = useState<DashboardKPI | null>(null)
   const [monthly, setMonthly] = useState<MonthlyData[]>([])
@@ -56,7 +58,13 @@ export default function DashboardPage() {
     }).catch(() => {
       toast.error('Errore nel caricamento dashboard')
     }).finally(() => setLoading(false))
-  }, [canReview])
+
+    if (canTools) {
+      api.get('/tools/low-stock-count')
+        .then(r => setLowStockCount(r.data?.count ?? 0))
+        .catch(() => undefined)
+    }
+  }, [canReview, canTools])
 
   if (loading || !kpi || !stats) return (
     <div className="flex items-center justify-center h-64 text-gray-500">Caricamento...</div>
@@ -65,6 +73,22 @@ export default function DashboardPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5">
       <DashboardHeader stats={stats} onNew={() => navigate('/quotes/new')} />
+      {canTools && lowStockCount > 0 && (
+        <button
+          onClick={() => navigate('/settings/tools?low_stock=1')}
+          className="w-full bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-4 py-3 flex items-center gap-3 text-left transition-colors"
+        >
+          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-rose-800">
+              {lowStockCount} utensil{lowStockCount === 1 ? 'e' : 'i'} sotto la quantità minima
+            </div>
+            <div className="text-xs text-rose-600">Clicca per visualizzare la lista e generare il PDF ordine</div>
+          </div>
+          <Wrench className="w-4 h-4 text-rose-500 shrink-0" />
+          <ChevronRight className="w-4 h-4 text-rose-400 shrink-0" />
+        </button>
+      )}
       <KPIGrid kpi={kpi} />
       {monthly.length > 0 && <MonthlyChart data={monthly} />}
 

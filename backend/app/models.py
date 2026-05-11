@@ -558,6 +558,36 @@ class MaterialOrderQuote(Base):
     quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
 
 
+# ─── Utensili (porting da legacy `utensili`) ───────────────────────────────
+
+class Tool(Base):
+    """Catalogo utensili officina con gestione scorta + low-stock alert.
+
+    Migrazione dalla tabella `utensili` del MySQL legacy (PRV/Lavoro.sql).
+    Nuova rispetto al legacy: FK Supplier, audit timestamps, soft active flag.
+    """
+    __tablename__ = "tools"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    tool_type = Column(String(80))                              # "Conica 60°", "Sferica", "Cilindrica"
+    brand = Column(String(50))                                  # "Sandvik", "JJ Tools"
+    model = Column(String(80))                                  # "4STE", "1K333"
+    material = Column(String(50))                               # "<52 HRC" — applicabilità (string libera)
+    diameter_mm = Column(Float, nullable=True)
+    toroidal_mm = Column(Float, nullable=True)                  # raggio torico (sferiche)
+    quantity = Column(Integer, default=0)                       # disponibilità attuale
+    minimum_quantity = Column(Integer, default=0)               # soglia reorder (low-stock trigger)
+    location = Column(String(50), nullable=True)                # "1-C-2"
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    notes = Column(Text, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    supplier = relationship("Supplier")
+
+
 # ─── Event listeners ────────────────────────────────────────────────────────
 
 @event.listens_for(PartFile, 'before_delete')

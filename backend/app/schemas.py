@@ -777,3 +777,51 @@ class MaterialAggregateBySupplier(BaseModel):
 class MaterialAggregateOut(BaseModel):
     groups: List[MaterialAggregateBySupplier] = []
 
+
+# ─── Utensili ──────────────────────────────────────────────────────────────
+
+class ToolBase(BaseModel):
+    code: str = Field(min_length=1, max_length=50)
+    tool_type: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    material: Optional[str] = None
+    diameter_mm: Optional[float] = Field(default=None, ge=0)
+    toroidal_mm: Optional[float] = Field(default=None, ge=0)
+    quantity: int = Field(default=0, ge=0)
+    minimum_quantity: int = Field(default=0, ge=0)
+    location: Optional[str] = None
+    supplier_id: Optional[int] = None
+    notes: Optional[str] = None
+    active: bool = True
+
+
+class ToolCreate(ToolBase):
+    pass
+
+
+class ToolUpdate(BaseModel):
+    code: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    tool_type: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    material: Optional[str] = None
+    diameter_mm: Optional[float] = Field(default=None, ge=0)
+    toroidal_mm: Optional[float] = Field(default=None, ge=0)
+    quantity: Optional[int] = Field(default=None, ge=0)
+    minimum_quantity: Optional[int] = Field(default=None, ge=0)
+    location: Optional[str] = None
+    supplier_id: Optional[int] = None
+    notes: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class ToolOut(ToolBase):
+    id: int
+    supplier: Optional[SupplierOut] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+

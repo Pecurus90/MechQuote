@@ -61,6 +61,7 @@ Da impostare in `backend/.env` prima del deploy:
 | `DATABASE_URL` | `sqlite:///./mechquote.db` | Connection string SQLAlchemy |
 | `ALLOWED_ORIGINS` | `http://localhost:5173` | CORS, comma-separated |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Validità JWT (default 24h) |
+| `LOG_LEVEL` | `INFO` | Livello logging (DEBUG/INFO/WARNING/ERROR) |
 
 ## Project Structure
 

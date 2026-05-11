@@ -7,6 +7,8 @@ import { Plus, Pencil, Trash2, Save, X, Search, Wrench, AlertTriangle, ArrowDown
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
+import { useEscapeKey } from '@/lib/useEscapeKey'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Tool, ToolAttribute, ToolSupplier } from '@/types'
 
 type ScanMode = 'load' | 'unload'
@@ -81,11 +83,14 @@ export default function ToolsPage() {
   const [brands, setBrands] = useState<ToolAttribute[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   // Scan
   const [scanMode, setScanMode] = useState<ScanMode>('unload')
   const [scanCode, setScanCode] = useState('')
   const scanInputRef = useRef<HTMLInputElement>(null)
+
+  useEscapeKey(() => setForm(null), !!form)
 
   // Filtri lista
   const [search, setSearch] = useState('')
@@ -205,8 +210,11 @@ export default function ToolsPage() {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Eliminare questo utensile?')) return
+  const handleDelete = (id: number) => setPendingDelete(id)
+  const confirmDelete = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete
+    setPendingDelete(null)
     try {
       await api.delete(`/tools/${id}`)
       toast.success('Utensile eliminato')
@@ -441,6 +449,15 @@ export default function ToolsPage() {
           </Card>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo utensile?"
+        description="Questa azione non è reversibile."
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

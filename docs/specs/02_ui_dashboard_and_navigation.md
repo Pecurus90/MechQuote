@@ -1,5 +1,11 @@
 # UI - Dashboard and Navigation
 
+> ⚠️ **DOC OBSOLETO** (CLAUDE.md §12). La sidebar attuale è strutturata in
+> due macro-aree (Operatività + Impostazioni con sotto-sezioni Catalogo /
+> Utensili / Fornitori / Wire EDM / Azienda / Sistema). Per la struttura
+> aggiornata vedi `frontend/src/components/layout/Sidebar.tsx` o le
+> sezioni §4 / §10-11 di `CLAUDE.md`. Mantenuto come storico.
+
 ## Main layout
 
 The app runs in the browser.

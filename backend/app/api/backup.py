@@ -214,6 +214,14 @@ def import_data(
 ) -> Dict[str, Any]:
     """Sovrascrive lo stato persistente con il contenuto del backup.
 
+    ⚠️  ENDPOINT DISTRUTTIVO — CLAUDE.md §2.E:
+    Prima di chiamare questo endpoint (UI Settings → Backup, oppure
+    curl/test), FARE SEMPRE backup file SQLite:
+        cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)
+    SQLite non enforce FK di default: un payload con FK violate passa il
+    check e svuota il DB senza recovery. Non idempotente: lanciare 2 volte
+    lo stesso payload sovrascrive ogni volta (corretto by design).
+
     DELETE + INSERT in **transazione unica**: se l'INSERT fallisce a metà
     (riga corrotta, FK violata, schema obsoleto…), rollback completo e
     DB integro al pre-import. Senza questo wrapping un commit intermedio

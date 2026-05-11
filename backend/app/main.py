@@ -395,6 +395,13 @@ def _run_migrations():
         "INSERT OR IGNORE INTO tool_brands (name, active) SELECT DISTINCT brand, 1 FROM tools WHERE brand IS NOT NULL AND TRIM(brand) != ''",
         "INSERT OR IGNORE INTO tool_locations (name, active) SELECT DISTINCT location, 1 FROM tools WHERE location IS NOT NULL AND TRIM(location) != ''",
 
+        # ═══ Cleanup tools.supplier_id legacy (refactor Sprint 1 audit) ═══
+        # Colonna legacy del modello pre-ToolSupplier — non più mappata
+        # (CLAUDE.md §4) ma i DB legacy hanno ancora 305 valori orphan che
+        # puntavano a suppliers (trattamenti) per migrazione MySQL imperfetta.
+        # Nullifica per pulizia FK. La colonna resta nel DB (SQLite no DROP).
+        "UPDATE tools SET supplier_id = NULL WHERE supplier_id IS NOT NULL",
+
         # ═══ Cleanup tabella `cost_rules` legacy (audit sprint E) ═══
         # Sostituita da CompanySettings (singleton id=1) da molto tempo.
         # Il backfill INSERT INTO company_settings ... SELECT FROM cost_rules

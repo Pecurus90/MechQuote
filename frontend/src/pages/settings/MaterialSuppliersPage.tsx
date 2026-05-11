@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Save, X, Box } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
+import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { MaterialSupplier } from '@/types'
 
 interface FormState {
@@ -26,6 +27,7 @@ export default function MaterialSuppliersPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
+  useEscapeKey(() => setForm(null), !!form)
 
   const load = () => {
     api.get('/material-suppliers')

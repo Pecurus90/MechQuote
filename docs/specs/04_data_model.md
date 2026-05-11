@@ -1,5 +1,16 @@
 # Data Model
 
+> ⚠️ **DRIFT documentato** (CLAUDE.md §12). Questo doc non include:
+> `Role` / `RolePermission`, `Notification` / `NotificationRead`,
+> `CompanySettings` (singleton), `ToolType` / `ToolBrand` /
+> `ToolLocation` (catalogo attributi), `ToolSupplier`, `ToolOrder` /
+> `ToolOrderItem`, `MaterialOrder` / `MaterialOrderQuote`,
+> `WorkflowTemplate` / `WorkflowTemplateStep`, `Operation`,
+> `EdmConfig` / `EdmCutSpeed` / `CuttingCycle` / `CuttingPass` /
+> `DrillingTime`, `StepColorRule`. Per la lista completa e i dettagli
+> autoritativi vedi `backend/app/models.py` o il diagramma in
+> `CLAUDE.md` §4. Mantenuto come storico.
+
 > Fonte di verità: `backend/app/models.py`. Questo doc è una guida di lettura. Se diverge, ha ragione il codice.
 
 ## Quote

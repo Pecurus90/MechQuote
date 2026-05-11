@@ -1,5 +1,13 @@
 # Settings and Rules
 
+> ⚠️ **DRIFT** (CLAUDE.md §12). La tabella `CostRule` qui citata è stata
+> sostituita da `CompanySettings` (singleton id=1) molto tempo fa
+> (tabella `cost_rules` droppata in migration). I default operativi
+> (margine, prezzo minimo, trasporto, packaging) vivono ora come campi
+> di `CompanySettings`. Le sezioni "Settings → Catalogo" qui descritte
+> non riflettono la struttura attuale della sidebar (vedi §10-11 di
+> `CLAUDE.md`). Mantenuto come storico.
+
 ## Materials
 
 Fields:

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Wrench } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { ToolSupplier } from '@/types'
 
 interface FormState {
@@ -23,6 +24,7 @@ export default function ToolSuppliersPage() {
   const [suppliers, setSuppliers] = useState<ToolSupplier[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
+  useEscapeKey(() => setForm(null), !!form)
 
   const load = () => {
     api.get('/tools/suppliers')

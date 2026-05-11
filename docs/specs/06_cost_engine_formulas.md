@@ -1,5 +1,15 @@
 # Cost Engine and Formulas
 
+> ⚠️ **DRIFT parziale** (CLAUDE.md §12). Le formule reali implementate
+> usano un setup/work rate split (Sprint 12), aggregazione batch per
+> trattamenti, distribuzione spedizione per fornitore. I campi
+> `complexity_coefficient`, `cnc_machinability_coefficient`,
+> `rounding_rule`, `confidence_level` qui citati sono **dormienti** o
+> rimossi. Fonte autoritativa: formula in `CLAUDE.md` §4 ("Cost
+> engine") + codice `backend/app/services/calculation.py` ↔
+> `frontend/src/lib/quoteCalc.ts` (gemello DRY). Mantenuto come
+> storico.
+
 ## Global principle
 
 All automatic formulas must produce editable values.

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { PartIssue } from '@/lib/quoteValidation'
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 /** Modal di validazione preventivo: lista parti con problemi, click sul codice
  *  parte per navigare alla sezione, oppure "Genera comunque" per ignorare. */
 export default function QuoteValidationModal({ issues, onSelectPart, onClose, onProceed }: Props) {
+  useEscapeKey(onClose)
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md">

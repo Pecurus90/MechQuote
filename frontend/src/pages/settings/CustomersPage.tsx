@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Customer } from '@/types'
 
 interface FormState {
@@ -24,6 +25,7 @@ export default function CustomersPage() {
   const [form, setForm] = useState<FormState>(emptyForm())
   const [search, setSearch] = useState('')
   const [importing, setImporting] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = () => {
@@ -52,9 +54,13 @@ export default function CustomersPage() {
     } catch (e) {toast.error('Errore nel salvataggio') }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Eliminare questo cliente?')) return
-    try { await api.delete(`/customers/${id}`); toast.success('Cliente eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
+  const handleDelete = (id: number) => setPendingDelete(id)
+  const confirmDelete = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete
+    setPendingDelete(null)
+    try { await api.delete(`/customers/${id}`); toast.success('Cliente eliminato'); loadData() }
+    catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
   const handleImport = async (file: File) => {
@@ -217,6 +223,15 @@ export default function CustomersPage() {
           </Card>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare questo cliente?"
+        description="Se ha preventivi associati l'eliminazione verrà bloccata."
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

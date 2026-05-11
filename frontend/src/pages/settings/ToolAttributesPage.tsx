@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Wrench } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { ToolAttribute } from '@/types'
 
 type SectionKey = 'types' | 'brands'
@@ -41,6 +42,7 @@ function AttributeTable({ section }: { section: Section }) {
   const [editName, setEditName] = useState('')
   const [newName, setNewName] = useState('')
   const [showNew, setShowNew] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -70,8 +72,11 @@ function AttributeTable({ section }: { section: Section }) {
     }
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('Eliminare definitivamente?')) return
+  const remove = (id: number) => setPendingDelete(id)
+  const confirmRemove = async () => {
+    if (pendingDelete == null) return
+    const id = pendingDelete
+    setPendingDelete(null)
     try {
       await api.delete(`${section.endpoint}/${id}`)
       toast.success('Eliminato'); load()
@@ -183,6 +188,13 @@ function AttributeTable({ section }: { section: Section }) {
           </tbody>
         </table>
       </CardContent>
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title="Eliminare definitivamente?"
+        confirmLabel="Elimina"
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
     </Card>
   )
 }

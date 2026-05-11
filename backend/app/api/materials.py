@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
+from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Material, MaterialSupplier
+from app.models import Material, MaterialSupplier, Part
 from app.schemas import (
     MaterialCreate, MaterialUpdate, MaterialOut,
     MaterialSupplierCreate, MaterialSupplierUpdate, MaterialSupplierOut,
@@ -45,6 +46,10 @@ def delete_material_supplier(sid: int, db: Session = Depends(get_db)):
     s = db.query(MaterialSupplier).filter(MaterialSupplier.id == sid).first()
     if not s:
         raise HTTPException(404, "Not found")
+    block_if_in_use(
+        db, f"Fornitore materiali '{s.name}'",
+        (Material, Material.supplier_id == s.id, "materiale", "materiali"),
+    )
     db.delete(s)
     db.commit()
     return {"ok": True}
@@ -80,6 +85,10 @@ def delete_material(mid: int, db: Session = Depends(get_db)):
     m = db.query(Material).filter(Material.id == mid).first()
     if not m:
         raise HTTPException(404, "Not found")
+    block_if_in_use(
+        db, f"Materiale '{m.name}'",
+        (Part, Part.material_id == m.id, "parte", "parti"),
+    )
     db.delete(m)
     db.commit()
     return {"ok": True}

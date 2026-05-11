@@ -10,9 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Operation
+from app.models import ManufacturingPhase, Operation, WorkflowTemplateStep
 from app.schemas import OperationCreate, OperationUpdate, OperationOut
 
 router = APIRouter(prefix="/api", tags=["operations"])
@@ -57,6 +58,11 @@ def delete_operation(oid: int, db: Session = Depends(get_db)):
     op = db.query(Operation).filter(Operation.id == oid).first()
     if not op:
         raise HTTPException(404, "Lavorazione non trovata")
+    block_if_in_use(
+        db, f"Lavorazione '{op.name}'",
+        (ManufacturingPhase, ManufacturingPhase.operation_id == op.id, "fase", "fasi"),
+        (WorkflowTemplateStep, WorkflowTemplateStep.operation_id == op.id, "step template", "step template"),
+    )
     db.delete(op)
     db.commit()
     return {"ok": True}

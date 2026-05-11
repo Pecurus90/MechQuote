@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
+from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Machine
+from app.models import EdmConfig, Machine, ManufacturingPhase, WorkflowTemplateStep
 from app.schemas import MachineCreate, MachineUpdate, MachineOut
 
 router = APIRouter(prefix="/api", tags=["machines"])
@@ -41,6 +42,12 @@ def delete_machine(mid: int, db: Session = Depends(get_db)):
     m = db.query(Machine).filter(Machine.id == mid).first()
     if not m:
         raise HTTPException(404, "Not found")
+    block_if_in_use(
+        db, f"Centro di costo '{m.name}'",
+        (ManufacturingPhase, ManufacturingPhase.machine_id == m.id, "fase", "fasi"),
+        (WorkflowTemplateStep, WorkflowTemplateStep.machine_id == m.id, "step template", "step template"),
+        (EdmConfig, EdmConfig.default_drilling_machine_id == m.id, "config EDM", "config EDM"),
+    )
     db.delete(m)
     db.commit()
     return {"ok": True}

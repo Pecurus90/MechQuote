@@ -6,9 +6,10 @@ from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Customer
+from app.models import Customer, Quote
 from app.schemas import CustomerCreate, CustomerUpdate, CustomerOut
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,10 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db), _=_can_writ
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
+    block_if_in_use(
+        db, f"Cliente '{customer.name}'",
+        (Quote, Quote.customer_id == customer.id, "preventivo", "preventivi"),
+    )
     db.delete(customer)
     db.commit()
     return {"ok": True}

@@ -11,10 +11,12 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import (
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
+    ManufacturingPhase,
 )
 from app.schemas import (
     EdmConfigOut, EdmConfigUpdate,
@@ -136,6 +138,10 @@ def delete_cycle(cid: int, db: Session = Depends(get_db)):
     cycle = db.query(CuttingCycle).filter(CuttingCycle.id == cid).first()
     if not cycle:
         raise HTTPException(404, "Ciclo non trovato")
+    block_if_in_use(
+        db, f"Ciclo di taglio '{cycle.name}'",
+        (ManufacturingPhase, ManufacturingPhase.cutting_cycle_id == cycle.id, "fase", "fasi"),
+    )
     db.delete(cycle)
     db.commit()
     return {"ok": True}

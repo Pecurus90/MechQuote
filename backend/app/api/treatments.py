@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
+from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Supplier, Treatment
+from app.models import ManufacturingPhase, Supplier, Treatment
 from app.schemas import (
     SupplierCreate, SupplierUpdate, SupplierOut,
     TreatmentCreate, TreatmentUpdate, TreatmentOut,
@@ -45,6 +46,11 @@ def delete_supplier(sid: int, db: Session = Depends(get_db)):
     s = db.query(Supplier).filter(Supplier.id == sid).first()
     if not s:
         raise HTTPException(404, "Not found")
+    block_if_in_use(
+        db, f"Fornitore trattamenti '{s.name}'",
+        (ManufacturingPhase, ManufacturingPhase.supplier_id == s.id, "fase", "fasi"),
+        (Treatment, Treatment.supplier_id == s.id, "trattamento", "trattamenti"),
+    )
     db.delete(s)
     db.commit()
     return {"ok": True}
@@ -80,6 +86,10 @@ def delete_treatment(tid: int, db: Session = Depends(get_db)):
     t = db.query(Treatment).filter(Treatment.id == tid).first()
     if not t:
         raise HTTPException(404, "Not found")
+    block_if_in_use(
+        db, f"Trattamento '{t.name}'",
+        (ManufacturingPhase, ManufacturingPhase.treatment_id == t.id, "fase", "fasi"),
+    )
     db.delete(t)
     db.commit()
     return {"ok": True}

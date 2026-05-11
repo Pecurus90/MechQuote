@@ -320,6 +320,7 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - Dopo qualsiasi write su `Part` o `ManufacturingPhase` → `recalculate_part(part_id, db)`
 - Messaggi `HTTPException` in italiano, contestuali ("Preventivo non trovato", "Permesso negato")
 - Try/except solo dove ha senso. Mai `except: pass` nudo. Se necessario, almeno log.
+- Endpoint **DELETE** su tabelle catalog (Material, Machine, Treatment, Supplier, Operation, ToolType, Customer, ecc.): SEMPRE chiamare `block_if_in_use()` (in `app.core.catalog_protect`) prima di `db.delete()`. Per cataloghi con riferimento via **stringa libera** (raro: oggi solo `ToolType.name`/`ToolBrand.name`/`ToolLocation.name` ↔ `Tool.tool_type`/`brand`/`location`), il PUT deve anche fare cascade rename via `UPDATE` manuale su tutte le tabelle child (pattern in `_mount_tool_attribute_crud` in `api/tools.py`). Senza `block_if_in_use` lasci orfani su SQLite (FK non enforced) o sollevi `IntegrityError` generici opachi.
 
 ### Frontend (TypeScript strict)
 
@@ -331,6 +332,7 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - Toast per ogni feedback utente: `toast.success()`, `toast.error()`. Mai `alert()`. Mai `useState error` + JSX inline
 - `console.error/log/warn` solo se hai contesto utile, mai nudo nei catch (preferisci toast)
 - Settings page: pattern inline-edit di `QuoteCategoriesPage.tsx` (table + edit row state + new row in fondo)
+- Pagine catalogo (lista valori semplici, es. `ToolAttributesPage`): **niente colonna/toggle "Attivo"** nella UI. Le voci si gestiscono solo con create/edit/delete. Il campo `active` può restare nel modello come default `True` per compatibilità ma non va esposto. Motivo: aggiungeva attrito senza valore reale (chi non usa una voce la elimina, non la "disattiva")
 
 ### File "oversize"
 
@@ -420,6 +422,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | `roles=['admin']` invece di `permission='X'` | Gating hardcoded, sistema dinamico inutile | Sempre `permission=` salvo deroghe documentate |
 | `console.error(e); toast.error(...)` nudo | Rumore senza valore in prod | Solo `toast.error(...)`, oppure log con contesto utile |
 | useEffect deps incomplete + `eslint-disable` | Bug latente: l'effect non rifirà quando dovrebbe | Includi le deps che rappresentano gli input semantici dell'effect (es. quantity per ricalcoli legati alla qty) |
+| `DELETE` su catalog senza `block_if_in_use` | Orfani in tabelle child (SQLite FK non enforced) o `IntegrityError` opaco lato frontend | Helper `block_if_in_use` da `app.core.catalog_protect`, sempre. Messaggio italiano con conteggio child |
 | Smoke test su endpoint distruttivi senza backup DB | DB locale svuotato/corrotto, perdita dati irrecuperabile (SQLite no FK enforce) | Prima di chiamare `/api/backup/import`, DELETE batch o pytest integration: `cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)`. Vedi §2.E |
 
 ---

@@ -351,6 +351,9 @@ class QuoteOut(QuoteBase):
     completed_at: Optional[datetime] = None
     submitted_by: Optional[UserMinimal] = None
     completed_by: Optional[UserMinimal] = None
+    material_ordered_at: Optional[datetime] = None
+    material_ordered_by_user_id: Optional[int] = None
+    material_ordered_by: Optional[UserMinimal] = None
     created_at: datetime
     updated_at: datetime
     parts: List[PartOut] = []
@@ -734,4 +737,43 @@ class DxfAnalysisOut(BaseModel):
     suggested_pierce: int
     units: str
     warnings: List[str]
+
+
+# ─── Ordini materiali ──────────────────────────────────────────────────────
+
+class MaterialOrderCreate(BaseModel):
+    quote_ids: List[int] = Field(min_length=1)
+
+
+class MaterialOrderOut(BaseModel):
+    """Sintesi ordine materiali per storico/list view."""
+    id: int
+    created_at: datetime
+    created_by: Optional[UserMinimal] = None
+    quote_count: int
+    quote_numbers: List[str] = []
+
+    class Config:
+        from_attributes = True
+
+
+class MaterialItemAggregated(BaseModel):
+    """Singolo materiale aggregato (stessa specifica grezzo)."""
+    material_id: Optional[int] = None
+    material_name: str
+    family: Optional[str] = None
+    dim_str: str                          # "Prismatico 80×120×30 mm" o "Tondo Ø80×100 mm" o "—"
+    total_qty: int                        # somma quantità delle parti
+    total_weight_kg: float                # somma peso grezzo stimato
+    quote_refs: List[str] = []            # es. ["240-26A_003 ×4", "240-26B_010 ×1"]
+
+
+class MaterialAggregateBySupplier(BaseModel):
+    supplier_id: Optional[int] = None     # None = materiale senza fornitore configurato
+    supplier_name: str                    # "Senza fornitore" se supplier_id None
+    items: List[MaterialItemAggregated] = []
+
+
+class MaterialAggregateOut(BaseModel):
+    groups: List[MaterialAggregateBySupplier] = []
 

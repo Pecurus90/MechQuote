@@ -25,6 +25,7 @@ from app.models import (
     Notification, NotificationRead, CompanySettings,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
     WorkflowTemplate, WorkflowTemplateStep, Operation,
+    MaterialOrder, MaterialOrderQuote,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -59,7 +60,7 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
-    workflow_templates, operations,
+    workflow_templates, operations, orders,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -85,6 +86,7 @@ app.include_router(edm.router, dependencies=_auth)
 app.include_router(dxf.router, dependencies=_auth)
 app.include_router(workflow_templates.router, dependencies=_auth)
 app.include_router(operations.router, dependencies=_auth)
+app.include_router(orders.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -291,6 +293,23 @@ def _run_migrations():
          "sequence_number INTEGER NOT NULL, "
          "machine_id INTEGER REFERENCES machines(id), "
          "operation_id INTEGER NOT NULL REFERENCES operations(id))"),
+
+        # ═══ Ordini materiali ═══
+        # Tracking ordine materiale sui quote + tabella MaterialOrder per
+        # storico degli ordini fatti (con quotes inclusi via join m2m).
+        "ALTER TABLE quotes ADD COLUMN material_ordered_at DATETIME",
+        "ALTER TABLE quotes ADD COLUMN material_ordered_by_user_id INTEGER REFERENCES users(id)",
+        ("CREATE TABLE IF NOT EXISTS material_orders ("
+         "id INTEGER PRIMARY KEY, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "created_by_user_id INTEGER REFERENCES users(id))"),
+        ("CREATE TABLE IF NOT EXISTS material_order_quotes ("
+         "id INTEGER PRIMARY KEY, "
+         "material_order_id INTEGER NOT NULL REFERENCES material_orders(id), "
+         "quote_id INTEGER NOT NULL REFERENCES quotes(id))"),
+        # Permesso orders.materials → admin + ufficio_tecnico + amministrazione
+        "DELETE FROM role_permissions WHERE permission_key = 'orders.materials'",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'orders.materials' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
 
         # ═══ Conto lavoro: materiale fornito dal cliente ═══
         # Flag boolean su Part. Quando True il cost engine azzera material

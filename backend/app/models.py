@@ -86,6 +86,10 @@ class Quote(Base):
     submitted_at = Column(DateTime, nullable=True)
     completed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    # Tracking ordine materiale: settato quando un MaterialOrder include questo
+    # quote (vedi api/orders.py). Indipendente dal workflow stato.
+    material_ordered_at = Column(DateTime, nullable=True)
+    material_ordered_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -93,6 +97,7 @@ class Quote(Base):
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     submitted_by = relationship("User", foreign_keys=[submitted_by_user_id])
     completed_by = relationship("User", foreign_keys=[completed_by_user_id])
+    material_ordered_by = relationship("User", foreign_keys=[material_ordered_by_user_id])
 
 
 class Part(Base):
@@ -516,6 +521,41 @@ class DrillingTime(Base):
     # Colonne legacy nel DB ma non mappate (Sprint 1.5 + Sprint 11):
     #   material_id, diameter_min_mm, diameter_max_mm, height_min_mm,
     #   height_max_mm, seconds_per_hole — il modello smette di leggerle.
+
+
+# ─── Ordini materiali ──────────────────────────────────────────────────────
+
+class MaterialOrder(Base):
+    """Lista materiali da ordinare estratta da un set di preventivi completati.
+
+    Non è l'ordine vero verso il fornitore (quello passa dal gestionale
+    aziendale): è un documento di lavoro che aggrega i materiali grezzi
+    dei preventivi selezionati, raggruppati per fornitore. All'apply:
+    1. Crea questo record + righe in `material_order_quotes`
+    2. Marca ogni quote selezionato con `material_ordered_at`
+    3. Genera PDF + notifica
+    """
+    __tablename__ = "material_orders"
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+    quotes = relationship(
+        "Quote",
+        secondary="material_order_quotes",
+        backref="material_orders",
+    )
+
+
+class MaterialOrderQuote(Base):
+    """Join table N:M tra MaterialOrder e Quote."""
+    __tablename__ = "material_order_quotes"
+
+    id = Column(Integer, primary_key=True)
+    material_order_id = Column(Integer, ForeignKey("material_orders.id"), nullable=False)
+    quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

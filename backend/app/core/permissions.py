@@ -11,19 +11,20 @@ PERMISSION_KEYS: dict[str, str] = {
     "users":         "Gestione utenti",
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",
+    "orders.materials": "Ordini materiali (lista + PDF)",
 }
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "admin": list(PERMISSION_KEYS.keys()),
     "ufficio_tecnico": [
         "dashboard", "quotes.create", "quotes.archive", "quotes.pdf",
-        "quotes.send", "customers", "notifications",
+        "quotes.send", "customers", "notifications", "orders.materials",
     ],
     "officina": [
         "quotes.archive", "quotes.pdf", "notifications",
     ],
     "amministrazione": [
         "dashboard", "quotes.archive", "quotes.pdf",
-        "quotes.complete", "notifications",
+        "quotes.complete", "notifications", "orders.materials",
     ],
 }

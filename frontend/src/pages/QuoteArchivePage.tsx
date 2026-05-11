@@ -179,6 +179,14 @@ export default function QuoteArchivePage() {
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
                           {STATUS_LABELS[q.status] || q.status}
                         </span>
+                        {q.material_ordered_at && (
+                          <span
+                            className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800"
+                            title={`Ordinato il ${new Date(q.material_ordered_at).toLocaleString('it-IT')}${q.material_ordered_by ? ' da ' + (q.material_ordered_by.full_name || q.material_ordered_by.username) : ''}`}
+                          >
+                            Materiale ordinato
+                          </span>
+                        )}
                       </td>
                       <td className="p-3 text-right font-medium">{quoteTotal(q).toFixed(2)} €</td>
                       <td className="p-3 text-center">

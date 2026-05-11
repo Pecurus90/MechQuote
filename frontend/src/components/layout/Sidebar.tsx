@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2, Workflow,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Zap, Gauge, Drill, SlidersHorizontal,
+  Zap, Gauge, Drill, SlidersHorizontal, Package, ShoppingCart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -35,6 +35,7 @@ export default function Sidebar() {
   const { user, hasPermission, logout } = useAuth()
 
   const isQuotesActive = location.pathname.startsWith('/quotes')
+  const isOrdersActive = location.pathname.startsWith('/orders')
   const isSettingsActive = location.pathname.startsWith('/settings')
 
   const canQuote = hasPermission('quotes.create')
@@ -44,6 +45,7 @@ export default function Sidebar() {
   const canCompany = hasPermission('company')
   const canUsers = hasPermission('users')
   const canBackup = hasPermission('backup')
+  const canOrdersMaterials = hasPermission('orders.materials')
 
   const showCatalog = canSettings
   const showAziendaSection = canCompany
@@ -51,6 +53,7 @@ export default function Sidebar() {
   const showSettingsRoot = showCatalog || showAziendaSection || showSystemSection
 
   const [quotesOpen, setQuotesOpen] = useState(isQuotesActive)
+  const [ordersOpen, setOrdersOpen] = useState(isOrdersActive)
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive)
   const [notifOpen, setNotifOpen] = useState(false)
 
@@ -116,6 +119,33 @@ export default function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* ─── Ordini (collapsible) ─── */}
+        {canOrdersMaterials && (
+          <div className="pt-1">
+            <button
+              onClick={() => setOrdersOpen(o => !o)}
+              className={cn(
+                'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
+                isOrdersActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 shrink-0" />
+                <span>Ordini</span>
+              </span>
+              {ordersOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+            </button>
+            {ordersOpen && (
+              <div className="mt-0.5 ml-3 pl-3 border-l border-gray-100 space-y-0.5">
+                <NavLink to="/orders/materials" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <Package className="w-3.5 h-3.5 shrink-0" />
+                  <span>Ordini materiali</span>
+                </NavLink>
+              </div>
+            )}
+          </div>
+        )}
 
         {canCustomers && (
           <NavLink to="/settings/customers" className={({ isActive }) => navLinkClass(isActive)}>

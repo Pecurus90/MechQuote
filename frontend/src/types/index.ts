@@ -163,9 +163,42 @@ export interface Quote {
   completed_at?: string | null
   submitted_by?: UserMinimal | null
   completed_by?: UserMinimal | null
+  material_ordered_at?: string | null
+  material_ordered_by_user_id?: number | null
+  material_ordered_by?: UserMinimal | null
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
+}
+
+// ─── Ordini materiali ──────────────────────────────────────────────────────
+
+export interface MaterialOrder {
+  id: number
+  created_at: string
+  created_by: UserMinimal | null
+  quote_count: number
+  quote_numbers: string[]
+}
+
+export interface MaterialItemAggregated {
+  material_id: number | null
+  material_name: string
+  family: string | null
+  dim_str: string
+  total_qty: number
+  total_weight_kg: number
+  quote_refs: string[]
+}
+
+export interface MaterialAggregateBySupplier {
+  supplier_id: number | null
+  supplier_name: string
+  items: MaterialItemAggregated[]
+}
+
+export interface MaterialAggregateResult {
+  groups: MaterialAggregateBySupplier[]
 }
 
 export interface ActivityRow {
@@ -207,6 +240,8 @@ export interface QuoteListItem {
   quote_date: string
   status: string
   created_by_user_id?: number | null
+  material_ordered_at?: string | null
+  material_ordered_by?: UserMinimal | null
   parts: { total_price?: number }[]
 }
 

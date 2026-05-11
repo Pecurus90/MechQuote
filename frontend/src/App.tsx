@@ -22,6 +22,7 @@ import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
 import UsersPage from '@/pages/settings/UsersPage'
 import RolesPage from '@/pages/settings/RolesPage'
 import ActivityPage from '@/pages/ActivityPage'
+import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
 import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
 import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
 import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
@@ -57,6 +58,7 @@ function AppRoutes() {
         <Route path="quotes/2d/new" element={<ProtectedRoute permission="quotes.create"><NewQuote2DPage /></ProtectedRoute>} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<QuoteArchivePage />} />
+        <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
 
         {/* Settings — gated dal sistema dei permessi dinamici */}

@@ -11,6 +11,7 @@ import { Trash2, Copy, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
+import QuoteValidationModal from '@/components/quotes/QuoteValidationModal'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
@@ -509,6 +510,7 @@ export default function QuoteEditor() {
               treatments={treatments}
               nParts={quote.parts.length || 1}
               globalMarginPercent={quote.global_margin_percent}
+              siblings={quote.parts.filter((_, i) => i !== selectedPartIdx)}
               readOnly={isLocked}
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
               onSave={(override) => savePart(selectedPartIdx, override)}
@@ -561,49 +563,17 @@ export default function QuoteEditor() {
         </fieldset>
       </div>
 
-      {/* Validation modal */}
       {validationIssues && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="px-5 py-4 border-b flex items-center gap-2">
-              <span className="text-amber-500 text-lg">⚠</span>
-              <h2 className="font-semibold text-gray-800">Preventivo incompleto</h2>
-            </div>
-            <div className="px-5 py-4 space-y-3 max-h-80 overflow-y-auto">
-              {validationIssues.map(({ partIdx, partCode, issues }) => (
-                <div key={partIdx}>
-                  <button
-                    onClick={() => { setSelectedPartIdx(partIdx); setValidationIssues(null) }}
-                    className="font-mono font-semibold text-blue-600 hover:underline text-sm"
-                  >
-                    {partCode}
-                  </button>
-                  <ul className="mt-1 space-y-0.5">
-                    {issues.map(issue => (
-                      <li key={issue} className="text-sm text-gray-600 flex items-start gap-1.5">
-                        <span className="text-gray-400 mt-0.5">•</span>
-                        {issue}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              <p className="text-xs text-gray-400 pt-1">Clicca sul codice parte per navigare direttamente alla sezione.</p>
-            </div>
-            <div className="px-5 py-4 border-t flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => { setValidationIssues(null); setPendingPdfType(false) }}>
-                Annulla
-              </Button>
-              <Button size="sm" onClick={() => {
-                if (pendingPdfType) downloadPdf()
-                setValidationIssues(null)
-                setPendingPdfType(false)
-              }}>
-                Genera comunque →
-              </Button>
-            </div>
-          </div>
-        </div>
+        <QuoteValidationModal
+          issues={validationIssues}
+          onSelectPart={idx => { setSelectedPartIdx(idx); setValidationIssues(null) }}
+          onClose={() => { setValidationIssues(null); setPendingPdfType(false) }}
+          onProceed={() => {
+            if (pendingPdfType) downloadPdf()
+            setValidationIssues(null)
+            setPendingPdfType(false)
+          }}
+        />
       )}
     </div>
   )

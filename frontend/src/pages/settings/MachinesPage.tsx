@@ -46,7 +46,7 @@ export default function MachinesPage() {
   }
 
   const startEdit = (m: Machine) => {
-    setEditingId(m.id); setName(m.name); setMtype(m.machine_type)
+    setEditingId(m.id); setName(m.name); setMtype(m.machine_type ?? '')
     setRate(String(m.hourly_rate))
     setSetupRate(m.setup_hourly_rate != null ? String(m.setup_hourly_rate) : '')
     setSetup(String(m.setup_minimum_hours ?? 0))
@@ -75,7 +75,7 @@ export default function MachinesPage() {
 
   const visible = [...machines]
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
-    .filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()) || (MACHINE_TYPES.find(t => t.value === m.machine_type)?.label || m.machine_type).toLowerCase().includes(search.toLowerCase()))
+    .filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()) || (MACHINE_TYPES.find(t => t.value === m.machine_type)?.label || m.machine_type || '').toLowerCase().includes(search.toLowerCase()))
 
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 

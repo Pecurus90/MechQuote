@@ -151,7 +151,7 @@ export default function CuttingCyclesPage() {
               ) : (
                 <ul className="space-y-1">
                   {edit.passes.map((p, i) => (
-                    <li key={i} className="flex items-center gap-2 px-3 py-2 bg-muted/40 rounded">
+                    <li key={p.id ?? `${p.pass_type}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-muted/40 rounded">
                       <span className="text-xs font-mono text-muted-foreground w-8">#{i + 1}</span>
                       <span className={`text-xs px-2 py-0.5 rounded font-medium ${passColor(p.pass_type)}`}>
                         {passLabel(p.pass_type)}
@@ -207,7 +207,7 @@ export default function CuttingCyclesPage() {
               </div>
               <div className="flex flex-wrap gap-1">
                 {c.passes.map((p, i) => (
-                  <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${passColor(p.pass_type)}`}>
+                  <span key={p.id ?? `${p.pass_type}-${i}`} className={`text-[10px] px-1.5 py-0.5 rounded ${passColor(p.pass_type)}`}>
                     {passLabel(p.pass_type)}
                   </span>
                 ))}

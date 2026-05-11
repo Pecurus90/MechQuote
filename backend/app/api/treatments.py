@@ -33,7 +33,7 @@ def create_supplier(data: SupplierCreate, db: Session = Depends(get_db)):
 def update_supplier(sid: int, data: SupplierUpdate, db: Session = Depends(get_db)):
     s = db.query(Supplier).filter(Supplier.id == sid).first()
     if not s:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Fornitore trattamenti non trovato")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(s, k, v)
     db.commit()
@@ -45,7 +45,7 @@ def update_supplier(sid: int, data: SupplierUpdate, db: Session = Depends(get_db
 def delete_supplier(sid: int, db: Session = Depends(get_db)):
     s = db.query(Supplier).filter(Supplier.id == sid).first()
     if not s:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Fornitore trattamenti non trovato")
     block_if_in_use(
         db, f"Fornitore trattamenti '{s.name}'",
         (ManufacturingPhase, ManufacturingPhase.supplier_id == s.id, "fase", "fasi"),
@@ -74,7 +74,7 @@ def create_treatment(data: TreatmentCreate, db: Session = Depends(get_db)):
 def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_db)):
     t = db.query(Treatment).filter(Treatment.id == tid).first()
     if not t:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Trattamento non trovato")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(t, k, v)
     db.commit()
@@ -85,7 +85,7 @@ def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_
 def delete_treatment(tid: int, db: Session = Depends(get_db)):
     t = db.query(Treatment).filter(Treatment.id == tid).first()
     if not t:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Trattamento non trovato")
     block_if_in_use(
         db, f"Trattamento '{t.name}'",
         (ManufacturingPhase, ManufacturingPhase.treatment_id == t.id, "fase", "fasi"),

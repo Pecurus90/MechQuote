@@ -35,6 +35,8 @@ interface Props {
   treatments?: Treatment[]
   nParts?: number
   globalMarginPercent: number
+  /** Altre parti del quote (per aggregazioni preview live: vedi PhaseEditor). */
+  siblings?: Part[]
   readOnly?: boolean
   onUpdate: (updates: Partial<Part>) => void
   onSave: (override?: Partial<Part>) => void
@@ -42,7 +44,7 @@ interface Props {
   onReload?: () => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], treatments = [], nParts = 1, globalMarginPercent, readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
+export default function PartCard({ part, machines, materials, suppliers = [], treatments = [], nParts = 1, globalMarginPercent, siblings = [], readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
@@ -375,6 +377,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
             suppliers={suppliers}
             treatments={treatments}
             finishedWeightKg={part.finished_weight_kg}
+            siblings={siblings}
             partRawZmm={part.raw_z_mm}
             partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
             onReload={onReload}

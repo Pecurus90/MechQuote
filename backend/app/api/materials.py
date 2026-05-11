@@ -33,7 +33,7 @@ def create_material_supplier(data: MaterialSupplierCreate, db: Session = Depends
 def update_material_supplier(sid: int, data: MaterialSupplierUpdate, db: Session = Depends(get_db)):
     s = db.query(MaterialSupplier).filter(MaterialSupplier.id == sid).first()
     if not s:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Fornitore materiali non trovato")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(s, k, v)
     db.commit()
@@ -45,7 +45,7 @@ def update_material_supplier(sid: int, data: MaterialSupplierUpdate, db: Session
 def delete_material_supplier(sid: int, db: Session = Depends(get_db)):
     s = db.query(MaterialSupplier).filter(MaterialSupplier.id == sid).first()
     if not s:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Fornitore materiali non trovato")
     block_if_in_use(
         db, f"Fornitore materiali '{s.name}'",
         (Material, Material.supplier_id == s.id, "materiale", "materiali"),
@@ -73,7 +73,7 @@ def create_material(data: MaterialCreate, db: Session = Depends(get_db)):
 def update_material(mid: int, data: MaterialUpdate, db: Session = Depends(get_db)):
     m = db.query(Material).filter(Material.id == mid).first()
     if not m:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Materiale non trovato")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(m, k, v)
     db.commit()
@@ -84,7 +84,7 @@ def update_material(mid: int, data: MaterialUpdate, db: Session = Depends(get_db
 def delete_material(mid: int, db: Session = Depends(get_db)):
     m = db.query(Material).filter(Material.id == mid).first()
     if not m:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Materiale non trovato")
     block_if_in_use(
         db, f"Materiale '{m.name}'",
         (Part, Part.material_id == m.id, "parte", "parti"),

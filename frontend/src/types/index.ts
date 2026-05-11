@@ -46,6 +46,8 @@ export interface Phase {
   variable_cost_per_part: number
   hourly_rate_override?: number
   calculated_cost: number
+  internal_notes?: string | null
+  customer_notes?: string | null
   // Wire EDM extra (popolati solo se phase_type === 'wire_edm')
   cut_length_mm?: number | null
   cut_height_mm?: number | null
@@ -59,7 +61,7 @@ export interface Machine {
   name: string
   hourly_rate: number
   setup_hourly_rate?: number | null  // costo orario attrezzaggio, NULL → fallback a hourly_rate
-  machine_type: string
+  machine_type?: string | null       // optional — backend Pydantic Optional[str]
   setup_minimum_hours?: number
   active?: boolean
   notes?: string | null

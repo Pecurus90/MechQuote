@@ -73,7 +73,9 @@ _can_manage_users = require_permission('users')
 
 @users_router.get("", response_model=List[UserOut], dependencies=[_can_manage_users])
 def list_users(db: Session = Depends(get_db)):
-    return db.query(User).order_by(User.id).all()
+    # Limit difensivo (audit Sprint D — M5): la lista utenti oggi è piccola
+    # ma .all() senza cap su tabelle che possono crescere è anti-pattern.
+    return db.query(User).order_by(User.id).limit(1000).all()
 
 
 @users_router.post("", response_model=UserOut, dependencies=[_can_manage_users])

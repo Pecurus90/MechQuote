@@ -82,7 +82,11 @@ export function calcPartTotals(part: Part, globalMargin: number, nParts = 1): Pa
   const phaseTotal = part.phases.reduce((s, p) => s + (p.calculated_cost || 0), 0)
   const deliveryPerPiece = (part.material_delivery_cost || 0) / (part.quantity || 1)
   const cuttingPerPiece = part.material?.material_supplier?.cutting_cost_per_part || 0
-  const totalCost = Math.round(((part.material_cost || 0) + deliveryPerPiece + cuttingPerPiece + phaseTotal) * 100) / 100
+  // total_cost accumula intermedi a 4 decimali (gemello backend calculation.py:290-292).
+  // Solo unit_price e total_price finali arrotondano a 2 (mostrati all'utente).
+  const totalCost = Math.round(
+    ((part.material_cost || 0) + deliveryPerPiece + cuttingPerPiece + phaseTotal) * 10000
+  ) / 10000
   const margin = part.margin_percent ?? globalMargin
   const minimum = part.minimum_price ?? 0
   const base = Math.max(totalCost, minimum)

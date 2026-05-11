@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
+import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
 import EdmPhaseFields from '@/components/quotes/EdmPhaseFields'
@@ -31,6 +31,10 @@ interface Props {
   suppliers?: Supplier[]
   treatments?: Treatment[]
   finishedWeightKg?: number
+  /** Altre parti del quote (escluso self). Servono per aggregare i pesi
+   *  per `treatment_id` nel preview live: il backend amortizza i batch
+   *  trattamento su tutte le parti che condividono lo stesso trattamento. */
+  siblings?: Part[]
   /** Altezza grezzo della parte (raw_z_mm). Se popolata, viene suggerita
    *  come `cut_height_mm` quando si carica un DXF su una fase EDM con
    *  altezza ancora vuota — niente sovrascrittura se già impostata. */
@@ -64,7 +68,16 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
+export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
+  // Siblings filtrati per treatment_id: per ogni trattamento, peso × qty di
+  // tutte le altre parti che lo usano. Gemello dell'aggregazione backend
+  // (calculation.py:177-183).
+  const siblingsByTreatmentId = (treatmentId: number) =>
+    siblings.flatMap(p =>
+      p.phases.some(ph => ph.treatment_id === treatmentId)
+        ? [{ finishedWeightKg: p.finished_weight_kg, qty: p.quantity || 1 }]
+        : []
+    )
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
   const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
@@ -97,7 +110,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
       if (ph.treatment_id) {
         const t = treatments.find(t => t.id === ph.treatment_id)
         if (t) {
-          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity)
+          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, siblingsByTreatmentId(t.id))
           next = { ...ph, variable_cost_per_part: varCost }
         }
       }

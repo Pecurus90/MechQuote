@@ -32,7 +32,7 @@ def create_category(data: QuoteCategoryCreate, db: Session = Depends(get_db)):
 def update_category(cid: int, data: QuoteCategoryUpdate, db: Session = Depends(get_db)):
     cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
     if not cat:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Categoria non trovata")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(cat, k, v)
     db.commit()
@@ -44,7 +44,7 @@ def update_category(cid: int, data: QuoteCategoryUpdate, db: Session = Depends(g
 def delete_category(cid: int, db: Session = Depends(get_db)):
     cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
     if not cat:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Categoria non trovata")
     db.delete(cat)
     db.commit()
     return {"ok": True}
@@ -69,7 +69,7 @@ def create_color_rule(data: StepColorRuleCreate, db: Session = Depends(get_db)):
 def update_color_rule(cid: int, data: StepColorRuleBase, db: Session = Depends(get_db)):
     c = db.query(StepColorRule).filter(StepColorRule.id == cid).first()
     if not c:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Regola colore non trovata")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(c, k, v)
     db.commit()
@@ -81,7 +81,7 @@ def update_color_rule(cid: int, data: StepColorRuleBase, db: Session = Depends(g
 def delete_color_rule(cid: int, db: Session = Depends(get_db)):
     c = db.query(StepColorRule).filter(StepColorRule.id == cid).first()
     if not c:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Regola colore non trovata")
     db.delete(c)
     db.commit()
     return {"ok": True}

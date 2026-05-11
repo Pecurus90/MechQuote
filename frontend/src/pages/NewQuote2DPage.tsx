@@ -301,9 +301,7 @@ export default function NewQuote2DPage() {
       toast.success('Preventivo creato')
       navigate(`/quotes/${quoteId}`)
     } catch (e) {
-      // Stampa lo stack in console per facilitare il debug se la pagina sembra
-      // bloccata (es. eccezione async non visibile sotto forma di toast).
-      console.error('[NewQuote2DPage.submit]', e)
+      if (import.meta.env.DEV) console.error('[NewQuote2DPage.submit]', e)
       const err = e as { message?: string; response?: { status?: number; data?: { detail?: string } } }
       const detail = err?.response?.data?.detail
       const status = err?.response?.status
@@ -350,6 +348,7 @@ export default function NewQuote2DPage() {
                         <Input className="h-9 text-sm" placeholder="Cerca per nome o codice..."
                           value={customerSearch || form.customer_name}
                           onFocus={() => setCustomerOpen(true)}
+                          onKeyDown={e => { if (e.key === 'Escape') setCustomerOpen(false) }}
                           onChange={e => {
                             setCustomerSearch(e.target.value)
                             setCustomerOpen(true)

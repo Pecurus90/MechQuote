@@ -202,7 +202,7 @@ export default function WorkflowTemplatesPage() {
                   </thead>
                   <tbody>
                     {edit.steps.map((step, i) => (
-                      <tr key={i} className="border-b last:border-0 hover:bg-muted/20">
+                      <tr key={step.id ?? `step-${i}`} className="border-b last:border-0 hover:bg-muted/20">
                         <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{i + 1}</td>
                         <td className="px-3 py-2">
                           <select
@@ -280,7 +280,7 @@ export default function WorkflowTemplatesPage() {
               </div>
               <ol className="space-y-0.5">
                 {w.steps.map((s, i) => (
-                  <li key={i} className="text-xs text-gray-600 flex gap-2">
+                  <li key={s.id ?? `step-${i}`} className="text-xs text-gray-600 flex gap-2">
                     <span className="font-mono text-gray-400 w-5">{i + 1}.</span>
                     <span className="flex-1 truncate">
                       {operationName(s.operation_id)}

@@ -29,7 +29,7 @@ def create_machine(data: MachineCreate, db: Session = Depends(get_db)):
 def update_machine(mid: int, data: MachineUpdate, db: Session = Depends(get_db)):
     m = db.query(Machine).filter(Machine.id == mid).first()
     if not m:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Centro di costo non trovato")
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(m, k, v)
     db.commit()
@@ -41,7 +41,7 @@ def update_machine(mid: int, data: MachineUpdate, db: Session = Depends(get_db))
 def delete_machine(mid: int, db: Session = Depends(get_db)):
     m = db.query(Machine).filter(Machine.id == mid).first()
     if not m:
-        raise HTTPException(404, "Not found")
+        raise HTTPException(404, "Centro di costo non trovato")
     block_if_in_use(
         db, f"Centro di costo '{m.name}'",
         (ManufacturingPhase, ManufacturingPhase.machine_id == m.id, "fase", "fasi"),

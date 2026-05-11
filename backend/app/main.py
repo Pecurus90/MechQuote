@@ -124,6 +124,11 @@ def _run_migrations():
         "ALTER TABLE parts ADD COLUMN material_delivery_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE manufacturing_phases ADD COLUMN treatment_id INTEGER REFERENCES treatments(id)",
         "ALTER TABLE manufacturing_phases ADD COLUMN is_shared INTEGER DEFAULT 0",
+        # Note fase per DB legacy (audit Sprint A — H1). Su DB freschi
+        # create_all() le aggiunge dal modello; per i DB pre-modello
+        # queste ALTER sono il safety net (idempotente via try/pass).
+        "ALTER TABLE manufacturing_phases ADD COLUMN internal_notes TEXT",
+        "ALTER TABLE manufacturing_phases ADD COLUMN customer_notes TEXT",
         "ALTER TABLE materials ADD COLUMN supplier_id INTEGER REFERENCES material_suppliers(id)",
         "ALTER TABLE suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE suppliers ADD COLUMN address TEXT",

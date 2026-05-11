@@ -410,7 +410,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | `quote.date` invece di `quote.quote_date` | `AttributeError` al render PDF | Il campo è `quote_date`, sempre |
 | Query param `email: str` invece di body Pydantic | Frontend non riesce a inviare JSON | Usa `req: SchemaName` come body, mai query param per dati strutturati |
 | SQLAlchemy `Enum(name="x")` | `InvalidRequestError` startup | `String(N)` con valori documentati nel commento |
-| Nuovo campo nel modello senza riga in `_run_migrations` | DB esistente non ha la colonna, errore runtime | Modello + migration insieme, sempre |
+| Nuovo campo nel modello senza riga in `_run_migrations` | DB esistente non ha la colonna, errore runtime | Modello + migration insieme, sempre. Verifica con `grep <nome_col> backend/app/main.py` prima di committare. NB: `create_all()` aggiunge le colonne sui DB freschi, ma i DB legacy hanno bisogno dell'ALTER esplicito in `_run_migrations` |
 | `joinedload` mancante in GET detail | N+1, dati relazionali vuoti | `joinedload` per ogni relazione usata nella response |
 | `recalculate_part()` non chiamato dopo write | Totali disallineati DB ↔ UI | Dopo ogni POST/PUT/DELETE su Phase/Part |
 | Componente estratto porta con sé costanti del padre | `ReferenceError` runtime | Verifica costanti dopo ogni estrazione |

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { Customer } from '@/types'
@@ -23,6 +23,8 @@ export default function CustomersPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [search, setSearch] = useState('')
+  const [importing, setImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = () => {
     api.get('/customers').then(res => { setCustomers(res.data); setLoading(false) })
@@ -55,6 +57,30 @@ export default function CustomersPage() {
     try { await api.delete(`/customers/${id}`); toast.success('Cliente eliminato'); loadData() } catch (e) {toast.error('Errore nell\'eliminazione') }
   }
 
+  const handleImport = async (file: File) => {
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/customers/import-csv', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { created, updated, skipped } = res.data as { created: number; updated: number; skipped: number }
+      const parts = []
+      if (created) parts.push(`${created} nuovi`)
+      if (updated) parts.push(`${updated} aggiornati`)
+      if (skipped) parts.push(`${skipped} saltati`)
+      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
+      loadData()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')
 
   const visible = [...customers]
@@ -79,6 +105,26 @@ export default function CustomersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) handleImport(f)
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+            title="Importa un CSV clienti del gestionale (separatore ;)"
+          >
+            <Upload className="w-4 h-4 mr-1" />
+            {importing ? 'Import...' : 'Importa CSV'}
+          </Button>
           <Button size="sm" onClick={() => { setEditingId(0); setForm(emptyForm()) }}>
             <Plus className="w-4 h-4 mr-1" /> Nuovo Cliente
           </Button>

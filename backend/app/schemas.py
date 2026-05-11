@@ -29,7 +29,7 @@ class QuoteCategoryOut(QuoteCategoryBase):
 
 # --- Customer ---
 class CustomerBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=200)
     vat_number: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -177,7 +177,7 @@ class PhaseOut(PhaseBase):
 
 # --- MaterialSupplier ---
 class MaterialSupplierBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     address: Optional[str] = None
     shipping_cost: Optional[float] = 0.0
     cutting_cost_per_part: Optional[float] = 0.0
@@ -202,7 +202,7 @@ class MaterialSupplierOut(MaterialSupplierBase):
 
 # --- Material ---
 class MaterialBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     family: Optional[str] = None
     density_kg_dm3: Optional[float] = Field(default=0.0, ge=0)
     cost_per_kg: Optional[float] = Field(default=0.0, ge=0)
@@ -365,7 +365,7 @@ class QuoteOut(QuoteBase):
 
 # --- Machine ---
 class MachineBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     machine_type: Optional[str] = None
     hourly_rate: Optional[float] = Field(default=0.0, ge=0)
     setup_hourly_rate: Optional[float] = Field(default=None, ge=0)
@@ -391,7 +391,7 @@ class MachineOut(MachineBase):
 
 # --- Supplier ---
 class SupplierBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     supplier_type: Optional[str] = None
     address: Optional[str] = None
     shipping_cost: Optional[float] = 0.0
@@ -416,7 +416,7 @@ class SupplierOut(SupplierBase):
 
 # --- Treatment ---
 class TreatmentBase(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=100)
     treatment_type: Optional[str] = None
     cost_per_kg: Optional[float] = Field(default=0.0, ge=0)
     minimum_cost: Optional[float] = Field(default=0.0, ge=0)

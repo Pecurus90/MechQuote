@@ -914,3 +914,18 @@ class ToolOrderOut(BaseModel):
 class ToolOrderDetailOut(ToolOrderOut):
     items: List[ToolOrderItemOut] = []
 
+
+# ─── Officina ──────────────────────────────────────────────────────────────
+
+class OfficinaDocumentOut(BaseModel):
+    id: int
+    title: str
+    category: Optional[str] = None
+    filename: str
+    size_bytes: int
+    uploaded_at: datetime
+    uploaded_by: Optional[UserMinimal] = None
+
+    class Config:
+        from_attributes = True
+

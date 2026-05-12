@@ -510,3 +510,13 @@ export interface StepColorRule {
   notes: string | null
   active: boolean
 }
+
+export interface OfficinaDocument {
+  id: number
+  title: string
+  category: string | null
+  filename: string
+  size_bytes: number
+  uploaded_at: string
+  uploaded_by?: UserMinimal | null
+}

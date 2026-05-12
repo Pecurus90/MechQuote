@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
   Box, Cog, Layers, Ruler, Building2, Workflow,
   Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Zap, Gauge, Drill, SlidersHorizontal, Package, ShoppingCart, Wrench,
+  Zap, Gauge, Drill, SlidersHorizontal, Package, ShoppingCart, Wrench, Hammer,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -163,6 +163,13 @@ export default function Sidebar() {
           <NavLink to="/tools" className={({ isActive }) => navLinkClass(isActive)}>
             <Wrench className="w-4 h-4 shrink-0" />
             <span>Utensili</span>
+          </NavLink>
+        )}
+
+        {hasPermission('officina') && (
+          <NavLink to="/officina" className={({ isActive }) => navLinkClass(isActive)}>
+            <Hammer className="w-4 h-4 shrink-0" />
+            <span>Officina</span>
           </NavLink>
         )}
 

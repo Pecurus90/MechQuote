@@ -35,6 +35,9 @@ backend/test-results/
 # Uploads
 backend/uploads/*
 !backend/uploads/.gitkeep
+!backend/uploads/officina/
+backend/uploads/officina/*
+!backend/uploads/officina/.gitkeep
 
 # Logs
 *.log

@@ -61,7 +61,7 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
-    workflow_templates, operations, orders, tools, orders_tools,
+    workflow_templates, operations, orders, tools, orders_tools, officina,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -90,6 +90,7 @@ app.include_router(operations.router, dependencies=_auth)
 app.include_router(orders.router, dependencies=_auth)
 app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
+app.include_router(officina.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -378,6 +379,24 @@ def _run_migrations():
         "ALTER TABLE parts ADD COLUMN material_from_stock INTEGER DEFAULT 0",
         "ALTER TABLE company_settings ADD COLUMN stock_shipping_cost FLOAT DEFAULT 0.0",
         "ALTER TABLE company_settings ADD COLUMN stock_cutting_cost_per_part FLOAT DEFAULT 0.0",
+
+        # ═══ Sezione Officina (documenti, tabelle reference, calcolatori) ═══
+        # Permessi: 'officina' (read), 'officina.write' (upload + modifiche).
+        # Read: admin + ufficio_tecnico + amministrazione + officina.
+        # Write: admin + ufficio_tecnico (l'officinista consulta soltanto).
+        "DELETE FROM role_permissions WHERE permission_key IN ('officina', 'officina.write')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name IN ('admin','ufficio_tecnico')",
+
+        ("CREATE TABLE IF NOT EXISTS officina_documents ("
+         "id INTEGER PRIMARY KEY, "
+         "title VARCHAR(200) NOT NULL, "
+         "category VARCHAR(80), "
+         "filename VARCHAR(255) NOT NULL, "
+         "file_path VARCHAR(500) NOT NULL, "
+         "size_bytes INTEGER DEFAULT 0, "
+         "uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "uploaded_by_user_id INTEGER REFERENCES users(id))"),
 
         # ═══ Attributi utensili (Tipo / Marchio / Posizione) ═══
         # Tabelle di catalogo gestite da Settings → Attributi utensili.

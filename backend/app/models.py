@@ -696,6 +696,30 @@ class ToolOrderItem(Base):
     order = relationship("ToolOrder", back_populates="items")
 
 
+# ─── Officina (sezione documentazione operativa) ───────────────────────────
+
+class OfficinaDocument(Base):
+    """PDF cataloghi/schede consultabili dagli operatori in officina.
+
+    Solo PDF (filtrato MIME server-side). Categoria libera con dropdown
+    auto-popolato dai valori esistenti (pattern Tool attributi). Upload
+    riservato a `officina.write` (admin + ufficio_tecnico), lettura a tutti
+    gli operatori con permesso `officina`.
+    """
+    __tablename__ = "officina_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    category = Column(String(80))                 # libera, popolata dai valori esistenti
+    filename = Column(String(255), nullable=False)  # filename originale
+    file_path = Column(String(500), nullable=False)  # path su disco (uploads/officina/)
+    size_bytes = Column(Integer, default=0)
+    uploaded_at = Column(DateTime, server_default=func.now())
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])
+
+
 # ─── Event listeners ────────────────────────────────────────────────────────
 
 @event.listens_for(PartFile, 'before_delete')
@@ -721,3 +745,16 @@ def _cleanup_partfile_blob(_mapper, _connection, target: PartFile) -> None:
             os.remove(target.path)
     except OSError as e:
         logger.warning("Cleanup blob PartFile %s (%s) fallito: %s", target.id, target.path, e)
+
+
+@event.listens_for(OfficinaDocument, 'before_delete')
+def _cleanup_officina_doc_blob(_mapper, _connection, target: OfficinaDocument) -> None:
+    """Stesso pattern di PartFile: pulisce il PDF su disco quando il record
+    viene eliminato. OSError non blocca il delete."""
+    if not target.file_path:
+        return
+    try:
+        if os.path.exists(target.file_path):
+            os.remove(target.file_path)
+    except OSError as e:
+        logger.warning("Cleanup blob OfficinaDocument %s (%s) fallito: %s", target.id, target.file_path, e)

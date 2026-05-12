@@ -30,6 +30,6 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "amministrazione": [
         "dashboard", "quotes.archive", "quotes.pdf",
         "quotes.complete", "notifications", "orders.materials", "tools",
-        "officina",
+        "officina", "officina.write",
     ],
 }

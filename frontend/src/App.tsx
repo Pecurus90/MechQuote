@@ -27,6 +27,7 @@ import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
 import ToolsPage from '@/pages/ToolsPage'
 import OfficinaHub from '@/pages/officina/OfficinaHub'
 import OfficinaDocumentsPage from '@/pages/officina/DocumentsPage'
+import OfficinaMaterialsPage from '@/pages/officina/MaterialsPage'
 import ToolSuppliersPage from '@/pages/settings/ToolSuppliersPage'
 import ToolAttributesPage from '@/pages/settings/ToolAttributesPage'
 import MaterialSuppliersPage from '@/pages/settings/MaterialSuppliersPage'
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />
         <Route path="officina" element={<ProtectedRoute permission="officina"><OfficinaHub /></ProtectedRoute>} />
         <Route path="officina/documenti" element={<ProtectedRoute permission="officina"><OfficinaDocumentsPage /></ProtectedRoute>} />
+        <Route path="officina/materiali" element={<ProtectedRoute permission="officina"><OfficinaMaterialsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
 
         {/* Settings — gated dal sistema dei permessi dinamici */}

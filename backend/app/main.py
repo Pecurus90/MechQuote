@@ -386,7 +386,7 @@ def _run_migrations():
         # Write: admin + ufficio_tecnico (l'officinista consulta soltanto).
         "DELETE FROM role_permissions WHERE permission_key IN ('officina', 'officina.write')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina')",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name IN ('admin','ufficio_tecnico')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
 
         ("CREATE TABLE IF NOT EXISTS officina_documents ("
          "id INTEGER PRIMARY KEY, "
@@ -397,6 +397,11 @@ def _run_migrations():
          "size_bytes INTEGER DEFAULT 0, "
          "uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
          "uploaded_by_user_id INTEGER REFERENCES users(id))"),
+
+        # Scheda tecnica PDF per Material (1 PDF allegato, opzionale).
+        # Path al blob in uploads/officina/materiali/. Gestito da
+        # /api/materials/{id}/datasheet (upload/download/delete).
+        "ALTER TABLE materials ADD COLUMN datasheet_path VARCHAR(500)",
 
         # ═══ Attributi utensili (Tipo / Marchio / Posizione) ═══
         # Tabelle di catalogo gestite da Settings → Attributi utensili.

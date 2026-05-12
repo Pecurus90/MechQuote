@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
-import { FileText, Ruler, BookOpen, Calculator, Hammer } from 'lucide-react'
+import { FileText, Ruler, BookOpen, Calculator, Hammer, Box } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 
 interface Tile {
@@ -17,10 +17,17 @@ export default function OfficinaHub() {
 
   const tiles: Tile[] = [
     {
+      to: '/officina/materiali',
+      icon: <Box className="w-7 h-7 text-blue-700" />,
+      title: 'Materiali',
+      subtitle: 'Catalogo materiali con schede tecniche PDF',
+      available: canRead,
+    },
+    {
       to: '/officina/documenti',
       icon: <FileText className="w-7 h-7 text-blue-700" />,
       title: 'Documenti',
-      subtitle: 'Cataloghi PDF, schede materiali, manuali',
+      subtitle: 'Cataloghi PDF, manuali, schede generiche',
       available: canRead,
     },
     {

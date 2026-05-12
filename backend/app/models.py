@@ -233,8 +233,18 @@ class Material(Base):
     active = Column(Boolean, default=True)
     notes = Column(Text)
     supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
+    # Scheda tecnica PDF: path al blob in uploads/officina/materiali/.
+    # Gestito via /api/materials/{id}/datasheet (upload/download/delete).
+    # Consultabile dall'officinista nella vista /officina/materiali (read-only).
+    datasheet_path = Column(String(500), nullable=True)
 
     material_supplier = relationship("MaterialSupplier")
+
+    @property
+    def has_datasheet(self) -> bool:
+        """Esposto in MaterialOut. Il path effettivo non è mai serializzato
+        verso il client (privacy interna)."""
+        return bool(self.datasheet_path)
 
 
 class Machine(Base):

@@ -80,6 +80,7 @@ export interface Material {
   notes?: string | null
   supplier_id?: number | null
   material_supplier?: MaterialSupplier | null
+  has_datasheet?: boolean   // true se Material ha una scheda PDF allegata
 }
 
 export interface Category {

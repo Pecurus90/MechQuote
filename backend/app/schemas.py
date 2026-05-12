@@ -236,6 +236,9 @@ class MaterialUpdate(MaterialBase):
 class MaterialOut(MaterialBase):
     id: int
     material_supplier: Optional[MaterialSupplierOut] = None
+    # Letto dalla @property Material.has_datasheet via from_attributes=True.
+    # Il path su disco non viene mai esposto al client.
+    has_datasheet: bool = False
 
     class Config:
         from_attributes = True

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, FileText } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
@@ -216,17 +216,18 @@ export default function MaterialsPage() {
             <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[17%] font-medium text-gray-600">Famiglia</th>
-                  <th className="text-right p-3 w-[15%] font-medium text-gray-600">Densità (kg/dm³)</th>
-                  <th className="text-right p-3 w-[15%] font-medium text-gray-600">Costo €/kg</th>
-                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
-                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Nome</th>
+                  <th className="text-left p-3 w-[14%] font-medium text-gray-600">Famiglia</th>
+                  <th className="text-right p-3 w-[13%] font-medium text-gray-600">Densità (kg/dm³)</th>
+                  <th className="text-right p-3 w-[12%] font-medium text-gray-600">Costo €/kg</th>
+                  <th className="text-left p-3 w-[17%] font-medium text-gray-600">Fornitore</th>
+                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Scheda PDF</th>
+                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleMat.length === 0 && (
-                  <tr><td colSpan={6} className="p-6 text-center text-gray-400">Nessun materiale trovato.</td></tr>
+                  <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun materiale trovato.</td></tr>
                 )}
                 {visibleMat.map(m => (
                   <tr key={m.id} className="border-b hover:bg-gray-50">
@@ -235,6 +236,11 @@ export default function MaterialsPage() {
                     <td className="p-3 text-right">{m.density_kg_dm3}</td>
                     <td className="p-3 text-right">{m.cost_per_kg}</td>
                     <td className="p-3 text-gray-500 text-xs truncate">{m.material_supplier?.name || '—'}</td>
+                    <td className="p-3 text-center text-xs">
+                      {m.has_datasheet
+                        ? <span className="inline-flex items-center gap-1 text-green-700"><FileText className="w-3.5 h-3.5" /> Allegata</span>
+                        : <span className="text-gray-400 italic">—</span>}
+                    </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
                         <button onClick={() => startEditMat(m)} className="p-1 hover:bg-gray-100 rounded">

@@ -394,16 +394,21 @@ export default function OrdersMaterialsPage() {
                     <table className="w-full text-xs">
                       <tbody>
                         {g.items.map((it, i) => (
-                          <tr key={i} className="border-b last:border-0">
+                          <tr key={i} className={`border-b last:border-0 ${it.from_stock ? 'bg-amber-50/40' : ''}`}>
                             <td className="p-2">
-                              <div className="font-medium text-gray-800">
-                                {it.material_name}
+                              <div className="font-medium text-gray-800 flex items-center gap-2 flex-wrap">
+                                <span>{it.material_name}</span>
                                 {it.family && <span className="text-gray-400 font-normal"> ({it.family.replace(/_/g, ' ')})</span>}
+                                {it.from_stock && (
+                                  <span className="inline-block bg-amber-100 text-amber-800 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded">
+                                    Da magazzino
+                                  </span>
+                                )}
                               </div>
                               <div className="text-gray-500 text-[11px]">{it.dim_str}</div>
                             </td>
                             <td className="p-2 text-right font-mono whitespace-nowrap">
-                              <div className="font-semibold text-blue-700">{it.total_qty} pz</div>
+                              <div className={`font-semibold ${it.from_stock ? 'text-amber-700' : 'text-blue-700'}`}>{it.total_qty} pz</div>
                               <div className="text-[11px] text-gray-500">{it.total_weight_kg.toFixed(2)} kg</div>
                             </td>
                           </tr>

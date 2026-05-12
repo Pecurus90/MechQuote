@@ -20,6 +20,7 @@ import asyncio
 import math
 import os
 import tempfile
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import FileResponse
@@ -221,6 +222,17 @@ body {
 }
 .cl-note { font-size: 9px; color: var(--gold); font-style: italic; margin-top: 4px; }
 
+/* Badge "a magazzino": materiale preso dalle scorte officina, override
+ * shipping/cutting da CompanySettings. Più sobrio del conto lavoro
+ * (grigio chiaro, non oro) — è una nota interna, non per il cliente. */
+.stock-badge {
+  display: inline-block; background: var(--gray-100); color: var(--gray-500);
+  font-size: 7.5px; font-weight: 600; letter-spacing: 1.2px;
+  padding: 2px 7px; border-radius: 3px; text-transform: uppercase;
+  margin-left: 8px;
+}
+.stock-note { font-size: 9px; color: var(--gray-500); font-style: italic; margin-top: 4px; }
+
 /* Tabella costi (materiale, trattamento) */
 .cost-rows { font-size: 10px; }
 .cost-row { display: flex; justify-content: space-between;
@@ -395,7 +407,7 @@ def _render_meta_bar(quote: Quote) -> str:
     return f'<div class="meta">{blocks}</div>\n'
 
 
-def _render_material_section(part: Part, cur: str) -> str:
+def _render_material_section(part: Part, cur: str, cs: Optional[CompanySettings] = None) -> str:
     """Sezione materiale con sotto-voci spedizione + taglio. '' se no material."""
     mat = part.material
     if not mat:
@@ -445,9 +457,17 @@ def _render_material_section(part: Part, cur: str) -> str:
 </div>
 """
 
-    # Costi: grezzo + spedizione/pezzo + taglio/pezzo
+    # Costi: grezzo + spedizione/pezzo + taglio/pezzo.
+    # Per `material_from_stock`: shipping e cutting provengono dagli override
+    # CompanySettings (già scritti dal cost engine in part.material_delivery_cost
+    # e applicati alla quotazione). Mostriamo i valori effettivi che il backend
+    # ha calcolato — la differenza nel PDF è solo la nota "a magazzino".
     delivery_pp = (part.material_delivery_cost or 0.0) / qty
-    cutting_pp = (mat.material_supplier.cutting_cost_per_part or 0.0) if mat.material_supplier else 0.0
+    if part.material_from_stock:
+        # Override globale: cutting da CompanySettings (non dal supplier).
+        cutting_pp = (cs.stock_cutting_cost_per_part or 0.0) if cs else 0.0
+    else:
+        cutting_pp = (mat.material_supplier.cutting_cost_per_part or 0.0) if mat.material_supplier else 0.0
     raw_cost = part.material_cost or 0.0
     total_mat = raw_cost + delivery_pp + cutting_pp
 
@@ -457,11 +477,16 @@ def _render_material_section(part: Part, cur: str) -> str:
     if cutting_pp > 0.005:
         sub_rows += f'<div class="cost-row cost-sub"><span class="label">Taglio grezzo</span><span class="val">{_fmt_eur(cutting_pp)} {cur}</span></div>'
 
+    badge = '<span class="stock-badge">A magazzino</span>' if part.material_from_stock else ''
+    note = ('<div class="stock-note">Materiale prelevato dalle scorte officina.</div>'
+            if part.material_from_stock else '')
+
     return f"""
 <div class="section">
-  <div class="sec-head">{ICON_CUBE}<span>Materiale</span></div>
+  <div class="sec-head">{ICON_CUBE}<span>Materiale</span>{badge}</div>
   <div class="sec-info">{mat_label}</div>
   {('<div class="sec-info">' + info_line + '</div>') if info_line else ''}
+  {note}
   <div class="cost-rows">
     <div class="cost-row"><span class="label">Costo grezzo</span><span class="val">{_fmt_eur(raw_cost)} {cur}/pz</span></div>
     {sub_rows}
@@ -628,7 +653,7 @@ def _render_part_pricing(part: Part, quote: Quote, cur: str) -> str:
 """
 
 
-def _render_part(part: Part, quote: Quote, cur: str) -> str:
+def _render_part(part: Part, quote: Quote, cur: str, cs: Optional[CompanySettings] = None) -> str:
     """Card completa di una parte: header + sezioni + pricing."""
     qty = part.quantity or 1
     rev = part.revision or ""
@@ -643,7 +668,7 @@ def _render_part(part: Part, quote: Quote, cur: str) -> str:
     {desc_html}
     <span class="part-qty">Qtà × {qty}</span>
   </div>
-  {_render_material_section(part, cur)}
+  {_render_material_section(part, cur, cs)}
   {_render_treatment_section(part, cur)}
   {_render_phases_table(part, cur)}
   {_render_part_pricing(part, quote, cur)}
@@ -736,7 +761,7 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
         _render_meta_bar(quote),
     ]
     for part in parts:
-        html_parts.append(_render_part(part, quote, cur))
+        html_parts.append(_render_part(part, quote, cur, cs))
 
     html_parts.append(_render_totals(parts, quote, cur))
     html_parts.append(_render_notes(quote))

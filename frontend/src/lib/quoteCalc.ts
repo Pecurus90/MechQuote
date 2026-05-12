@@ -1,4 +1,4 @@
-import type { Part, Quote, Material, Treatment } from '@/types'
+import type { Part, Quote, Material, Treatment, CompanySettings } from '@/types'
 
 /** Sibling part contribution (peso fisico × qty) per le aggregazioni di
  *  costi tra parti del preventivo commessa. */
@@ -77,15 +77,34 @@ export function calcMaterialCost(part: Part, material: Material | undefined): nu
   return Math.round(kg * material.cost_per_kg * scrap * 100) / 100
 }
 
-export function calcPartTotals(part: Part, globalMargin: number, nParts = 1): Part {
+export function calcPartTotals(
+  part: Part,
+  globalMargin: number,
+  nParts = 1,
+  companySettings?: CompanySettings | null,
+): Part {
   void nParts // reserved for future shared-phase recalc; kept for API parity with backend
   const phaseTotal = part.phases.reduce((s, p) => s + (p.calculated_cost || 0), 0)
-  const deliveryPerPiece = (part.material_delivery_cost || 0) / (part.quantity || 1)
-  const cuttingPerPiece = part.material?.material_supplier?.cutting_cost_per_part || 0
+  // Branch shipping/cutting — gemello DRY di backend/services/calculation.py
+  //   recalculate_quote() (cerca elif part.material_from_stock).
+  let materialCost: number
+  let deliveryPerPiece: number
+  let cuttingPerPiece: number
+  if (part.customer_supplied_material) {
+    materialCost = 0; deliveryPerPiece = 0; cuttingPerPiece = 0
+  } else if (part.material_from_stock && companySettings) {
+    materialCost = part.material_cost || 0
+    deliveryPerPiece = (companySettings.stock_shipping_cost || 0) / (part.quantity || 1)
+    cuttingPerPiece = companySettings.stock_cutting_cost_per_part || 0
+  } else {
+    materialCost = part.material_cost || 0
+    deliveryPerPiece = (part.material_delivery_cost || 0) / (part.quantity || 1)
+    cuttingPerPiece = part.material?.material_supplier?.cutting_cost_per_part || 0
+  }
   // total_cost accumula intermedi a 4 decimali (gemello backend calculation.py:290-292).
   // Solo unit_price e total_price finali arrotondano a 2 (mostrati all'utente).
   const totalCost = Math.round(
-    ((part.material_cost || 0) + deliveryPerPiece + cuttingPerPiece + phaseTotal) * 10000
+    (materialCost + deliveryPerPiece + cuttingPerPiece + phaseTotal) * 10000
   ) / 10000
   const margin = part.margin_percent ?? globalMargin
   const minimum = part.minimum_price ?? 0

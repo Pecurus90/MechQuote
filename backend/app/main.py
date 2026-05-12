@@ -370,6 +370,15 @@ def _run_migrations():
         # restano per autocalc EDM e PDF.
         "ALTER TABLE parts ADD COLUMN customer_supplied_material INTEGER DEFAULT 0",
 
+        # ═══ Materiale a magazzino (override shipping/cutting) ═══
+        # Secondo flag mutex con customer_supplied_material. Quando True il
+        # cost engine usa stock_shipping_cost/stock_cutting_cost_per_part da
+        # CompanySettings invece di shipping/cutting del fornitore abituale.
+        # Il costo grezzo (vol×densità×€/kg×scrap) resta applicato.
+        "ALTER TABLE parts ADD COLUMN material_from_stock INTEGER DEFAULT 0",
+        "ALTER TABLE company_settings ADD COLUMN stock_shipping_cost FLOAT DEFAULT 0.0",
+        "ALTER TABLE company_settings ADD COLUMN stock_cutting_cost_per_part FLOAT DEFAULT 0.0",
+
         # ═══ Attributi utensili (Tipo / Marchio / Posizione) ═══
         # Tabelle di catalogo gestite da Settings → Attributi utensili.
         # Tool.tool_type / brand / location restano stringhe libere; queste

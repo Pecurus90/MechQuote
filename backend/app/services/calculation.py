@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import (
     Part, ManufacturingPhase, Quote, Material,
     EdmConfig, EdmCutSpeed, CuttingCycle, Treatment, MaterialSupplier, Supplier,
+    CompanySettings,
 )
 
 
@@ -166,12 +167,21 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     treatment_shipping_n: Dict[int, int] = defaultdict(int)
     material_shipping_n: Dict[int, int] = defaultdict(int)
 
+    # CompanySettings singleton — letto 1 volta per riusare gli override
+    # `stock_shipping_cost` / `stock_cutting_cost_per_part` quando una parte
+    # ha `material_from_stock=True`.
+    cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
+    stock_ship = (cs.stock_shipping_cost if cs else 0.0) or 0.0
+    stock_cut = (cs.stock_cutting_cost_per_part if cs else 0.0) or 0.0
+
     for p in parts:
         weight = (p.finished_weight_kg or 0.0) * (p.quantity or 1)
-        # Conto lavoro: il materiale arriva dal cliente → la parte NON entra
-        # nel batch spedizione materiale (sennò ne paga una quota senza
-        # consumare materiale dell'officina).
-        if p.material and p.material.supplier_id and not p.customer_supplied_material:
+        # Conto lavoro o materiale a magazzino: la parte NON entra nel batch
+        # spedizione del fornitore abituale (in entrambi i casi non usa
+        # spedizione del fornitore materiale).
+        if (p.material and p.material.supplier_id
+                and not p.customer_supplied_material
+                and not p.material_from_stock):
             material_shipping[p.material.supplier_id] += weight
             material_shipping_n[p.material.supplier_id] += 1
         for ph in p.phases:
@@ -196,6 +206,16 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             part.material_delivery_cost = 0.0
             delivery_per_piece = 0.0
             cutting_per_piece = 0.0
+        elif part.material_from_stock:
+            # Materiale a magazzino: grezzo applicato normalmente, shipping e
+            # cutting del fornitore sostituiti dagli override CompanySettings.
+            if part.material_id and part.material:
+                recomputed = _compute_material_cost(part, part.material)
+                if recomputed is not None:
+                    part.material_cost = recomputed
+            part.material_delivery_cost = round(stock_ship, 4)
+            delivery_per_piece = stock_ship / qty
+            cutting_per_piece = stock_cut
         else:
             # Costo materiale (calcolato da volume × densità × €/kg × scrap).
             if part.material_id and part.material:

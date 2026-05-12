@@ -258,6 +258,7 @@ class PartBase(BaseModel):
     material_cost: Optional[float] = Field(default=0.0, ge=0)
     material_delivery_cost: Optional[float] = Field(default=0.0, ge=0)
     customer_supplied_material: Optional[bool] = False
+    material_from_stock: Optional[bool] = False
     margin_percent: Optional[float] = None  # può essere negativo (sconto), niente vincolo
     minimum_price: Optional[float] = Field(default=None, ge=0)
     customer_notes: Optional[str] = None
@@ -454,6 +455,8 @@ class CompanySettingsBase(BaseModel):
     default_minimum_part_price: float = Field(default=0.0, ge=0)
     default_transport_cost: float = Field(default=0.0, ge=0)
     default_packaging_cost: float = Field(default=0.0, ge=0)
+    stock_shipping_cost: float = Field(default=0.0, ge=0)
+    stock_cutting_cost_per_part: float = Field(default=0.0, ge=0)
 
 
 class CompanySettingsUpdate(CompanySettingsBase):
@@ -766,6 +769,7 @@ class MaterialItemAggregated(BaseModel):
     total_qty: int                        # somma quantità delle parti
     total_weight_kg: float                # somma peso grezzo stimato
     quote_refs: List[str] = []            # es. ["240-26A_003 ×4", "240-26B_010 ×1"]
+    from_stock: bool = False              # True se parti marcate "a magazzino" (badge UI/PDF)
 
 
 class MaterialAggregateBySupplier(BaseModel):

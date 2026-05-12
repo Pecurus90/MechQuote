@@ -127,6 +127,7 @@ export interface Part {
   material_cost: number
   material_delivery_cost?: number
   customer_supplied_material?: boolean  // conto lavoro: materiale fornito dal cliente
+  material_from_stock?: boolean         // a magazzino: override shipping/cutting da CompanySettings
   margin_percent?: number
   minimum_price?: number
   total_cost: number
@@ -191,6 +192,7 @@ export interface MaterialItemAggregated {
   total_qty: number
   total_weight_kg: number
   quote_refs: string[]
+  from_stock?: boolean
 }
 
 export interface MaterialAggregateBySupplier {
@@ -493,6 +495,8 @@ export interface CompanySettings {
   default_minimum_part_price: number
   default_transport_cost: number
   default_packaging_cost: number
+  stock_shipping_cost: number
+  stock_cutting_cost_per_part: number
   updated_at?: string
 }
 

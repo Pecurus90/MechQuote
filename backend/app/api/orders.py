@@ -11,6 +11,11 @@ lavoro che poi viene inserito nel gestionale aziendale.
 
 Conto lavoro: le parti con `customer_supplied_material=True` sono ESCLUSE
 dall'aggregazione (il cliente porta il materiale, non si ordina).
+
+Materiale a magazzino: le parti con `material_from_stock=True` sono INCLUSE
+nell'aggregazione ma marcate con `from_stock=True` per render badge UI/PDF
+(l'utente le vede comunque nella lista del fornitore abituale, ma marcate
+come "Da magazzino" per non confonderle con materiale da ordinare).
 """
 import asyncio
 import logging
@@ -91,16 +96,20 @@ def _estimate_weight_kg(part: Part) -> float:
 def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateOut:
     """Aggrega i materiali grezzi delle parti dei quote selezionati.
 
-    Filtra fuori parti `customer_supplied_material=True` (cliente porta materiale).
-    Raggruppa per (supplier_id, material_id, dim_signature). Le parti senza
-    `material_id` vengono escluse (niente materiale = niente da ordinare).
+    Esclude parti `customer_supplied_material=True` (cliente porta materiale).
+    Le parti `material_from_stock=True` sono INCLUSE ma marcate con
+    `from_stock=True` nell'entry aggregata, perché l'utente vuole comunque
+    vederle nella lista del fornitore abituale (con badge "Da magazzino").
+    Raggruppa per (supplier_id, material_id, dim_signature, from_stock).
+    Le parti senza `material_id` vengono escluse (niente materiale = niente
+    da ordinare).
     """
     parts = db.query(Part).options(
         joinedload(Part.material).joinedload(__import__('app.models', fromlist=['Material']).Material.material_supplier),
         joinedload(Part.quote),
     ).filter(Part.quote_id.in_(quote_ids)).all()
 
-    # Aggregazione: key = (supplier_id, material_id, dim_sig)
+    # Aggregazione: key = (supplier_id, material_id, dim_sig, from_stock)
     aggr: Dict[Tuple, Dict[str, Any]] = defaultdict(lambda: {
         'material_id': None,
         'material_name': '',
@@ -110,6 +119,7 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
         'total_weight_kg': 0.0,
         'supplier_id': None,
         'supplier_name': '',
+        'from_stock': False,
         'quote_refs': defaultdict(int),  # quote_number → qty totale
     })
 
@@ -124,7 +134,10 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
         sup_id = mat.supplier_id
         sup_name = sup.name if sup else 'Senza fornitore'
 
-        key = (sup_id, p.material_id, _dim_signature(p))
+        # Key estesa con `from_stock`: una stessa combinazione
+        # (supplier, material, dim) può avere 2 righe distinte se ci sono
+        # parti normali E parti a magazzino → l'utente le vede separate.
+        key = (sup_id, p.material_id, _dim_signature(p), bool(p.material_from_stock))
         slot = aggr[key]
         slot['material_id'] = p.material_id
         slot['material_name'] = mat.name
@@ -132,6 +145,7 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
         slot['dim_str'] = _format_dim(p)
         slot['supplier_id'] = sup_id
         slot['supplier_name'] = sup_name
+        slot['from_stock'] = bool(p.material_from_stock)
         slot['total_qty'] += (p.quantity or 1)
         slot['total_weight_kg'] += _estimate_weight_kg(p)
         if p.quote:
@@ -156,6 +170,7 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
             total_qty=slot['total_qty'],
             total_weight_kg=round(slot['total_weight_kg'], 3),
             quote_refs=refs,
+            from_stock=slot['from_stock'],
         ))
 
     # Ordina items dentro ogni gruppo per nome materiale; gruppi per nome fornitore.

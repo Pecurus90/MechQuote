@@ -11,6 +11,7 @@ const empty: Omit<CompanySettings, 'id' | 'updated_at'> = {
   name: '', address: '', vat: '', phone: '', email: '', website: '',
   default_margin_percent: 20, default_minimum_part_price: 0,
   default_transport_cost: 0, default_packaging_cost: 0,
+  stock_shipping_cost: 0, stock_cutting_cost_per_part: 0,
 }
 
 export default function CompanySettingsPage() {
@@ -126,6 +127,33 @@ export default function CompanySettingsPage() {
               <Input type="number" min={0} step={0.5} value={settings.default_packaging_cost}
                 onChange={e => setSettings(s => ({ ...s, default_packaging_cost: num(e.target.value) }))} />
               <p className="text-[11px] text-gray-400 mt-0.5">Importo precompilato come spese di imballaggio</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Materiale a magazzino</CardTitle>
+          <p className="text-xs text-gray-500 mt-1">
+            Valori applicati quando una parte è marcata come <strong>"A magazzino"</strong>
+            nella card preventivo. Sostituiscono shipping e taglio del fornitore abituale
+            (il costo grezzo del materiale viene comunque calcolato normalmente).
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Costo spedizione (€)</label>
+              <Input type="number" min={0} step={0.5} value={settings.stock_shipping_cost}
+                onChange={e => setSettings(s => ({ ...s, stock_shipping_cost: num(e.target.value) }))} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Spedizione fissa per parte a magazzino</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Costo taglio per pezzo (€)</label>
+              <Input type="number" min={0} step={0.5} value={settings.stock_cutting_cost_per_part}
+                onChange={e => setSettings(s => ({ ...s, stock_cutting_cost_per_part: num(e.target.value) }))} />
+              <p className="text-[11px] text-gray-400 mt-0.5">Taglio applicato per ogni pezzo a magazzino</p>
             </div>
           </div>
         </CardContent>

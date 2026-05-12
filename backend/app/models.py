@@ -124,6 +124,11 @@ class Part(Base):
     # Le info di materiale/dimensioni restano visibili (utili per autocalc
     # EDM, peso finito, PDF).
     customer_supplied_material = Column(Boolean, default=False)
+    # Materiale a magazzino: lo abbiamo già in officina. Il costo grezzo
+    # (vol×densità×€/kg×scrap) resta applicato; shipping e cutting del
+    # fornitore sono sostituiti da 2 override globali in CompanySettings.
+    # Mutex con customer_supplied_material (UI gestisce con radio).
+    material_from_stock = Column(Boolean, default=False)
     margin_percent = Column(Float)
     minimum_price = Column(Float)
     customer_notes = Column(Text)
@@ -291,6 +296,10 @@ class CompanySettings(Base):
     default_minimum_part_price = Column(Float, default=0.0)
     default_transport_cost = Column(Float, default=0.0)
     default_packaging_cost = Column(Float, default=0.0)
+    # Override applicati quando Part.material_from_stock = True. Sostituiscono
+    # shipping_cost/cutting_cost_per_part del fornitore abituale.
+    stock_shipping_cost = Column(Float, default=0.0)
+    stock_cutting_cost_per_part = Column(Float, default=0.0)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

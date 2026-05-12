@@ -6,7 +6,7 @@ import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
 import api from '@/lib/api'
-import type { Part, Material, Machine, Treatment, Supplier } from '@/types'
+import type { Part, Material, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import { toast } from 'sonner'
 
 type StockType = 'none' | 'round' | 'square'
@@ -37,6 +37,9 @@ interface Props {
   globalMarginPercent: number
   /** Altre parti del quote (per aggregazioni preview live: vedi PhaseEditor). */
   siblings?: Part[]
+  /** CompanySettings — usato per override shipping/cutting quando
+   *  `part.material_from_stock=true`. */
+  companySettings?: CompanySettings | null
   readOnly?: boolean
   onUpdate: (updates: Partial<Part>) => void
   onSave: (override?: Partial<Part>) => void
@@ -44,7 +47,7 @@ interface Props {
   onReload?: () => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], treatments = [], nParts = 1, globalMarginPercent, siblings = [], readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
+export default function PartCard({ part, machines, materials, suppliers = [], treatments = [], nParts = 1, globalMarginPercent, siblings = [], companySettings, readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
@@ -101,15 +104,22 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
   const treatmentPhase = part.phases.find(p => p.treatment_id != null)
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
 
-  const deliveryPerPiece = part.customer_supplied_material
-    ? 0
-    : (part.material_delivery_cost ?? 0) / (part.quantity || 1)
-  const cuttingPerPiece = part.customer_supplied_material
-    ? 0
-    : (selectedMaterial?.material_supplier?.cutting_cost_per_part ?? 0)
-  const materialTotal = part.customer_supplied_material
-    ? 0
-    : part.material_cost + deliveryPerPiece + cuttingPerPiece
+  // Branch shipping/cutting — gemello DRY di backend calculation.py
+  // recalculate_quote (3 stati mutex: normale / conto lavoro / a magazzino).
+  let deliveryPerPiece: number
+  let cuttingPerPiece: number
+  let materialTotal: number
+  if (part.customer_supplied_material) {
+    deliveryPerPiece = 0; cuttingPerPiece = 0; materialTotal = 0
+  } else if (part.material_from_stock && companySettings) {
+    deliveryPerPiece = (companySettings.stock_shipping_cost || 0) / (part.quantity || 1)
+    cuttingPerPiece = companySettings.stock_cutting_cost_per_part || 0
+    materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
+  } else {
+    deliveryPerPiece = (part.material_delivery_cost ?? 0) / (part.quantity || 1)
+    cuttingPerPiece = selectedMaterial?.material_supplier?.cutting_cost_per_part ?? 0
+    materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
+  }
   const treatmentShippingPerPiece = (treatmentPhase?.fixed_cost ?? 0) / (part.quantity || 1)
 
   const handleTreatmentSelect = async (treatmentId: number | undefined) => {
@@ -219,22 +229,32 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
               </div>
             </div>
             <div className="shrink-0 pb-1">
-              <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={part.customer_supplied_material ?? false}
-                  onChange={e => {
-                    const newVal = e.target.checked
-                    onUpdate({ customer_supplied_material: newVal })
-                    // Passo il valore via override: quote in closure di onSave
-                    // è ancora vecchio (setQuote è asincrono).
-                    onSave({ customer_supplied_material: newVal })
-                  }}
-                  className="cursor-pointer"
-                />
-                <span title="Il cliente porta il materiale (conto lavoro). Materiale, spedizione e taglio vanno a 0.">
-                  Conto lavoro
+              <label className="text-xs font-medium text-gray-600 flex flex-col gap-0.5">
+                <span title="Provenienza materiale. 'A magazzino' usa gli override shipping/cutting impostati in Dati Azienda.">
+                  Provenienza
                 </span>
+                <select
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  value={
+                    part.customer_supplied_material ? 'cl'
+                    : part.material_from_stock ? 'stock'
+                    : 'normal'
+                  }
+                  onChange={e => {
+                    const v = e.target.value
+                    const updates = {
+                      customer_supplied_material: v === 'cl',
+                      material_from_stock: v === 'stock',
+                    }
+                    onUpdate(updates)
+                    onSave(updates)
+                  }}
+                  disabled={readOnly}
+                >
+                  <option value="normal">Fornitore abituale</option>
+                  <option value="cl">Conto lavoro (cliente)</option>
+                  <option value="stock">A magazzino</option>
+                </select>
               </label>
             </div>
           </div>

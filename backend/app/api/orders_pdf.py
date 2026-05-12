@@ -98,11 +98,13 @@ def _render_supplier_card(group) -> str:
     for i, item in enumerate(group.items, start=1):
         fam = f' <span class="accent">({_esc(item.family.replace("_", " "))})</span>' if item.family else ''
         refs_html = '<br>'.join(_esc(r) for r in item.quote_refs)
+        stock_tag = '<span class="stock-tag">Da magazzino</span>' if getattr(item, 'from_stock', False) else ''
+        row_class = ' class="row-from-stock"' if getattr(item, 'from_stock', False) else ''
         rows.append(f"""
-<tr>
+<tr{row_class}>
   <td class="c-n">{i}</td>
   <td>
-    <div class="c-op">{_esc(item.material_name)}{fam}</div>
+    <div class="c-op">{_esc(item.material_name)}{fam}{stock_tag}</div>
     <div class="c-mach">{_esc(item.dim_str)}</div>
   </td>
   <td class="ord-qty">{item.total_qty}</td>
@@ -141,6 +143,13 @@ EXTRA_CSS = """
 .ord-qty   { width: 50px;  text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--navy); }
 .ord-weight{ width: 80px;  text-align: right; font-family: 'JetBrains Mono', monospace; color: var(--gray-700); }
 .ord-refs  { width: 180px; font-size: 9px; color: var(--gray-500); font-family: 'JetBrains Mono', monospace; line-height: 1.4; }
+.stock-tag {
+  display: inline-block; background: #fef3c7; color: #92400e;
+  font-size: 7.5px; font-weight: 700; letter-spacing: 1.2px;
+  padding: 1px 6px; border-radius: 3px; text-transform: uppercase;
+  margin-left: 6px; vertical-align: middle;
+}
+tr.row-from-stock { background: #fffbeb; }
 """
 
 

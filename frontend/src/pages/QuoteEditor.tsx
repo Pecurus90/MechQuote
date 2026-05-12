@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier } from '@/types'
+import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import api from '@/lib/api'
 import { Trash2, Copy, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
@@ -31,6 +31,7 @@ export default function QuoteEditor() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null)
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -46,13 +47,15 @@ export default function QuoteEditor() {
       api.get('/customers'),
       api.get('/suppliers'),
       api.get('/treatments'),
-    ]).then(([m, mat, cat, cust, sup, tr]) => {
+      api.get('/company-settings'),
+    ]).then(([m, mat, cat, cust, sup, tr, cs]) => {
       setMachines(m.data)
       setMaterials(mat.data)
       setCategories(cat.data)
       setCustomers(cust.data)
       setSuppliers(sup.data)
       setTreatments(tr.data)
+      setCompanySettings(cs.data)
     })
   }, [])
 
@@ -118,6 +121,7 @@ export default function QuoteEditor() {
         material_cost: part.material_cost,
         material_delivery_cost: part.material_delivery_cost,
         customer_supplied_material: part.customer_supplied_material ?? false,
+        material_from_stock: part.material_from_stock ?? false,
         margin_percent: part.margin_percent,
         minimum_price: part.minimum_price,
         total_cost: part.total_cost,
@@ -517,6 +521,7 @@ export default function QuoteEditor() {
               nParts={quote.parts.length || 1}
               globalMarginPercent={quote.global_margin_percent}
               siblings={quote.parts.filter((_, i) => i !== selectedPartIdx)}
+              companySettings={companySettings}
               readOnly={isLocked}
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
               onSave={(override) => savePart(selectedPartIdx, override)}

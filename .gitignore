@@ -16,6 +16,16 @@ node_modules/
 dist/
 .DS_Store
 
+# Playwright (e2e tests)
+frontend/tests/.auth*.json
+frontend/tests/screenshots/
+frontend/test-results/
+frontend/playwright-report/
+backend/test-results/
+
+# Claude Code local settings
+.claude/
+
 # IDE
 .vscode/
 .idea/

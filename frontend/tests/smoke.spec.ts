@@ -149,11 +149,28 @@ test.describe('MechQuote smoke (auth shared)', () => {
     expect(errs, errs.join('\n')).toEqual([])
   })
 
-  test('13 · Ordini utensili page', async ({ page }) => {
+  test('13 · Ordini utensili page + KPI mini-dashboard', async ({ page }) => {
     const errs = attachConsoleSpy(page)
     await page.goto('/orders/tools')
     await page.waitForLoadState('networkidle')
+    // KPI cards visibili (first() perché "sotto minimo" appare anche nel banner del preview)
+    await expect(page.getByText(/sotto minimo/i).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/tot\. catalogo/i)).toBeVisible()
+    await expect(page.getByText(/ordini mese/i)).toBeVisible()
+    await expect(page.getByText(/ultimo ordine/i)).toBeVisible()
     await page.screenshot({ path: 'tests/screenshots/13-orders-tools.png', fullPage: true })
+    expect(errs, errs.join('\n')).toEqual([])
+  })
+
+  test('13b · Ordini materiali page + KPI mini-dashboard', async ({ page }) => {
+    const errs = attachConsoleSpy(page)
+    await page.goto('/orders/materials')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText(/da ordinare/i).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/ordini mese/i)).toBeVisible()
+    await expect(page.getByText(/ordini totali/i)).toBeVisible()
+    await expect(page.getByText(/ultimo ordine/i)).toBeVisible()
+    await page.screenshot({ path: 'tests/screenshots/13b-orders-materials.png', fullPage: true })
     expect(errs, errs.join('\n')).toEqual([])
   })
 

@@ -38,6 +38,44 @@ def _low_stock_query(db: Session):
     ).order_by(Tool.code)
 
 
+@router.get("/stats")
+def get_stats(db: Session = Depends(get_db), _=_can_tools):
+    """KPI mini-dashboard per /orders/tools.
+
+    - `low_stock`: utensili sotto-minimo (= preview pronto)
+    - `total_active`: utensili attivi nel catalogo
+    - `orders_this_month`: ordini emessi nel mese corrente (UTC)
+    - `orders_total`: ordini all-time
+    - `last_order_at`: ISO timestamp ultimo ordine (None se nessuno)
+    """
+    now = utc_now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    low_stock = db.query(Tool).filter(
+        Tool.active == True,  # noqa: E712
+        Tool.quantity < Tool.minimum_quantity,
+        Tool.minimum_quantity > 0,
+    ).count()
+
+    total_active = db.query(Tool).filter(Tool.active == True).count()  # noqa: E712
+
+    orders_total = db.query(ToolOrder).count()
+    orders_this_month = db.query(ToolOrder).filter(
+        ToolOrder.created_at >= month_start
+    ).count()
+
+    last = db.query(ToolOrder).order_by(ToolOrder.created_at.desc()).first()
+    last_order_at = last.created_at.isoformat() if last and last.created_at else None
+
+    return {
+        "low_stock": low_stock,
+        "total_active": total_active,
+        "orders_this_month": orders_this_month,
+        "orders_total": orders_total,
+        "last_order_at": last_order_at,
+    }
+
+
 @router.get("/preview")
 def preview_low_stock(db: Session = Depends(get_db), _=_can_tools):
     """Preview live: utensili sotto-minimo raggruppati per fornitore.

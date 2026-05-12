@@ -7,9 +7,18 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { STATUS_LABELS } from '@/lib/constants'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import { timeAgo } from '@/lib/timeAgo'
+import KpiBar from '@/components/ui/kpi-bar'
 import type {
   MaterialAggregateResult, MaterialOrder, QuoteListItem,
 } from '@/types'
+
+interface MaterialsStats {
+  to_order: number
+  orders_this_month: number
+  orders_total: number
+  last_order_at: string | null
+}
 
 const STATUS_OPTIONS = [
   { value: 'completato', label: 'Completati' },
@@ -30,7 +39,14 @@ export default function OrdersMaterialsPage() {
   const [exporting, setExporting] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
+  const [stats, setStats] = useState<MaterialsStats | null>(null)
   useEscapeKey(() => setShowHistory(false), showHistory)
+
+  const loadStats = () => {
+    api.get('/orders/materials/stats')
+      .then(r => setStats(r.data))
+      .catch(() => undefined)
+  }
 
   const loadQuotes = () => {
     const params = new URLSearchParams()
@@ -55,6 +71,7 @@ export default function OrdersMaterialsPage() {
 
   useEffect(() => { loadQuotes() }, [statusFilter, onlyUnordered])
   useEffect(() => { loadOrders() }, [])
+  useEffect(() => { loadStats() }, [])
 
   // Debounce ricerca storico
   useEffect(() => {
@@ -133,6 +150,7 @@ export default function OrdersMaterialsPage() {
       setSelectedIds(new Set())
       loadQuotes()
       loadOrders()
+      loadStats()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
@@ -163,6 +181,33 @@ export default function OrdersMaterialsPage() {
           <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
         </Button>
       </div>
+
+      {stats && (
+        <KpiBar items={[
+          {
+            label: 'Da ordinare',
+            value: stats.to_order,
+            color: stats.to_order > 0 ? 'orange' : 'green',
+            hint: stats.to_order === 0 ? 'tutti i completati ordinati' : 'preventivi pronti',
+          },
+          {
+            label: 'Ordini mese',
+            value: stats.orders_this_month,
+            color: 'blue',
+          },
+          {
+            label: 'Ordini totali',
+            value: stats.orders_total,
+            color: 'gray',
+            hint: 'all-time',
+          },
+          {
+            label: 'Ultimo ordine',
+            value: stats.last_order_at ? timeAgo(stats.last_order_at) : '—',
+            color: 'gray',
+          },
+        ]} />
+      )}
 
       {/* Storico ordini — modal popup */}
       {showHistory && (

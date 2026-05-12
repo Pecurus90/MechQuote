@@ -168,6 +168,39 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
 
+@router.get("/stats")
+def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
+    """KPI mini-dashboard per /orders/materials.
+
+    - `to_order`: preventivi completati senza material_ordered_at (= preview pronto)
+    - `orders_this_month`: ordini creati nel mese corrente (UTC)
+    - `orders_total`: ordini emessi all-time
+    - `last_order_at`: timestamp ISO ultimo ordine (None se nessuno)
+    """
+    now = utc_now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    to_order = db.query(Quote).filter(
+        Quote.status == 'completato',
+        Quote.material_ordered_at.is_(None),
+    ).count()
+
+    orders_total = db.query(MaterialOrder).count()
+    orders_this_month = db.query(MaterialOrder).filter(
+        MaterialOrder.created_at >= month_start
+    ).count()
+
+    last = db.query(MaterialOrder).order_by(MaterialOrder.created_at.desc()).first()
+    last_order_at = last.created_at.isoformat() if last and last.created_at else None
+
+    return {
+        "to_order": to_order,
+        "orders_this_month": orders_this_month,
+        "orders_total": orders_total,
+        "last_order_at": last_order_at,
+    }
+
+
 @router.get("/quotes-selectable", response_model=List[QuoteOut])
 def list_selectable_quotes(
     status: Optional[str] = "completato",

@@ -6,10 +6,21 @@ import { Search, Wrench, FileDown, History, X, AlertTriangle } from 'lucide-reac
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import { timeAgo } from '@/lib/timeAgo'
+import KpiBar from '@/components/ui/kpi-bar'
 import type { ToolLowStockPreview, ToolOrder } from '@/types'
+
+interface ToolsStats {
+  low_stock: number
+  total_active: number
+  orders_this_month: number
+  orders_total: number
+  last_order_at: string | null
+}
 
 export default function OrdersToolsPage() {
   const [preview, setPreview] = useState<ToolLowStockPreview | null>(null)
+  const [stats, setStats] = useState<ToolsStats | null>(null)
   const [orders, setOrders] = useState<ToolOrder[]>([])
   const [creating, setCreating] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -22,6 +33,12 @@ export default function OrdersToolsPage() {
       .catch(() => toast.error('Errore caricamento preview'))
   }
 
+  const loadStats = () => {
+    api.get('/orders/tools/stats')
+      .then(r => setStats(r.data))
+      .catch(() => undefined)
+  }
+
   const loadOrders = (term = historySearch) => {
     const params = new URLSearchParams()
     if (term.trim()) params.set('q', term.trim())
@@ -32,6 +49,7 @@ export default function OrdersToolsPage() {
 
   useEffect(() => { loadPreview() }, [])
   useEffect(() => { loadOrders() }, [])
+  useEffect(() => { loadStats() }, [])
 
   useEffect(() => {
     const t = setTimeout(() => loadOrders(historySearch), 250)
@@ -61,6 +79,7 @@ export default function OrdersToolsPage() {
       toast.success(`Ordine UO-${String(order.id).padStart(4, '0')} creato — PDF scaricato`)
       loadPreview()
       loadOrders()
+      loadStats()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
@@ -100,6 +119,34 @@ export default function OrdersToolsPage() {
           </Button>
         </div>
       </div>
+
+      {stats && (
+        <KpiBar items={[
+          {
+            label: 'Sotto minimo',
+            value: stats.low_stock,
+            color: stats.low_stock > 0 ? 'orange' : 'green',
+            hint: stats.low_stock === 0 ? 'tutto in stock' : 'da ordinare',
+          },
+          {
+            label: 'Tot. catalogo',
+            value: stats.total_active,
+            color: 'gray',
+            hint: 'utensili attivi',
+          },
+          {
+            label: 'Ordini mese',
+            value: stats.orders_this_month,
+            color: 'blue',
+            hint: stats.orders_total > 0 ? `${stats.orders_total} all-time` : undefined,
+          },
+          {
+            label: 'Ultimo ordine',
+            value: stats.last_order_at ? timeAgo(stats.last_order_at) : '—',
+            color: 'gray',
+          },
+        ]} />
+      )}
 
       {/* Preview low-stock */}
       {!preview ? (

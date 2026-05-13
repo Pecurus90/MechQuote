@@ -175,14 +175,28 @@ export default function QuoteEditor() {
   }
 
   const applyQuoteData = (q: Quote & { transport_cost?: number; packaging_cost?: number; global_discount_percent?: number; validity_days?: number }) => {
+    // Salva l'ID della parte attualmente selezionata PRIMA del setQuote.
+    // Se il backend restituisce le parti in ordine diverso (race su refresh
+    // dopo POST/PUT phase, autocalc EDM, trattamenti batch…), `selectedPartIdx`
+    // punterebbe a una parte diversa → l'utente vede "saltare" l'articolo.
+    // Il fix backend (order_by="Part.id" su Quote.parts) lo previene a monte;
+    // questo è una safety net frontend per resilienza ai re-load.
+    const currentSelectedId = selectedPartIdx >= 0 ? quote?.parts?.[selectedPartIdx]?.id : null
+    const newParts = (q.parts || []).map((p: Part) => ({ ...p, phases: p.phases || [] }))
     setQuote({
       ...q,
       transport_cost: q.transport_cost ?? 0,
       packaging_cost: q.packaging_cost ?? 0,
       global_discount_percent: q.global_discount_percent ?? 0,
       validity_days: q.validity_days ?? 30,
-      parts: (q.parts || []).map((p: Part) => ({ ...p, phases: p.phases || [] })),
+      parts: newParts,
     })
+    if (currentSelectedId != null) {
+      const newIdx = newParts.findIndex(p => p.id === currentSelectedId)
+      if (newIdx !== -1 && newIdx !== selectedPartIdx) {
+        setSelectedPartIdx(newIdx)
+      }
+    }
   }
 
   const saveQuote = async () => {

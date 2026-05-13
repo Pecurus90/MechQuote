@@ -93,7 +93,13 @@ class Quote(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    parts = relationship("Part", back_populates="quote", cascade="all, delete-orphan")
+    # order_by="Part.id" garantisce ordine stabile dopo refresh: senza, il
+    # joinedload può restituire le parti in ordine non deterministico,
+    # spostando visivamente la selezione dell'utente in QuoteEditor (commessa
+    # multi-parte: cambiando un trattamento, la sidebar "saltava" su un'altra
+    # parte perché `selectedPartIdx` puntava al nuovo ordine).
+    parts = relationship("Part", back_populates="quote", cascade="all, delete-orphan",
+                         order_by="Part.id")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     submitted_by = relationship("User", foreign_keys=[submitted_by_user_id])
     completed_by = relationship("User", foreign_keys=[completed_by_user_id])

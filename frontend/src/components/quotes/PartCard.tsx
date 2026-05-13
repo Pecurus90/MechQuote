@@ -129,7 +129,12 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
       if (!treatmentId || !t) {
         if (treatmentPhase?.id) {
           await api.delete(`/phases/${treatmentPhase.id}`)
-          onReload?.()
+          // await su onReload: garantisce che il setQuote dal GET /quotes/{id}
+          // sia completato PRIMA di tornare al chiamante. Senza, il refresh
+          // delle quote di shipping aggregata sulle siblings arrivava in
+          // ritardo e l'utente doveva cliccare "da qualche parte" per vederlo.
+          await onReload?.()
+          toast.success('Trattamento rimosso')
         }
         return
       }
@@ -151,7 +156,12 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
       } else {
         await api.post(`/parts/${part.id}/phases`, payload)
       }
-      onReload?.()
+      // Vedi commento su await sopra: backend ricalcola TUTTE le parti
+      // (recalculate_quote aggrega shipping per supplier_id), il GET successivo
+      // restituisce le siblings con phase.fixed_cost aggiornato. await
+      // garantisce che il setQuote arrivi prima di rilasciare il controllo.
+      await onReload?.()
+      toast.success('Trattamento salvato')
     } catch (e) {toast.error('Errore nel salvataggio del trattamento') }
   }
 

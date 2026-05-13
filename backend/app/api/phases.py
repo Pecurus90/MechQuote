@@ -15,7 +15,7 @@ _can_write = require_permission('quotes.create')
 def _quote_for_part(part_id: int, db: Session) -> Quote:
     quote = db.query(Quote).join(Part, Part.quote_id == Quote.id).filter(Part.id == part_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     return quote
 
 router = APIRouter(prefix="/api", tags=["phases"])
@@ -49,7 +49,7 @@ def update_phase(
 ):
     phase = db.query(ManufacturingPhase).filter(ManufacturingPhase.id == phase_id).first()
     if not phase:
-        raise HTTPException(status_code=404, detail="Phase not found")
+        raise HTTPException(status_code=404, detail="Fase non trovata")
     ensure_editable(_quote_for_part(phase.part_id, db), current_user)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(phase, key, value)
@@ -68,7 +68,7 @@ def delete_phase(
 ):
     phase = db.query(ManufacturingPhase).filter(ManufacturingPhase.id == phase_id).first()
     if not phase:
-        raise HTTPException(status_code=404, detail="Phase not found")
+        raise HTTPException(status_code=404, detail="Fase non trovata")
     ensure_editable(_quote_for_part(phase.part_id, db), current_user)
     part_id = phase.part_id
     db.delete(phase)

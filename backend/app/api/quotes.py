@@ -132,7 +132,7 @@ def create_quote(
 def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     quote = _load_quote(quote_id, db)
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
 
     # Auto-mark "completato" quando un utente con quotes.complete apre un quote 'inviato'.
     # Il creator (ufficio_tecnico) non ha questo permesso, quindi aprire la propria bozza
@@ -184,7 +184,7 @@ def update_quote_status(
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
 
     # Only one explicit transition is allowed via this endpoint: bozza → inviato.
     # The reverse path (inviato → completato) is handled automatically in GET when an
@@ -223,7 +223,7 @@ def update_quote(
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
     ensure_editable(quote, current_user)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(quote, key, value)
@@ -240,7 +240,7 @@ def recalculate_quote(
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
     ensure_editable(quote, current_user)
     for part in db.query(Part).filter(Part.quote_id == quote_id).all():
         recalculate_part(part.id, db)
@@ -255,7 +255,7 @@ def delete_quote(
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
     is_admin = current_user.role == 'admin'
     is_creator = (
         quote.created_by_user_id is not None

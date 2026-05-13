@@ -18,7 +18,7 @@ _can_write = require_permission('quotes.create')
 def _quote_for_part(part_id: int, db: Session) -> Quote:
     quote = db.query(Quote).join(Part, Part.quote_id == Quote.id).filter(Part.id == part_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     return quote
 
 router = APIRouter(prefix="/api", tags=["parts"])
@@ -34,7 +34,7 @@ def add_part(
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
-        raise HTTPException(status_code=404, detail="Quote not found")
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
     ensure_editable(quote, current_user)
     part_data = data.model_dump(exclude_unset=True)
     # Applica default_minimum_part_price se non specificato
@@ -62,7 +62,7 @@ def get_part(part_id: int, db: Session = Depends(get_db)):
         joinedload(Part.files),
     ).filter(Part.id == part_id).first()
     if not part:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     return part
 
 
@@ -76,7 +76,7 @@ def update_part(
 ):
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     ensure_editable(_quote_for_part(part_id, db), current_user)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(part, key, value)
@@ -99,7 +99,7 @@ def delete_part(
 ):
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     ensure_editable(_quote_for_part(part_id, db), current_user)
     db.delete(part)
     db.commit()
@@ -115,7 +115,7 @@ def duplicate_part(
 ):
     part = db.query(Part).options(joinedload(Part.phases)).filter(Part.id == part_id).first()
     if not part:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     ensure_editable(_quote_for_part(part_id, db), current_user)
 
     new_part = Part(
@@ -192,7 +192,7 @@ def upload_file(
 ):
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
-        raise HTTPException(status_code=404, detail="Part not found")
+        raise HTTPException(status_code=404, detail="Parte non trovata")
     ensure_editable(_quote_for_part(part_id, db), current_user)
 
     safe_filename = os.path.basename(file.filename or "upload").replace("..", "").strip("/\\")
@@ -255,7 +255,7 @@ def delete_file(
 ):
     pf = db.query(PartFile).filter(PartFile.id == file_id).first()
     if not pf:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="File non trovato")
     ensure_editable(_quote_for_part(pf.part_id, db), current_user)
     # Il blob fisico viene rimosso dal listener `before_delete` su PartFile (vedi models.py).
     db.delete(pf)

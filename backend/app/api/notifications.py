@@ -107,9 +107,9 @@ def mark_read(
 ):
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise HTTPException(status_code=404, detail="Notifica non trovata")
     if not _is_target(notification, current_user):
-        raise HTTPException(status_code=403, detail="Not a recipient")
+        raise HTTPException(status_code=403, detail="Non sei destinatario di questa notifica")
     read = db.query(NotificationRead).filter(
         NotificationRead.notification_id == notification_id,
         NotificationRead.user_id == current_user.id,
@@ -159,11 +159,11 @@ def mark_confirmed(
 ):
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise HTTPException(status_code=404, detail="Notifica non trovata")
     if not notification.requires_action:
-        raise HTTPException(status_code=400, detail="Notification does not require action")
+        raise HTTPException(status_code=400, detail="La notifica non richiede azione")
     if not _is_target(notification, current_user):
-        raise HTTPException(status_code=403, detail="Not a recipient")
+        raise HTTPException(status_code=403, detail="Non sei destinatario di questa notifica")
     read = db.query(NotificationRead).filter(
         NotificationRead.notification_id == notification_id,
         NotificationRead.user_id == current_user.id,

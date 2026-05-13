@@ -39,7 +39,7 @@ def create_customer(data: CustomerCreate, db: Session = Depends(get_db), _=_can_
 def get_customer(customer_id: int, db: Session = Depends(get_db)):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
     return customer
 
 
@@ -47,7 +47,7 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
 def update_customer(customer_id: int, data: CustomerUpdate, db: Session = Depends(get_db), _=_can_write):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(customer, key, value)
     db.commit()
@@ -58,7 +58,7 @@ def update_customer(customer_id: int, data: CustomerUpdate, db: Session = Depend
 def delete_customer(customer_id: int, db: Session = Depends(get_db), _=_can_write):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
     block_if_in_use(
         db, f"Cliente '{customer.name}'",
         (Quote, Quote.customer_id == customer.id, "preventivo", "preventivi"),

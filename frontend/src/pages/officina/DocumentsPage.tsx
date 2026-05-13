@@ -102,6 +102,9 @@ export default function OfficinaDocumentsPage() {
   useEscapeKey(() => setUploadForm(null), !!uploadForm)
 
   // Sync filtri ↔ query string. filterRef è 'c:ID' | 'm:ID' | 't:ID'.
+  // searchParams/setSearchParams fuori dalle deps: re-firare ad ogni URL
+  // change causerebbe loop. Effect deve scattare solo quando i filtri locali
+  // cambiano.
   useEffect(() => {
     const params = new URLSearchParams(searchParams)
     if (filterCat) params.set('category', filterCat); else params.delete('category')
@@ -142,6 +145,8 @@ export default function OfficinaDocumentsPage() {
   }
 
   useEffect(() => { load() }, [filterCat, filterRef])
+  // Debounce ricerca testo: `load` fuori dalle deps perché chiude su
+  // filterCat/filterRef che hanno già il loro useEffect (riga sopra).
   useEffect(() => {
     const t = setTimeout(load, 250)
     return () => clearTimeout(t)

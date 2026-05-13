@@ -73,14 +73,15 @@ export default function OrdersMaterialsPage() {
   useEffect(() => { loadOrders() }, [])
   useEffect(() => { loadStats() }, [])
 
-  // Debounce ricerca storico
+  // Debounce ricerca storico: loadOrders fuori dalle deps (effect deve
+  // firare solo su historySearch, non quando loadOrders cambia per closure).
   useEffect(() => {
     const t = setTimeout(() => loadOrders(historySearch), 250)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historySearch])
 
-  // Search con debounce minimo
+  // Search con debounce minimo: stesso pattern del debounce sopra.
   useEffect(() => {
     const t = setTimeout(loadQuotes, 200)
     return () => clearTimeout(t)

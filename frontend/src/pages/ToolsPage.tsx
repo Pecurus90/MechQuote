@@ -100,6 +100,8 @@ export default function ToolsPage() {
   const [lowStockOnly, setLowStockOnly] = useState(searchParams.get('low_stock') === '1')
 
   // Sync URL ↔ lowStockOnly
+  // searchParams/setSearchParams fuori dalle deps: scriverebbero la URL
+  // ad ogni cambio di URL stessa → loop. Effect deve firare SOLO su lowStockOnly.
   useEffect(() => {
     const params = new URLSearchParams(searchParams)
     if (lowStockOnly) params.set('low_stock', '1')
@@ -128,6 +130,9 @@ export default function ToolsPage() {
   }
 
   useEffect(() => { loadTools() }, [filterType, filterBrand, filterSupplier, lowStockOnly])
+  // Debounce ricerca: loadTools fuori dalle deps perché chiude su molte
+  // variabili (filterType/Brand/Supplier/lowStock) — l'effect deve firare
+  // SOLO sul cambio di `search`, gli altri filtri hanno il loro useEffect.
   useEffect(() => {
     const t = setTimeout(loadTools, 250)
     return () => clearTimeout(t)

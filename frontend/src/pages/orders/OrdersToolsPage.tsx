@@ -51,6 +51,8 @@ export default function OrdersToolsPage() {
   useEffect(() => { loadOrders() }, [])
   useEffect(() => { loadStats() }, [])
 
+  // Debounce ricerca storico: loadOrders fuori dalle deps (effect deve
+  // firare solo su historySearch, non quando loadOrders cambia per closure).
   useEffect(() => {
     const t = setTimeout(() => loadOrders(historySearch), 250)
     return () => clearTimeout(t)

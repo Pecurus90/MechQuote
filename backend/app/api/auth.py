@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_db
@@ -15,8 +15,42 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def _guard_admin_role(current_user: User, target_role: Optional[str]) -> None:
+    """Refusa di assegnare role='admin' se chi chiama non è già admin.
+
+    Protezione anti privilege-escalation: un utente con permesso 'users'
+    può creare/modificare utenti, ma NON può promuovere altri (o sé stesso)
+    ad admin se non è già admin.
+    """
+    if target_role == 'admin' and current_user.role != 'admin':
+        raise HTTPException(
+            status_code=403,
+            detail="Solo un admin può assegnare il ruolo admin",
+        )
+
+
+def _guard_modify_admin(current_user: User, target_user: User) -> None:
+    """Refusa di modificare/eliminare un utente admin se chi chiama non è admin.
+
+    Senza questa guardia un utente con permesso 'users' potrebbe resettare la
+    password di un admin (o modificarne il ruolo a non-admin) e ottenere
+    privilege escalation indiretta.
+    """
+    if target_user.role == 'admin' and current_user.role != 'admin':
+        raise HTTPException(
+            status_code=403,
+            detail="Solo un admin può modificare un account admin",
+        )
+
+
 @router.post("/register", response_model=Token)
-def register(user: UserCreate, db: Session = Depends(get_db), _=require_permission('users')):
+def register(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=require_permission('users'),
+):
+    _guard_admin_role(current_user, user.role)
     existing = db.query(User).filter(User.username == user.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username già esistente")
@@ -25,7 +59,7 @@ def register(user: UserCreate, db: Session = Depends(get_db), _=require_permissi
         hashed_password=get_password_hash(user.password),
         full_name=user.full_name,
         email=user.email,
-        role=user.role or 'admin',
+        role=user.role or 'ufficio_tecnico',
     )
     db.add(db_user)
     db.commit()
@@ -79,7 +113,12 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @users_router.post("", response_model=UserOut, dependencies=[_can_manage_users])
-def create_user(data: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    data: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _guard_admin_role(current_user, data.role)
     if db.query(User).filter(User.username == data.username).first():
         raise HTTPException(status_code=400, detail="Username già esistente")
     user = User(
@@ -97,10 +136,17 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @users_router.put("/{user_id}", response_model=UserOut, dependencies=[_can_manage_users])
-def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utente non trovato")
+    _guard_modify_admin(current_user, user)
+    _guard_admin_role(current_user, data.role)
     if data.full_name is not None:
         user.full_name = data.full_name
     if data.email is not None:
@@ -126,6 +172,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utente non trovato")
+    _guard_modify_admin(current_user, user)
     db.delete(user)
     db.commit()
     return {"ok": True}

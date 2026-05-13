@@ -477,6 +477,16 @@ def _run_migrations():
         # Posso droppare la tabella senza perdere dati: il singleton ne ha
         # ricopiato anagrafica + 4 default operativi. Idempotente: IF EXISTS.
         "DROP TABLE IF EXISTS cost_rules",
+
+        # ═══ Cleanup permesso 'users' dai ruoli non-admin (audit sicurezza) ═══
+        # Il default in DEFAULT_ROLE_PERMISSIONS (permissions.py) non assegna
+        # 'users' a officina/ufficio_tecnico/amministrazione: solo admin
+        # gestisce utenti. Alcuni DB hanno il permesso assegnato per anomalia
+        # di seed o configurazione manuale. Combinato con la possibilità di
+        # creare/modificare utenti via POST /api/users + role='admin',
+        # apriva una privilege escalation reale (dimostrata in audit).
+        # Idempotente: DELETE no-op se il permesso non è assegnato.
+        "DELETE FROM role_permissions WHERE permission_key='users' AND role_id IN (SELECT id FROM roles WHERE name != 'admin')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

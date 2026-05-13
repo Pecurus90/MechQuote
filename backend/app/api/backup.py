@@ -47,6 +47,13 @@ router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 BACKUP_VERSION = "2.0"
 
+# Hard cap per tabella su export. Protezione DoS interno: evita di caricare
+# milioni di righe in RAM e materializzare un JSON gigabyte. Valore alto
+# rispetto al carico attuale (top: ~325 customers, ~300 tools); quando una
+# tabella si avvicina al cap serve un export tool dedicato (chunked / per
+# data range / streaming verso file). Solo admin (gating: 'backup').
+MAX_ROWS_PER_TABLE = 500_000
+
 
 # Ordine parent → child. Usato in forward order per INSERT, reverse per DELETE.
 # Ogni modello dichiara le sue dipendenze FK: tutti i parent compaiono prima.
@@ -191,11 +198,32 @@ def export_data(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """Esporta tutto lo stato persistente. Permission gating: 'backup' (vedi main.py)."""
+    """Esporta tutto lo stato persistente. Permission gating: 'backup' (vedi main.py).
+
+    Streaming: `yield_per(1000)` riduce il picco RAM SQLAlchemy (carica 1000
+    record alla volta dalla connection). Hard cap MAX_ROWS_PER_TABLE per
+    tabella: oltre, abort esplicito invece di OOM. Un backup truncato non
+    sarebbe restorable, quindi l'errore è preferibile.
+    """
     tables: Dict[str, List[Dict[str, Any]]] = {}
     for model_class in EXPORT_ORDER:
-        rows = db.query(model_class).all()
-        tables[model_class.__tablename__] = [_serialize_record(r) for r in rows]
+        rows: List[Dict[str, Any]] = []
+        for record in db.query(model_class).yield_per(1000):
+            rows.append(_serialize_record(record))
+            if len(rows) > MAX_ROWS_PER_TABLE:
+                logger.error(
+                    "Backup export ABORT: tabella %s supera %d righe (cap)",
+                    model_class.__tablename__, MAX_ROWS_PER_TABLE,
+                )
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        f"Tabella '{model_class.__tablename__}' supera il cap "
+                        f"di {MAX_ROWS_PER_TABLE} righe. Un backup troncato non "
+                        f"sarebbe ripristinabile — usare un export incrementale."
+                    ),
+                )
+        tables[model_class.__tablename__] = rows
     total_rows = sum(len(rows) for rows in tables.values())
     logger.info("Backup export: by=%s tabelle=%d righe=%d",
                 current_user.username, len(tables), total_rows)
@@ -269,11 +297,20 @@ def import_data(
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.error("Backup import FALLITO: by=%s error=%s", current_user.username, e)
+        # Log completo dell'eccezione (incluso traceback via exc_info) per il
+        # sysadmin. Il client riceve solo un messaggio generico: l'eccezione
+        # SQL può citare nomi di tabelle, vincoli FK o ID di record (info
+        # disclosure se esposta a frontend). L'admin che fa l'import può
+        # comunque consultare i log server per debugging.
+        logger.error(
+            "Backup import FALLITO: by=%s error_type=%s",
+            current_user.username, type(e).__name__,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Import fallito — rollback eseguito, DB integro al pre-import. "
-                   f"Errore: {e!s}",
+            detail="Import fallito — rollback eseguito, DB integro al pre-import. "
+                   "Vedi log server per dettagli sull'errore.",
         )
 
     total_rows = sum(counts.values())

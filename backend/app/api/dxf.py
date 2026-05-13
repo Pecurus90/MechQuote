@@ -35,11 +35,28 @@ async def analyze_dxf(
     if not name.endswith('.dxf'):
         raise HTTPException(400, "Formato non supportato: usare file .dxf (DWG va convertito)")
 
-    content = await file.read()
-    if len(content) == 0:
+    # Stream a chunk con check incrementale: evita di accumulare in RAM file
+    # che superano MAX_DXF_SIZE prima di scoprirlo. Pattern allineato a
+    # parts.upload_file. Anche se l'endpoint è gated (quotes.create), 10
+    # upload paralleli da 50MB sarebbero 500MB di picco RAM senza streaming.
+    chunks: list[bytes] = []
+    total = 0
+    CHUNK = 1024 * 1024  # 1 MB
+    while True:
+        chunk = await file.read(CHUNK)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_DXF_SIZE:
+            raise HTTPException(
+                413,
+                f"File troppo grande (max {MAX_DXF_SIZE // (1024*1024)} MB)",
+            )
+        chunks.append(chunk)
+
+    if total == 0:
         raise HTTPException(400, "File vuoto")
-    if len(content) > MAX_DXF_SIZE:
-        raise HTTPException(400, f"File troppo grande (max {MAX_DXF_SIZE // (1024*1024)} MB)")
+    content = b"".join(chunks)
 
     try:
         result = parse_dxf(content, tolerance=tolerance_mm)

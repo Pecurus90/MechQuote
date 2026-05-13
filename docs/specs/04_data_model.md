@@ -1,6 +1,6 @@
 # Data Model
 
-> ⚠️ **DRIFT documentato** (CLAUDE.md §12). Questo doc non include:
+> ⚠️ **DEPRECATED — DRIFT documentato** (CLAUDE.md §12). Non usare come riferimento per modifiche al codice. Fonte autoritativa: `backend/app/models.py`. Questo doc non include:
 > `Role` / `RolePermission`, `Notification` / `NotificationRead`,
 > `CompanySettings` (singleton), `ToolType` / `ToolBrand` /
 > `ToolLocation` (catalogo attributi), `ToolSupplier`, `ToolOrder` /

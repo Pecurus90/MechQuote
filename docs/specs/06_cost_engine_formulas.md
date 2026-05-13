@@ -1,6 +1,6 @@
 # Cost Engine and Formulas
 
-> ⚠️ **DRIFT parziale** (CLAUDE.md §12). Le formule reali implementate
+> ⚠️ **DEPRECATED — DRIFT parziale** (CLAUDE.md §12). Non usare come riferimento per modifiche al cost engine. Fonti autoritative: `CLAUDE.md` §4 ("Cost engine") + `backend/app/services/calculation.py` ↔ `frontend/src/lib/quoteCalc.ts` (gemello DRY). Le formule reali implementate
 > usano un setup/work rate split (Sprint 12), aggregazione batch per
 > trattamenti, distribuzione spedizione per fornitore. I campi
 > `complexity_coefficient`, `cnc_machinability_coefficient`,

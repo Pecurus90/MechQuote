@@ -103,6 +103,10 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
 
   const treatmentPhase = part.phases.find(p => p.treatment_id != null)
   const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
+  // Validazione visiva: se c'è un trattamento selezionato il peso pezzo
+  // finito è obbligatorio (regola di business — il backend calcola costo
+  // batch e quota spedizione trattamento sul peso finito; senza, vanno a 0).
+  const needsFinishedWeight = !!treatmentPhase && !part.finished_weight_kg
 
   // Branch shipping/cutting — gemello DRY di backend calculation.py
   // recalculate_quote (3 stati mutex: normale / conto lavoro / a magazzino).
@@ -357,12 +361,20 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 onBlur={() => onSave()} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Peso finito (kg)</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.001} className="mt-1 h-8 text-sm"
+              <label className={`text-xs font-medium ${needsFinishedWeight ? 'text-red-600' : 'text-gray-600'}`}>
+                Peso finito (kg){needsFinishedWeight && <span className="ml-1">*</span>}
+              </label>
+              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.001}
+                className={`mt-1 h-8 text-sm ${needsFinishedWeight ? 'border-red-400 bg-red-50 focus-visible:ring-red-400' : ''}`}
                 value={part.finished_weight_kg ?? ''}
-                placeholder="—"
+                placeholder={needsFinishedWeight ? 'obbligatorio' : '—'}
                 onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
                 onBlur={() => onSave()} />
+              {needsFinishedWeight && (
+                <p className="mt-1 text-[11px] text-red-600">
+                  ⚠ Compila il peso: serve per costo e spedizione del trattamento.
+                </p>
+              )}
             </div>
           </div>
         </CardContent>

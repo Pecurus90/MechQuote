@@ -262,6 +262,12 @@ export default function Sidebar() {
                         <span>Fornitori utensili</span>
                       </NavLink>
                     )}
+                    {showCatalog && (
+                      <NavLink to="/settings/normalized-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                        <Cog className="w-3.5 h-3.5 shrink-0" />
+                        <span>Fornitori normalizzati</span>
+                      </NavLink>
+                    )}
                   </>
                 )}
 

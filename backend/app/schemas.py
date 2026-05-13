@@ -71,6 +71,25 @@ class CustomerOut(CustomerBase):
         from_attributes = True
 
 
+class CustomerMinimal(BaseModel):
+    """Solo i campi essenziali per riferimenti (es. su OfficinaDocument)."""
+    id: int
+    customer_number: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class SupplierMinimal(BaseModel):
+    """Riferimento compatto a un fornitore (materiali o utensili)."""
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
 # --- Auth ---
 class UserLogin(BaseModel):
     username: str
@@ -812,6 +831,33 @@ class ToolSupplierOut(ToolSupplierBase):
         from_attributes = True
 
 
+# --- NormalizedSupplier (componenti normalizzati: viti, bulloni, cuscinetti...) ---
+
+class NormalizedSupplierBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    notes: Optional[str] = None
+    active: bool = True
+
+
+class NormalizedSupplierCreate(NormalizedSupplierBase):
+    pass
+
+
+class NormalizedSupplierUpdate(NormalizedSupplierBase):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+
+class NormalizedSupplierOut(NormalizedSupplierBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ToolBase(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     tool_type: Optional[str] = None
@@ -928,6 +974,34 @@ class OfficinaDocumentOut(BaseModel):
     size_bytes: int
     uploaded_at: datetime
     uploaded_by: Optional[UserMinimal] = None
+    customer: Optional[CustomerMinimal] = None
+    material_supplier: Optional[SupplierMinimal] = None
+    tool_supplier: Optional[SupplierMinimal] = None
+    normalized_supplier: Optional[SupplierMinimal] = None
+
+    class Config:
+        from_attributes = True
+
+
+class OfficinaCategoryBase(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    icon: str = Field(default='Folder', max_length=40)
+    sort_order: int = 100
+
+
+class OfficinaCategoryCreate(OfficinaCategoryBase):
+    pass
+
+
+class OfficinaCategoryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    icon: Optional[str] = Field(default=None, max_length=40)
+    sort_order: Optional[int] = None
+
+
+class OfficinaCategoryOut(OfficinaCategoryBase):
+    id: int
+    created_at: datetime
 
     class Config:
         from_attributes = True

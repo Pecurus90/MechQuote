@@ -598,6 +598,26 @@ class ToolSupplier(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class NormalizedSupplier(Base):
+    """Fornitori di componenti normalizzati: viti, bulloni, cuscinetti,
+    dadi, rondelle, guarnizioni, raccordi... (es. Bossard, Würth, Misumi).
+
+    Quarto tipo di fornitore (oltre a MaterialSupplier, Supplier per
+    trattamenti, ToolSupplier). Domini distinti per scelta — un dado UNI
+    non è materiale grezzo, non è utensile, non è trattamento.
+    """
+    __tablename__ = "normalized_suppliers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    address = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(100), nullable=True)
+    notes = Column(Text, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class ToolType(Base):
     """Catalogo Tipi utensile (es. Cilindrica, Sferica, Conica).
     Gestito da Settings → Catalogo → Attributi utensili. `Tool.tool_type` è
@@ -708,13 +728,30 @@ class ToolOrderItem(Base):
 
 # ─── Officina (sezione documentazione operativa) ───────────────────────────
 
-class OfficinaDocument(Base):
-    """PDF cataloghi/schede consultabili dagli operatori in officina.
+class OfficinaCategory(Base):
+    """Catalogo categorie documenti officina, con icona lucide-react.
 
-    Solo PDF (filtrato MIME server-side). Categoria libera con dropdown
-    auto-popolato dai valori esistenti (pattern Tool attributi). Upload
-    riservato a `officina.write` (admin + ufficio_tecnico), lettura a tutti
-    gli operatori con permesso `officina`.
+    Gestita da admin (permesso `users`). I `OfficinaDocument.category` matchano
+    per nome (stringa, niente FK per non rompere documenti esistenti).
+    Le icone preselezionate vivono in `frontend/src/lib/icons.ts`.
+    """
+    __tablename__ = "officina_categories"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(80), unique=True, nullable=False)
+    icon = Column(String(40), default='Folder')
+    sort_order = Column(Integer, default=100)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class OfficinaDocument(Base):
+    """File ufficio (PDF, Word, Excel, immagini, DXF) consultabili dall'officina.
+
+    MIME filtrato server-side. Categoria matching per nome con
+    `OfficinaCategory` (no FK rigida per retro-compatibilità). Upload
+    riservato a `officina.write` (admin + ufficio_tecnico + amministrazione),
+    lettura a tutti con permesso `officina`. PDF e immagini si aprono inline
+    nel browser, DXF in modal con viewer integrato, altri si scaricano.
     """
     __tablename__ = "officina_documents"
 
@@ -726,8 +763,22 @@ class OfficinaDocument(Base):
     size_bytes = Column(Integer, default=0)
     uploaded_at = Column(DateTime, server_default=func.now())
     uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Linking opzionale a Customer / Supplier: permette raggruppamento per
+    # cliente o fornitore nelle viste officina. Massimo 1 valorizzato per
+    # record (mutex enforced lato UI/API, non a livello DB).
+    # - customer_id: cataloghi/datasheet specifici per cliente
+    # - material_supplier_id: cataloghi fornitori materiale grezzo
+    # - tool_supplier_id: cataloghi fornitori utensili
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    material_supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
+    tool_supplier_id = Column(Integer, ForeignKey("tool_suppliers.id"), nullable=True)
+    normalized_supplier_id = Column(Integer, ForeignKey("normalized_suppliers.id"), nullable=True)
 
     uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])
+    customer = relationship("Customer", foreign_keys=[customer_id])
+    material_supplier = relationship("MaterialSupplier", foreign_keys=[material_supplier_id])
+    tool_supplier = relationship("ToolSupplier", foreign_keys=[tool_supplier_id])
+    normalized_supplier = relationship("NormalizedSupplier", foreign_keys=[normalized_supplier_id])
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

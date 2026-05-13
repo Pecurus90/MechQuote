@@ -1,0 +1,64 @@
+"""API fornitori di componenti normalizzati (viti, bulloni, cuscinetti, etc.).
+
+Quarto tipo di fornitore in MechQuote (oltre a MaterialSupplier, Supplier per
+trattamenti, ToolSupplier). Domini distinti per scelta — un componente
+normalizzato è una parte acquistata intera, non materiale grezzo né utensile.
+
+Linkato opzionalmente a OfficinaDocument per cataloghi (es. Bossard, Würth).
+"""
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.catalog_protect import block_if_in_use
+from app.core.database import get_db
+from app.core.security import require_permission
+from app.models import NormalizedSupplier, OfficinaDocument
+from app.schemas import (
+    NormalizedSupplierCreate, NormalizedSupplierOut, NormalizedSupplierUpdate,
+)
+
+router = APIRouter(prefix="/api/normalized-suppliers", tags=["normalized_suppliers"])
+
+_can_write = require_permission('settings')
+
+
+@router.get("", response_model=List[NormalizedSupplierOut])
+def list_normalized_suppliers(db: Session = Depends(get_db)):
+    return db.query(NormalizedSupplier).order_by(NormalizedSupplier.name).all()
+
+
+@router.post("", response_model=NormalizedSupplierOut, dependencies=[_can_write])
+def create_normalized_supplier(data: NormalizedSupplierCreate, db: Session = Depends(get_db)):
+    sup = NormalizedSupplier(**data.model_dump())
+    db.add(sup)
+    db.commit()
+    db.refresh(sup)
+    return sup
+
+
+@router.put("/{sid}", response_model=NormalizedSupplierOut, dependencies=[_can_write])
+def update_normalized_supplier(sid: int, data: NormalizedSupplierUpdate, db: Session = Depends(get_db)):
+    sup = db.query(NormalizedSupplier).filter(NormalizedSupplier.id == sid).first()
+    if not sup:
+        raise HTTPException(404, "Fornitore normalizzati non trovato")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(sup, k, v)
+    db.commit()
+    db.refresh(sup)
+    return sup
+
+
+@router.delete("/{sid}", dependencies=[_can_write])
+def delete_normalized_supplier(sid: int, db: Session = Depends(get_db)):
+    sup = db.query(NormalizedSupplier).filter(NormalizedSupplier.id == sid).first()
+    if not sup:
+        raise HTTPException(404, "Fornitore normalizzati non trovato")
+    block_if_in_use(
+        db, f"Fornitore normalizzati '{sup.name}'",
+        (OfficinaDocument, OfficinaDocument.normalized_supplier_id == sid, "documento", "documenti"),
+    )
+    db.delete(sup)
+    db.commit()
+    return {"ok": True}

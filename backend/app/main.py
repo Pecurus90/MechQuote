@@ -62,6 +62,7 @@ from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
+    normalized_suppliers,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -91,6 +92,7 @@ app.include_router(orders.router, dependencies=_auth)
 app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
 app.include_router(officina.router, dependencies=_auth)
+app.include_router(normalized_suppliers.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -402,6 +404,38 @@ def _run_migrations():
         # Path al blob in uploads/officina/materiali/. Gestito da
         # /api/materials/{id}/datasheet (upload/download/delete).
         "ALTER TABLE materials ADD COLUMN datasheet_path VARCHAR(500)",
+
+        # Catalogo categorie officina (con icona lucide-react). Gestito da
+        # admin via UI; i documenti matchano per nome stringa (no FK
+        # rigida per retro-compat). Seed da categorie esistenti.
+        ("CREATE TABLE IF NOT EXISTS officina_categories ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(80) UNIQUE NOT NULL, "
+         "icon VARCHAR(40) DEFAULT 'Folder', "
+         "sort_order INTEGER DEFAULT 100, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        "INSERT OR IGNORE INTO officina_categories (name, icon) SELECT DISTINCT category, 'Folder' FROM officina_documents WHERE category IS NOT NULL AND TRIM(category) != ''",
+
+        # Linking documento ↔ cliente per raggruppamento nelle viste officina
+        # (es. datasheet per cliente). FK opzionale.
+        "ALTER TABLE officina_documents ADD COLUMN customer_id INTEGER REFERENCES customers(id)",
+        # Linking opzionale anche a fornitori materiali e utensili (cataloghi
+        # produttori). Mutex con customer_id e tra loro.
+        "ALTER TABLE officina_documents ADD COLUMN material_supplier_id INTEGER REFERENCES material_suppliers(id)",
+        "ALTER TABLE officina_documents ADD COLUMN tool_supplier_id INTEGER REFERENCES tool_suppliers(id)",
+
+        # Fornitori di componenti normalizzati (viti, bulloni, cuscinetti...)
+        # Quarto tipo di fornitore, distinto dagli altri 3.
+        ("CREATE TABLE IF NOT EXISTS normalized_suppliers ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(100) NOT NULL, "
+         "address TEXT, "
+         "phone VARCHAR(50), "
+         "email VARCHAR(100), "
+         "notes TEXT, "
+         "active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        "ALTER TABLE officina_documents ADD COLUMN normalized_supplier_id INTEGER REFERENCES normalized_suppliers(id)",
 
         # ═══ Attributi utensili (Tipo / Marchio / Posizione) ═══
         # Tabelle di catalogo gestite da Settings → Attributi utensili.

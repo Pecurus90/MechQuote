@@ -1,57 +1,51 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
-import { FileText, Ruler, BookOpen, Calculator, Hammer, Box } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { FileText, Hammer, Box, Plus, Pencil, Trash2 } from 'lucide-react'
+import api from '@/lib/api'
+import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
-
-interface Tile {
-  to: string
-  icon: React.ReactNode
-  title: string
-  subtitle: string
-  available: boolean
-}
+import ConfirmDialog from '@/components/ui/confirm-dialog'
+import CategoryFormModal from '@/components/officina/CategoryFormModal'
+import { getIcon } from '@/lib/icons'
+import type { OfficinaCategory } from '@/types'
 
 export default function OfficinaHub() {
   const { hasPermission } = useAuth()
   const canRead = hasPermission('officina')
+  const canManageCategories = hasPermission('users')  // admin-only
 
-  const tiles: Tile[] = [
-    {
-      to: '/officina/materiali',
-      icon: <Box className="w-7 h-7 text-blue-700" />,
-      title: 'Materiali',
-      subtitle: 'Catalogo materiali con schede tecniche PDF',
-      available: canRead,
-    },
-    {
-      to: '/officina/documenti',
-      icon: <FileText className="w-7 h-7 text-blue-700" />,
-      title: 'Documenti',
-      subtitle: 'Cataloghi PDF, manuali, schede generiche',
-      available: canRead,
-    },
-    {
-      to: '/officina/tabelle',
-      icon: <Ruler className="w-7 h-7 text-blue-700" />,
-      title: 'Tabelle reference',
-      subtitle: 'Tolleranze ISO, filettature (M, MF, BSP, UNF, UNC, Whitworth)',
-      available: false,
-    },
-    {
-      to: '/officina/normative',
-      icon: <BookOpen className="w-7 h-7 text-blue-700" />,
-      title: 'Normative',
-      subtitle: 'Procedure e regolamenti aziendali',
-      available: false,
-    },
-    {
-      to: '/officina/calcolatori',
-      icon: <Calculator className="w-7 h-7 text-blue-700" />,
-      title: 'Calcolatori',
-      subtitle: 'Filettature, durezza Brinell/Vickers/Rockwell, smussi',
-      available: false,
-    },
-  ]
+  const [categories, setCategories] = useState<OfficinaCategory[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<OfficinaCategory | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<OfficinaCategory | null>(null)
+
+  const load = () => {
+    api.get('/officina/categories-full')
+      .then(r => setCategories(r.data))
+      .catch(() => undefined)
+  }
+  useEffect(() => { load() }, [])
+
+  const openCreate = () => { setEditing(null); setShowForm(true) }
+  const openEdit = (c: OfficinaCategory) => { setEditing(c); setShowForm(true) }
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    const cat = pendingDelete
+    setPendingDelete(null)
+    try {
+      await api.delete(`/officina/categories/${cat.id}`)
+      toast.success('Categoria eliminata')
+      load()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore eliminazione')
+    }
+  }
+
+  if (!canRead) return null
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
@@ -60,43 +54,111 @@ export default function OfficinaHub() {
           <Hammer className="w-6 h-6 text-blue-700" /> Officina
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Documentazione operativa, tabelle reference, calcolatori. Pensata per essere
-          consultata in officina durante la lavorazione.
+          Documentazione operativa per il personale di produzione.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {tiles.map(t => (
-          t.available ? (
-            <Link key={t.to} to={t.to} className="block">
-              <Card className="hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
-                <CardContent className="p-4 flex items-start gap-3">
-                  <div className="shrink-0 mt-0.5">{t.icon}</div>
-                  <div>
-                    <h2 className="font-semibold text-gray-900">{t.title}</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">{t.subtitle}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ) : (
-            <Card key={t.to} className="opacity-50 cursor-not-allowed h-full">
-              <CardContent className="p-4 flex items-start gap-3">
-                <div className="shrink-0 mt-0.5 grayscale">{t.icon}</div>
-                <div>
-                  <h2 className="font-semibold text-gray-700 flex items-center gap-2">
-                    {t.title}
-                    <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                      In arrivo
-                    </span>
-                  </h2>
-                  <p className="text-sm text-gray-400 mt-0.5">{t.subtitle}</p>
+        {/* Card fisse */}
+        <Link to="/officina/materiali" className="block">
+          <Card className="hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="shrink-0 mt-0.5">
+                <Box className="w-7 h-7 text-blue-700" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900">Materiali</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Catalogo materiali con schede tecniche PDF.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/officina/documenti" className="block">
+          <Card className="hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="shrink-0 mt-0.5">
+                <FileText className="w-7 h-7 text-blue-700" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900">Tutti i documenti</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Vista completa: PDF, Word, Excel, immagini, DXF.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Card dinamiche per ogni categoria */}
+        {categories.map(c => {
+          const Icon = getIcon(c.icon)
+          return (
+            <div key={c.id} className="relative group">
+              <Link to={`/officina/documenti?category=${encodeURIComponent(c.name)}`} className="block">
+                <Card className="hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="shrink-0 mt-0.5">
+                      <Icon className="w-7 h-7 text-blue-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="font-semibold text-gray-900 truncate">{c.name}</h2>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        Documenti categoria "{c.name}".
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              {canManageCategories && (
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                  <button
+                    onClick={e => { e.preventDefault(); openEdit(c) }}
+                    className="p-1 bg-white border border-gray-200 hover:bg-gray-50 rounded shadow-sm"
+                    title="Modifica categoria"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                  </button>
+                  <button
+                    onClick={e => { e.preventDefault(); setPendingDelete(c) }}
+                    className="p-1 bg-white border border-gray-200 hover:bg-red-50 rounded shadow-sm"
+                    title="Elimina categoria"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           )
-        ))}
+        })}
       </div>
+
+      {canManageCategories && (
+        <div className="pt-2">
+          <Button size="sm" variant="outline" onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-1" /> Nuova categoria
+          </Button>
+        </div>
+      )}
+
+      {showForm && (
+        <CategoryFormModal
+          category={editing}
+          onClose={() => { setShowForm(false); setEditing(null) }}
+          onSaved={load}
+        />
+      )}
+
+      <ConfirmDialog
+        open={pendingDelete != null}
+        title={`Eliminare la categoria "${pendingDelete?.name ?? ''}"?`}
+        description="Se ci sono documenti che usano questa categoria, l'eliminazione verrà bloccata."
+        confirmLabel="Elimina"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

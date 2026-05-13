@@ -32,6 +32,7 @@ import ToolSuppliersPage from '@/pages/settings/ToolSuppliersPage'
 import ToolAttributesPage from '@/pages/settings/ToolAttributesPage'
 import MaterialSuppliersPage from '@/pages/settings/MaterialSuppliersPage'
 import TreatmentSuppliersPage from '@/pages/settings/TreatmentSuppliersPage'
+import NormalizedSuppliersPage from '@/pages/settings/NormalizedSuppliersPage'
 import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
 import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
 import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
@@ -83,6 +84,7 @@ function AppRoutes() {
         <Route path="settings/tool-attributes" element={<ProtectedRoute permission="tools"><ToolAttributesPage /></ProtectedRoute>} />
         <Route path="settings/material-suppliers" element={<ProtectedRoute permission="settings"><MaterialSuppliersPage /></ProtectedRoute>} />
         <Route path="settings/treatment-suppliers" element={<ProtectedRoute permission="settings"><TreatmentSuppliersPage /></ProtectedRoute>} />
+        <Route path="settings/normalized-suppliers" element={<ProtectedRoute permission="settings"><NormalizedSuppliersPage /></ProtectedRoute>} />
         <Route path="settings/workflows"  element={<ProtectedRoute permission="settings"><WorkflowTemplatesPage /></ProtectedRoute>} />
         <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />

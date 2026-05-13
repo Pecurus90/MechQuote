@@ -218,6 +218,16 @@ export interface ToolSupplier {
   active?: boolean
 }
 
+export interface NormalizedSupplier {
+  id: number
+  name: string
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  notes?: string | null
+  active?: boolean
+}
+
 export interface Tool {
   id: number
   code: string
@@ -520,4 +530,16 @@ export interface OfficinaDocument {
   size_bytes: number
   uploaded_at: string
   uploaded_by?: UserMinimal | null
+  customer?: { id: number; customer_number: number; name: string } | null
+  material_supplier?: { id: number; name: string } | null
+  tool_supplier?: { id: number; name: string } | null
+  normalized_supplier?: { id: number; name: string } | null
+}
+
+export interface OfficinaCategory {
+  id: number
+  name: string
+  icon: string         // nome lucide-react, mappato via lib/icons.ts
+  sort_order: number
+  created_at?: string
 }

@@ -6,6 +6,9 @@ interface Props {
   selectedIds: Set<number>
   onToggle: (profileId: number) => void
   height?: number
+  /** Disabilita click sui profili (solo visualizzazione, niente picking).
+   *  Usato dal viewer Officina dove serve solo l'anteprima. */
+  readOnly?: boolean
 }
 
 const COLOR = {
@@ -21,7 +24,7 @@ function profileColor(p: DxfProfile, selected: boolean): string {
   return selected ? COLOR.openSelected : COLOR.openUnselected
 }
 
-export default function DxfViewer({ analysis, selectedIds, onToggle, height = 480 }: Props) {
+export default function DxfViewer({ analysis, selectedIds, onToggle, height = 480, readOnly = false }: Props) {
   const { bbox_global, profiles } = analysis
 
   // ViewBox con padding 5% per leggibilità.
@@ -54,10 +57,13 @@ export default function DxfViewer({ analysis, selectedIds, onToggle, height = 48
         {/* Flip Y: in DXF Y va verso l'alto, in SVG verso il basso */}
         <g transform={`translate(0, ${view.flipY}) scale(1, -1)`}>
           {profiles.map(p => {
-            const selected = selectedIds.has(p.id)
+            // In readOnly tutti i profili appaiono col colore "selected" (più nitidi).
+            const selected = readOnly ? true : selectedIds.has(p.id)
             const color = profileColor(p, selected)
             return (
-              <g key={p.id} className="cursor-pointer" onClick={() => onToggle(p.id)}>
+              <g key={p.id}
+                className={readOnly ? '' : 'cursor-pointer'}
+                onClick={readOnly ? undefined : () => onToggle(p.id)}>
                 {/* path "ghost" pesante per facilitare il click */}
                 <path
                   d={p.svg_path}

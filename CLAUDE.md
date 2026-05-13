@@ -123,6 +123,10 @@ Chiavi attuali (`PERMISSION_KEYS`):
 - `quotes.complete` (chi marca completato aprendo)
 - `customers` · `settings` (catalogo) · `company` (dati azienda)
 - `users` · `backup` · `notifications`
+- `orders.materials` (Ordini materiali — lista + PDF)
+- `tools` (Gestione utensili **e** ordini utensili — copertura voluta)
+- `officina` (Officina — lettura documenti / reference / calcolatori)
+- `officina.write` (Officina — upload + modifica)
 
 ### Regole di gating
 
@@ -180,29 +184,24 @@ Limite hardcoded a **50 MB** in `parts.py upload_file` (stream a chunk). Niente 
 
 ### Data model
 
-```
-User ─┬──> Role ─> RolePermission
-      │
-Quote ──┬─> Customer
-        ├─> created_by_user_id, submitted_by_user_id, completed_by_user_id  (User)
-        └─> Part [N]
-              ├─> Material ─> MaterialSupplier
-              ├─> ManufacturingPhase [N]
-              │     ├─> Machine
-              │     ├─> Operation      (catalogo Lavorazioni, FK opzionale)
-              │     ├─> Supplier
-              │     └─> Treatment ─> Supplier
-              └─> PartFile [N]
+> **Fonte autoritativa**: `backend/app/models.py`. Qui sotto solo overview a domini per orientamento — non un diagramma esaustivo (che andrebbe in drift a ogni feature).
 
-CompanySettings  (singleton id=1: anagrafica + 4 default operativi)
-QuoteCategory    (lettera codice preventivo: A-G)
-Operation        (catalogo Lavorazioni libero — sostituisce enum PHASE_TYPES legacy)
-WorkflowTemplate ─> WorkflowTemplateStep  (sequenza riusabile Macchina+Lavorazione,
-                                            applicabile a una Part via clean-slate)
-StepColorRule    (mapping colori STEP → fasi suggerite, dormiente fino a import 3D)
+Il modello SQLAlchemy è organizzato in 8 domini logici:
 
-Notification ─> NotificationRead  (in-app, generiche, target_roles[]+target_user_id)
-```
+- **Auth**: `User`, `Role`, `RolePermission` — utenti, ruoli dinamici, mapping permessi.
+- **Quotes / Costing**: `Quote → Part [N] → ManufacturingPhase [N] → PartFile [N]` — preventivo, parti, fasi di lavorazione con file allegati. `Quote.created_by/submitted_by/completed_by/material_ordered_by` puntano a `User`. `QuoteCategory` lettera codice A-G.
+- **Catalog materiali**: `Material → MaterialSupplier`, `NormalizedSupplier` (viti/bulloni/cuscinetti). Material ha scheda PDF opzionale (`datasheet_path`).
+- **Catalog operations**: `Operation` (catalogo Lavorazioni utente), `Machine`, `Treatment → Supplier` (trattamenti/lavorazioni esterne). `WorkflowTemplate → WorkflowTemplateStep` (sequenze riusabili applicate clean-slate alla Part). `StepColorRule` (mapping colore STEP → fase, dormiente fino a import 3D).
+- **Officina**: `OfficinaDocument` (PDF/Word/Excel/immagini/DXF, MIME filtrato server-side), `OfficinaCategory` (icona lucide-react). Documenti linkabili opzionalmente a `Customer` / `MaterialSupplier` / `ToolSupplier` / `NormalizedSupplier`.
+- **Orders**: `MaterialOrder → MaterialOrderQuote` (storico ordini materiale, N:M con `Quote`), `ToolOrder → ToolOrderItem` (storico utensili con snapshot di codice/marca/quantità al momento dell'ordine).
+- **Tools / Utensili**: `Tool` (anagrafica utensili) con attributi catalogo via stringa libera + lookup: `ToolType`, `ToolBrand`, `ToolLocation`, `ToolSupplier`.
+- **EDM** (Wire EDM): `EdmConfig` (singleton id=1, parametri taglio default), `EdmCutSpeed` (velocità per materiale × spessore × pass), `CuttingCycle → CuttingPass` (cicli di taglio multi-pass), `DrillingTime` (tempi foratura).
+
+Cross-cutting:
+- `CompanySettings` — singleton id=1: anagrafica + 4 default operativi (margine/prezzo minimo/trasporto/packaging) + override stock shipping/cutting.
+- `Notification → NotificationRead` — in-app, generiche, `target_roles[]` + `target_user_id`.
+
+Il diagramma di riferimento canonico è inline in `models.py` con docstring sui modelli.
 
 ### `Supplier` vs `MaterialSupplier` — perché due tabelle
 
@@ -219,14 +218,7 @@ I due modelli hanno ~80% dei campi sovrapposti (`name`, `address`, `shipping_cos
 
 ### Concorrenza — last write wins
 
-I modelli SQLAlchemy non hanno `version_id_col`: due update concorrenti sullo stesso record (es. `Part.margin_percent` modificato da 2 sessioni che hanno letto lo stesso valore iniziale) producono **lost update silente**, l'ultima scrittura vince senza warning. Per un'app a 1 utente è ininfluente.
-
-Se in futuro più utenti operano sullo stesso preventivo, valutare:
-1. Optimistic locking via `updated_at` come `If-Match` header (server confronta, 409 se diverso)
-2. Lock pessimistico via `Quote.status='in_edit_da_X'` durante l'editing
-3. Re-fetch automatico in UI dopo ogni save per allineare la copia client
-
-Ad oggi (2026-05-09) **non documentato come bug**, è una scelta esplicita per ridurre complessità in scope MVP.
+Niente `version_id_col` sui modelli: update concorrenti producono lost update silente. Scelta esplicita per scope MVP a 1 utente — quando diventerà multi-utente sullo stesso preventivo, valutare optimistic locking via `updated_at` come `If-Match`.
 
 ### Workflow stati preventivo (interno, 3 stati)
 
@@ -288,23 +280,7 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - `default_transport_cost` → `Quote.transport_cost`
 - `default_packaging_cost` → `Quote.packaging_cost`
 
-**Campi deferred (esistono ma non applicati nel calcolo, dormienti per feature future)**:
-- `Material.edm_coefficient` / `cnc_machinability_coefficient` — UI MaterialsPage compila, mai letti dal cost engine. Da cablare con import 3D.
-- `Machine.setup_minimum_hours` — UI MachinesPage compila, non applicato come pavimento per setup auto-calcolato. Da cablare con import 2D/3D.
-- `StepColorRule.complexity_coefficient` — UI StepColorRulesPage compila, riservato all'import STEP (modulo 3D futuro).
-- `Treatment.treatment_type` — metadato descrittivo (UI TreatmentsPage), non filtrato dal calcolo.
-- `EdmCutSpeed.material_id` — colonna legacy nel DB pre-refactor famiglia (audit#1 sprint EDM 1.5), non più letta dal modello SQLAlchemy.
-
-**Colonne legacy DB orfane (modulo Volumetric prototipato e smontato)**:
-- Tabelle `operation_speeds`, `operation_cycles`, `operation_cycle_steps` — create durante prototipazione Sprint 13/14, smontate per essere ricostruite come modulo separato. Restano nel DB di sviluppo, non più referenziate dal codice.
-- `manufacturing_phases.input_volume_cm3` — colonna aggiunta in Sprint 13c, ora non più mappata dal modello SQLAlchemy.
-
-> Nota: la tabella `operations` e la colonna `manufacturing_phases.operation_id` (nominate in commenti storici come "legacy volumetric") sono state **riattivate** dal refactor Operation. Oggi sono il catalogo Lavorazioni utente: vivi e referenziati dal modello.
-
-**Campi rimossi dal modello in audit#2 sprint 3 B1** (colonne legacy DB, non leggibili da SQLAlchemy):
-- `Part.rounding_rule`, `Part.confidence_level`
-- `ManufacturingPhase.quantity_multiplier`, `margin_percent_override`
-- `Treatment.fixed_cost`, `cost_per_part`, `cost_per_surface_area`
+**Archeologia DB** (campi deferred, colonne orfane, campi rimossi) → `docs/specs/16_legacy_columns.md`. **Regola operativa**: la fonte di verità è `models.py`. Colonne SQLite non mappate dal modello = inesistenti (non leggerle, non scriverle).
 
 ---
 
@@ -424,6 +400,9 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | useEffect deps incomplete + `eslint-disable` | Bug latente: l'effect non rifirà quando dovrebbe | Includi le deps che rappresentano gli input semantici dell'effect (es. quantity per ricalcoli legati alla qty) |
 | `DELETE` su catalog senza `block_if_in_use` | Orfani in tabelle child (SQLite FK non enforced) o `IntegrityError` opaco lato frontend | Helper `block_if_in_use` da `app.core.catalog_protect`, sempre. Messaggio italiano con conteggio child |
 | Smoke test su endpoint distruttivi senza backup DB | DB locale svuotato/corrotto, perdita dati irrecuperabile (SQLite no FK enforce) | Prima di chiamare `/api/backup/import`, DELETE batch o pytest integration: `cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)`. Vedi §2.E |
+| Rinominare attributo `Tool*` (Type/Brand/Location) senza cascade | Utensili con `tool_type/brand/location` orfano (FK su stringa libera) | Pattern in `_mount_tool_attribute_crud` di `api/tools.py`: PUT esegue UPDATE manuale su `tools` con whitelist `_ALLOWED_TOOL_COLUMNS`. Mai bypassare. |
+| Upload officina senza filtro MIME / size | File arbitrari in `uploads/officina/`, possibile DoS storage | Limiti in `api/officina.py` (MIME whitelist + 50 MB hard cap come `parts.py`). Gating `officina.write` obbligatorio. |
+| Modifica catalogo senza badge KPI ordini sincronizzato | Mini-dashboard ordini materiali/utensili mostra dati stantii | Endpoint POST/PATCH/DELETE su `Quote` (material_ordered_at) o `Tool` (quantity/minimum) deve aggiornare gli aggregati esposti da `orders.py` / `orders_tools.py` low-stock. |
 
 ---
 
@@ -431,14 +410,21 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 
 ```
 backend/app/
-  api/             # Un file per resource group (auth, quotes, parts, phases, dashboard, pdf, backup,
-                   #  customers, materials, machines, treatments, catalog, roles, notifications,
-                   #  company, quotes_archive)
+  api/             # Un file per resource group:
+                   #  Quotes/Costing: quotes, quotes_archive, parts, phases, pdf
+                   #  Catalog: customers, materials, machines, treatments, catalog,
+                   #           operations, workflow_templates, normalized_suppliers
+                   #  Officina: officina
+                   #  Orders: orders, orders_pdf, orders_tools
+                   #  Tools: tools, tools_pdf
+                   #  EDM: edm
+                   #  Sistema: auth, roles, users, company, dashboard, notifications, backup
   core/
     config.py      # Settings env-driven (SECRET_KEY, DATABASE_URL, ALLOWED_ORIGINS)
     database.py    # engine, SessionLocal, Base
     permissions.py # PERMISSION_KEYS + DEFAULT_ROLE_PERMISSIONS
     security.py    # JWT, get_current_user (carica permissions[]), require_role, require_permission
+    catalog_protect.py # block_if_in_use helper per DELETE su tabelle catalog
   models.py        # SQLAlchemy ORM, single source of truth schema DB
   schemas.py       # Pydantic Base/Create/Update/Out
   services/
@@ -448,11 +434,16 @@ backend/app/
   main.py          # startup, _run_migrations, _seed_categories/_seed_roles/_seed_edm_defaults, router register
 
 frontend/src/
-  pages/           # 1 file per route (DashboardPage, QuoteEditor, QuoteArchivePage, NewQuotePage,
-                   #  LoginPage, settings/*)
+  pages/           # 1 file per route. Top-level domini:
+                   #  Dashboard / QuoteEditor / QuoteArchivePage / NewQuotePage / NewQuote2DPage
+                   #  ToolsPage / ActivityPage / LoginPage
+                   #  officina/   (OfficinaHub, DocumentsPage, MaterialsPage)
+                   #  orders/     (OrdersMaterialsPage, OrdersToolsPage)
+                   #  settings/   (Materials, Machines, Operations, Workflows,
+                   #               Treatments, *Suppliers, edm/*, Users, Roles, ecc.)
   components/
     layout/        # AppLayout, Sidebar, NotificationPanel
-    quotes/        # PartCard, PhaseEditor, QuoteWizard
+    quotes/        # PartCard, PhaseEditor, QuoteWizard, EdmPhaseFields, Dxf/*
     ui/            # shadcn primitives
   lib/
     api.ts            # Axios instance + interceptor
@@ -483,8 +474,16 @@ frontend/src/
 | `backend/app/api/dashboard.py` | KPI, monthly multi-metrica, workflow-stats, my-quotes, to-review, activity |
 | `backend/app/api/company.py` | CompanySettings GET/PUT |
 | `backend/app/core/permissions.py` | `PERMISSION_KEYS`, `DEFAULT_ROLE_PERMISSIONS` |
-| `frontend/src/pages/QuoteEditor.tsx` | Editor preventivo (oversize ~640 righe, refactor opportuno) |
+| `backend/app/core/catalog_protect.py` | `block_if_in_use()` per DELETE su tabelle catalog |
+| `backend/app/api/officina.py` | CRUD `OfficinaDocument` + `OfficinaCategory` (multi-MIME, viewer DXF) |
+| `backend/app/api/orders.py` + `orders_tools.py` | Material/Tool orders, lista + aggregate + low-stock |
+| `backend/app/api/tools.py` | CRUD `Tool` + factory CRUD attributi (Type/Brand/Location) con cascade rename |
+| `backend/app/api/edm.py` | EdmConfig singleton + EdmCutSpeed + CuttingCycle + DrillingTime |
+| `frontend/src/pages/QuoteEditor.tsx` | Editor preventivo (~600 righe) |
 | `frontend/src/pages/DashboardPage.tsx` | Dashboard role-aware (KPI + grafico multi-metrica + sezioni di lavoro) |
+| `frontend/src/pages/ToolsPage.tsx` | Anagrafica utensili + filtri + scan codice |
+| `frontend/src/pages/officina/*.tsx` | Hub officina + Documenti + Materiali (scheda PDF) |
+| `frontend/src/pages/orders/*.tsx` | Ordini materiali + Ordini utensili (mini-dashboard KPI inline) |
 | `frontend/src/components/quotes/PhaseEditor.tsx` | Lista fasi + calcPhase() (gemello di calculation.py) |
 | `frontend/src/lib/quoteCalc.ts` | Calc material/treatment/part/quote |
 | `frontend/src/lib/auth.tsx` | AuthContext, hasPermission |
@@ -493,26 +492,11 @@ frontend/src/
 
 ## 12. Spec docs (`docs/specs/`)
 
-Le spec sono **target documentati**, non sempre allineate al codice corrente. Se cogli una divergenza:
-1. Identifica chi ha ragione (codice vs spec)
-2. Se la divergenza è intenzionale (decisione di prodotto presa in chat), aggiorna la spec
-3. Se la spec è target ancora valido ma il codice è in arretrato, pianifica con l'utente
+Le spec sono **target storici/documentati**, non sempre allineate al codice corrente. In caso di divergenza: il codice ha priorità. Aggiorna la spec quando la divergenza è intenzionale, altrimenti pianifica con l'utente.
 
-| File | Stato | Note |
-|------|-------|------|
-| `01_product_scope.md` | Allineato | Visione |
-| `02_ui_dashboard_and_navigation.md` | **Obsoleto** | Sidebar oggi è Operatività + Impostazioni (Catalogo/Azienda/Sistema) |
-| `03_create_quote_workflows.md` | Allineato | Wizard manuale + auto-create part |
-| `04_data_model.md` | **Drift** | Mancano Role/RolePermission/Notification/CompanySettings/campi workflow |
-| `05_manufacturing_cycle.md` | Allineato | Phase types e cycle |
-| `06_cost_engine_formulas.md` | **Drift parziale** | Cita `complexity_coefficient`/`rounding`, non implementati |
-| `07_cnc_officina_logic.md` | Future | Da DXF/STEP in poi |
-| `08_edm_dxf_logic.md` | Future | DXF parsing wireframe |
-| `09_step_3d_logic.md` | Future | STEP import |
-| `10_settings_and_rules.md` | **Drift** | CostRule sostituita da CompanySettings |
-| `11_pdf_output.md` | Allineato | PDF cliente/interno |
-| `14_workflow_notifiche_permessi.md` | **Riscritto** | 3 stati `bozza/inviato/completato` (interni) |
-| `15_acceptance_criteria.md` | Reference | |
+`02`, `04`, `06`, `10` sono marcate **DEPRECATED — DRIFT** in testa al file: non usarle come riferimento operativo. `04_data_model.md` → leggi `models.py`. `06_cost_engine_formulas.md` → leggi §4 "Cost engine" qui sopra + `services/calculation.py`. `10_settings_and_rules.md` → `CompanySettings` singleton + UI Catalogo/Sistema.
+
+`16_legacy_columns.md` archeologia DB (campi deferred / colonne orfane / campi rimossi).
 
 `docs/ROADMAP.md` è il diario di stato (cosa è fatto, cosa manca).
 
@@ -538,6 +522,7 @@ Quando NON chiamare l'utente:
 
 Quando inizi una sessione nuova, in quest'ordine:
 1. Leggi `CLAUDE.md` (questo file).
-2. Leggi `docs/ROADMAP.md` per stato corrente.
-3. Se l'utente cita un dominio specifico, leggi la spec relativa in `docs/specs/`.
-4. **Solo poi** proponi/agisci.
+2. Leggi `~/.claude/projects/-Users-marco-Desktop-Github-dallavia/memory/MEMORY.md` per direttive di sessione attive (es. fase di consolidamento corrente, regole su push, decisioni di prodotto storiche).
+3. Leggi `docs/ROADMAP.md` per stato corrente.
+4. Se l'utente cita un dominio specifico, leggi la spec relativa in `docs/specs/`.
+5. **Solo poi** proponi/agisci.

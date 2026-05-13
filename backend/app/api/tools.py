@@ -76,6 +76,9 @@ def delete_tool_supplier(sid: int, db: Session = Depends(get_db), _=_can_tools):
 # che monta i 4 endpoint CRUD su un router secondario. Niente astrazioni
 # fancy — solo evita di scrivere 3 volte lo stesso codice.
 
+_ALLOWED_TOOL_COLUMNS = {"tool_type", "brand", "location"}
+
+
 def _mount_tool_attribute_crud(prefix: str, model, label: str, tool_column: str):
     """Monta CRUD per una tabella attributi (Tipo / Marchio / Posizione).
 
@@ -83,7 +86,15 @@ def _mount_tool_attribute_crud(prefix: str, model, label: str, tool_column: str)
     questo attributo: rinominando una voce nel catalogo, propaghiamo
     il rename su tutti gli utensili che usavano il vecchio nome.
     Senza cascade i Tool diventerebbero "valori legacy" silenziosi.
+
+    Whitelist su `tool_column`: interpolato in `text(f"...")` per cascade
+    rename e count-in-use. Il valore è hardcoded dalle 3 chiamate sotto,
+    ma il check blinda contro futuri usi che passassero input utente.
     """
+    if tool_column not in _ALLOWED_TOOL_COLUMNS:
+        raise ValueError(
+            f"tool_column '{tool_column}' non in whitelist {_ALLOWED_TOOL_COLUMNS}"
+        )
     @router.get(prefix, response_model=List[ToolAttributeOut])
     def _list(db: Session = Depends(get_db), _=_can_tools):
         return db.query(model).order_by(model.name).all()

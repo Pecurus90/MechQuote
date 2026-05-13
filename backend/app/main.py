@@ -487,6 +487,27 @@ def _run_migrations():
         # apriva una privilege escalation reale (dimostrata in audit).
         # Idempotente: DELETE no-op se il permesso non è assegnato.
         "DELETE FROM role_permissions WHERE permission_key='users' AND role_id IN (SELECT id FROM roles WHERE name != 'admin')",
+
+        # ═══ Indici su FK (audit DB — performance a regime) ═══
+        # SQLite crea automaticamente indici sui PK ma NON sulle FK.
+        # Query frequenti che filtrano su FK fanno full table scan: oggi
+        # invisibile (dataset piccolo, sub-15ms), ma cresce O(n). Aggiungo
+        # indici sulle FK più trafficate dai pattern di accesso noti:
+        # - Quote → Part → ManufacturingPhase / PartFile (load detail)
+        # - Quote.customer_id (filtri per cliente)
+        # - NotificationRead.* (dedup + lista per utente)
+        # - MaterialOrderQuote.* (join M2M ordini ↔ preventivi)
+        # - ToolOrderItem.tool_order_id (load ordine utensili)
+        # IF NOT EXISTS → idempotenti.
+        "CREATE INDEX IF NOT EXISTS idx_parts_quote_id ON parts(quote_id)",
+        "CREATE INDEX IF NOT EXISTS idx_manufacturing_phases_part_id ON manufacturing_phases(part_id)",
+        "CREATE INDEX IF NOT EXISTS idx_part_files_part_id ON part_files(part_id)",
+        "CREATE INDEX IF NOT EXISTS idx_quotes_customer_id ON quotes(customer_id)",
+        "CREATE INDEX IF NOT EXISTS idx_notification_reads_notification_id ON notification_reads(notification_id)",
+        "CREATE INDEX IF NOT EXISTS idx_notification_reads_user_id ON notification_reads(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_material_order_quotes_order_id ON material_order_quotes(material_order_id)",
+        "CREATE INDEX IF NOT EXISTS idx_material_order_quotes_quote_id ON material_order_quotes(quote_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tool_order_items_order_id ON tool_order_items(tool_order_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

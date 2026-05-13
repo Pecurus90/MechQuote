@@ -67,7 +67,7 @@ function AppRoutes() {
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
         <Route path="quotes/2d/new" element={<ProtectedRoute permission="quotes.create"><NewQuote2DPage /></ProtectedRoute>} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
-        <Route path="quotes/archive" element={<QuoteArchivePage />} />
+        <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
         <Route path="orders/tools" element={<ProtectedRoute permission="tools"><OrdersToolsPage /></ProtectedRoute>} />
         <Route path="tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />

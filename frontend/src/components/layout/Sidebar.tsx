@@ -39,6 +39,7 @@ export default function Sidebar() {
   const isSettingsActive = location.pathname.startsWith('/settings')
 
   const canQuote = hasPermission('quotes.create')
+  const canArchive = hasPermission('quotes.archive')
   const canDashboard = hasPermission('dashboard')
   const canCustomers = hasPermission('customers')
   const canSettings = hasPermission('settings')
@@ -113,10 +114,12 @@ export default function Sidebar() {
                   <span>Nuovo Preventivo</span>
                 </NavLink>
               )}
-              <NavLink to="/quotes/archive" className={({ isActive }) => navLinkClass(isActive, true)}>
-                <Archive className="w-3.5 h-3.5 shrink-0" />
-                <span>Archivio Preventivi</span>
-              </NavLink>
+              {canArchive && (
+                <NavLink to="/quotes/archive" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <Archive className="w-3.5 h-3.5 shrink-0" />
+                  <span>Archivio Preventivi</span>
+                </NavLink>
+              )}
             </div>
           )}
         </div>

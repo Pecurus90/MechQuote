@@ -238,12 +238,15 @@ export default function NewQuote2DPage() {
       }
 
       // 2. Aggiorna la part con dati pezzo (materiale, dimensioni grezzo da bbox + altezza)
+      // quote_mode='2d_dxf' marca la Part come nata dal wizard DXF (dashboard
+      // e reportistica filtrano per modalità). Il default DB è 'manual'.
       await api.put(`/parts/${partId}`, {
         description: form.description,
         material_id: Number(form.material_id),
         raw_x_mm: Math.ceil(dxf.analysis.bbox_global.w),
         raw_y_mm: Math.ceil(dxf.analysis.bbox_global.h),
         raw_z_mm: form.cut_height_mm,
+        quote_mode: '2d_dxf',
       })
 
       // 3. Upload DXF

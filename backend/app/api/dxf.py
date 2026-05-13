@@ -23,8 +23,8 @@ MAX_DXF_SIZE = 50 * 1024 * 1024
 @router.post("/dxf/analyze", response_model=DxfAnalysisOut)
 async def analyze_dxf(
     file: UploadFile = File(...),
-    tolerance_mm: float = Query(DEFAULT_TOLERANCE, ge=0.0, le=1.0,
-                                description="Tolleranza matching endpoint per stitching profili"),
+    tolerance_mm: float = Query(DEFAULT_TOLERANCE, gt=0.0, le=1.0,
+                                description="Tolleranza matching endpoint per stitching profili (mm). >0: con tol=0 round(x/tol) → ZeroDivisionError nel parser."),
     _=require_permission('quotes.create'),
 ):
     """Analizza un DXF e ritorna i profili rilevati.
@@ -57,6 +57,18 @@ async def analyze_dxf(
     if total == 0:
         raise HTTPException(400, "File vuoto")
     content = b"".join(chunks)
+
+    # Magic byte check: un DXF ASCII inizia con "0\nSECTION" o whitespace + "0".
+    # Senza questo controllo, file ZIP/PDF rinominati `.dxf` arrivano al parser
+    # ezdxf che solleva ValueError generica → l'utente vedeva "DXF non valido o
+    # corrotto" senza capire perché. Con il check, messaggio specifico.
+    head = content[:32].lstrip()
+    if not head.startswith(b"0"):
+        raise HTTPException(
+            400,
+            "File non sembra un DXF valido (header non riconosciuto). "
+            "Verifica che il file sia un DXF ASCII e non sia stato rinominato."
+        )
 
     try:
         result = parse_dxf(content, tolerance=tolerance_mm)

@@ -10,6 +10,7 @@ per popolare i campi della fase Wire EDM.
 
 from io import BytesIO
 from typing import List, Tuple, Dict, Optional
+import math
 import logging
 
 from ezdxf import recover
@@ -33,6 +34,12 @@ SVG_FLATTEN_TOL = 0.05
 
 # Tolleranza per flattening curve nel calcolo della lunghezza (più precisa).
 LENGTH_FLATTEN_TOL = 0.01
+
+# Hard cap entità nel modelspace. Un DXF "fractal" o malevolo con milioni di
+# entità causerebbe freeze CPU e accumulo memoria nel parser. Sopra il cap il
+# parsing fallisce esplicitamente. Valore alto rispetto a un disegno tecnico
+# normale (un complesso layout non supera ~5000 entità).
+MAX_ENTITIES = 50_000
 
 
 # ─── helper geometrici ──────────────────────────────────────────────────────
@@ -63,11 +70,20 @@ def _path_to_svg(p: Path) -> str:
 
 
 def _path_bbox(p: Path) -> Optional[Tuple[float, float, float, float]]:
-    """Ritorna (minx, miny, maxx, maxy) o None se vuoto."""
+    """Ritorna (minx, miny, maxx, maxy) o None se vuoto/non finito.
+
+    Filtra NaN/Inf: ezdxf può ritornare bbox con coordinate non finite su DXF
+    corrotti specifici (es. spline malformata). Senza il filtro, il bbox
+    globale diventa inf/nan e il viewer SVG renderizza una `viewBox` non
+    valida, mostrando il canvas vuoto senza errore.
+    """
     b = p.bbox()
     if not b.has_data:
         return None
-    return b.extmin.x, b.extmin.y, b.extmax.x, b.extmax.y
+    coords = (b.extmin.x, b.extmin.y, b.extmax.x, b.extmax.y)
+    if not all(math.isfinite(c) for c in coords):
+        return None
+    return coords
 
 
 def _close(a: Vec3, b: Vec3, tol: float) -> bool:
@@ -195,7 +211,14 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     paths: List[Path] = []
     skipped: Dict[str, int] = {}
 
+    seen_entities = 0
     for entity in msp:
+        seen_entities += 1
+        if seen_entities > MAX_ENTITIES:
+            raise ValueError(
+                f"DXF troppo complesso: oltre {MAX_ENTITIES} entità nel modelspace. "
+                f"Semplifica il disegno o segmenta in più file."
+            )
         dtype = entity.dxftype()
         if dtype not in SUPPORTED_TYPES:
             skipped[dtype] = skipped.get(dtype, 0) + 1

@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
@@ -93,7 +94,17 @@ def create_quote(
             quote.packaging_cost = cs.default_packaging_cost
 
     db.add(quote)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Race: due POST simultanei con stesso quote_number passano entrambi
+        # il pre-check (riga sopra) e poi una commit fallisce per UNIQUE
+        # constraint violato. Senza catch, l'utente vedeva 500 generico.
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Numero preventivo '{quote_data['quote_number']}' già esistente",
+        )
     db.refresh(quote)
 
     # Auto-create parts based on quote type

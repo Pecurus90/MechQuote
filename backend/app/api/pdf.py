@@ -17,10 +17,13 @@ sezione di pertinenza:
   preventivo, non di una parte)
 """
 import asyncio
+import logging
 import math
 import os
 import tempfile
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import FileResponse
@@ -760,8 +763,21 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
         _render_header(quote, cs),
         _render_meta_bar(quote),
     ]
-    for part in parts:
-        html_parts.append(_render_part(part, quote, cur, cs))
+    if not parts:
+        # Avviso esplicito invece di un PDF muto: senza questo blocco l'utente
+        # scarica un PDF con solo intestazione + totali a zero, senza capire
+        # che mancano le parti.
+        logger.warning("PDF richiesto su quote vuoto: id=%s number=%r", quote_id, quote.quote_number)
+        html_parts.append(
+            '<div style="margin:40px 20px;padding:20px;border:2px dashed #d97706;'
+            'background:#fffbeb;border-radius:6px;color:#92400e;">'
+            '<strong>⚠ Preventivo senza componenti.</strong> '
+            'Aggiungi almeno una parte per ottenere costi e prezzi calcolati.'
+            '</div>'
+        )
+    else:
+        for part in parts:
+            html_parts.append(_render_part(part, quote, cur, cs))
 
     html_parts.append(_render_totals(parts, quote, cur))
     html_parts.append(_render_notes(quote))

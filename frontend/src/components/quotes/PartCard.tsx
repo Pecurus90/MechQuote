@@ -319,6 +319,16 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
             </div>
           )}
 
+          {/* Avviso UX: materiale selezionato ma dimensioni grezzo a zero
+              → cost engine calcola material_cost = 0 silenziosamente.
+              Bloccare un PUT sarebbe troppo aggressivo (l'utente potrebbe
+              compilare in 2 step), preferiamo segnalare visivamente. */}
+          {selectedMaterial && !part.raw_diameter_mm && !part.raw_x_mm && !part.raw_y_mm && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              ⚠ Materiale selezionato ma dimensioni grezzo non impostate → costo materiale = 0 €
+            </p>
+          )}
+
           {/* Riga C: Costi — grid fisso, nessun wrap */}
           <div className="grid grid-cols-3 gap-3">
             <div>

@@ -9,6 +9,35 @@ from app.models import (
 )
 
 
+def _raw_weight_kg(part: Part) -> float:
+    """Peso del grezzo (kg) di una singola unità della parte.
+
+    Usato per distribuire la spedizione del fornitore materiale (la materia
+    prima viaggia come grezzo, non come pezzo finito). 0 se mancano dimensioni
+    o densità materiale: in quel caso il chiamante fa fallback a distribuzione
+    equa per numero di parti.
+    """
+    if not part.material:
+        return 0.0
+    density = part.material.density_kg_dm3 or 0
+    if not density:
+        return 0.0
+    if part.raw_diameter_mm:
+        r = part.raw_diameter_mm / 2
+        l = part.raw_z_mm or 0
+        if not r or not l:
+            return 0.0
+        vol_dm3 = (math.pi * r * r * l) / 1_000_000
+        return vol_dm3 * density
+    x = part.raw_x_mm or 0
+    y = part.raw_y_mm or 0
+    z = part.raw_z_mm or 0
+    if not x or not y or not z:
+        return 0.0
+    vol_dm3 = (x * y * z) / 1_000_000
+    return vol_dm3 * density
+
+
 def _compute_material_cost(part: Part, material: Optional[Material]) -> Optional[float]:
     """Costo materiale grezzo per pezzo (€) calcolato da volume × densità × €/kg × scrap.
 
@@ -167,6 +196,17 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     treatment_shipping_n: Dict[int, int] = defaultdict(int)
     material_shipping_n: Dict[int, int] = defaultdict(int)
 
+    # Conta parti del gruppo che hanno peso=0 (finished_weight_kg non compilato
+    # o esplicitamente 0). Serve per il fallback shipping: la distribuzione
+    # proporzionale al peso (`shipping × weight / total_w`) restituisce 0 per
+    # le parti con weight=0 anche se ALTRE parti del gruppo hanno peso > 0.
+    # Risultato: la spedizione "scompare" finché l'utente non compila il peso
+    # finito di TUTTE le parti. La spedizione del fornitore esiste comunque
+    # (è un costo per il viaggio, non per peso), quindi se anche una sola parte
+    # ha peso=0 fallback a distribuzione equa per numero di parti del gruppo.
+    material_shipping_zero: Dict[int, int] = defaultdict(int)
+    treatment_shipping_zero: Dict[int, int] = defaultdict(int)
+
     # CompanySettings singleton — letto 1 volta per riusare gli override
     # `stock_shipping_cost` / `stock_cutting_cost_per_part` quando una parte
     # ha `material_from_stock=True`.
@@ -175,27 +215,42 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     stock_cut = (cs.stock_cutting_cost_per_part if cs else 0.0) or 0.0
 
     for p in parts:
-        weight = (p.finished_weight_kg or 0.0) * (p.quantity or 1)
+        qty_p = p.quantity or 1
+        # Pesi distinti per dominio:
+        #  - Spedizione materiale → peso GREZZO (la materia prima viaggia come
+        #    grezzo dal fornitore). Calcolato dal grezzo (raw_x×raw_y×raw_z o
+        #    cilindro) × densità. Se l'utente non ha compilato dimensioni
+        #    grezzo o densità, raw_w resta 0 (gestito dal fallback equo).
+        #  - Trattamento (batch + spedizione) → peso PEZZO FINITO (il pezzo
+        #    arriva al trattamentista già lavorato).
+        finished_w = (p.finished_weight_kg or 0.0) * qty_p
+        raw_w = _raw_weight_kg(p) * qty_p
         # Conto lavoro o materiale a magazzino: la parte NON entra nel batch
         # spedizione del fornitore abituale (in entrambi i casi non usa
         # spedizione del fornitore materiale).
         if (p.material and p.material.supplier_id
                 and not p.customer_supplied_material
                 and not p.material_from_stock):
-            material_shipping[p.material.supplier_id] += weight
+            material_shipping[p.material.supplier_id] += raw_w
             material_shipping_n[p.material.supplier_id] += 1
+            if raw_w == 0:
+                material_shipping_zero[p.material.supplier_id] += 1
         for ph in p.phases:
             if ph.treatment_id and ph.treatment:
-                treatment_batch[ph.treatment_id] += weight
+                treatment_batch[ph.treatment_id] += finished_w
                 treatment_batch_n[ph.treatment_id] += 1
                 if ph.treatment.supplier_id:
-                    treatment_shipping[ph.treatment.supplier_id] += weight
+                    treatment_shipping[ph.treatment.supplier_id] += finished_w
                     treatment_shipping_n[ph.treatment.supplier_id] += 1
+                    if finished_w == 0:
+                        treatment_shipping_zero[ph.treatment.supplier_id] += 1
 
     # ─── Calcolo per ogni parte ──────────────────────────────────────────
     for part in parts:
         qty = part.quantity or 1
-        weight = (part.finished_weight_kg or 0.0) * qty
+        # Pesi separati per dominio (vedi commento in pre-aggregazione).
+        finished_weight = (part.finished_weight_kg or 0.0) * qty
+        raw_weight = _raw_weight_kg(part) * qty
 
         # Conto lavoro: materiale fornito dal cliente → tutti i costi
         # materia (grezzo + spedizione + taglio) vanno a zero per la parte.
@@ -223,16 +278,22 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 if recomputed is not None:
                     part.material_cost = recomputed
 
-            # Spedizione materiale: quota di parte = supplier.shipping × peso/totale.
+            # Spedizione materiale: quota di parte = supplier.shipping × peso/totale,
+            # ma sul peso GREZZO (la materia prima viaggia come grezzo dal
+            # fornitore, non come pezzo finito). Se anche UNA sola parte del
+            # gruppo ha raw_w=0 (dimensioni grezzo non ancora compilate),
+            # fallback distribuzione equa così la spedizione del fornitore
+            # non scompare per nessuno.
             if part.material and part.material.material_supplier:
                 sup = part.material.material_supplier
                 sup_id = part.material.supplier_id
                 total_w = material_shipping.get(sup_id, 0.0)
                 n_grp = material_shipping_n.get(sup_id, 1)
-                if total_w > 0:
-                    share = (sup.shipping_cost or 0.0) * weight / total_w
+                zeros = material_shipping_zero.get(sup_id, 0)
+                if total_w > 0 and zeros == 0:
+                    share = (sup.shipping_cost or 0.0) * raw_weight / total_w
                 else:
-                    # Edge case: nessun peso → distribuisci in parti uguali nel gruppo.
+                    # qualche parte ha grezzo=0 O totale 0 → distribuzione equa.
                     share = (sup.shipping_cost or 0.0) / max(n_grp, 1)
                 part.material_delivery_cost = round(share, 4)
 
@@ -249,7 +310,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             if edm_hours is not None:
                 phase.cycle_hours_per_part = edm_hours
 
-            # Trattamento: aggregazione per treatment_id.
+            # Trattamento: aggregazione per treatment_id (peso PEZZO FINITO).
             if phase.treatment_id and phase.treatment:
                 t = phase.treatment
                 batch_w = treatment_batch.get(phase.treatment_id, 0.0)
@@ -265,17 +326,21 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 )
 
                 if batch_w > 0:
-                    part_share = total_batch_cost * weight / batch_w
+                    part_share = total_batch_cost * finished_weight / batch_w
                 else:
                     part_share = total_batch_cost / max(n_grp, 1)
                 phase.variable_cost_per_part = round(part_share / qty, 4)
 
-                # Spedizione trattamento (per supplier_id).
+                # Spedizione trattamento (per supplier_id), peso PEZZO FINITO.
+                # Stesso pattern del material shipping: se qualche parte del
+                # gruppo ha peso finito=0 fallback equo, altrimenti
+                # proporzionale al peso finito.
                 if t.supplier_id and t.supplier:
                     ship_w = treatment_shipping.get(t.supplier_id, 0.0)
                     ship_n = treatment_shipping_n.get(t.supplier_id, 1)
-                    if ship_w > 0:
-                        ship_share = (t.supplier.shipping_cost or 0.0) * weight / ship_w
+                    ship_zeros = treatment_shipping_zero.get(t.supplier_id, 0)
+                    if ship_w > 0 and ship_zeros == 0:
+                        ship_share = (t.supplier.shipping_cost or 0.0) * finished_weight / ship_w
                     else:
                         ship_share = (t.supplier.shipping_cost or 0.0) / max(ship_n, 1)
                     phase.fixed_cost = round(ship_share, 4)

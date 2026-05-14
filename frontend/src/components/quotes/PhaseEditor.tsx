@@ -354,10 +354,16 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
             const weightThresholdActive = selectedTreatment?.minimum_weight_kg != null &&
               selectedTreatment.minimum_weight_kg > 0 &&
               totalBatchWeight < selectedTreatment.minimum_weight_kg
+            // Costo totale del batch al €/kg (gemello del backend `cost_per_kg × batch_w`).
+            // showMinWarning va confrontato sul TOTALE batch, non sulla quota di
+            // singola parte: con 3 parti di 5/8/10 kg @ 2€/kg il batch è 46€,
+            // sopra il minimo 20€, ma la quota della parte 1 (10€) era < 20€ →
+            // warning errato. Cfr scenario C1 in CHECKLIST_PREVENTIVATORE.md.
+            const batchTotalCost = (selectedTreatment?.cost_per_kg ?? 0) * totalBatchWeight
             const showMinWarning = isTreatment && selectedTreatment &&
               !weightThresholdActive &&
               selectedTreatment.minimum_cost > 0 &&
-              (phase.variable_cost_per_part * quantity) < selectedTreatment.minimum_cost
+              batchTotalCost < selectedTreatment.minimum_cost
 
             return (
               <div

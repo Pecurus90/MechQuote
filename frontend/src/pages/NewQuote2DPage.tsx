@@ -7,8 +7,17 @@ import { Zap, Drill, AlertTriangle, Box } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
-import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig, Machine, Operation } from '@/types'
+import type { Category, Customer, Material, CuttingCycle, DrillingTime, EdmConfig, Machine, Operation, Phase } from '@/types'
 import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
+
+// Cerca un'Operation per nome con fallback fuzzy: match esatto se presente,
+// altrimenti case-insensitive includes su una keyword. Evita che il preset
+// si rompa silenziosamente quando l'utente rinomina la lavorazione in
+// Impostazioni → Lavorazioni.
+function findOperation(ops: Operation[], exact: string, keyword: string): Operation | undefined {
+  return ops.find(o => o.name === exact)
+    ?? ops.find(o => o.name.toLowerCase().includes(keyword.toLowerCase()))
+}
 
 type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
 
@@ -250,6 +259,23 @@ export default function NewQuote2DPage() {
         errs.push('Foratrice EDM di default (configura in Impostazioni → Wire EDM → Parametri globali)')
       }
     }
+    // Senza una macchina wire_edm attiva l'autocalc EDM non parte e la fase
+    // resta a 0 ore: il preventivo finirebbe con costo EDM = 0 € (silent).
+    const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm')
+    if (!wireEdmMachine) {
+      errs.push("Nessuna macchina di tipo 'wire_edm' configurata (Impostazioni → Macchine)")
+    }
+    // Materiale senza density/cost → material_cost = 0 €. Prevenibile solo
+    // con materiali completi; il fix vero è in Impostazioni → Materiali.
+    if (form.material_id) {
+      const mat = materials.find(m => m.id === Number(form.material_id))
+      if (mat) {
+        const missing: string[] = []
+        if (!mat.density_kg_dm3 || mat.density_kg_dm3 <= 0) missing.push('densità')
+        if (!mat.cost_per_kg || mat.cost_per_kg <= 0) missing.push('costo/kg')
+        if (missing.length) errs.push(`Materiale "${mat.name}" senza ${missing.join(' e ')} (Impostazioni → Materiali)`)
+      }
+    }
     return errs
   }
 
@@ -301,9 +327,10 @@ export default function NewQuote2DPage() {
       //    sono auto-calcolate dal backend (area × ciclo / velocità).
       //    setup_hours = setup_minimum_hours configurato sulla macchina (UI
       //    Macchine → "Setup minimo"); l'utente può poi affinarlo nel preventivo.
+      // wireEdmMachine: validato in validate() — qui find è garantito tornare qualcosa.
       const wireEdmMachine = machines.find(m => m.machine_type === 'wire_edm')
-      const edmOperation = operations.find(o => o.name === 'EDM a filo')
-      await api.post(`/parts/${partId}/phases`, {
+      const edmOperation = findOperation(operations, 'EDM a filo', 'edm')
+      const edmRes = await api.post<Phase>(`/parts/${partId}/phases`, {
         sequence_number: 10,
         phase_type: '',  // legacy column NOT NULL — autocalc EDM si attiva da machine_type='wire_edm'
         operation_id: edmOperation?.id,
@@ -320,11 +347,20 @@ export default function NewQuote2DPage() {
         variable_cost_per_part: 0,
       })
 
+      // Warning se l'autocalc EDM non si è attivato (cycle_hours_per_part = 0):
+      // di solito significa che manca la riga EdmCutSpeed per (famiglia, spessore)
+      // o la famiglia del materiale non è popolata. Il preventivo è creato ma
+      // la fase EDM ha costo 0 € — l'utente deve correggere a mano.
+      const edmCycleHours = edmRes.data?.cycle_hours_per_part ?? 0
+      if (edmCycleHours <= 0) {
+        toast.warning('Autocalc EDM non attivato: la fase ha 0 ore. Verifica EdmCutSpeed per la famiglia/spessore o aggiusta manualmente nel preventivo.')
+      }
+
       // 5. Fase Foratura aggiuntiva SOLO in modalità foratrice_edm
       if (form.drilling_mode === 'foratrice_edm') {
         if (drillTotalSeconds != null && form.n_holes > 0 && edmConfig?.default_drilling_machine_id) {
           const drillingMachine = machines.find(m => m.id === edmConfig.default_drilling_machine_id)
-          const drillingOperation = operations.find(o => o.name === 'Foratura')
+          const drillingOperation = findOperation(operations, 'Foratura', 'foratura')
           await api.post(`/parts/${partId}/phases`, {
             sequence_number: 5,
             phase_type: '',  // legacy column NOT NULL

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session, joinedload
 from datetime import date, timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException
 
@@ -176,21 +176,24 @@ def get_workflow_stats(
 
 @router.get("/dashboard/my-quotes", response_model=List[DashboardQuoteRow])
 def get_my_quotes(
-    status: str,
+    status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
     limit: int = 10,
 ):
-    if status not in ('bozza', 'inviato', 'completato'):
+    """Lista preventivi del utente corrente. status opzionale: se None ritorna
+    tutti gli stati (bozza/inviato/completato).
+    """
+    if status is not None and status not in ('bozza', 'inviato', 'completato'):
         raise HTTPException(status_code=400, detail="Stato non valido")
-    quotes = db.query(Quote).options(
+    q = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
-    ).filter(
-        Quote.created_by_user_id == current_user.id,
-        Quote.status == status,
-    ).order_by(Quote.updated_at.desc()).limit(limit).all()
+    ).filter(Quote.created_by_user_id == current_user.id)
+    if status is not None:
+        q = q.filter(Quote.status == status)
+    quotes = q.order_by(Quote.updated_at.desc()).limit(limit).all()
     return [_quote_to_row(q) for q in quotes]
 
 

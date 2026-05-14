@@ -28,7 +28,14 @@ def list_customers(db: Session = Depends(get_db), active_only: bool = False):
 
 @router.post("", response_model=CustomerOut)
 def create_customer(data: CustomerCreate, db: Session = Depends(get_db), _=_can_write):
-    customer = Customer(**data.model_dump())
+    payload = data.model_dump()
+    # Auto-gen customer_number se non fornito (frontend lo passa, API consumer
+    # esterno può ometterlo): prossimo numero libero = max + 1.
+    if payload.get("customer_number") is None:
+        from sqlalchemy import func
+        max_num = db.query(func.max(Customer.customer_number)).scalar() or 0
+        payload["customer_number"] = max_num + 1
+    customer = Customer(**payload)
     db.add(customer)
     db.commit()
     db.refresh(customer)

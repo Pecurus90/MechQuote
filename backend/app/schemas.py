@@ -55,7 +55,9 @@ class CustomerBase(BaseModel):
 
 
 class CustomerCreate(CustomerBase):
-    customer_number: int
+    # Opzionale: se non passato, l'endpoint POST /customers auto-genera
+    # max(customer_number) + 1. Mantiene compat col frontend che lo invia.
+    customer_number: Optional[int] = None
 
 
 class CustomerUpdate(CustomerBase):
@@ -182,8 +184,31 @@ class PhaseCreate(PhaseBase):
     pass
 
 
-class PhaseUpdate(PhaseBase):
-    pass
+class PhaseUpdate(BaseModel):
+    """Update parziale: tutti i campi opzionali. Permette PUT con un solo
+    campo (es. {"setup_hours": 1.5}) senza dover ri-mandare phase_type
+    e tutti gli altri obbligatori di PhaseBase.
+    """
+    sequence_number: Optional[int] = None
+    phase_type: Optional[str] = None
+    description: Optional[str] = None
+    machine_id: Optional[int] = None
+    supplier_id: Optional[int] = None
+    setup_hours: Optional[float] = Field(default=None, ge=0)
+    cycle_hours_per_part: Optional[float] = Field(default=None, ge=0)
+    fixed_cost: Optional[float] = Field(default=None, ge=0)
+    variable_cost_per_part: Optional[float] = Field(default=None, ge=0)
+    hourly_rate_override: Optional[float] = Field(default=None, ge=0)
+    calculated_cost: Optional[float] = Field(default=None, ge=0)
+    treatment_id: Optional[int] = None
+    operation_id: Optional[int] = None
+    internal_notes: Optional[str] = None
+    customer_notes: Optional[str] = None
+    cut_length_mm: Optional[float] = Field(default=None, ge=0)
+    cut_height_mm: Optional[float] = Field(default=None, ge=0)
+    cutting_cycle_id: Optional[int] = None
+    n_pierce: Optional[int] = Field(default=None, ge=0)
+    dxf_profile_ids: Optional[list] = None
 
 
 class PhaseOut(PhaseBase):

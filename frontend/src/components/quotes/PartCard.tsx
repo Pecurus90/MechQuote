@@ -412,7 +412,12 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 </>
               )}
             </div>
-            {selectedTreatment && !part.finished_weight_kg && (
+            {selectedTreatment && !part.material_id && (
+              <p className="text-[11px] text-red-600 mt-1.5">
+                ⚠ Seleziona prima il materiale: il batch del fornitore è separato per materiale.
+              </p>
+            )}
+            {selectedTreatment && part.material_id && !part.finished_weight_kg && (
               <p className="text-[11px] text-amber-600 mt-1.5">⚠ Imposta il peso finito per calcolare il costo trattamento.</p>
             )}
           </CardContent>

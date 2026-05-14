@@ -490,6 +490,17 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
                               ⚠ Sotto il minimo ({selectedTreatment!.minimum_cost.toFixed(2)} €)
                             </p>
                           )}
+                          {/* Riepilogo batch: peso × cost/kg = totale, oppure forfait
+                              se sotto soglia. Aiuta a capire perché scatta il forfait. */}
+                          {selectedTreatment && totalBatchWeight > 0 && (
+                            <p className="text-[10px] text-gray-500 mt-0.5">
+                              Batch: {totalBatchWeight.toFixed(2)} kg
+                              {weightThresholdActive
+                                ? ` → forfait ${selectedTreatment.minimum_cost.toFixed(2)} €`
+                                : ` × ${(selectedTreatment.cost_per_kg ?? 0).toFixed(2)} €/kg = ${batchTotalCost.toFixed(2)} €`}
+                              {' '}(quota tua: {(phase.variable_cost_per_part * quantity).toFixed(2)} €)
+                            </p>
+                          )}
                         </div>
                       )}
 

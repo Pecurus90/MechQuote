@@ -38,6 +38,7 @@ export default function QuoteEditor() {
   const [validationIssues, setValidationIssues] = useState<PartIssue[] | null>(null)
   const [pendingPdfType, setPendingPdfType] = useState<boolean>(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
+  const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -387,7 +388,7 @@ export default function QuoteEditor() {
                       </button>
                     )}
                     {quote.quote_type !== 'single' && !isLocked && (
-                      <button onClick={e => { e.stopPropagation(); deletePart(idx) }}
+                      <button onClick={e => { e.stopPropagation(); setConfirmDeletePartIdx(idx) }}
                         className="p-0.5 hover:text-red-500 text-gray-300" title="Elimina">
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -621,6 +622,23 @@ export default function QuoteEditor() {
         confirmLabel="Invia"
         onConfirm={doSubmitForReview}
         onCancel={() => setConfirmSubmit(false)}
+      />
+      <ConfirmDialog
+        open={confirmDeletePartIdx !== null}
+        title="Eliminare la parte?"
+        description={
+          confirmDeletePartIdx !== null && quote?.parts[confirmDeletePartIdx]
+            ? `"${quote.parts[confirmDeletePartIdx].part_code}" verrà rimossa dal preventivo. Le quote di spedizione e trattamento delle altre parti saranno ricalcolate.`
+            : undefined
+        }
+        confirmLabel="Elimina"
+        onConfirm={async () => {
+          if (confirmDeletePartIdx !== null) {
+            await deletePart(confirmDeletePartIdx)
+          }
+          setConfirmDeletePartIdx(null)
+        }}
+        onCancel={() => setConfirmDeletePartIdx(null)}
       />
     </div>
   )

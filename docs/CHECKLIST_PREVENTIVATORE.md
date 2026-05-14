@@ -88,6 +88,17 @@ Stesso setup C1.
 - Sotto il campo: "⚠ Compila il peso: serve per costo e spedizione del trattamento"
 - Costo trattamento e spedizione visibili = 0
 
+### C5. Stesso trattamento + materiali diversi → batch separati
+Setup: trattamento "tempra" (`min_w=10kg`, `min_cost=20€`, `cost/kg=2€`).
+1. Commessa 4 parti, tutte con "tempra".
+2. Parti 1+2 in materiale C45 (peso finito 5+8 kg → batch 13 kg sopra soglia).
+3. Parti 3+4 in materiale 1.2311 (peso finito 3+4 kg → batch 7 kg sotto soglia).
+**Atteso**:
+- Batch C45: `13 × 2 = 26€` distribuito → parte 1 = 10€, parte 2 = 16€
+- Batch 1.2311: forfait `20€` distribuito → parte 3 ≈ 8.57€, parte 4 ≈ 11.43€
+- Σ totale = `26 + 20 = 46€`
+- Sui 2 gruppi soglia/forfait sono valutati **indipendentemente** (ogni materiale è una commessa separata per il fornitore)
+
 ### C4. Refresh immediato cambio trattamento
 1. Commessa 2 parti, entrambe con stesso trattamento (supplier `shipping_cost = 50€`).
 2. Cambia il trattamento su una parte (es. da "Cementazione" a "Nitrurazione" stesso supplier).

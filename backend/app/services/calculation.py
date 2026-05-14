@@ -1,6 +1,6 @@
 import math
 from collections import defaultdict
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
 from app.models import (
     Part, ManufacturingPhase, Quote, Material,
@@ -155,17 +155,19 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     "commessa" (parti che fisicamente condividono batch o viaggi).
 
     Aggregazioni:
-      - **Costo trattamento + soglia**: per `treatment_id` (stesso prodotto =
-        stesso batch). Peso totale = Σ (peso_finito × qty) di tutte le parti
-        con quella fase trattamento. Soglia confrontata col totale; costo
-        del batch distribuito proporzionale al peso. `variable_cost_per_part`
-        sovrascritto.
+      - **Costo trattamento + soglia**: per `(treatment_id, material_id)`.
+        Stesso fornitore + stesso trattamento + materiali diversi = batch
+        SEPARATI: ogni materiale ha caratteristiche fisiche diverse
+        (temprabilità, durezza, conducibilità) e va processato in commessa
+        separata nel forno. Peso = Σ (peso_finito × qty) per gruppo.
+        Soglia confrontata sul totale del SUO batch; costo distribuito
+        proporzionale al peso. `variable_cost_per_part` sovrascritto.
       - **Spedizione trattamento** (`treatment.supplier.shipping_cost`): per
-        `treatment.supplier_id` — anche con trattamenti diversi dallo stesso
-        fornitore, il viaggio è uno solo. Distribuita proporzionale al peso.
-        `phase.fixed_cost` sovrascritto con la quota.
+        `treatment.supplier_id` — anche con trattamenti diversi o materiali
+        diversi dello stesso fornitore, il viaggio è uno solo. Distribuita
+        proporzionale al peso finito. `phase.fixed_cost` sovrascritto.
       - **Spedizione materiale** (`material_supplier.shipping_cost`): per
-        `material.supplier_id`. Distribuita proporzionale al peso.
+        `material.supplier_id`. Distribuita proporzionale al peso grezzo.
         `part.material_delivery_cost` sovrascritto.
 
     Per single quote (1 parte) le aggregazioni sono no-op (1 sola parte per
@@ -187,12 +189,15 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
 
     # ─── Pre-aggregazioni ────────────────────────────────────────────────
     # Tutti i pesi sono peso_finito × qty (massa fisica del batch).
-    treatment_batch: Dict[int, float] = defaultdict(float)
+    # Costo trattamento: chiave (treatment_id, material_id) — materiali diversi
+    # = batch separati nel forno. Spedizioni: chiave supplier_id — fornitore
+    # = 1 viaggio per tutta la commessa (anche con materiali/trattamenti misti).
+    treatment_batch: Dict[Tuple[int, Optional[int]], float] = defaultdict(float)
     treatment_shipping: Dict[int, float] = defaultdict(float)
     material_shipping: Dict[int, float] = defaultdict(float)
 
     # Conta parti per gruppo (fallback per edge case con peso 0).
-    treatment_batch_n: Dict[int, int] = defaultdict(int)
+    treatment_batch_n: Dict[Tuple[int, Optional[int]], int] = defaultdict(int)
     treatment_shipping_n: Dict[int, int] = defaultdict(int)
     material_shipping_n: Dict[int, int] = defaultdict(int)
 
@@ -224,9 +229,13 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             material_shipping_n[p.material.supplier_id] += 1
         for ph in p.phases:
             if ph.treatment_id and ph.treatment:
-                treatment_batch[ph.treatment_id] += finished_w
-                treatment_batch_n[ph.treatment_id] += 1
+                # Chiave batch (treatment_id, material_id): stesso trattamento
+                # ma materiali diversi = batch separati per il fornitore.
+                batch_key = (ph.treatment_id, p.material_id)
+                treatment_batch[batch_key] += finished_w
+                treatment_batch_n[batch_key] += 1
                 if ph.treatment.supplier_id:
+                    # Spedizione trattamento: per supplier_id (1 viaggio).
                     treatment_shipping[ph.treatment.supplier_id] += finished_w
                     treatment_shipping_n[ph.treatment.supplier_id] += 1
 
@@ -293,11 +302,14 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             if edm_hours is not None:
                 phase.cycle_hours_per_part = edm_hours
 
-            # Trattamento: aggregazione per treatment_id (peso PEZZO FINITO).
+            # Trattamento: aggregazione per (treatment_id, material_id).
+            # Peso finito + costo proporzionale al peso del batch del proprio
+            # gruppo (stesso trattamento E stesso materiale).
             if phase.treatment_id and phase.treatment:
                 t = phase.treatment
-                batch_w = treatment_batch.get(phase.treatment_id, 0.0)
-                n_grp = treatment_batch_n.get(phase.treatment_id, 1)
+                batch_key = (phase.treatment_id, part.material_id)
+                batch_w = treatment_batch.get(batch_key, 0.0)
+                n_grp = treatment_batch_n.get(batch_key, 1)
 
                 below_threshold = (
                     t.minimum_weight_kg and t.minimum_weight_kg > 0

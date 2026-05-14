@@ -24,6 +24,11 @@ const isEdmAuto = (p: Phase, machines: Machine[]) =>
 
 interface Props {
   partId?: number
+  /** Material della parte corrente. Il batch trattamento è aggregato per
+   *  (treatment_id, material_id) — materiali diversi = batch separati per
+   *  il fornitore (caratteristiche fisiche diverse). Gemello del backend
+   *  calculation.py:188-198. */
+  partMaterialId?: number | null
   phases: Phase[]
   quantity: number
   nParts?: number
@@ -32,8 +37,8 @@ interface Props {
   treatments?: Treatment[]
   finishedWeightKg?: number
   /** Altre parti del quote (escluso self). Servono per aggregare i pesi
-   *  per `treatment_id` nel preview live: il backend amortizza i batch
-   *  trattamento su tutte le parti che condividono lo stesso trattamento. */
+   *  per `(treatment_id, material_id)` nel preview live: il backend amortizza
+   *  i batch trattamento solo tra parti con stesso trattamento E materiale. */
   siblings?: Part[]
   /** Altezza grezzo della parte (raw_z_mm). Se popolata, viene suggerita
    *  come `cut_height_mm` quando si carica un DXF su una fase EDM con
@@ -68,13 +73,13 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
-  // Siblings filtrati per treatment_id: per ogni trattamento, peso × qty di
-  // tutte le altre parti che lo usano. Gemello dell'aggregazione backend
-  // (calculation.py:177-183).
-  const siblingsByTreatmentId = (treatmentId: number) =>
+export default function PhaseEditor({ partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
+  // Siblings filtrati per (treatment_id, material_id): batch separati per
+  // materiale anche con stesso trattamento (caratteristiche fisiche
+  // diverse). Gemello dell'aggregazione backend calculation.py:188-198.
+  const siblingsByTreatmentAndMaterial = (treatmentId: number) =>
     siblings.flatMap(p =>
-      p.phases.some(ph => ph.treatment_id === treatmentId)
+      p.material_id === partMaterialId && p.phases.some(ph => ph.treatment_id === treatmentId)
         ? [{ finishedWeightKg: p.finished_weight_kg, qty: p.quantity || 1 }]
         : []
     )
@@ -110,7 +115,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
       if (ph.treatment_id) {
         const t = treatments.find(t => t.id === ph.treatment_id)
         if (t) {
-          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, siblingsByTreatmentId(t.id))
+          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, siblingsByTreatmentAndMaterial(t.id))
           next = { ...ph, variable_cost_per_part: varCost }
         }
       }
@@ -347,7 +352,7 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
             // anche se in commessa il batch totale superava il minimo.
             const myBatchWeight = (finishedWeightKg || 0) * quantity
             const sibsBatchWeight = phase.treatment_id
-              ? siblingsByTreatmentId(phase.treatment_id).reduce(
+              ? siblingsByTreatmentAndMaterial(phase.treatment_id).reduce(
                   (s, x) => s + (x.finishedWeightKg || 0) * Math.max(x.qty, 1), 0)
               : 0
             const totalBatchWeight = myBatchWeight + sibsBatchWeight

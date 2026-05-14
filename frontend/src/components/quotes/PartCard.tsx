@@ -425,6 +425,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
         <div className="flex-1 min-w-0">
           <PhaseEditor
             partId={part.id}
+            partMaterialId={part.material_id}
             phases={part.phases}
             quantity={part.quantity}
             nParts={nParts}

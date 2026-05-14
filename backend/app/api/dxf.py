@@ -8,9 +8,14 @@ Nessuna persistenza: il file non viene salvato. Il wizard "Nuovo Preventivo 2D"
 (Step 3) lo salverà come PartFile quando l'utente conferma il preventivo.
 """
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+import os
 
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
 from app.core.security import require_permission
+from app.models import PartFile
 from app.schemas import DxfAnalysisOut
 from app.services.dxf_parser import parse_dxf, DEFAULT_TOLERANCE
 
@@ -75,4 +80,30 @@ async def analyze_dxf(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    return result
+
+
+@router.get("/dxf/analyze-part-file/{part_file_id}", response_model=DxfAnalysisOut)
+def analyze_part_file(
+    part_file_id: int,
+    db: Session = Depends(get_db),
+    _=require_permission('quotes.create'),
+):
+    """Ri-analizza un DXF già allegato a una Part. Usato dal modale "Carica da
+    DXF" della fase EDM quando si vuole modificare la selezione profili senza
+    ri-uploadare il file.
+    """
+    pf = db.query(PartFile).filter(PartFile.id == part_file_id).first()
+    if not pf:
+        raise HTTPException(404, "File non trovato")
+    if pf.file_type != 'dxf':
+        raise HTTPException(400, "Il file allegato non è un DXF")
+    if not os.path.exists(pf.path):
+        raise HTTPException(404, "File assente su disco (potrebbe essere stato spostato)")
+    try:
+        with open(pf.path, 'rb') as f:
+            content = f.read()
+        result = parse_dxf(content)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return result

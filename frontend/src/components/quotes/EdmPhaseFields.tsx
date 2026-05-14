@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Zap, Unlock, FileText, X, Paperclip } from 'lucide-react'
+import { Zap, Unlock, FileText, X, Paperclip, Edit3 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { Phase, CuttingCycle } from '@/types'
 import { parseDecimal } from '@/lib/decimalInput'
 import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
+import Dxf2dReselectModal, { type ReselectResult } from '@/components/quotes/Dxf/Dxf2dReselectModal'
 
 interface Props {
   phase: Phase
@@ -19,6 +20,14 @@ interface Props {
   /** Se true, la parte ha già un grezzo (X+Y o Ø): non sovrascrivere con la
    *  bbox del DXF. */
   partHasRawStock?: boolean
+  /** Dimensioni X/Y del grezzo della parte: passate al viewer DXF per
+   *  disegnare un rettangolo tratteggiato attorno ai profili. */
+  partRawXmm?: number
+  partRawYmm?: number
+  /** ID del PartFile DXF già allegato alla parte. Se presente + la fase ha
+   *  dxf_profile_ids non vuoto, il bottone "DXF" apre il modale di
+   *  re-selezione (niente re-upload del file). */
+  partDxfFileId?: number
   /** ID di una macchina wire_edm attiva (la prima trovata). Usato come
    *  fallback se la fase non ha machine_id al momento del confirm DXF —
    *  senza macchina la tariffa oraria è 0 e il costo non viene calcolato. */
@@ -32,16 +41,47 @@ interface Props {
   /** Aggiornamento atomico di più campi nello state locale del PhaseEditor.
    *  Usato dalla modale DXF per allineare lo state dopo la save sincrona. */
   onPatch?: (updates: Partial<Phase>) => void
+  /** Save sincrono (PUT + recalc) per campi critici come il ciclo di taglio:
+   *  l'utente vede subito le ore EDM aggiornate senza dover spostare il focus. */
+  onSaveImmediate?: (updates: Partial<Phase>) => Promise<void> | void
 }
 
 /** Campi extra per fasi Wire EDM: lunghezza profilo, altezza, ciclo, n_pierce.
  * Quando i 3 campi obbligatori sono valorizzati, il backend ricalcola
  * automaticamente cycle_hours_per_part (edmAuto = true).
  */
-export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, defaultCutHeightMm, partHasRawStock, suggestedMachineId, onReload, onChange, onBlur, onUnlockManual, onPatch }: Props) {
+export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, defaultCutHeightMm, partHasRawStock, partRawXmm, partRawYmm, partDxfFileId, suggestedMachineId, onReload, onChange, onBlur, onUnlockManual, onPatch, onSaveImmediate }: Props) {
   const [showDxfModal, setShowDxfModal] = useState(false)
+  const [showReselectModal, setShowReselectModal] = useState(false)
   const [pendingDxf, setPendingDxf] = useState<DxfPickerState | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Modalità "modifica selezione" disponibile quando la fase ha già profili e
+  // un DXF allegato: si riapre la stessa scelta senza ricaricare il file.
+  const canReselect = !!partDxfFileId && (phase.dxf_profile_ids?.length ?? 0) > 0
+
+  const handleReselectConfirm = async (r: ReselectResult) => {
+    if (!phase.id) return
+    const updates: Partial<Phase> = {
+      cut_length_mm: Math.round(r.selectedLengthMm * 100) / 100,
+      dxf_profile_ids: r.selectedIds,
+    }
+    // Aggiorna n_pierce solo se nullo/zero: l'utente potrebbe averlo già
+    // ritoccato manualmente — evitiamo di sovrascrivere il valore custom.
+    if (phase.n_pierce == null || phase.n_pierce === 0) {
+      updates.n_pierce = r.selectedClosedCount
+    }
+    try {
+      await api.put<Phase>(`/phases/${phase.id}`, { ...phase, ...updates })
+    } catch {
+      toast.error('Errore nel salvataggio della fase')
+      return
+    }
+    if (onReload) onReload()
+    else if (onPatch) onPatch(updates)
+    toast.success(`${r.selectedIds.length} profili aggiornati (${updates.cut_length_mm} mm)`)
+    setShowReselectModal(false)
+  }
 
   const confirmDxf = async () => {
     if (!pendingDxf || pendingDxf.selectedIds.length === 0) {
@@ -142,14 +182,25 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           )}
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowDxfModal(true)}
-            className="flex items-center gap-1 text-[11px] text-amber-700 hover:underline"
-            title="Carica un DXF per popolare lunghezza profilo e numero pierce"
-          >
-            <FileText className="w-3 h-3" /> Carica da DXF
-          </button>
+          {canReselect ? (
+            <button
+              type="button"
+              onClick={() => setShowReselectModal(true)}
+              className="flex items-center gap-1 text-[11px] text-amber-700 hover:underline"
+              title="Riapri la selezione dei profili sul DXF già allegato"
+            >
+              <Edit3 className="w-3 h-3" /> Modifica selezione DXF
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDxfModal(true)}
+              className="flex items-center gap-1 text-[11px] text-amber-700 hover:underline"
+              title="Carica un DXF per popolare lunghezza profilo e numero pierce"
+            >
+              <FileText className="w-3 h-3" /> Carica da DXF
+            </button>
+          )}
           {edmAuto && (
             <button
               type="button"
@@ -184,7 +235,13 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           <select
             className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             value={phase.cutting_cycle_id ?? ''}
-            onChange={e => onChange('cutting_cycle_id', e.target.value === '' ? null : Number(e.target.value))}
+            onChange={e => {
+              const value = e.target.value === '' ? null : Number(e.target.value)
+              // Save immediato: il backend ricalcola cycle_hours_per_part e
+              // l'UI rimane allineata senza dover triggerare onBlur.
+              if (onSaveImmediate) onSaveImmediate({ cutting_cycle_id: value })
+              else onChange('cutting_cycle_id', value)
+            }}
             onBlur={onBlur}
           >
             <option value="">— scegli ciclo —</option>
@@ -208,6 +265,17 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
         </div>
       </div>
 
+      {showReselectModal && partDxfFileId && (
+        <Dxf2dReselectModal
+          partFileId={partDxfFileId}
+          initialSelectedIds={phase.dxf_profile_ids ?? []}
+          rawX={partRawXmm}
+          rawY={partRawYmm}
+          onClose={() => setShowReselectModal(false)}
+          onConfirm={handleReselectConfirm}
+        />
+      )}
+
       {showDxfModal && (
         <div className="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
@@ -228,7 +296,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
                 <span className="font-medium"> N° pierce</span> della fase.
                 Altezza pezzo e ciclo restano da inserire qui sotto.
               </p>
-              <DxfProfilePicker onChange={setPendingDxf} viewerHeight={360} />
+              <DxfProfilePicker onChange={setPendingDxf} viewerHeight={360} rawX={partRawXmm} rawY={partRawYmm} />
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-gray-50">
               <Button variant="outline" onClick={() => { setShowDxfModal(false); setPendingDxf(null) }}>

@@ -439,6 +439,9 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
             finishedWeightKg={part.finished_weight_kg}
             siblings={siblings}
             partRawZmm={part.raw_z_mm}
+            partRawXmm={part.raw_x_mm ?? undefined}
+            partRawYmm={part.raw_y_mm ?? undefined}
+            partDxfFileId={part.files?.find(f => f.file_type === 'dxf')?.id}
             partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
             onReload={onReload}
             readOnly={readOnly}

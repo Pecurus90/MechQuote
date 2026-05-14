@@ -106,7 +106,7 @@ export default function DashboardPage() {
             title="I miei inviati"
             count={stats.my_pending_count}
             rows={myPending}
-            emptyText="Nessun preventivo inviato in attesa"
+            emptyText="Nessun preventivo in stato 'inviato'. Apri una bozza e usa 'Invia per revisione' per spostarla qui."
             icon={<Send className="w-4 h-4 text-amber-500" />}
             onClick={(id) => navigate(`/quotes/${id}`)}
           />

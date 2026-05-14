@@ -44,6 +44,13 @@ interface Props {
    *  come `cut_height_mm` quando si carica un DXF su una fase EDM con
    *  altezza ancora vuota — niente sovrascrittura se già impostata. */
   partRawZmm?: number
+  /** Dimensioni X/Y del grezzo della parte. Passate al viewer DXF per
+   *  disegnare il rettangolo grezzo attorno ai profili. */
+  partRawXmm?: number
+  partRawYmm?: number
+  /** ID del PartFile DXF allegato alla parte (primo file_type='dxf'): abilita
+   *  il bottone "Modifica selezione DXF" nella fase EDM. */
+  partDxfFileId?: number
   /** True se la parte ha già un grezzo selezionato (X+Y o Ø): il modale DXF
    *  evita di sovrascrivere il grezzo con la bbox. */
   partHasRawStock?: boolean
@@ -73,7 +80,7 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
+export default function PhaseEditor({ partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partRawXmm, partRawYmm, partDxfFileId, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
   // Siblings filtrati per (treatment_id, material_id): batch separati per
   // materiale anche con stesso trattamento (caratteristiche fisiche
   // diverse). Gemello dell'aggregazione backend calculation.py:188-198.
@@ -185,6 +192,31 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
     onChange(phases.map((p, i) =>
       i !== idx ? p : calcPhase({ ...p, ...updates }, machines, quantity, nParts)
     ))
+  }
+
+  // Save sincrono per campi critici della fase EDM (es. cambio cutting_cycle_id):
+  // 1) update locale ottimistic con `updates`,
+  // 2) PUT al backend con payload completo,
+  // 3) applica cycle_hours_per_part/calculated_cost ricalcolati dal BE.
+  // NB: il secondo updateMany ri-include `updates`. La closure di `phases`
+  // dentro updateMany è quella del momento di saveImmediate (stale dopo il
+  // re-render del primo update), quindi senza ri-include perderemmo il
+  // valore ottimistico (es. cutting_cycle_id tornerebbe al precedente).
+  const saveImmediate = async (idx: number, updates: Partial<Phase>) => {
+    const current = phases[idx]
+    updateMany(idx, updates)
+    if (!current.id) return
+    try {
+      const res = await api.put<Phase>(`/phases/${current.id}`, { ...current, ...updates })
+      const saved: Phase = res.data
+      updateMany(idx, {
+        ...updates,
+        cycle_hours_per_part: saved.cycle_hours_per_part,
+        calculated_cost: saved.calculated_cost,
+      })
+    } catch {
+      toast.error('Errore nel salvataggio della fase')
+    }
   }
 
   const savePhase = async (idx: number) => {
@@ -541,12 +573,16 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
                         partId={partId}
                         defaultCutHeightMm={partRawZmm}
                         partHasRawStock={partHasRawStock}
+                        partRawXmm={partRawXmm}
+                        partRawYmm={partRawYmm}
+                        partDxfFileId={partDxfFileId}
                         suggestedMachineId={machines.find(m => m.machine_type === 'wire_edm')?.id}
                         onReload={onReload}
                         onChange={(field, value) => updateField(idx, field, value)}
                         onBlur={() => savePhase(idx)}
                         onUnlockManual={() => unlockManualEdm(idx)}
                         onPatch={(updates) => updateMany(idx, updates)}
+                        onSaveImmediate={(updates) => saveImmediate(idx, updates)}
                       />
                     )}
 

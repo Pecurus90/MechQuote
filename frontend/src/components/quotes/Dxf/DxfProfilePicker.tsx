@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, FileText, X, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import type { DxfAnalysis, DxfProfile } from '@/types'
+import type { DxfAnalysis, DxfBbox, DxfProfile } from '@/types'
 import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
 import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
 import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
@@ -15,6 +15,10 @@ export interface DxfPickerState {
   selectedProfiles: DxfProfile[]
   selectedLengthMm: number
   selectedClosedCount: number
+  /** Bbox unione dei profili selezionati. Null se selezione vuota. Usato dal
+   *  parent per dimensionare il grezzo precompilato (raw_x/raw_y) — adesivo
+   *  alla scelta dell'utente invece che al bbox globale del DXF. */
+  selectedBbox: DxfBbox | null
 }
 
 interface Props {
@@ -22,6 +26,9 @@ interface Props {
    *  l'utente carica un DXF e (auto-)seleziona dei profili. */
   onChange: (state: DxfPickerState | null) => void
   viewerHeight?: number
+  /** Overlay grezzo sul viewer: rettangolo tratteggiato centrato sui profili. */
+  rawX?: number
+  rawY?: number
 }
 
 /** Carica un file DXF, mostra il viewer SVG con click-to-toggle sui profili,
@@ -30,7 +37,7 @@ interface Props {
  *  Estratto da NewQuote2DPage per essere riusato sia nel wizard 2D sia nel
  *  modale "Carica DXF" della fase Wire EDM nel preventivatore manuale.
  */
-export default function DxfProfilePicker({ onChange, viewerHeight = 420 }: Props) {
+export default function DxfProfilePicker({ onChange, viewerHeight = 420, rawX, rawY }: Props) {
   const [dxfFile, setDxfFile] = useState<File | null>(null)
   const [analysis, setAnalysis] = useState<DxfAnalysis | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
@@ -48,6 +55,14 @@ export default function DxfProfilePicker({ onChange, viewerHeight = 420 }: Props
     () => selectedProfiles.filter(p => p.closed).length,
     [selectedProfiles],
   )
+  const selectedBbox = useMemo<DxfBbox | null>(() => {
+    if (selectedProfiles.length === 0) return null
+    const x0 = Math.min(...selectedProfiles.map(p => p.bbox.x))
+    const y0 = Math.min(...selectedProfiles.map(p => p.bbox.y))
+    const x1 = Math.max(...selectedProfiles.map(p => p.bbox.x + p.bbox.w))
+    const y1 = Math.max(...selectedProfiles.map(p => p.bbox.y + p.bbox.h))
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+  }, [selectedProfiles])
 
   // Notifica al parent ogni volta che lo stato semantico cambia.
   useEffect(() => {
@@ -62,12 +77,13 @@ export default function DxfProfilePicker({ onChange, viewerHeight = 420 }: Props
       selectedProfiles,
       selectedLengthMm,
       selectedClosedCount,
+      selectedBbox,
     })
     // onChange volutamente fuori dalle deps: il parent passa una callback inline
     // (riferimento nuovo a ogni render) e finiremmo in un loop. I valori
     // semantici sono già coperti dalle altre deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dxfFile, analysis, selectedIds, selectedProfiles, selectedLengthMm, selectedClosedCount])
+  }, [dxfFile, analysis, selectedIds, selectedProfiles, selectedLengthMm, selectedClosedCount, selectedBbox])
 
   const toggleProfile = (id: number) => setSelectedIds(prev => {
     const next = new Set(prev)
@@ -159,7 +175,7 @@ export default function DxfProfilePicker({ onChange, viewerHeight = 420 }: Props
           </div>
         </CardHeader>
         <CardContent>
-          <DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={viewerHeight} />
+          <DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={viewerHeight} rawX={rawX} rawY={rawY} />
           <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-0.5 bg-blue-600" /> chiuso selezionato

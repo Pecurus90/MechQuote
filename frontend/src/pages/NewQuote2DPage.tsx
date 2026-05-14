@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Zap, Drill, AlertTriangle } from 'lucide-react'
+import { Zap, Drill, AlertTriangle, Box } from 'lucide-react'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
@@ -27,6 +27,11 @@ interface FormState {
   description: string
   material_id: string
   cut_height_mm: number
+  // grezzo (precompilato dal bbox DXF + offset per asse, editabile prima del submit)
+  raw_x_mm: number
+  raw_y_mm: number
+  offset_x_mm: number
+  offset_y_mm: number
   // EDM
   cutting_cycle_id: string
   drilling_mode: DrillingMode
@@ -47,6 +52,10 @@ const initialForm = (categories: Category[]): FormState => ({
   description: '',
   material_id: '',
   cut_height_mm: 0,
+  raw_x_mm: 0,
+  raw_y_mm: 0,
+  offset_x_mm: 0,
+  offset_y_mm: 0,
   cutting_cycle_id: '',
   drilling_mode: 'foratrice_edm',
   electrode_diameter_mm: 0,
@@ -125,12 +134,43 @@ export default function NewQuote2DPage() {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(f => ({ ...f, [k]: v }))
 
-  // Pre-popola la descrizione con il nome del file alla prima analisi (se vuota).
+  // Arrotondamento a 1 decimale: niente Math.ceil — il ceil generava un gap
+  // (rect più largo del bbox di max 1mm) quando bbox.w/h non era intero.
+  const round1 = (n: number) => Math.round(n * 10) / 10
+
+  // Precompila grezzo (bbox SELEZIONATI + 2×offset per lato e per asse) e
+  // descrizione se vuota. Ogni cambio di selezione re-triggera onChange dal
+  // picker → adesione live; edit manuali su X/Y vengono sovrascritti al
+  // toggle (per allargare intenzionalmente il grezzo si usano gli offset).
   const handleDxfChange = (state: DxfPickerState | null) => {
     setDxf(state)
-    if (state && !form.description) {
-      set('description', state.file.name.replace(/\.dxf$/i, ''))
+    if (state) {
+      const base = state.selectedBbox ?? state.analysis.bbox_global
+      setForm(f => ({
+        ...f,
+        raw_x_mm: round1(base.w + 2 * f.offset_x_mm),
+        raw_y_mm: round1(base.h + 2 * f.offset_y_mm),
+        description: f.description ? f.description : state.file.name.replace(/\.dxf$/i, ''),
+      }))
     }
+  }
+
+  // Cambio offset (X o Y separatamente): ricalcola la dimensione corrispondente
+  // dal bbox dei profili selezionati (fallback bbox_global se selezione vuota).
+  const setOffset = (updates: { x?: number; y?: number }) => {
+    setForm(f => {
+      const newX = updates.x ?? f.offset_x_mm
+      const newY = updates.y ?? f.offset_y_mm
+      const base = dxf?.selectedBbox ?? analysis?.bbox_global
+      if (!base) return { ...f, offset_x_mm: newX, offset_y_mm: newY }
+      return {
+        ...f,
+        offset_x_mm: newX,
+        offset_y_mm: newY,
+        raw_x_mm: round1(base.w + 2 * newX),
+        raw_y_mm: round1(base.h + 2 * newY),
+      }
+    })
   }
 
   // ─── derived dal DXF ───────────────────────────────────────────────────
@@ -198,6 +238,8 @@ export default function NewQuote2DPage() {
     if (!form.progressive) errs.push('Progressivo')
     if (!form.material_id) errs.push('Materiale')
     if (!form.cut_height_mm || form.cut_height_mm <= 0) errs.push('Altezza pezzo')
+    if (!form.raw_x_mm || form.raw_x_mm <= 0) errs.push('Grezzo X')
+    if (!form.raw_y_mm || form.raw_y_mm <= 0) errs.push('Grezzo Y')
     if (!form.cutting_cycle_id) errs.push('Ciclo di taglio')
     if (!form.n_holes || form.n_holes <= 0) errs.push('Numero fori/infilaggi')
     if (form.drilling_mode === 'foratrice_edm') {
@@ -237,16 +279,16 @@ export default function NewQuote2DPage() {
         throw new Error('Part non trovata dopo creazione preventivo')
       }
 
-      // 2. Aggiorna la part con dati pezzo (materiale, dimensioni grezzo da bbox + altezza)
-      // quote_mode='2d_dxf' marca la Part come nata dal wizard DXF (dashboard
-      // e reportistica filtrano per modalità). Il default DB è 'manual'.
+      // 2. Aggiorna la part con dati pezzo (materiale, dimensioni grezzo + altezza)
+      // quote_mode='dxf' marca la Part come nata dal wizard DXF: il KPI split
+      // CNC/EDM in dashboard.py filtra su ('dxf','mixed') per la voce EDM.
       await api.put(`/parts/${partId}`, {
         description: form.description,
         material_id: Number(form.material_id),
-        raw_x_mm: Math.ceil(dxf.analysis.bbox_global.w),
-        raw_y_mm: Math.ceil(dxf.analysis.bbox_global.h),
+        raw_x_mm: form.raw_x_mm,
+        raw_y_mm: form.raw_y_mm,
         raw_z_mm: form.cut_height_mm,
-        quote_mode: '2d_dxf',
+        quote_mode: 'dxf',
       })
 
       // 3. Upload DXF
@@ -332,7 +374,7 @@ export default function NewQuote2DPage() {
           {/* Pannello sinistro / unico: viewer DXF (sempre montato per
               preservare lo state interno tra dropzone → analisi) */}
           <div className="space-y-3">
-            <DxfProfilePicker onChange={handleDxfChange} />
+            <DxfProfilePicker onChange={handleDxfChange} rawX={form.raw_x_mm} rawY={form.raw_y_mm} />
           </div>
 
           {/* Pannello destro: form (solo se DXF caricato) */}
@@ -539,6 +581,53 @@ export default function NewQuote2DPage() {
                           </p>
                         </div>
                       )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Grezzo — precompilato dal bbox DXF + offset, editabile */}
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Box className="w-4 h-4" /> Grezzo</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      {(() => {
+                        const base = dxf?.selectedBbox ?? analysis.bbox_global
+                        const label = dxf?.selectedBbox ? 'Bbox profili selezionati' : 'Bbox DXF'
+                        return `${label}: ${base.w.toFixed(1)} × ${base.h.toFixed(1)} mm.`
+                      })()}
+                      {' '}Offset per lato e per asse (X e Y aumentano di 2×offset rispettivo).
+                    </p>
+                    <div className="grid grid-cols-5 gap-2">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Offset X (mm)</label>
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                          value={form.offset_x_mm || ''}
+                          onChange={e => setOffset({ x: parseDecimal(e.target.value) || 0 })} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Offset Y (mm)</label>
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                          value={form.offset_y_mm || ''}
+                          onChange={e => setOffset({ y: parseDecimal(e.target.value) || 0 })} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Grezzo X (mm)</label>
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                          value={form.raw_x_mm || ''}
+                          onChange={e => set('raw_x_mm', parseDecimal(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Grezzo Y (mm)</label>
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
+                          value={form.raw_y_mm || ''}
+                          onChange={e => set('raw_y_mm', parseDecimal(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Grezzo Z (mm)</label>
+                        <div className="mt-1 h-9 px-2 flex items-center text-sm rounded-md border bg-muted/40">
+                          {form.cut_height_mm ? `${form.cut_height_mm} mm` : <span className="text-muted-foreground text-xs">= altezza pezzo</span>}
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

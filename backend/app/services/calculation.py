@@ -9,6 +9,21 @@ from app.models import (
 )
 
 
+def _round4(x: float) -> float:
+    """Arrotonda a 4 decimali half-away-from-zero (gemello Math.round JS).
+
+    Python `round()` usa banker's rounding (half-to-even): 0.5 → 0, 1.5 → 2.
+    Math.round() in V8/Chromium usa half-away-from-zero: 0.5 → 1, 1.5 → 2.
+    Per allineare il backend al frontend (DRY hard rule cost engine), usiamo
+    questa utility ovunque si arrotondi a 4 decimali per il preview UI.
+    Per i totali a 2 decimali (unit_price, total_price) la differenza è sotto
+    la sensibilità monetaria, restano `round(x, 2)`.
+    """
+    if x >= 0:
+        return int(x * 10000 + 0.5) / 10000
+    return -int(-x * 10000 + 0.5) / 10000
+
+
 def _raw_weight_kg(part: Part) -> float:
     """Peso del grezzo (kg) di una singola unità della parte.
 
@@ -201,6 +216,11 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     treatment_shipping_n: Dict[int, int] = defaultdict(int)
     material_shipping_n: Dict[int, int] = defaultdict(int)
 
+    # Conta parti material_from_stock: la spedizione magazzino (stock_ship)
+    # va distribuita tra le parti che ne usufruiscono (1 prelievo dal
+    # magazzino diviso, coerente con gli altri supplier).
+    n_from_stock = 0
+
     # CompanySettings singleton — letto 1 volta per riusare gli override
     # `stock_shipping_cost` / `stock_cutting_cost_per_part` quando una parte
     # ha `material_from_stock=True`.
@@ -227,6 +247,8 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 and not p.material_from_stock):
             material_shipping[p.material.supplier_id] += raw_w
             material_shipping_n[p.material.supplier_id] += 1
+        if p.material_from_stock and not p.customer_supplied_material:
+            n_from_stock += 1
         for ph in p.phases:
             if ph.treatment_id and ph.treatment:
                 # Chiave batch (treatment_id, material_id): stesso trattamento
@@ -258,12 +280,16 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         elif part.material_from_stock:
             # Materiale a magazzino: grezzo applicato normalmente, shipping e
             # cutting del fornitore sostituiti dagli override CompanySettings.
+            # Lo `stock_ship` è "1 prelievo dal magazzino" diviso equamente
+            # tra le parti from_stock del preventivo (coerente con la
+            # distribuzione per supplier degli altri materiali).
             if part.material_id and part.material:
                 recomputed = _compute_material_cost(part, part.material)
                 if recomputed is not None:
                     part.material_cost = recomputed
-            part.material_delivery_cost = round(stock_ship, 4)
-            delivery_per_piece = stock_ship / qty
+            stock_ship_share = stock_ship / max(n_from_stock, 1)
+            part.material_delivery_cost = _round4(stock_ship_share)
+            delivery_per_piece = stock_ship_share / qty
             cutting_per_piece = stock_cut
         else:
             # Costo materiale (calcolato da volume × densità × €/kg × scrap).
@@ -287,7 +313,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                     share = (sup.shipping_cost or 0.0) * raw_weight / total_w
                 else:
                     share = 0.0
-                part.material_delivery_cost = round(share, 4)
+                part.material_delivery_cost = _round4(share)
 
             delivery_per_piece = (part.material_delivery_cost or 0.0) / qty
             cutting_per_piece = (
@@ -328,7 +354,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                     # finito non compilato). Frontend mostra warning rosso sul
                     # campo peso. Costo a 0 in attesa che l'utente compili.
                     part_share = 0.0
-                phase.variable_cost_per_part = round(part_share / qty, 4)
+                phase.variable_cost_per_part = _round4(part_share / qty)
 
                 # Spedizione trattamento: quota proporzionale al peso PEZZO
                 # FINITO della parte. Formula: quota = shipping × fw / Σfw.
@@ -343,7 +369,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                         ship_share = (t.supplier.shipping_cost or 0.0) * finished_weight / ship_w
                     else:
                         ship_share = 0.0
-                    phase.fixed_cost = round(ship_share, 4)
+                    phase.fixed_cost = _round4(ship_share)
 
             # Rate split (Sprint 12).
             work_rate = phase.hourly_rate_override
@@ -366,7 +392,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 + (phase.fixed_cost or 0.0) / divisor
                 + (phase.variable_cost_per_part or 0.0)
             )
-            phase.calculated_cost = round(cost_per_piece, 4)
+            phase.calculated_cost = _round4(cost_per_piece)
             phase_total_per_piece += phase.calculated_cost
 
         margin = part.margin_percent

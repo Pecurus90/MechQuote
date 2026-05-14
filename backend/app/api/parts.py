@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut
-from app.services.calculation import recalculate_part
+from app.services.calculation import recalculate_part, recalculate_quote
 from app.api.quotes import ensure_editable
 
 logger = logging.getLogger(__name__)
@@ -101,8 +101,15 @@ def delete_part(
     if not part:
         raise HTTPException(status_code=404, detail="Parte non trovata")
     ensure_editable(_quote_for_part(part_id, db), current_user)
+    # Salvo quote_id PRIMA del delete: dopo db.delete() la part esce dal DB
+    # e non si può più leggere part.quote_id. Serve per ricalcolare le siblings.
+    quote_id = part.quote_id
     db.delete(part)
     db.commit()
+    # Ricalcolo dell'intero preventivo: senza, le siblings con stesso supplier
+    # materiale o stesso trattamento batch restano con quote/batch vecchi
+    # (la parte cancellata era contata nel Σ pesi).
+    recalculate_quote(quote_id, db)
     return {"ok": True}
 
 

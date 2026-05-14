@@ -311,7 +311,11 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 if batch_w > 0:
                     part_share = total_batch_cost * finished_weight / batch_w
                 else:
-                    part_share = total_batch_cost / max(n_grp, 1)
+                    # batch_w=0 → tutte le parti del gruppo hanno peso 0:
+                    # stato invalido temporaneo (treatment selezionato ma peso
+                    # finito non compilato). Frontend mostra warning rosso sul
+                    # campo peso. Costo a 0 in attesa che l'utente compili.
+                    part_share = 0.0
                 phase.variable_cost_per_part = round(part_share / qty, 4)
 
                 # Spedizione trattamento: quota proporzionale al peso PEZZO

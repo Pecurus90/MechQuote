@@ -60,8 +60,11 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
   const handleMaterialChange = (matId: number | undefined) => {
     const material = materials.find(m => m.id === matId)
     const matCost = calcMaterialCost({ ...part, material_id: matId }, material)
-    const deliveryCost = material?.material_supplier?.shipping_cost ?? part.material_delivery_cost ?? 0
-    onUpdate({ material_id: matId, material_cost: matCost, material_delivery_cost: deliveryCost })
+    // NON settare material_delivery_cost qui: il backend lo ricalcola
+    // proporzionale al peso grezzo dopo il save (vedi calculation.py
+    // recalculate_quote). Settarlo come "shipping intero" mostrava un
+    // valore sbagliato in preview che poi "scompariva" dopo il save.
+    onUpdate({ material_id: matId, material_cost: matCost })
   }
 
   const handleStockTypeChange = (type: StockType) => {

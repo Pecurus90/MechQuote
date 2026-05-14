@@ -156,11 +156,24 @@ export default function QuoteEditor() {
   const deletePart = async (idx: number) => {
     if (!quote) return
     const part = quote.parts[idx]
-    if (part.id) {
-      try { await api.delete(`/parts/${part.id}`) } catch (e) {toast.error('Errore nell\'eliminazione della parte') }
-    }
-    setQuote(q => q ? { ...q, parts: q.parts.filter((_, i) => i !== idx) } : q)
+    // Sposta la selezione PRIMA del reload: applyQuoteData ri-mappa
+    // selectedPartIdx per ID, ma la parte cancellata non c'è più → niente
+    // remap. Spostiamo manualmente sull'indice precedente prima del fetch.
     setSelectedPartIdx(Math.max(0, idx - 1))
+    if (part.id) {
+      try {
+        await api.delete(`/parts/${part.id}`)
+        // reloadQuote (non setQuote locale): il backend ricalcola il
+        // preventivo dopo il delete (recalculate_quote in parts.py),
+        // così le siblings con stesso supplier materiale o stesso
+        // trattamento batch vedono le quote ridistribuite correttamente.
+        await reloadQuote()
+      } catch (e) {
+        toast.error('Errore nell\'eliminazione della parte')
+      }
+    } else {
+      setQuote(q => q ? { ...q, parts: q.parts.filter((_, i) => i !== idx) } : q)
+    }
   }
 
   const addPart = async () => {

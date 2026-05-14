@@ -341,7 +341,16 @@ export default function PhaseEditor({ partId, phases, quantity, nParts = 1, mach
           {phases.map((phase, idx) => {
             const isTreatment = phase.treatment_id != null
             const selectedTreatment = treatments.find(t => t.id === phase.treatment_id)
-            const totalBatchWeight = (finishedWeightKg || 0) * quantity
+            // Peso BATCH = peso questa parte + somma siblings con stesso
+            // treatment_id (gemello DRY di calculation.py treatment_batch).
+            // Senza l'aggregazione, il warning "lotto sotto soglia" appariva
+            // anche se in commessa il batch totale superava il minimo.
+            const myBatchWeight = (finishedWeightKg || 0) * quantity
+            const sibsBatchWeight = phase.treatment_id
+              ? siblingsByTreatmentId(phase.treatment_id).reduce(
+                  (s, x) => s + (x.finishedWeightKg || 0) * Math.max(x.qty, 1), 0)
+              : 0
+            const totalBatchWeight = myBatchWeight + sibsBatchWeight
             const weightThresholdActive = selectedTreatment?.minimum_weight_kg != null &&
               selectedTreatment.minimum_weight_kg > 0 &&
               totalBatchWeight < selectedTreatment.minimum_weight_kg

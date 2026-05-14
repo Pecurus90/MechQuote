@@ -347,7 +347,7 @@ export default function QuoteEditor() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Parts sidebar */}
-        <div className="w-56 bg-white border-r flex flex-col shrink-0">
+        <div className="w-64 bg-white border-r flex flex-col shrink-0">
           <div className="p-3 border-b flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Parti ({quote.parts.length})
@@ -383,14 +383,14 @@ export default function QuoteEditor() {
                     )}
                     {quote.quote_type !== 'single' && !isLocked && (
                       <button onClick={e => { e.stopPropagation(); duplicatePart(idx) }}
-                        className="p-0.5 hover:text-blue-600 text-gray-300" title="Duplica">
-                        <Copy className="w-3 h-3" />
+                        className="p-1 hover:text-blue-600 hover:bg-blue-50 rounded text-gray-400" title="Duplica">
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
                     )}
                     {quote.quote_type !== 'single' && !isLocked && (
                       <button onClick={e => { e.stopPropagation(); setConfirmDeletePartIdx(idx) }}
-                        className="p-0.5 hover:text-red-500 text-gray-300" title="Elimina">
-                        <Trash2 className="w-3 h-3" />
+                        className="p-1 hover:text-red-600 hover:bg-red-50 rounded text-gray-400" title="Elimina">
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>

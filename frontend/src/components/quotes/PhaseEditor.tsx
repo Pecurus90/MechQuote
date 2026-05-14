@@ -64,7 +64,7 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   const machine = machines.find(m => m.id === phase.machine_id)
   const workRate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
   const setupRate = (machine?.setup_hourly_rate != null) ? machine.setup_hourly_rate : workRate
-  const divisor = qty * (phase.is_shared ? nParts : 1)
+  const divisor = qty  // is_shared rimosso, divisor sempre = qty della parte
   const cost =
     (phase.setup_hours || 0) * setupRate / divisor +
     (phase.cycle_hours_per_part || 0) * workRate +
@@ -141,7 +141,6 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
       fixed_cost: 0,
       variable_cost_per_part: 0,
       calculated_cost: 0,
-      is_shared: false,
     }
     if (partId) {
       try {

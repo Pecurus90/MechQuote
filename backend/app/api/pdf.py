@@ -571,7 +571,7 @@ def _render_phases_table(part: Part, cur: str) -> str:
             setup_rate = ph.machine.setup_hourly_rate
         else:
             setup_rate = work_rate
-        divisor = qty * (n_parts_in_quote if ph.is_shared else 1)
+        divisor = qty  # is_shared rimosso dal cost engine
 
         setup_cost_pp = (ph.setup_hours or 0.0) * setup_rate / divisor
         cycle_cost_pp = (ph.cycle_hours_per_part or 0.0) * work_rate
@@ -750,11 +750,10 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
     cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
     cur = _esc(quote.currency) or "EUR"
 
-    # Per `_render_phases_table` serve sapere quante parti ha il quote (per
-    # divisor delle is_shared). Attacco l'accesso al quote sulla part senza
-    # roundtrip extra: SQLAlchemy lo fa lazy se non già caricato.
+    # Pre-popola la relazione quote in sessione: alcune query downstream
+    # accedono a part.quote per ottenere quote_number/customer_name senza
+    # un roundtrip extra. is_shared/n_parts non più rilevanti (rimossi).
     for p in parts:
-        # Pre-popola la relazione quote in cache di sessione
         p.quote = quote
 
     html_parts = [

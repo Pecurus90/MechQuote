@@ -51,6 +51,13 @@ Colonne ancora presenti nel DB ma non più mappate da SQLAlchemy:
 - `treatments.cost_per_part`
 - `treatments.cost_per_surface_area`
 
+### Sprint consolidamento preventivatore (2026-05-14)
+
+- `manufacturing_phases.is_shared` — rimosso dal modello e dal cost engine.
+  Era ambiguo: il setup di una parte veniva amortizzato sul numero TOTALE
+  di parti del preventivo, anche su quelle che non condividevano la
+  macchina. Oggi `divisor = qty` sempre. La colonna DB resta orfana.
+
 ---
 
 ## 3. Tabelle droppate (esistite, ora rimosse dal DB)

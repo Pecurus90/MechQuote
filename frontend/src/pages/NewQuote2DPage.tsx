@@ -276,7 +276,6 @@ export default function NewQuote2DPage() {
         cycle_hours_per_part: 0,  // sarà ricalcolato dal backend (autocalc EDM)
         fixed_cost: 0,
         variable_cost_per_part: 0,
-        is_shared: false,
       })
 
       // 5. Fase Foratura aggiuntiva SOLO in modalità foratrice_edm
@@ -294,7 +293,6 @@ export default function NewQuote2DPage() {
             cycle_hours_per_part: Math.round((drillTotalSeconds / 3600) * 10000) / 10000,
             fixed_cost: 0,
             variable_cost_per_part: 0,
-            is_shared: false,
           })
         } else if (drillTotalSeconds == null) {
           toast.warning('Nessuna velocità foratura in tabella per questa combinazione: aggiungi la fase manualmente nel preventivo')

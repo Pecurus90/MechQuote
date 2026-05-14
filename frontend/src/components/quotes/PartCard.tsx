@@ -99,7 +99,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
     const machine = machines.find(m => m.id === p.machine_id)
     const workRate = p.hourly_rate_override ?? machine?.hourly_rate ?? 0
     const setupRate = (machine?.setup_hourly_rate != null) ? machine.setup_hourly_rate : workRate
-    const divisor = qtyDiv * (p.is_shared ? nParts : 1)
+    const divisor = qtyDiv  // is_shared rimosso
     return s + (p.setup_hours || 0) * setupRate / divisor
   }, 0)
   const workCycleTotal = workPhaseCost - workSetupTotal  // tutto il resto delle lavorazioni
@@ -156,7 +156,6 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
         setup_hours: 0,
         cycle_hours_per_part: 0,
         fixed_cost: t.supplier?.shipping_cost ?? 0,
-        is_shared: false,
       }
       if (treatmentPhase?.id) {
         await api.put(`/phases/${treatmentPhase.id}`, payload)

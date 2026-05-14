@@ -354,10 +354,11 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             else:
                 setup_rate = work_rate
 
-            # is_shared resta valido per setup_hours (es. setup macchina che
-            # serve a tutta la commessa). Per fasi treatment il fixed_cost è
-            # già "quota di parte" (distribuito sopra), quindi divisor=qty.
-            divisor = qty * (n_parts if phase.is_shared else 1)
+            # divisor = qty della singola parte. is_shared rimosso (era
+            # ambiguo: il setup di una parte non viene amortizzato sulle altre
+            # parti che non condividono la macchina). Per fasi treatment il
+            # fixed_cost è già "quota di parte" (distribuito sopra).
+            divisor = qty
 
             cost_per_piece = (
                 (phase.setup_hours or 0.0) * setup_rate / divisor

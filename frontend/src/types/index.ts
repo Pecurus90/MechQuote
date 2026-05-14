@@ -39,7 +39,6 @@ export interface Phase {
   supplier_id?: number
   treatment_id?: number
   operation_id?: number | null
-  is_shared?: boolean
   setup_hours: number
   cycle_hours_per_part: number
   fixed_cost: number

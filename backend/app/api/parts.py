@@ -166,7 +166,7 @@ def duplicate_part(
             fixed_cost=ph.fixed_cost,
             variable_cost_per_part=ph.variable_cost_per_part,
             hourly_rate_override=ph.hourly_rate_override,
-            is_shared=ph.is_shared,
+            # is_shared rimosso dal modello
             internal_notes=ph.internal_notes,
             customer_notes=ph.customer_notes,
             # Wire EDM: parametri trigger autocalc. Senza questi il duplicate

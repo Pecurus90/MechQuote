@@ -181,7 +181,9 @@ class ManufacturingPhase(Base):
     variable_cost_per_part = Column(Float, default=0.0)
     hourly_rate_override = Column(Float)
     calculated_cost = Column(Float, default=0.0)
-    is_shared = Column(Boolean, default=False)
+    # is_shared: rimosso dal modello (era ambiguo, oggi divisor=qty sempre).
+    # La colonna DB resta per retro-compatibilità (SQLite no DROP COLUMN).
+    # Vedi docs/specs/16_legacy_columns.md.
     internal_notes = Column(Text)
     customer_notes = Column(Text)
     # Colonne legacy nel DB ma non mappate (drop dal modello, dati restano):

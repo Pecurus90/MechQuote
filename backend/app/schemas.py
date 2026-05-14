@@ -165,7 +165,7 @@ class PhaseBase(BaseModel):
     variable_cost_per_part: Optional[float] = Field(default=0.0, ge=0)
     hourly_rate_override: Optional[float] = Field(default=None, ge=0)
     calculated_cost: Optional[float] = Field(default=0.0, ge=0)
-    is_shared: Optional[bool] = False
+    # is_shared rimosso (cost engine usa sempre divisor=qty, no più cross-parts)
     treatment_id: Optional[int] = None
     operation_id: Optional[int] = None
     internal_notes: Optional[str] = None

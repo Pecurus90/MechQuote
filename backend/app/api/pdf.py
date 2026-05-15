@@ -728,6 +728,53 @@ def _render_footer(cs) -> str:
 
 # ─── Generazione PDF ────────────────────────────────────────────────────────
 
+def _render_die_section(quote: Quote, cur: str) -> str:
+    """Sezione PDF dedicata ai preventivi stampo (quote_type='die'):
+    parametri dello stampo + tabella costi L1-L7 + prezzo finale.
+    """
+    spec = quote.die_spec
+    if not spec:
+        return ''
+    subtype = 'a passo (progressivo)' if spec.die_subtype == 'passo' else 'a blocco'
+    diff_label = {'base': 'Base', 'medium': 'Medio', 'hard': 'Difficile'}.get(spec.difficulty, spec.difficulty)
+    margin = quote.global_margin_percent or 0
+    discount = quote.global_discount_percent or 0
+    industrial = spec.cost_industrial or 0
+    markup = industrial * margin / 100
+    lordo = industrial + markup
+    sconto = lordo * discount / 100
+    finale = lordo - sconto
+
+    return f'''
+<section style="margin:18px 0">
+  <h2 style="font-size:13px;border-bottom:1px solid #e5e7eb;padding-bottom:4px;color:#9f1239">Stampo {subtype}</h2>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px;margin:8px 0">
+    <div><strong>Pezzo:</strong> {spec.bbox_x_mm:.1f}×{spec.bbox_y_mm:.1f}×{spec.sheet_thickness_mm:.1f} mm</div>
+    <div><strong>Difficoltà:</strong> {diff_label}</div>
+    <div><strong>Pieghe:</strong> {spec.n_bends_simple + spec.n_bends_medium + spec.n_bends_complex}
+      <span style="color:#999">({spec.n_bends_simple}S+{spec.n_bends_medium}M+{spec.n_bends_complex}C)</span></div>
+    <div><strong>Punzoni:</strong> {spec.n_punches_simple + spec.n_punches_medium + spec.n_punches_complex}
+      <span style="color:#999">({spec.n_punches_simple}S+{spec.n_punches_medium}M+{spec.n_punches_complex}C)</span></div>
+    {f'<div><strong>N° stazioni:</strong> {spec.n_stations}</div>' if spec.die_subtype == 'passo' and spec.n_stations else ''}
+    {f'<div><strong>Passo:</strong> {spec.pitch_mm:.1f} mm</div>' if spec.die_subtype == 'passo' and spec.pitch_mm else ''}
+    {f'<div><strong>Consegna:</strong> {spec.delivery_days} gg lavorativi</div>' if spec.delivery_days else ''}
+  </div>
+  {f'<p style="font-size:11px;margin:6px 0"><strong>Note tecniche:</strong> {_esc(spec.technical_notes)}</p>' if spec.technical_notes else ''}
+  <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px">
+    <tr><td style="padding:4px 8px">Materiale piastre</td><td style="text-align:right;padding:4px 8px">{_fmt_eur(spec.cost_material)} {cur}</td></tr>
+    <tr><td style="padding:4px 8px">Normalizzati</td><td style="text-align:right;padding:4px 8px">{_fmt_eur(spec.cost_normalized)} {cur}</td></tr>
+    <tr><td style="padding:4px 8px">Lavorazioni meccaniche</td><td style="text-align:right;padding:4px 8px">{_fmt_eur(spec.cost_machining)} {cur}</td></tr>
+    <tr><td style="padding:4px 8px">Accessori (progettazione + montaggio + extras)</td><td style="text-align:right;padding:4px 8px">{_fmt_eur(spec.cost_accessories)} {cur}</td></tr>
+    <tr style="border-top:2px solid #ccc"><td style="padding:6px 8px;font-weight:bold">Costo industriale</td><td style="text-align:right;padding:6px 8px;font-weight:bold">{_fmt_eur(industrial)} {cur}</td></tr>
+    <tr><td style="padding:4px 8px;color:#666">Margine {margin:.0f}%</td><td style="text-align:right;padding:4px 8px;color:#666">{_fmt_eur(markup)} {cur}</td></tr>
+    <tr style="border-top:1px solid #ccc"><td style="padding:4px 8px">Prezzo lordo</td><td style="text-align:right;padding:4px 8px">{_fmt_eur(lordo)} {cur}</td></tr>
+    {f'<tr><td style="padding:4px 8px;color:#999">Sconto cliente {discount:.0f}%</td><td style="text-align:right;padding:4px 8px;color:#dc2626">-{_fmt_eur(sconto)} {cur}</td></tr>' if discount > 0 else ''}
+    <tr style="border-top:2px solid #9f1239;background:#fff1f2"><td style="padding:8px;font-weight:bold;color:#9f1239;text-transform:uppercase;font-size:11px">Prezzo finale</td><td style="text-align:right;padding:8px;font-weight:bold;color:#9f1239;font-size:16px">{_fmt_eur(finale)} {cur}</td></tr>
+  </table>
+</section>
+'''
+
+
 def generate_quote_pdf(quote_id: int, db: Session) -> str:
     """Genera il PDF preventivo (uso interno) e ritorna il path del file temp.
 
@@ -745,6 +792,7 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
             joinedload(ManufacturingPhase.treatment),
             joinedload(ManufacturingPhase.operation),
         ),
+        joinedload(Part.normalized_items),
     ).filter(Part.quote_id == quote_id).order_by(Part.id).all()
 
     cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
@@ -762,6 +810,11 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
         _render_header(quote, cs),
         _render_meta_bar(quote),
     ]
+    # Preventivatore Stampi: sezione dedicata coi parametri + tabella L1-L7
+    # PRIMA delle parti standard. Le piastre (Part) sono renderizzate dopo
+    # con il pattern generico (materiali, trattamenti, costo unitario).
+    if quote.quote_type == 'die':
+        html_parts.append(_render_die_section(quote, cur))
     if not parts:
         # Avviso esplicito invece di un PDF muto: senza questo blocco l'utente
         # scarica un PDF con solo intestazione + totali a zero, senza capire

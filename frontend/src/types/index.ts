@@ -136,6 +136,9 @@ export interface Part {
   phases: Phase[]
   files?: PartFile[]
   material?: Material
+  // Modulo Stampi: ruolo piastra nel castello, null per Part non-stampo
+  plate_role?: string | null
+  normalized_items?: NormalizedItem[]
 }
 
 export interface UserMinimal {
@@ -172,6 +175,8 @@ export interface Quote {
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
+  // Modulo Stampi: spec dello stampo (1:1 con Quote), null per quote_type != 'die'
+  die_spec?: DieQuoteSpec | null
 }
 
 // ─── Ordini materiali ──────────────────────────────────────────────────────
@@ -541,4 +546,88 @@ export interface OfficinaCategory {
   icon: string         // nome lucide-react, mappato via lib/icons.ts
   sort_order: number
   created_at?: string
+}
+
+// ─── Modulo Stampi (Die quotes) ──────────────────────────────────────────
+
+export type DieSubtype = 'passo' | 'blocco'
+export type DieDifficulty = 'base' | 'medium' | 'hard'
+
+export interface DieQuoteSpec {
+  quote_id: number
+  die_subtype: DieSubtype
+  bbox_x_mm: number
+  bbox_y_mm: number
+  sheet_thickness_mm: number
+  n_stations?: number | null
+  pitch_mm?: number | null
+  strip_offset_y_mm?: number | null
+  n_operations?: number | null
+  castle_offset_x_mm?: number | null
+  castle_offset_y_mm?: number | null
+  difficulty: DieDifficulty
+  n_bends_simple: number
+  n_bends_medium: number
+  n_bends_complex: number
+  n_punches_simple: number
+  n_punches_medium: number
+  n_punches_complex: number
+  delivery_days?: number | null
+  technical_notes?: string | null
+  extras_amount: number
+  extras_description?: string | null
+  // Snapshot costi (popolati dal backend dopo recalculate)
+  cost_material: number
+  cost_normalized: number
+  cost_machining: number
+  cost_accessories: number
+  cost_industrial: number
+}
+
+export interface NormalizedItem {
+  id: number
+  part_id: number
+  normalized_supplier_id?: number | null
+  description: string
+  quantity: number
+  unit_price: number
+  notes?: string | null
+  supplier?: NormalizedSupplier | null
+}
+
+export interface DieSettings {
+  id: number
+  hourly_rate_milling: number
+  hourly_rate_grinding: number
+  hourly_rate_edm_wire: number
+  hourly_rate_edm_die: number
+  cost_bend_simple: number
+  cost_bend_medium: number
+  cost_bend_complex: number
+  cost_punch_simple: number
+  cost_punch_medium: number
+  cost_punch_complex: number
+  cost_per_plate_base: number
+  diff_mult_base: number
+  diff_mult_medium: number
+  diff_mult_hard: number
+  design_hours_base: number
+  design_hours_medium: number
+  design_hours_hard: number
+  design_hourly_rate: number
+  assembly_forfeit_base: number
+  assembly_forfeit_medium: number
+  assembly_forfeit_hard: number
+  default_margin_percent: number
+  default_castle_offset_x_mm: number
+  default_castle_offset_y_mm: number
+}
+
+export interface DieDimensionBracket {
+  id: number
+  label: string
+  area_min_dm2: number
+  area_max_dm2: number | null    // null = "infinito" (ultima fascia)
+  coefficient: number
+  sort_order: number
 }

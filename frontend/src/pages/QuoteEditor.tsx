@@ -15,6 +15,9 @@ import QuoteBottomBar from '@/components/quotes/QuoteBottomBar'
 import QuoteValidationModal from '@/components/quotes/QuoteValidationModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
+import DieSpecPanel from '@/components/quotes/DieSpecPanel'
+import DieCostSummary from '@/components/quotes/DieCostSummary'
+import NormalizedItemsEditor from '@/components/quotes/NormalizedItemsEditor'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
 import { toast } from 'sonner'
@@ -325,6 +328,7 @@ export default function QuoteEditor() {
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   const isLocked = quote.status !== 'bozza' && !hasRole('admin')
+  const isDie = quote.quote_type === 'die'
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-gray-50">
@@ -360,8 +364,50 @@ export default function QuoteEditor() {
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Riepilogo commessa */}
-          {selectedPartIdx === -1 && quote.parts.length > 1 && (
+
+          {/* ─── Branch Preventivatore Stampi ─── */}
+          {isDie && selectedPartIdx === -1 && quote.die_spec && (
+            <>
+              <DieCostSummary quote={quote} spec={quote.die_spec} />
+              <DieSpecPanel
+                spec={quote.die_spec}
+                readOnly={isLocked}
+                onChange={next => setQuote(q => q ? { ...q, die_spec: next } : q)}
+                onSaved={reloadQuote}
+              />
+            </>
+          )}
+          {isDie && selectedPartIdx >= 0 && selectedPart && (
+            <>
+              <PartCard
+                part={selectedPart}
+                machines={machines}
+                materials={materials}
+                suppliers={suppliers}
+                treatments={treatments}
+                nParts={quote.parts.length || 1}
+                globalMarginPercent={quote.global_margin_percent}
+                siblings={quote.parts.filter((_, i) => i !== selectedPartIdx)}
+                companySettings={companySettings}
+                readOnly={isLocked}
+                onUpdate={updates => updatePart(selectedPartIdx, updates)}
+                onSave={(override) => savePart(selectedPartIdx, override)}
+                onPhasesChange={phases => updatePart(selectedPartIdx, { phases })}
+                onReload={() => reloadPart(selectedPartIdx)}
+              />
+              {selectedPart.id && (
+                <NormalizedItemsEditor
+                  partId={selectedPart.id}
+                  items={selectedPart.normalized_items || []}
+                  readOnly={isLocked}
+                  onChanged={reloadQuote}
+                />
+              )}
+            </>
+          )}
+
+          {/* ─── Branch standard (manuale + 2D) ─── */}
+          {!isDie && selectedPartIdx === -1 && quote.parts.length > 1 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Riepilogo Commessa</CardTitle>
@@ -432,8 +478,8 @@ export default function QuoteEditor() {
             </Card>
           )}
 
-          {/* Quote details panel */}
-          {selectedPartIdx === -1 && (
+          {/* Quote details panel (solo branch standard) */}
+          {!isDie && selectedPartIdx === -1 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Dati Preventivo</CardTitle>
@@ -491,11 +537,11 @@ export default function QuoteEditor() {
             </Card>
           )}
 
-          {selectedPartIdx >= 0 && !selectedPart && (
+          {!isDie && selectedPartIdx >= 0 && !selectedPart && (
             <div className="text-center text-gray-400 pt-16">Seleziona una parte dalla lista</div>
           )}
 
-          {selectedPartIdx >= 0 && selectedPart && (
+          {!isDie && selectedPartIdx >= 0 && selectedPart && (
             <PartCard
               part={selectedPart}
               machines={machines}

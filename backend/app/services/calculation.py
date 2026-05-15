@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models import (
     Part, ManufacturingPhase, Quote, Material,
     EdmConfig, EdmCutSpeed, CuttingCycle, Treatment, MaterialSupplier, Supplier,
-    CompanySettings,
+    CompanySettings, DieSettings, DieDimensionBracket,
 )
 
 
@@ -407,4 +407,81 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         part.unit_price = round(max(part.total_cost, minimum) * (1 + margin / 100), 2)
         part.total_price = round(part.unit_price * qty, 2)
 
+    # Preventivatore Stampi: addons L2-L4 (normalizzati, lavorazioni feature,
+    # accessori) + snapshot su DieQuoteSpec. L1 (materiale piastre + trattamenti)
+    # è già stato calcolato sopra come Part.total_cost.
+    if quote.quote_type == 'die':
+        _recalculate_die_addons(quote, parts, db)
+
     db.commit()
+
+
+def _recalculate_die_addons(quote: Quote, parts, db: Session) -> None:
+    """Calcola L2-L4 del preventivatore Stampi e popola DieQuoteSpec snapshot.
+
+    Chiamata dal ramo finale di `recalculate_quote` quando `quote.quote_type='die'`.
+    NON ridenomina `Part.total_cost/unit_price/total_price` — quelli restano
+    per coerenza con il resto del sistema (archivio, PDF generico). Il prezzo
+    finale stampo si calcola al volo da `cost_industrial × (1+margin) × (1-discount)`.
+    """
+    spec = quote.die_spec
+    if spec is None:
+        return
+    settings = db.query(DieSettings).filter(DieSettings.id == 1).first()
+    if settings is None:
+        return
+    brackets = db.query(DieDimensionBracket).order_by(DieDimensionBracket.sort_order).all()
+
+    # L1 materiale piastre = somma Part.total_cost × quantity per ogni piastra.
+    # Include material_cost + delivery + cutting + tutte le phase costs (incluso
+    # trattamento termico aggregato in `recalculate_quote` qua sopra).
+    cost_material = sum((p.total_cost or 0.0) * (p.quantity or 1) for p in parts)
+
+    # L2 normalizzati = somma qty × unit_price su tutti i NormalizedItem.
+    cost_normalized = 0.0
+    for p in parts:
+        for ni in (p.normalized_items or []):
+            cost_normalized += (ni.quantity or 1) * (ni.unit_price or 0.0)
+
+    # L3 lavorazioni meccaniche
+    # Area castello dm² = max raw_x × max raw_y / 10000 (mm² → dm²: 1 dm² = 10000 mm²)
+    max_x = max((p.raw_x_mm or 0.0 for p in parts), default=0.0)
+    max_y = max((p.raw_y_mm or 0.0 for p in parts), default=0.0)
+    area_dm2 = max_x * max_y / 10000.0
+    coeff_dim = 1.0
+    for b in brackets:
+        if area_dm2 >= b.area_min_dm2 and (b.area_max_dm2 is None or area_dm2 < b.area_max_dm2):
+            coeff_dim = b.coefficient or 1.0
+            break
+
+    diff_mult_attr = f'diff_mult_{spec.difficulty}'
+    diff_mult = getattr(settings, diff_mult_attr, settings.diff_mult_base) or 1.0
+
+    cost_bends = (
+        (spec.n_bends_simple or 0) * (settings.cost_bend_simple or 0)
+        + (spec.n_bends_medium or 0) * (settings.cost_bend_medium or 0)
+        + (spec.n_bends_complex or 0) * (settings.cost_bend_complex or 0)
+    ) * coeff_dim * diff_mult
+    cost_punches = (
+        (spec.n_punches_simple or 0) * (settings.cost_punch_simple or 0)
+        + (spec.n_punches_medium or 0) * (settings.cost_punch_medium or 0)
+        + (spec.n_punches_complex or 0) * (settings.cost_punch_complex or 0)
+    ) * coeff_dim * diff_mult
+    cost_plates_base = len(parts) * (settings.cost_per_plate_base or 0.0)
+    cost_machining = cost_bends + cost_punches + cost_plates_base
+
+    # L4 accessori: progettazione + montaggio forfait + extras manuali
+    design_hours = getattr(settings, f'design_hours_{spec.difficulty}', settings.design_hours_base) or 0.0
+    cost_design = design_hours * (settings.design_hourly_rate or 0.0)
+    cost_assembly = getattr(settings, f'assembly_forfeit_{spec.difficulty}', settings.assembly_forfeit_base) or 0.0
+    cost_accessories = cost_design + cost_assembly + (spec.extras_amount or 0.0)
+
+    # L5 industriale = L1 + L2 + L3 + L4
+    cost_industrial = cost_material + cost_normalized + cost_machining + cost_accessories
+
+    # Snapshot su DieQuoteSpec (per archivio + PDF + UI senza dover ricalcolare)
+    spec.cost_material = round(cost_material, 2)
+    spec.cost_normalized = round(cost_normalized, 2)
+    spec.cost_machining = round(cost_machining, 2)
+    spec.cost_accessories = round(cost_accessories, 2)
+    spec.cost_industrial = round(cost_industrial, 2)

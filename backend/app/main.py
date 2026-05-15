@@ -63,6 +63,7 @@ from app.api import (
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
     normalized_suppliers,
+    dies, normalized_items, die_settings,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -93,6 +94,9 @@ app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
 app.include_router(officina.router, dependencies=_auth)
 app.include_router(normalized_suppliers.router, dependencies=_auth)
+app.include_router(dies.router, dependencies=_auth)
+app.include_router(normalized_items.router, dependencies=_auth)
+app.include_router(die_settings.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -516,6 +520,110 @@ def _run_migrations():
         # vede solo i preventivi che ha creato lui.
         "DELETE FROM role_permissions WHERE permission_key = 'quotes.view_all'",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.view_all' FROM roles WHERE name IN ('admin','amministrazione')",
+
+        # ═══ Preventivatore Stampi (MVP1) ═══
+        # Quote esteso con quote_type='die' (nuovo valore). 1 Part = 1 piastra
+        # (riusa cost engine standard). Tabelle satellite per parametri specifici.
+        "ALTER TABLE parts ADD COLUMN plate_role VARCHAR(50)",
+
+        ("CREATE TABLE IF NOT EXISTS die_quote_specs ("
+         "quote_id INTEGER PRIMARY KEY REFERENCES quotes(id) ON DELETE CASCADE, "
+         "die_subtype VARCHAR(20) NOT NULL DEFAULT 'passo', "
+         "bbox_x_mm FLOAT DEFAULT 0, bbox_y_mm FLOAT DEFAULT 0, sheet_thickness_mm FLOAT DEFAULT 0, "
+         "n_stations INTEGER, pitch_mm FLOAT, strip_offset_y_mm FLOAT DEFAULT 0, "
+         "n_operations INTEGER, "
+         "castle_offset_x_mm FLOAT, castle_offset_y_mm FLOAT, "
+         "difficulty VARCHAR(20) DEFAULT 'base', "
+         "n_bends_simple INTEGER DEFAULT 0, n_bends_medium INTEGER DEFAULT 0, n_bends_complex INTEGER DEFAULT 0, "
+         "n_punches_simple INTEGER DEFAULT 0, n_punches_medium INTEGER DEFAULT 0, n_punches_complex INTEGER DEFAULT 0, "
+         "delivery_days INTEGER, technical_notes TEXT, "
+         "extras_amount FLOAT DEFAULT 0, extras_description VARCHAR(200), "
+         "cost_material FLOAT DEFAULT 0, cost_normalized FLOAT DEFAULT 0, "
+         "cost_machining FLOAT DEFAULT 0, cost_accessories FLOAT DEFAULT 0, cost_industrial FLOAT DEFAULT 0)"),
+
+        ("CREATE TABLE IF NOT EXISTS normalized_items ("
+         "id INTEGER PRIMARY KEY, "
+         "part_id INTEGER NOT NULL REFERENCES parts(id) ON DELETE CASCADE, "
+         "normalized_supplier_id INTEGER REFERENCES normalized_suppliers(id), "
+         "description VARCHAR(200) NOT NULL, "
+         "quantity INTEGER DEFAULT 1, "
+         "unit_price FLOAT DEFAULT 0, "
+         "notes TEXT)"),
+
+        "CREATE INDEX IF NOT EXISTS idx_normalized_items_part_id ON normalized_items(part_id)",
+
+        ("CREATE TABLE IF NOT EXISTS die_settings ("
+         "id INTEGER PRIMARY KEY, "
+         "hourly_rate_milling FLOAT DEFAULT 45, hourly_rate_grinding FLOAT DEFAULT 50, "
+         "hourly_rate_edm_wire FLOAT DEFAULT 60, hourly_rate_edm_die FLOAT DEFAULT 55, "
+         "cost_bend_simple FLOAT DEFAULT 80, cost_bend_medium FLOAT DEFAULT 160, cost_bend_complex FLOAT DEFAULT 320, "
+         "cost_punch_simple FLOAT DEFAULT 120, cost_punch_medium FLOAT DEFAULT 240, cost_punch_complex FLOAT DEFAULT 480, "
+         "cost_per_plate_base FLOAT DEFAULT 150, "
+         "diff_mult_base FLOAT DEFAULT 1.0, diff_mult_medium FLOAT DEFAULT 1.3, diff_mult_hard FLOAT DEFAULT 1.7, "
+         "design_hours_base FLOAT DEFAULT 8, design_hours_medium FLOAT DEFAULT 16, design_hours_hard FLOAT DEFAULT 32, "
+         "design_hourly_rate FLOAT DEFAULT 50, "
+         "assembly_forfeit_base FLOAT DEFAULT 300, assembly_forfeit_medium FLOAT DEFAULT 600, assembly_forfeit_hard FLOAT DEFAULT 1200, "
+         "default_margin_percent FLOAT DEFAULT 30, "
+         "default_castle_offset_x_mm FLOAT DEFAULT 80, default_castle_offset_y_mm FLOAT DEFAULT 80)"),
+
+        "INSERT OR IGNORE INTO die_settings (id) VALUES (1)",
+
+        # SQLAlchemy create_all genera la tabella senza i DEFAULT SQL (li applica
+        # solo a livello Python su INSERT mediati dall'ORM). Le migration manuali
+        # con CREATE TABLE IF NOT EXISTS arrivano dopo e non bypassano questo.
+        # COALESCE idempotente: setta i default solo se NULL.
+        ("UPDATE die_settings SET "
+         "hourly_rate_milling = COALESCE(hourly_rate_milling, 45), "
+         "hourly_rate_grinding = COALESCE(hourly_rate_grinding, 50), "
+         "hourly_rate_edm_wire = COALESCE(hourly_rate_edm_wire, 60), "
+         "hourly_rate_edm_die = COALESCE(hourly_rate_edm_die, 55), "
+         "cost_bend_simple = COALESCE(cost_bend_simple, 80), "
+         "cost_bend_medium = COALESCE(cost_bend_medium, 160), "
+         "cost_bend_complex = COALESCE(cost_bend_complex, 320), "
+         "cost_punch_simple = COALESCE(cost_punch_simple, 120), "
+         "cost_punch_medium = COALESCE(cost_punch_medium, 240), "
+         "cost_punch_complex = COALESCE(cost_punch_complex, 480), "
+         "cost_per_plate_base = COALESCE(cost_per_plate_base, 150), "
+         "diff_mult_base = COALESCE(diff_mult_base, 1.0), "
+         "diff_mult_medium = COALESCE(diff_mult_medium, 1.3), "
+         "diff_mult_hard = COALESCE(diff_mult_hard, 1.7), "
+         "design_hours_base = COALESCE(design_hours_base, 8), "
+         "design_hours_medium = COALESCE(design_hours_medium, 16), "
+         "design_hours_hard = COALESCE(design_hours_hard, 32), "
+         "design_hourly_rate = COALESCE(design_hourly_rate, 50), "
+         "assembly_forfeit_base = COALESCE(assembly_forfeit_base, 300), "
+         "assembly_forfeit_medium = COALESCE(assembly_forfeit_medium, 600), "
+         "assembly_forfeit_hard = COALESCE(assembly_forfeit_hard, 1200), "
+         "default_margin_percent = COALESCE(default_margin_percent, 30), "
+         "default_castle_offset_x_mm = COALESCE(default_castle_offset_x_mm, 80), "
+         "default_castle_offset_y_mm = COALESCE(default_castle_offset_y_mm, 80) "
+         "WHERE id = 1"),
+
+        ("CREATE TABLE IF NOT EXISTS die_dimension_brackets ("
+         "id INTEGER PRIMARY KEY, "
+         "label VARCHAR(20) NOT NULL, "
+         "area_min_dm2 FLOAT NOT NULL DEFAULT 0, "
+         "area_max_dm2 FLOAT, "
+         "coefficient FLOAT NOT NULL DEFAULT 1.0, "
+         "sort_order INTEGER DEFAULT 0)"),
+
+        # Seed default 4 fasce S/M/L/XL (solo se tabella vuota)
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'S', 0, 20, 1.0, 1 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets)"),
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'M', 20, 50, 1.3, 2 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='M')"),
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'L', 50, 100, 1.6, 3 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='L')"),
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'XL', 100, NULL, 2.0, 4 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='XL')"),
+
+        # Permessi dies.* — assegnati a admin + ufficio_tecnico (create/archive/pdf)
+        # e a admin (settings). Idempotenti tramite DELETE+INSERT.
+        "DELETE FROM role_permissions WHERE permission_key IN ('dies.create','dies.archive','dies.pdf','dies.settings')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.create' FROM roles WHERE name IN ('admin','ufficio_tecnico')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.archive' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.pdf' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.settings' FROM roles WHERE name = 'admin'",
     ]
     with engine.connect() as conn:
         for sql in migrations:

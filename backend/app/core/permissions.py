@@ -6,6 +6,10 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.send":   "Invia preventivo per revisione",
     "quotes.complete": "Marca preventivo come completato leggendolo",
     "quotes.view_all": "Vede tutti i preventivi (non solo i propri)",
+    "dies.create":     "Crea/modifica preventivi stampi",
+    "dies.archive":    "Archivio preventivi stampi",
+    "dies.pdf":        "Scarica PDF preventivo stampo",
+    "dies.settings":   "Configura tariffe e fasce dimensionali stampi",
     "customers":     "Gestione clienti",
     "settings":      "Impostazioni (materiali, macchine…)",
     "company":       "Modifica dati aziendali e default preventivi",
@@ -24,6 +28,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "dashboard", "quotes.create", "quotes.archive", "quotes.pdf",
         "quotes.send", "customers", "notifications", "orders.materials",
         "tools", "officina", "officina.write",
+        "dies.create", "dies.archive", "dies.pdf",
     ],
     "officina": [
         "quotes.archive", "quotes.pdf", "notifications", "tools", "officina",
@@ -32,5 +37,6 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "dashboard", "quotes.archive", "quotes.pdf", "quotes.view_all",
         "quotes.complete", "notifications", "orders.materials", "tools",
         "officina", "officina.write",
+        "dies.archive", "dies.pdf",
     ],
 }

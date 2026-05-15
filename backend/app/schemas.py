@@ -313,6 +313,8 @@ class PartBase(BaseModel):
     total_cost: Optional[float] = Field(default=0.0, ge=0)
     unit_price: Optional[float] = Field(default=0.0, ge=0)
     total_price: Optional[float] = Field(default=0.0, ge=0)
+    # MVP1 Stampi: ruolo della piastra nel castello (None per Part non-stampo).
+    plate_role: Optional[str] = None
 
 
 class PartCreate(PartBase):
@@ -342,6 +344,8 @@ class PartOut(PartBase):
     phases: List[PhaseOut] = []
     files: List[PartFileOut] = []
     material: Optional[MaterialOut] = None
+    # Forward ref a NormalizedItemOut (definito in fondo al file, sezione Stampi).
+    normalized_items: List['NormalizedItemOut'] = []
 
     class Config:
         from_attributes = True
@@ -406,6 +410,8 @@ class QuoteOut(QuoteBase):
     updated_at: datetime
     parts: List[PartOut] = []
     customer: Optional[CustomerOut] = None
+    # Forward ref a DieQuoteSpecOut (popolato solo per quote_type='die').
+    die_spec: Optional['DieQuoteSpecOut'] = None
 
     class Config:
         from_attributes = True
@@ -1030,4 +1036,199 @@ class OfficinaCategoryOut(OfficinaCategoryBase):
 
     class Config:
         from_attributes = True
+
+
+# ─── Preventivatore Stampi (MVP1) ───────────────────────────────────────────
+
+class NormalizedItemBase(BaseModel):
+    normalized_supplier_id: Optional[int] = None
+    description: str = Field(min_length=1, max_length=200)
+    quantity: int = Field(default=1, ge=1)
+    unit_price: float = Field(default=0.0, ge=0)
+    notes: Optional[str] = None
+
+
+class NormalizedItemCreate(NormalizedItemBase):
+    pass
+
+
+class NormalizedItemUpdate(BaseModel):
+    normalized_supplier_id: Optional[int] = None
+    description: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    quantity: Optional[int] = Field(default=None, ge=1)
+    unit_price: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = None
+
+
+class NormalizedItemOut(NormalizedItemBase):
+    id: int
+    part_id: int
+    supplier: Optional[NormalizedSupplierOut] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DieQuoteSpecBase(BaseModel):
+    die_subtype: str = Field(default='passo', pattern='^(passo|blocco)$')
+    bbox_x_mm: float = Field(default=0.0, ge=0)
+    bbox_y_mm: float = Field(default=0.0, ge=0)
+    sheet_thickness_mm: float = Field(default=0.0, ge=0)
+    n_stations: Optional[int] = Field(default=None, ge=1)
+    pitch_mm: Optional[float] = Field(default=None, ge=0)
+    strip_offset_y_mm: Optional[float] = Field(default=0.0, ge=0)
+    n_operations: Optional[int] = Field(default=None, ge=1)
+    castle_offset_x_mm: Optional[float] = Field(default=None, ge=0)
+    castle_offset_y_mm: Optional[float] = Field(default=None, ge=0)
+    difficulty: str = Field(default='base', pattern='^(base|medium|hard)$')
+    n_bends_simple: int = Field(default=0, ge=0)
+    n_bends_medium: int = Field(default=0, ge=0)
+    n_bends_complex: int = Field(default=0, ge=0)
+    n_punches_simple: int = Field(default=0, ge=0)
+    n_punches_medium: int = Field(default=0, ge=0)
+    n_punches_complex: int = Field(default=0, ge=0)
+    delivery_days: Optional[int] = Field(default=None, ge=0)
+    technical_notes: Optional[str] = None
+    extras_amount: float = Field(default=0.0, ge=0)
+    extras_description: Optional[str] = None
+
+
+class DieQuoteSpecUpdate(BaseModel):
+    """Update parziale — tutti opzionali, validation più morbida."""
+    die_subtype: Optional[str] = Field(default=None, pattern='^(passo|blocco)$')
+    bbox_x_mm: Optional[float] = Field(default=None, ge=0)
+    bbox_y_mm: Optional[float] = Field(default=None, ge=0)
+    sheet_thickness_mm: Optional[float] = Field(default=None, ge=0)
+    n_stations: Optional[int] = Field(default=None, ge=1)
+    pitch_mm: Optional[float] = Field(default=None, ge=0)
+    strip_offset_y_mm: Optional[float] = Field(default=None, ge=0)
+    n_operations: Optional[int] = Field(default=None, ge=1)
+    castle_offset_x_mm: Optional[float] = Field(default=None, ge=0)
+    castle_offset_y_mm: Optional[float] = Field(default=None, ge=0)
+    difficulty: Optional[str] = Field(default=None, pattern='^(base|medium|hard)$')
+    n_bends_simple: Optional[int] = Field(default=None, ge=0)
+    n_bends_medium: Optional[int] = Field(default=None, ge=0)
+    n_bends_complex: Optional[int] = Field(default=None, ge=0)
+    n_punches_simple: Optional[int] = Field(default=None, ge=0)
+    n_punches_medium: Optional[int] = Field(default=None, ge=0)
+    n_punches_complex: Optional[int] = Field(default=None, ge=0)
+    delivery_days: Optional[int] = Field(default=None, ge=0)
+    technical_notes: Optional[str] = None
+    extras_amount: Optional[float] = Field(default=None, ge=0)
+    extras_description: Optional[str] = None
+
+
+class DieQuoteSpecOut(DieQuoteSpecBase):
+    quote_id: int
+    cost_material: float = 0.0
+    cost_normalized: float = 0.0
+    cost_machining: float = 0.0
+    cost_accessories: float = 0.0
+    cost_industrial: float = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class DieQuoteCreate(BaseModel):
+    """Payload per POST /api/dies — crea Quote + DieQuoteSpec + N Part piastre."""
+    quote_number: str = Field(min_length=1, max_length=50)
+    customer_id: Optional[int] = None
+    customer_name: Optional[str] = None
+    quote_date: Optional[date] = None
+    die_subtype: str = Field(default='passo', pattern='^(passo|blocco)$')
+    # Piastre da creare (default 5 ruoli standard); ognuna nasce vuota.
+    plate_roles: List[str] = Field(default_factory=lambda: [
+        'cappello', 'porta_punzoni', 'premilamiera', 'matrice', 'base'
+    ])
+
+
+class DieSettingsOut(BaseModel):
+    id: int
+    hourly_rate_milling: float
+    hourly_rate_grinding: float
+    hourly_rate_edm_wire: float
+    hourly_rate_edm_die: float
+    cost_bend_simple: float
+    cost_bend_medium: float
+    cost_bend_complex: float
+    cost_punch_simple: float
+    cost_punch_medium: float
+    cost_punch_complex: float
+    cost_per_plate_base: float
+    diff_mult_base: float
+    diff_mult_medium: float
+    diff_mult_hard: float
+    design_hours_base: float
+    design_hours_medium: float
+    design_hours_hard: float
+    design_hourly_rate: float
+    assembly_forfeit_base: float
+    assembly_forfeit_medium: float
+    assembly_forfeit_hard: float
+    default_margin_percent: float
+    default_castle_offset_x_mm: float
+    default_castle_offset_y_mm: float
+
+    class Config:
+        from_attributes = True
+
+
+class DieSettingsUpdate(BaseModel):
+    hourly_rate_milling: Optional[float] = Field(default=None, ge=0)
+    hourly_rate_grinding: Optional[float] = Field(default=None, ge=0)
+    hourly_rate_edm_wire: Optional[float] = Field(default=None, ge=0)
+    hourly_rate_edm_die: Optional[float] = Field(default=None, ge=0)
+    cost_bend_simple: Optional[float] = Field(default=None, ge=0)
+    cost_bend_medium: Optional[float] = Field(default=None, ge=0)
+    cost_bend_complex: Optional[float] = Field(default=None, ge=0)
+    cost_punch_simple: Optional[float] = Field(default=None, ge=0)
+    cost_punch_medium: Optional[float] = Field(default=None, ge=0)
+    cost_punch_complex: Optional[float] = Field(default=None, ge=0)
+    cost_per_plate_base: Optional[float] = Field(default=None, ge=0)
+    diff_mult_base: Optional[float] = Field(default=None, ge=0)
+    diff_mult_medium: Optional[float] = Field(default=None, ge=0)
+    diff_mult_hard: Optional[float] = Field(default=None, ge=0)
+    design_hours_base: Optional[float] = Field(default=None, ge=0)
+    design_hours_medium: Optional[float] = Field(default=None, ge=0)
+    design_hours_hard: Optional[float] = Field(default=None, ge=0)
+    design_hourly_rate: Optional[float] = Field(default=None, ge=0)
+    assembly_forfeit_base: Optional[float] = Field(default=None, ge=0)
+    assembly_forfeit_medium: Optional[float] = Field(default=None, ge=0)
+    assembly_forfeit_hard: Optional[float] = Field(default=None, ge=0)
+    default_margin_percent: Optional[float] = Field(default=None, ge=0)
+    default_castle_offset_x_mm: Optional[float] = Field(default=None, ge=0)
+    default_castle_offset_y_mm: Optional[float] = Field(default=None, ge=0)
+
+
+class DieDimensionBracketBase(BaseModel):
+    label: str = Field(min_length=1, max_length=20)
+    area_min_dm2: float = Field(default=0.0, ge=0)
+    area_max_dm2: Optional[float] = Field(default=None, ge=0)
+    coefficient: float = Field(default=1.0, ge=0)
+    sort_order: int = 0
+
+
+class DieDimensionBracketCreate(DieDimensionBracketBase):
+    pass
+
+
+class DieDimensionBracketUpdate(BaseModel):
+    label: Optional[str] = Field(default=None, min_length=1, max_length=20)
+    area_min_dm2: Optional[float] = Field(default=None, ge=0)
+    area_max_dm2: Optional[float] = Field(default=None, ge=0)
+    coefficient: Optional[float] = Field(default=None, ge=0)
+    sort_order: Optional[int] = None
+
+
+class DieDimensionBracketOut(DieDimensionBracketBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+# Risolvi forward reference per PartOut (normalized_items) e QuoteOut (die_spec)
+PartOut.model_rebuild()
+QuoteOut.model_rebuild()
 

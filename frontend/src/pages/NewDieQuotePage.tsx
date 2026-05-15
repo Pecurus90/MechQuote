@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Hammer, FileStack, Zap } from 'lucide-react'
+import { Hammer, FileStack, Zap, FileText, X } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Category, Customer, DieSubtype, DieDifficulty, DieTemplate, Material } from '@/types'
+import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
 
 /** Wizard creazione preventivo Stampo (MVP1).
  *  Form minimal: cliente + codice + tipo (passo/blocco). Le 5 piastre con
@@ -48,6 +49,24 @@ export default function NewDieQuotePage() {
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerOpen, setCustomerOpen] = useState(false)
   const customerRef = useRef<HTMLDivElement>(null)
+
+  // Modale upload DXF: estrae bbox del pezzo (X/Y) dall'analisi.
+  const [showDxfModal, setShowDxfModal] = useState(false)
+  const [pendingDxf, setPendingDxf] = useState<DxfPickerState | null>(null)
+
+  const confirmDxfBbox = () => {
+    if (!pendingDxf) return
+    const base = pendingDxf.selectedBbox ?? pendingDxf.analysis.bbox_global
+    const round1 = (n: number) => Math.round(n * 10) / 10
+    setForm(f => ({
+      ...f,
+      bbox_x_mm: round1(base.w),
+      bbox_y_mm: round1(base.h),
+    }))
+    toast.success(`Bbox importato: ${round1(base.w)}×${round1(base.h)} mm`)
+    setShowDxfModal(false)
+    setPendingDxf(null)
+  }
 
   useEffect(() => {
     Promise.all([
@@ -119,9 +138,11 @@ export default function NewDieQuotePage() {
         die_subtype: form.die_subtype,
         template_id: !form.quick_mode && form.template_id ? Number(form.template_id) : undefined,
         quick_mode: form.quick_mode,
-        bbox_x_mm: form.quick_mode ? form.bbox_x_mm : undefined,
-        bbox_y_mm: form.quick_mode ? form.bbox_y_mm : undefined,
-        sheet_thickness_mm: form.quick_mode ? form.sheet_thickness_mm : undefined,
+        // Geometria pezzo: inviata sempre (anche in Dettagliata) per popolare
+        // subito la DieQuoteSpec; l'utente potrà sempre ritoccare nell'editor.
+        bbox_x_mm: form.bbox_x_mm || undefined,
+        bbox_y_mm: form.bbox_y_mm || undefined,
+        sheet_thickness_mm: form.sheet_thickness_mm || undefined,
         difficulty: form.quick_mode ? form.difficulty : undefined,
         main_material_id: form.quick_mode && form.main_material_id ? Number(form.main_material_id) : undefined,
         n_bends_total: form.quick_mode ? form.n_bends_total : undefined,
@@ -307,39 +328,54 @@ export default function NewDieQuotePage() {
             </div>
           </div>
 
-          {/* Inputs Rapida (visibili solo in modalità Rapida) */}
+          {/* Geometria pezzo (sempre visibile, con upload DXF opzionale) */}
+          <div className="bg-white rounded-xl border shadow-sm">
+            <div className="px-5 py-3 border-b flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">Geometria pezzo</h2>
+              <Button size="sm" variant="outline" onClick={() => setShowDxfModal(true)}>
+                <FileText className="w-3.5 h-3.5 mr-1" /> Carica DXF
+              </Button>
+            </div>
+            <div className="p-5">
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Inserisci le dimensioni del pezzo da tranciare oppure carica un DXF per
+                estrarre automaticamente X e Y dal bounding box.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Bbox pezzo X (mm)</label>
+                  <Input type="number" min={0} step={1} className="mt-1 h-9 text-sm"
+                    value={form.bbox_x_mm || ''}
+                    onChange={e => set('bbox_x_mm', parseDecimal(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Bbox pezzo Y (mm)</label>
+                  <Input type="number" min={0} step={1} className="mt-1 h-9 text-sm"
+                    value={form.bbox_y_mm || ''}
+                    onChange={e => set('bbox_y_mm', parseDecimal(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Spessore lamiera (mm)</label>
+                  <Input type="number" min={0} step={0.1} className="mt-1 h-9 text-sm"
+                    value={form.sheet_thickness_mm || ''}
+                    onChange={e => set('sheet_thickness_mm', parseDecimal(e.target.value) || 0)} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Inputs Rapida (visibili solo in modalità Rapida): materiale + difficoltà + feature totali */}
           {form.quick_mode && (
             <div className="bg-white rounded-xl border shadow-sm">
               <div className="px-5 py-3 border-b">
                 <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-rose-600" /> Stima rapida
+                  <Zap className="w-4 h-4 text-rose-600" /> Stima rapida — materiale & feature
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Compila i dati minimi: il sistema stima il peso del castello e applica €/kg medio.
+                  Il sistema stima il peso del castello (bbox × spessore × N piastre × densità) e applica €/kg medio.
                 </p>
               </div>
               <div className="p-5 space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Bbox pezzo X (mm)</label>
-                    <Input type="number" min={0} step={1} className="mt-1 h-9 text-sm"
-                      value={form.bbox_x_mm || ''}
-                      onChange={e => set('bbox_x_mm', parseDecimal(e.target.value) || 0)} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Bbox pezzo Y (mm)</label>
-                    <Input type="number" min={0} step={1} className="mt-1 h-9 text-sm"
-                      value={form.bbox_y_mm || ''}
-                      onChange={e => set('bbox_y_mm', parseDecimal(e.target.value) || 0)} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Spessore lamiera (mm)</label>
-                    <Input type="number" min={0} step={0.1} className="mt-1 h-9 text-sm"
-                      value={form.sheet_thickness_mm || ''}
-                      onChange={e => set('sheet_thickness_mm', parseDecimal(e.target.value) || 0)} />
-                  </div>
-                </div>
-
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Materiale principale</label>
                   <select className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -378,6 +414,38 @@ export default function NewDieQuotePage() {
                       value={form.n_punches_total || ''}
                       onChange={e => set('n_punches_total', parseInt(e.target.value, 10) || 0)} />
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modale upload DXF (riusa picker del preventivatore 2D) */}
+          {showDxfModal && (
+            <div className="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
+                <div className="flex items-center justify-between px-5 py-3 border-b">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Carica DXF per estrarre bbox pezzo
+                  </h3>
+                  <button onClick={() => { setShowDxfModal(false); setPendingDxf(null) }}
+                    className="p-1 hover:bg-gray-100 rounded">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Seleziona i profili da considerare (per default tutti i chiusi). Il bounding
+                    box dell'unione popola X e Y del pezzo. Lo spessore va inserito a mano.
+                  </p>
+                  <DxfProfilePicker onChange={setPendingDxf} viewerHeight={360} />
+                </div>
+                <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-gray-50">
+                  <Button variant="outline" onClick={() => { setShowDxfModal(false); setPendingDxf(null) }}>
+                    Annulla
+                  </Button>
+                  <Button onClick={confirmDxfBbox} disabled={!pendingDxf} className="bg-rose-600 hover:bg-rose-700">
+                    Importa bbox
+                  </Button>
                 </div>
               </div>
             </div>

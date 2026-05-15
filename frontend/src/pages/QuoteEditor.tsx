@@ -7,10 +7,11 @@ import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import api from '@/lib/api'
-import { Trash2, Copy, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
+import PartsSidebar from '@/components/quotes/PartsSidebar'
+import QuoteBottomBar from '@/components/quotes/QuoteBottomBar'
 import QuoteValidationModal from '@/components/quotes/QuoteValidationModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
@@ -346,61 +347,16 @@ export default function QuoteEditor() {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Parts sidebar */}
-        <div className="w-64 bg-white border-r flex flex-col shrink-0">
-          <div className="p-3 border-b flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Parti ({quote.parts.length})
-            </span>
-            {quote.quote_type !== 'single' && !isLocked && (
-              <button onClick={addPart} className="p-0.5 hover:text-blue-600 text-gray-400" title="Aggiungi parte">
-                <Plus className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          <div
-            onClick={() => setSelectedPartIdx(-1)}
-            className={`px-3 py-2 cursor-pointer border-b text-xs text-gray-500 hover:bg-gray-50 ${
-              selectedPartIdx === -1 ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
-            }`}
-          >
-            ⚙ Dati preventivo
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {quote.parts.map((part, idx) => (
-              <div
-                key={part.id ?? idx}
-                onClick={() => setSelectedPartIdx(idx)}
-                className={`px-3 py-2.5 cursor-pointer border-b hover:bg-gray-50 ${
-                  selectedPartIdx === idx ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-sm font-mono font-medium text-gray-800 truncate">{part.part_code}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {partsWithIssues.has(idx) && (
-                      <span className="text-amber-500 text-xs" title="Dati mancanti">⚠</span>
-                    )}
-                    {quote.quote_type !== 'single' && !isLocked && (
-                      <button onClick={e => { e.stopPropagation(); duplicatePart(idx) }}
-                        className="p-1 hover:text-blue-600 hover:bg-blue-50 rounded text-gray-400" title="Duplica">
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {quote.quote_type !== 'single' && !isLocked && (
-                      <button onClick={e => { e.stopPropagation(); setConfirmDeletePartIdx(idx) }}
-                        className="p-1 hover:text-red-600 hover:bg-red-50 rounded text-gray-400" title="Elimina">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="text-xs text-gray-400 truncate">{part.description || 'Nessuna descrizione'}</div>
-                <div className="text-xs font-semibold text-blue-600 mt-0.5">{part.total_price.toFixed(2)} €</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <PartsSidebar
+          quote={quote}
+          selectedPartIdx={selectedPartIdx}
+          isLocked={isLocked}
+          partsWithIssues={partsWithIssues}
+          onSelect={setSelectedPartIdx}
+          onAdd={addPart}
+          onDuplicate={duplicatePart}
+          onRequestDelete={setConfirmDeletePartIdx}
+        />
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -560,47 +516,15 @@ export default function QuoteEditor() {
         </div>
       </div>
 
-      {/* Bottom total bar */}
-      <div className="bg-white border-t px-6 py-3">
-        <fieldset disabled={isLocked} className="border-0 p-0 m-0 disabled:opacity-90">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="text-sm text-gray-500">{quote.parts.length} parti</span>
-          <span className="text-sm text-gray-400">|</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500 whitespace-nowrap">Trasporto</span>
-            <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-20 text-xs"
-              value={quote.transport_cost}
-              onChange={e => setQuote(q => q ? { ...q, transport_cost: parseDecimal(e.target.value) || 0 } : q)}
-              onBlur={saveQuote} />
-            <span className="text-xs text-gray-400">€</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500 whitespace-nowrap">Imballag.</span>
-            <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-20 text-xs"
-              value={quote.packaging_cost}
-              onChange={e => setQuote(q => q ? { ...q, packaging_cost: parseDecimal(e.target.value) || 0 } : q)}
-              onBlur={saveQuote} />
-            <span className="text-xs text-gray-400">€</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-500 whitespace-nowrap">Sconto</span>
-            <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={100} step={0.5} className="h-7 w-16 text-xs"
-              value={quote.global_discount_percent}
-              onChange={e => setQuote(q => q ? { ...q, global_discount_percent: parseDecimal(e.target.value) || 0 } : q)}
-              onBlur={saveQuote} />
-            <span className="text-xs text-gray-400">%</span>
-          </div>
-          <div className="flex-1" />
-          <div className="text-right">
-            {hasExtras && (
-              <span className="text-xs text-gray-400 block">Subtotale: {partsSubtotal.toFixed(2)} €</span>
-            )}
-            <span className="text-xs text-gray-400 uppercase tracking-wide block">Totale Preventivo</span>
-            <span className="text-2xl font-bold text-blue-700">{total.toFixed(2)} €</span>
-          </div>
-        </div>
-        </fieldset>
-      </div>
+      <QuoteBottomBar
+        quote={quote}
+        isLocked={isLocked}
+        partsSubtotal={partsSubtotal}
+        total={total}
+        hasExtras={hasExtras}
+        onChange={updates => setQuote(q => q ? { ...q, ...updates } : q)}
+        onBlur={saveQuote}
+      />
 
       {validationIssues && (
         <QuoteValidationModal

@@ -5,6 +5,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.pdf":    "Scarica PDF",
     "quotes.send":   "Invia preventivo per revisione",
     "quotes.complete": "Marca preventivo come completato leggendolo",
+    "quotes.view_all": "Vede tutti i preventivi (non solo i propri)",
     "customers":     "Gestione clienti",
     "settings":      "Impostazioni (materiali, macchine…)",
     "company":       "Modifica dati aziendali e default preventivi",
@@ -28,7 +29,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "quotes.archive", "quotes.pdf", "notifications", "tools", "officina",
     ],
     "amministrazione": [
-        "dashboard", "quotes.archive", "quotes.pdf",
+        "dashboard", "quotes.archive", "quotes.pdf", "quotes.view_all",
         "quotes.complete", "notifications", "orders.materials", "tools",
         "officina", "officina.write",
     ],

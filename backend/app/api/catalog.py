@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
+from app.core.catalog_protect import block_if_in_use
 from app.core.security import require_permission
-from app.models import QuoteCategory, StepColorRule
+from app.models import Quote, QuoteCategory, StepColorRule
 from app.schemas import (
     QuoteCategoryCreate, QuoteCategoryUpdate, QuoteCategoryOut,
     StepColorRuleCreate, StepColorRuleBase, StepColorRuleOut,
@@ -45,6 +46,17 @@ def delete_category(cid: int, db: Session = Depends(get_db)):
     cat = db.query(QuoteCategory).filter(QuoteCategory.id == cid).first()
     if not cat:
         raise HTTPException(404, "Categoria non trovata")
+    # La categoria entra nel quote_number come singola lettera embedded
+    # ("CCC-YYC_PPP"): nessuna FK formale, ma quote esistenti che la usano
+    # vanno protetti — riconosciamo il pattern con LIKE escape-safe.
+    n_in_use = db.query(Quote).filter(
+        Quote.quote_number.like(f"%{cat.code}\\_%", escape="\\")
+    ).count()
+    if n_in_use > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Categoria '{cat.code}' in uso da {n_in_use} {'preventivo' if n_in_use == 1 else 'preventivi'} — riassegnali prima",
+        )
     db.delete(cat)
     db.commit()
     return {"ok": True}
@@ -82,6 +94,10 @@ def delete_color_rule(cid: int, db: Session = Depends(get_db)):
     c = db.query(StepColorRule).filter(StepColorRule.id == cid).first()
     if not c:
         raise HTTPException(404, "Regola colore non trovata")
+    # No FK formale verso StepColorRule (dormiente fino a import 3D). Il
+    # check è segnaposto per coerenza con il pattern catalog: se in futuro
+    # ManufacturingPhase guadagna un FK qui, basta aggiungere la tupla.
+    block_if_in_use(db, f"Regola colore '{c.color_name}'")
     db.delete(c)
     db.commit()
     return {"ok": True}

@@ -508,6 +508,14 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_material_order_quotes_order_id ON material_order_quotes(material_order_id)",
         "CREATE INDEX IF NOT EXISTS idx_material_order_quotes_quote_id ON material_order_quotes(quote_id)",
         "CREATE INDEX IF NOT EXISTS idx_tool_order_items_order_id ON tool_order_items(tool_order_id)",
+
+        # ═══ ACL: quotes.view_all ═══
+        # Permesso per vedere TUTTI i preventivi (non solo i propri). Senza,
+        # GET /api/quotes e /api/quotes/archive filtrano su created_by_user_id.
+        # Assegnato a admin + amministrazione: l'ufficio tecnico/officina
+        # vede solo i preventivi che ha creato lui.
+        "DELETE FROM role_permissions WHERE permission_key = 'quotes.view_all'",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.view_all' FROM roles WHERE name IN ('admin','amministrazione')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

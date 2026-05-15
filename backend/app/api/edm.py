@@ -92,6 +92,8 @@ def delete_cut_speed(rid: int, db: Session = Depends(get_db)):
     row = db.query(EdmCutSpeed).filter(EdmCutSpeed.id == rid).first()
     if not row:
         raise HTTPException(404, "Velocità non trovata")
+    # Lookup consultativo (no FK formale): segnaposto coerente col pattern.
+    block_if_in_use(db, f"Velocità EDM {row.material_family} {row.thickness_min_mm}-{row.thickness_max_mm}mm")
     db.delete(row)
     db.commit()
     return {"ok": True}
@@ -182,6 +184,8 @@ def delete_drilling_time(rid: int, db: Session = Depends(get_db)):
     row = db.query(DrillingTime).filter(DrillingTime.id == rid).first()
     if not row:
         raise HTTPException(404, "Tempo foratura non trovato")
+    # Lookup consultativo (no FK formale): segnaposto coerente col pattern.
+    block_if_in_use(db, f"Tempo foratura {row.material_family} Ø{row.electrode_diameter_mm}mm")
     db.delete(row)
     db.commit()
     return {"ok": True}

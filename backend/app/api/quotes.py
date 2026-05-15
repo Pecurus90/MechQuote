@@ -50,14 +50,24 @@ def ensure_editable(quote: Quote, current_user: User) -> None:
 
 
 @router.get("", response_model=List[QuoteOut])
-def list_quotes(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
-    quotes = db.query(Quote).options(
+def list_quotes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 100,
+):
+    # ACL: chi non ha 'quotes.view_all' (default: admin + amministrazione)
+    # vede solo i preventivi che ha creato lui. Allineato a dashboard.my-quotes
+    # filter (created_by_user_id).
+    query = db.query(Quote).options(
         joinedload(Quote.parts).options(
             joinedload(Part.phases),
             joinedload(Part.material),
         )
-    ).offset(skip).limit(limit).all()
-    return quotes
+    )
+    if 'quotes.view_all' not in getattr(current_user, '_permissions', []):
+        query = query.filter(Quote.created_by_user_id == current_user.id)
+    return query.offset(skip).limit(limit).all()
 
 
 @router.post("", response_model=QuoteOut)

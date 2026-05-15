@@ -17,6 +17,8 @@ import ConfirmDialog from '@/components/ui/confirm-dialog'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
 import DieSpecPanel from '@/components/quotes/DieSpecPanel'
 import DieCostSummary from '@/components/quotes/DieCostSummary'
+import DieIsometricView from '@/components/quotes/DieIsometricView'
+import SimilarDiesPanel from '@/components/quotes/SimilarDiesPanel'
 import NormalizedItemsEditor from '@/components/quotes/NormalizedItemsEditor'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
@@ -385,12 +387,16 @@ export default function QuoteEditor() {
           {isDie && selectedPartIdx === -1 && quote.die_spec && (
             <>
               <DieCostSummary quote={quote} spec={quote.die_spec} />
+              {!quote.die_spec.quick_mode && quote.parts.length > 0 && (
+                <DieIsometricView plates={quote.parts} />
+              )}
               <DieSpecPanel
                 spec={quote.die_spec}
                 readOnly={isLocked}
                 onChange={next => setQuote(q => q ? { ...q, die_spec: next } : q)}
                 onSaved={reloadQuote}
               />
+              {quote.id && <SimilarDiesPanel quoteId={quote.id} />}
             </>
           )}
           {isDie && selectedPartIdx >= 0 && selectedPart && (

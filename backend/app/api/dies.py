@@ -318,6 +318,96 @@ def _next_revision_number(base_number: str, db: Session) -> str:
     return f"{base}_rev{max_rev + 1}"
 
 
+@router.get("/find-similar/{quote_id}")
+def find_similar_dies(
+    quote_id: int,
+    tol: float = 0.20,
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_create,
+):
+    """Cerca preventivi stampo simili al `quote_id`. Match per:
+    - Area castello (max raw_x × max raw_y) ±`tol`% (default ±20%)
+    - n_pieghe + n_punzoni totali ±2
+    - Stesso die_subtype (passo vs blocco)
+
+    Esclude il quote stesso e le sue revisioni (`quote_number_base` derivato
+    via regex). Ritorna ordinato per similarity score (1 / Σ diff relativa)
+    ascendente. Output compatto per pannello laterale UI.
+    """
+    src = _load_die_quote(quote_id, db)
+    src_spec = src.die_spec
+    if not src_spec:
+        return []
+
+    # Area castello sorgente
+    parts_q = db.query(Part).filter(Part.quote_id == src.id).all()
+    src_max_x = max((p.raw_x_mm or 0.0 for p in parts_q), default=0.0)
+    src_max_y = max((p.raw_y_mm or 0.0 for p in parts_q), default=0.0)
+    src_area = src_max_x * src_max_y / 10000.0  # dm²
+    src_bends = (src_spec.n_bends_simple or 0) + (src_spec.n_bends_medium or 0) + (src_spec.n_bends_complex or 0)
+    src_punches = (src_spec.n_punches_simple or 0) + (src_spec.n_punches_medium or 0) + (src_spec.n_punches_complex or 0)
+
+    # Quote_number base (rimuovi suffisso _revN) per escludere le revisioni della
+    # stessa "famiglia" — un preventivo non è simile a sé stesso o alle sue rev.
+    m = re.match(r'^(.+?)(_rev\d+)?$', src.quote_number)
+    base_number = m.group(1) if m else src.quote_number
+
+    candidates = db.query(Quote).options(
+        joinedload(Quote.parts),
+        joinedload(Quote.die_spec),
+    ).filter(
+        Quote.quote_type == 'die',
+        Quote.id != src.id,
+        ~Quote.quote_number.like(f"{base_number}%"),  # esclude tutte le rev
+    ).all()
+
+    results = []
+    for q in candidates:
+        if not q.die_spec or q.die_spec.die_subtype != src_spec.die_subtype:
+            continue
+        max_x = max((p.raw_x_mm or 0.0 for p in q.parts), default=0.0)
+        max_y = max((p.raw_y_mm or 0.0 for p in q.parts), default=0.0)
+        area = max_x * max_y / 10000.0
+        bends = (q.die_spec.n_bends_simple or 0) + (q.die_spec.n_bends_medium or 0) + (q.die_spec.n_bends_complex or 0)
+        punches = (q.die_spec.n_punches_simple or 0) + (q.die_spec.n_punches_medium or 0) + (q.die_spec.n_punches_complex or 0)
+
+        # Filtri di similarity
+        if src_area > 0:
+            area_diff_rel = abs(area - src_area) / src_area
+            if area_diff_rel > tol:
+                continue
+        if abs(bends - src_bends) > 2:
+            continue
+        if abs(punches - src_punches) > 2:
+            continue
+
+        # Score: somma diff relative (più bassa = più simile). Usiamo +0.01
+        # per evitare divisione per zero in casi identici.
+        score = (
+            (abs(area - src_area) / max(src_area, 1.0))
+            + (abs(bends - src_bends) / max(src_bends, 1) * 0.5)
+            + (abs(punches - src_punches) / max(src_punches, 1) * 0.5)
+        )
+        results.append({
+            "id": q.id,
+            "quote_number": q.quote_number,
+            "customer_name": q.customer_name,
+            "die_subtype": q.die_spec.die_subtype,
+            "area_dm2": round(area, 1),
+            "n_bends": bends,
+            "n_punches": punches,
+            "cost_industrial": q.die_spec.cost_industrial or 0.0,
+            "final_price": round((q.die_spec.cost_industrial or 0.0) * (1 + (q.global_margin_percent or 0) / 100) * (1 - (q.global_discount_percent or 0) / 100), 2),
+            "quote_date": q.quote_date.isoformat() if q.quote_date else None,
+            "score": round(score, 4),
+        })
+
+    results.sort(key=lambda r: r["score"])
+    return results[:limit]
+
+
 @router.post("/{quote_id}/clone", response_model=QuoteOut)
 def clone_die_quote(
     quote_id: int,

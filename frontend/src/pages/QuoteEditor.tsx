@@ -337,9 +337,25 @@ export default function QuoteEditor() {
         isLocked={isLocked}
         saving={saving}
         canSubmit={hasPermission('quotes.send')}
+        canCloneDie={isDie && hasPermission('dies.create')}
         onSave={saveQuote}
         onSubmitForReview={submitForReview}
         onPdfClick={handlePdfClick}
+        onCloneDie={async () => {
+          if (!quote.id) return
+          if (!confirm('Duplicare questo preventivo come nuova revisione?')) return
+          setSaving(true)
+          try {
+            const res = await api.post(`/dies/${quote.id}/clone`)
+            toast.success(`Revisione creata: ${res.data.quote_number}`)
+            navigate(`/quotes/${res.data.id}`)
+          } catch (e) {
+            const err = e as { response?: { data?: { detail?: string } } }
+            toast.error(err?.response?.data?.detail || 'Errore nella duplicazione')
+          } finally {
+            setSaving(false)
+          }
+        }}
       />
 
       {isLocked && (

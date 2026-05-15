@@ -852,6 +852,13 @@ class DieQuoteSpec(Base):
     cost_accessories = Column(Float, default=0.0)
     cost_industrial = Column(Float, default=0.0)
 
+    # Modalità Rapida (MVP2.5): stima ±20% in 2 minuti da peso castello ×
+    # €/kg medio. Se True il cost engine bypassa L1-L3 dettagliati e usa la
+    # formula semplificata; quick_min/quick_max sono il range mostrato in UI.
+    quick_mode = Column(Boolean, default=False)
+    quick_min = Column(Float, default=0.0)
+    quick_max = Column(Float, default=0.0)
+
     quote = relationship("Quote", back_populates="die_spec")
 
 
@@ -916,6 +923,14 @@ class DieSettings(Base):
     default_castle_offset_x_mm = Column(Float, default=80.0)
     default_castle_offset_y_mm = Column(Float, default=80.0)
 
+    # Modalità Rapida (MVP2.5): parametri per la stima ±tol_pct basata su
+    # peso castello stimato × €/kg medio storico. Usati solo da
+    # `_recalculate_die_quick` quando DieQuoteSpec.quick_mode=True.
+    quick_n_plates_avg = Column(Integer, default=5)
+    quick_thickness_avg_mm = Column(Float, default=28.0)
+    quick_eur_per_kg = Column(Float, default=25.0)
+    quick_tolerance_percent = Column(Float, default=20.0)
+
 
 class DieDimensionBracket(Base):
     """Fascia dimensionale del castello (S/M/L/XL) → coefficiente moltiplicativo
@@ -929,6 +944,53 @@ class DieDimensionBracket(Base):
     area_max_dm2 = Column(Float)                       # NULL = "infinito" (ultima fascia)
     coefficient = Column(Float, nullable=False, default=1.0)
     sort_order = Column(Integer, default=0)
+
+
+class DieTemplate(Base):
+    """Template stampo: precompila piastre + suggerimenti feature al nuovo
+    preventivo. Riusabile come "Tranciatura semplice", "Progressivo 3-4 staz."
+    L'utente sceglie il template nel wizard → backend applica `apply_template`
+    che sostituisce clean-slate le piastre del Quote con quelle del template."""
+    __tablename__ = "die_templates"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    die_subtype = Column(String(20), nullable=False, default='passo')  # passo|blocco
+    suggested_stations = Column(Integer)
+    suggested_pitch_mm = Column(Float)
+    suggested_n_bends_simple = Column(Integer, default=0)
+    suggested_n_bends_medium = Column(Integer, default=0)
+    suggested_n_bends_complex = Column(Integer, default=0)
+    suggested_n_punches_simple = Column(Integer, default=0)
+    suggested_n_punches_medium = Column(Integer, default=0)
+    suggested_n_punches_complex = Column(Integer, default=0)
+    default_difficulty = Column(String(20), default='base')
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    plates = relationship("DieTemplatePlate", back_populates="template",
+                          cascade="all, delete-orphan",
+                          order_by="DieTemplatePlate.sort_order")
+
+
+class DieTemplatePlate(Base):
+    """Singola piastra di un DieTemplate: ruolo, spessore di default,
+    materiale/trattamento suggeriti (FK opzionali; al ricreare il template
+    da preventivo l'utente può sceglierli)."""
+    __tablename__ = "die_template_plates"
+
+    id = Column(Integer, primary_key=True)
+    template_id = Column(Integer, ForeignKey("die_templates.id", ondelete="CASCADE"), nullable=False)
+    plate_role = Column(String(50), nullable=False)
+    default_thickness_mm = Column(Float, default=0.0)
+    default_material_id = Column(Integer, ForeignKey("materials.id"))
+    default_treatment_id = Column(Integer, ForeignKey("treatments.id"))
+    sort_order = Column(Integer, default=0)
+
+    template = relationship("DieTemplate", back_populates="plates")
+    default_material = relationship("Material")
+    default_treatment = relationship("Treatment")
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

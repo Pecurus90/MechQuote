@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, FileDown, Save, Send } from 'lucide-react'
+import { ChevronLeft, FileDown, Save, Send, Copy } from 'lucide-react'
 import type { Quote } from '@/types'
 import { STATUS_COLORS, STATUS_LABELS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
@@ -10,17 +10,20 @@ interface Props {
   isLocked: boolean
   saving: boolean
   canSubmit: boolean
+  /** Mostra il bottone "Duplica come rev" (solo per quote_type='die'). */
+  canCloneDie?: boolean
   onSave: () => void
   onSubmitForReview: () => void
   onPdfClick: () => void
+  onCloneDie?: () => void
 }
 
 /** Top bar del QuoteEditor: numero preventivo, badge status, info workflow,
  *  azioni (Invia/PDF/Salva). Co-locato perché usato solo da QuoteEditor.
  */
 export default function QuoteTopBar({
-  quote, isLocked, saving, canSubmit,
-  onSave, onSubmitForReview, onPdfClick,
+  quote, isLocked, saving, canSubmit, canCloneDie,
+  onSave, onSubmitForReview, onPdfClick, onCloneDie,
 }: Props) {
   const navigate = useNavigate()
 
@@ -54,6 +57,12 @@ export default function QuoteTopBar({
       {quote.status === 'bozza' && canSubmit && (
         <Button size="sm" variant="outline" onClick={onSubmitForReview} disabled={saving}>
           <Send className="w-3.5 h-3.5 mr-1" /> Invia per revisione
+        </Button>
+      )}
+      {canCloneDie && onCloneDie && (
+        <Button size="sm" variant="outline" onClick={onCloneDie} disabled={saving}
+          title="Crea una nuova revisione di questo preventivo stampo">
+          <Copy className="w-3.5 h-3.5 mr-1" /> Duplica rev
         </Button>
       )}
       <Button size="sm" variant="outline" onClick={onPdfClick}>

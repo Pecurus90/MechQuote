@@ -1125,6 +1125,9 @@ class DieQuoteSpecOut(DieQuoteSpecBase):
     cost_machining: float = 0.0
     cost_accessories: float = 0.0
     cost_industrial: float = 0.0
+    quick_mode: bool = False
+    quick_min: float = 0.0
+    quick_max: float = 0.0
 
     class Config:
         from_attributes = True
@@ -1137,7 +1140,22 @@ class DieQuoteCreate(BaseModel):
     customer_name: Optional[str] = None
     quote_date: Optional[date] = None
     die_subtype: str = Field(default='passo', pattern='^(passo|blocco)$')
+    # Modalità Rapida: salta creazione piastre, marca DieQuoteSpec.quick_mode=True.
+    # I dati bbox + difficoltà + n_pieghe/punzoni vengono passati subito qui
+    # per poter ricalcolare la stima al momento della creazione.
+    quick_mode: bool = False
+    bbox_x_mm: Optional[float] = Field(default=None, ge=0)
+    bbox_y_mm: Optional[float] = Field(default=None, ge=0)
+    sheet_thickness_mm: Optional[float] = Field(default=None, ge=0)
+    difficulty: Optional[str] = Field(default=None, pattern='^(base|medium|hard)$')
+    main_material_id: Optional[int] = None    # quick: applicato a tutte le piastre
+    n_bends_total: Optional[int] = Field(default=None, ge=0)
+    n_punches_total: Optional[int] = Field(default=None, ge=0)
+    # Se template_id presente, le piastre del Quote vengono create dal template
+    # (con default_thickness/material/treatment); altrimenti si usano `plate_roles`.
+    template_id: Optional[int] = None
     # Piastre da creare (default 5 ruoli standard); ognuna nasce vuota.
+    # Ignorato se template_id è impostato o quick_mode=True.
     plate_roles: List[str] = Field(default_factory=lambda: [
         'cappello', 'porta_punzoni', 'premilamiera', 'matrice', 'base'
     ])
@@ -1223,6 +1241,76 @@ class DieDimensionBracketUpdate(BaseModel):
 
 class DieDimensionBracketOut(DieDimensionBracketBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+# ─── DieTemplate (MVP2) ──────────────────────────────────────────────────
+
+class DieTemplatePlateBase(BaseModel):
+    plate_role: str = Field(min_length=1, max_length=50)
+    default_thickness_mm: float = Field(default=0.0, ge=0)
+    default_material_id: Optional[int] = None
+    default_treatment_id: Optional[int] = None
+    sort_order: int = 0
+
+
+class DieTemplatePlateCreate(DieTemplatePlateBase):
+    pass
+
+
+class DieTemplatePlateOut(DieTemplatePlateBase):
+    id: int
+    template_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class DieTemplateBase(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = None
+    die_subtype: str = Field(default='passo', pattern='^(passo|blocco)$')
+    suggested_stations: Optional[int] = Field(default=None, ge=1)
+    suggested_pitch_mm: Optional[float] = Field(default=None, ge=0)
+    suggested_n_bends_simple: int = Field(default=0, ge=0)
+    suggested_n_bends_medium: int = Field(default=0, ge=0)
+    suggested_n_bends_complex: int = Field(default=0, ge=0)
+    suggested_n_punches_simple: int = Field(default=0, ge=0)
+    suggested_n_punches_medium: int = Field(default=0, ge=0)
+    suggested_n_punches_complex: int = Field(default=0, ge=0)
+    default_difficulty: str = Field(default='base', pattern='^(base|medium|hard)$')
+    active: bool = True
+
+
+class DieTemplateCreate(DieTemplateBase):
+    plates: List[DieTemplatePlateCreate] = []
+
+
+class DieTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    die_subtype: Optional[str] = Field(default=None, pattern='^(passo|blocco)$')
+    suggested_stations: Optional[int] = Field(default=None, ge=1)
+    suggested_pitch_mm: Optional[float] = Field(default=None, ge=0)
+    suggested_n_bends_simple: Optional[int] = Field(default=None, ge=0)
+    suggested_n_bends_medium: Optional[int] = Field(default=None, ge=0)
+    suggested_n_bends_complex: Optional[int] = Field(default=None, ge=0)
+    suggested_n_punches_simple: Optional[int] = Field(default=None, ge=0)
+    suggested_n_punches_medium: Optional[int] = Field(default=None, ge=0)
+    suggested_n_punches_complex: Optional[int] = Field(default=None, ge=0)
+    default_difficulty: Optional[str] = Field(default=None, pattern='^(base|medium|hard)$')
+    active: Optional[bool] = None
+    # Plates: se presente, sostituisce intera lista (clean-slate). Se omesso,
+    # mantiene quelle esistenti — utile per update solo metadati.
+    plates: Optional[List[DieTemplatePlateCreate]] = None
+
+
+class DieTemplateOut(DieTemplateBase):
+    id: int
+    created_at: datetime
+    plates: List[DieTemplatePlateOut] = []
 
     class Config:
         from_attributes = True

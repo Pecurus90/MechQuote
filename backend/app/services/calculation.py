@@ -423,6 +423,9 @@ def _recalculate_die_addons(quote: Quote, parts, db: Session) -> None:
     NON ridenomina `Part.total_cost/unit_price/total_price` — quelli restano
     per coerenza con il resto del sistema (archivio, PDF generico). Il prezzo
     finale stampo si calcola al volo da `cost_industrial × (1+margin) × (1-discount)`.
+
+    MVP2.5: se `spec.quick_mode=True` bypassa L1-L3 dettagliati e usa la
+    formula veloce (peso castello × €/kg medio storico), output range ±tol%.
     """
     spec = quote.die_spec
     if spec is None:
@@ -430,6 +433,11 @@ def _recalculate_die_addons(quote: Quote, parts, db: Session) -> None:
     settings = db.query(DieSettings).filter(DieSettings.id == 1).first()
     if settings is None:
         return
+
+    if spec.quick_mode:
+        _recalculate_die_quick(spec, quote, parts, settings)
+        return
+
     brackets = db.query(DieDimensionBracket).order_by(DieDimensionBracket.sort_order).all()
 
     # L1 materiale piastre = somma Part.total_cost × quantity per ogni piastra.
@@ -485,3 +493,67 @@ def _recalculate_die_addons(quote: Quote, parts, db: Session) -> None:
     spec.cost_machining = round(cost_machining, 2)
     spec.cost_accessories = round(cost_accessories, 2)
     spec.cost_industrial = round(cost_industrial, 2)
+    spec.quick_min = 0.0
+    spec.quick_max = 0.0
+
+
+def _recalculate_die_quick(spec, quote: Quote, parts, settings: DieSettings) -> None:
+    """Modalità Rapida (MVP2.5): stima ±tol% in 2 minuti.
+
+    Algoritmo semplificato:
+      peso_castello_kg = (bbox_x × bbox_y / 10000) × thickness_avg × densità ×
+                         n_plates_avg × scrap (10% default)
+      cost_grezzo = peso × €/kg medio (DieSettings.quick_eur_per_kg)
+      cost_feature = Σ feature × cost_base × diff_mult (no fasce dim)
+      cost_accessories = forfait difficoltà
+      industriale = cost_grezzo + cost_feature + cost_accessories + extras
+      min/max = industriale × (1 ∓ tol/100)
+
+    Snapshot dettagliato (cost_material/_normalized/_machining) = 0; lo storage
+    espone solo cost_industrial come stima e quick_min/quick_max come range.
+    """
+    bbox_x = spec.bbox_x_mm or 0.0
+    bbox_y = spec.bbox_y_mm or 0.0
+    n_plates = settings.quick_n_plates_avg or 5
+    thickness_avg = settings.quick_thickness_avg_mm or 28.0
+    eur_per_kg = settings.quick_eur_per_kg or 25.0
+    tol = (settings.quick_tolerance_percent or 20.0) / 100.0
+
+    # Densità: se c'è un materiale dominante (es. piastra matrice o prima Part
+    # con material_id), usa la sua density. Altrimenti default 7.85 (acciaio).
+    density = 7.85
+    for p in parts:
+        if p.material and p.material.density_kg_dm3:
+            density = p.material.density_kg_dm3
+            break
+
+    # Volume castello (dm³) = (bbox_x × bbox_y × thickness × n_plates) / 1e6
+    # × scrap 1.1 (10% recupero, allineato a _compute_material_cost)
+    vol_dm3 = (bbox_x * bbox_y * thickness_avg * n_plates) / 1_000_000
+    weight_kg = vol_dm3 * density * 1.1
+    cost_grezzo = weight_kg * eur_per_kg
+
+    diff_mult = getattr(settings, f'diff_mult_{spec.difficulty}', settings.diff_mult_base) or 1.0
+    cost_feature_unit = (
+        (settings.cost_bend_simple or 0) + (settings.cost_punch_simple or 0)
+    ) / 2  # media base
+    n_features = (
+        (spec.n_bends_simple or 0) + (spec.n_bends_medium or 0) + (spec.n_bends_complex or 0)
+        + (spec.n_punches_simple or 0) + (spec.n_punches_medium or 0) + (spec.n_punches_complex or 0)
+    )
+    cost_features = n_features * cost_feature_unit * diff_mult
+
+    cost_assembly = getattr(settings, f'assembly_forfeit_{spec.difficulty}', settings.assembly_forfeit_base) or 0.0
+    design_hours = getattr(settings, f'design_hours_{spec.difficulty}', settings.design_hours_base) or 0.0
+    cost_design = design_hours * (settings.design_hourly_rate or 0.0)
+    cost_accessories = cost_assembly + cost_design + (spec.extras_amount or 0.0)
+
+    industrial = cost_grezzo + cost_features + cost_accessories
+
+    spec.cost_material = round(cost_grezzo, 2)
+    spec.cost_normalized = 0.0
+    spec.cost_machining = round(cost_features, 2)
+    spec.cost_accessories = round(cost_accessories, 2)
+    spec.cost_industrial = round(industrial, 2)
+    spec.quick_min = round(industrial * (1.0 - tol), 2)
+    spec.quick_max = round(industrial * (1.0 + tol), 2)

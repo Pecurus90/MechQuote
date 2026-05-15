@@ -582,6 +582,10 @@ export interface DieQuoteSpec {
   cost_machining: number
   cost_accessories: number
   cost_industrial: number
+  // Modalità Rapida: range ±tol% intorno a cost_industrial
+  quick_mode: boolean
+  quick_min: number
+  quick_max: number
 }
 
 export interface NormalizedItem {
@@ -630,4 +634,33 @@ export interface DieDimensionBracket {
   area_max_dm2: number | null    // null = "infinito" (ultima fascia)
   coefficient: number
   sort_order: number
+}
+
+export interface DieTemplatePlate {
+  id?: number
+  template_id?: number
+  plate_role: string
+  default_thickness_mm: number
+  default_material_id?: number | null
+  default_treatment_id?: number | null
+  sort_order: number
+}
+
+export interface DieTemplate {
+  id: number
+  name: string
+  description?: string | null
+  die_subtype: DieSubtype
+  suggested_stations?: number | null
+  suggested_pitch_mm?: number | null
+  suggested_n_bends_simple: number
+  suggested_n_bends_medium: number
+  suggested_n_bends_complex: number
+  suggested_n_punches_simple: number
+  suggested_n_punches_medium: number
+  suggested_n_punches_complex: number
+  default_difficulty: DieDifficulty
+  active: boolean
+  created_at?: string
+  plates: DieTemplatePlate[]
 }

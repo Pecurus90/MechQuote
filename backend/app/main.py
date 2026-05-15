@@ -63,7 +63,7 @@ from app.api import (
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
     normalized_suppliers,
-    dies, normalized_items, die_settings,
+    dies, normalized_items, die_settings, die_templates,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -97,6 +97,7 @@ app.include_router(normalized_suppliers.router, dependencies=_auth)
 app.include_router(dies.router, dependencies=_auth)
 app.include_router(normalized_items.router, dependencies=_auth)
 app.include_router(die_settings.router, dependencies=_auth)
+app.include_router(die_templates.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -624,6 +625,79 @@ def _run_migrations():
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.archive' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.pdf' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.settings' FROM roles WHERE name = 'admin'",
+
+        # ═══ Preventivatore Stampi (MVP2) — Templates ═══
+        ("CREATE TABLE IF NOT EXISTS die_templates ("
+         "id INTEGER PRIMARY KEY, "
+         "name VARCHAR(100) NOT NULL, "
+         "description TEXT, "
+         "die_subtype VARCHAR(20) NOT NULL DEFAULT 'passo', "
+         "suggested_stations INTEGER, suggested_pitch_mm FLOAT, "
+         "suggested_n_bends_simple INTEGER DEFAULT 0, "
+         "suggested_n_bends_medium INTEGER DEFAULT 0, "
+         "suggested_n_bends_complex INTEGER DEFAULT 0, "
+         "suggested_n_punches_simple INTEGER DEFAULT 0, "
+         "suggested_n_punches_medium INTEGER DEFAULT 0, "
+         "suggested_n_punches_complex INTEGER DEFAULT 0, "
+         "default_difficulty VARCHAR(20) DEFAULT 'base', "
+         "active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+
+        ("CREATE TABLE IF NOT EXISTS die_template_plates ("
+         "id INTEGER PRIMARY KEY, "
+         "template_id INTEGER NOT NULL REFERENCES die_templates(id) ON DELETE CASCADE, "
+         "plate_role VARCHAR(50) NOT NULL, "
+         "default_thickness_mm FLOAT DEFAULT 0, "
+         "default_material_id INTEGER REFERENCES materials(id), "
+         "default_treatment_id INTEGER REFERENCES treatments(id), "
+         "sort_order INTEGER DEFAULT 0)"),
+
+        "CREATE INDEX IF NOT EXISTS idx_die_template_plates_template_id ON die_template_plates(template_id)",
+
+        # Seed 2 template default (solo se tabella vuota — idempotente):
+        # "Tranciatura semplice a blocco" e "Progressivo 3-4 stazioni".
+        ("INSERT INTO die_templates (name, description, die_subtype, suggested_stations, "
+         "suggested_n_bends_simple, suggested_n_punches_simple, default_difficulty) "
+         "SELECT 'Tranciatura semplice a blocco', "
+         "'Stampo a blocco con 1-2 stazioni: cappello, porta-punzoni, premilamiera, matrice, base.', "
+         "'blocco', NULL, 0, 1, 'base' "
+         "WHERE NOT EXISTS (SELECT 1 FROM die_templates WHERE name='Tranciatura semplice a blocco')"),
+
+        ("INSERT INTO die_templates (name, description, die_subtype, suggested_stations, "
+         "suggested_n_bends_medium, suggested_n_punches_medium, default_difficulty) "
+         "SELECT 'Progressivo 3-4 stazioni', "
+         "'Stampo a passo con 3-4 stazioni: trancia + piega in sequenza.', "
+         "'passo', 3, 2, 2, 'medium' "
+         "WHERE NOT EXISTS (SELECT 1 FROM die_templates WHERE name='Progressivo 3-4 stazioni')"),
+
+        # MVP2.5 Modalità Rapida: campi su DieQuoteSpec + DieSettings.
+        "ALTER TABLE die_quote_specs ADD COLUMN quick_mode BOOLEAN DEFAULT 0",
+        "ALTER TABLE die_quote_specs ADD COLUMN quick_min FLOAT DEFAULT 0",
+        "ALTER TABLE die_quote_specs ADD COLUMN quick_max FLOAT DEFAULT 0",
+        "ALTER TABLE die_settings ADD COLUMN quick_n_plates_avg INTEGER DEFAULT 5",
+        "ALTER TABLE die_settings ADD COLUMN quick_thickness_avg_mm FLOAT DEFAULT 28",
+        "ALTER TABLE die_settings ADD COLUMN quick_eur_per_kg FLOAT DEFAULT 25",
+        "ALTER TABLE die_settings ADD COLUMN quick_tolerance_percent FLOAT DEFAULT 20",
+        # COALESCE per popolare default su DB già esistenti (SQLAlchemy ADD COLUMN
+        # senza DEFAULT su SQLite legacy non li applica retroattivamente).
+        ("UPDATE die_settings SET "
+         "quick_n_plates_avg = COALESCE(quick_n_plates_avg, 5), "
+         "quick_thickness_avg_mm = COALESCE(quick_thickness_avg_mm, 28), "
+         "quick_eur_per_kg = COALESCE(quick_eur_per_kg, 25), "
+         "quick_tolerance_percent = COALESCE(quick_tolerance_percent, 20) "
+         "WHERE id = 1"),
+
+        # Seed piastre standard per i 2 template (cascade su nome — riusa
+        # subselect su die_templates per evitare hard-code id).
+        ("INSERT INTO die_template_plates (template_id, plate_role, default_thickness_mm, sort_order) "
+         "SELECT t.id, p.role, p.thick, p.ord FROM die_templates t, "
+         "(SELECT 'cappello' AS role, 25.0 AS thick, 1 AS ord UNION "
+         " SELECT 'porta_punzoni', 30.0, 2 UNION "
+         " SELECT 'premilamiera', 25.0, 3 UNION "
+         " SELECT 'matrice', 30.0, 4 UNION "
+         " SELECT 'base', 30.0, 5) p "
+         "WHERE t.name IN ('Tranciatura semplice a blocco','Progressivo 3-4 stazioni') "
+         "AND NOT EXISTS (SELECT 1 FROM die_template_plates dtp WHERE dtp.template_id = t.id)"),
     ]
     with engine.connect() as conn:
         for sql in migrations:

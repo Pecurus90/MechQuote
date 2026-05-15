@@ -8,7 +8,8 @@ interface Props {
 
 /** Tabella riepilogo costi L1-L7 + prezzo finale, allineata alla spec utente.
  *  Mostra snapshot da `DieQuoteSpec.cost_*` (calcolato dal backend dopo recalc)
- *  + applica margine/sconto presi da Quote per derivare prezzo lordo/finale. */
+ *  + applica margine/sconto presi da Quote per derivare prezzo lordo/finale.
+ *  In modalità Rapida mostra il range min/max invece della tabella dettagliata. */
 export default function DieCostSummary({ quote, spec }: Props) {
   const margin = quote.global_margin_percent || 0
   const discount = quote.global_discount_percent || 0
@@ -17,6 +18,43 @@ export default function DieCostSummary({ quote, spec }: Props) {
   const lordo = industrial + markup
   const sconto = lordo * discount / 100
   const finale = lordo - sconto
+
+  if (spec.quick_mode) {
+    // Range Rapida: applica margine + sconto ai due estremi
+    const minLordo = spec.quick_min * (1 + margin / 100)
+    const maxLordo = spec.quick_max * (1 + margin / 100)
+    const minFinal = minLordo * (1 - discount / 100)
+    const maxFinal = maxLordo * (1 - discount / 100)
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            Stima Rapida <span className="text-xs font-normal text-rose-700 bg-rose-50 px-2 py-0.5 rounded">±20%</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-center py-4 bg-rose-50 rounded-lg">
+            <p className="text-xs text-rose-700 uppercase tracking-wide mb-1">Prezzo stimato</p>
+            <p className="text-2xl font-bold text-rose-900">
+              {minFinal.toFixed(0)} — {maxFinal.toFixed(0)} €
+            </p>
+            <p className="text-[11px] text-gray-500 mt-2">
+              Stima basata su peso castello × €/kg medio. Per maggiore precisione
+              passa in modalità Dettagliata e compila piastre + feature.
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <tbody>
+              <tr><td className="px-2 py-1 text-gray-500">Materiale castello (stima)</td><td className="px-2 py-1 text-right">{spec.cost_material.toFixed(0)} €</td></tr>
+              <tr><td className="px-2 py-1 text-gray-500">Lavorazioni meccaniche</td><td className="px-2 py-1 text-right">{spec.cost_machining.toFixed(0)} €</td></tr>
+              <tr><td className="px-2 py-1 text-gray-500">Accessori</td><td className="px-2 py-1 text-right">{spec.cost_accessories.toFixed(0)} €</td></tr>
+              <tr className="border-t"><td className="px-2 py-1 font-medium">Industriale (centrale)</td><td className="px-2 py-1 text-right font-medium">{industrial.toFixed(0)} €</td></tr>
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>

@@ -113,10 +113,10 @@ Modulo dedicato — schema da progettare. Possibilmente come `quote_type` aggiun
 
 ## 📋 Debito tecnico noto (gestito)
 
-Lo stato post-audit (chiuso 2026-05-09):
+Lo stato post-audit (chiuso 2026-05-09, aggiornamento consolidamento 2026-05-15):
 
-- **Test automatici**: zero coverage. **Decisione esplicita 2026-05-09 di rinviare la suite completa post-MVP** — il prodotto è in evoluzione attiva (3D, stampi, EDM affinamenti), test scritti ora su API che cambiano = manutenzione doppia. Con 1 utente i bug si vedono in uso reale. **Caveat**: subset minimo raccomandato (~3h, 7 test su `services/calculation.py` + `services/dxf_parser.py`) **prima di iniziare la Modalità 3D STEP**, per proteggere il cost engine dal cablaggio dei coefficienti deferred (`edm_coefficient`, `cnc_machinability_coefficient`, `setup_minimum_hours`, `complexity_coefficient`).
-- **CI**: zero. Minimal: `tsc --noEmit` + backend startup OK su push a main. Da configurare insieme alla suite test post-MVP.
+- **Test automatici**: subset minimo cost engine + dxf parser chiuso 2026-05-15 (7 test in `backend/tests/unit/`, eseguiti dalla CI). Suite completa rinviata post-MVP.
+- **CI**: minimale attiva da 2026-05-15 (`.github/workflows/check.yml`): backend startup + `pytest tests/unit/` + `tsc --noEmit` su push e PR a main. Non bloccante inizialmente.
 - **Logging strutturato**: oggi nessuno (solo eccezioni in HTTP response). Per produzione: `logging` builtin + opzionalmente Sentry.
 - **File frontend borderline**: `QuoteEditor` (601), `NewQuote2DPage` (592), `PhaseEditor` (557), `PartCard` (434). PartCard non estratto perché richiederebbe 8+ props (vedi CLAUDE.md §5).
 - **Migrazioni manuali in `_run_migrations()`** (66 statement): riorganizzate in sezioni semantiche, ma nessun versioning Alembic. Ok per un'istanza singola; passare ad Alembic se nasce un team o un branch lungo.
@@ -136,6 +136,7 @@ Lo stato post-audit (chiuso 2026-05-09):
 | 6 | A3-1, A3-2, A3-3 | Listener `before_delete` su PartFile (cleanup blob fisico su cascade), `require_role` orfana droppata, check SECRET_KEY rinforzato (length+blacklist) |
 | 7 | BUG-1, BUG-2, BUG-3, BUG-4, OSS-1 | Fix critici post test E2E: `Quote.quote_date` default Python (era latente), guard distruttivo in `backup.import_data` (causò incidente data loss), `min_length=1` su `quote_number` e `cutting_cycle.name`, documentato "last write wins" in CLAUDE.md §4 |
 | 8 | Theme cleanup | Rimosso tema scuro completo (richiesta utente: cambiava al tramonto via auto-switch macOS). 3 commit: drop ThemeProvider/toggle/CSS palette → fix `darkMode: 'class'` per bloccare default `'media'` di Tailwind che leggeva `prefers-color-scheme` automaticamente → cleanup 372 classi `dark:*` residue in 32 TSX. CSS bundle -3 kB. |
+| 9 | Consolidamento 2026-05-15 | ACL `list_quotes`/`quotes_archive` per ruolo (nuovo permesso `quotes.view_all` ad admin+amministrazione, altri ruoli vedono solo i propri), `block_if_in_use` sui 4 DELETE catalog mancanti, 7 unit test backend (cost engine + dxf parser), CI minimal su GitHub Actions, toast su `.catch` silenziosi (sessione scaduta + EDM lookup DEV-only), `savePhase` triggera `onReload` per fasi treatment (batch sibling refresh), `confirmDxf` aborta la PUT se l'attach DXF fallisce (no orphan profile_ids). |
 
 ---
 

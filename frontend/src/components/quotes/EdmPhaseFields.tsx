@@ -90,7 +90,10 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
     }
     setSubmitting(true)
     try {
-      // 1. Allega il DXF al pezzo (best-effort).
+      // 1. Allega il DXF al pezzo. Se fallisce abortiamo: senza il file
+      //    allegato i `dxf_profile_ids` salvati sulla fase puntano a
+      //    "fantasmi" (la fase ha i profili ma la parte non ha più il DXF
+      //    sorgente — riapertura del modale impossibile).
       if (partId) {
         try {
           const fd = new FormData()
@@ -99,7 +102,8 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             headers: { 'Content-Type': 'multipart/form-data' },
           })
         } catch {
-          toast.warning('DXF analizzato ma allegato non salvato (riprova manualmente)')
+          toast.error('Allegato DXF non salvato — riprova (la fase NON è stata modificata)')
+          return
         }
       }
 

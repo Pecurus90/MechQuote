@@ -97,15 +97,16 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
   const [operations, setOperations] = useState<Operation[]>([])
 
   useEffect(() => {
-    api.get('/cutting-cycles')
-      .then(r => setCuttingCycles(r.data))
-      .catch(() => { /* tabelle EDM non popolate ancora — ok */ })
-    api.get('/workflow-templates')
-      .then(r => setWorkflows(r.data))
-      .catch(() => { /* template flusso non popolati ancora — ok */ })
-    api.get('/operations')
-      .then(r => setOperations(r.data))
-      .catch(() => { /* operations non popolate ancora — ok */ })
+    // Tabelle ausiliarie: tabella vuota = HTTP 200 con []. Il .catch scatta
+    // solo su veri errori (rete, 500, 401). Niente toast user-facing per
+    // non spammare se il BE è giù — la UI degrada graceful (i dropdown
+    // restano vuoti). DEV-only warning per facilitare il debug.
+    const devWarn = (label: string) => (e: unknown) => {
+      if (import.meta.env.DEV) console.warn(`[PhaseEditor] load ${label} failed`, e)
+    }
+    api.get('/cutting-cycles').then(r => setCuttingCycles(r.data)).catch(devWarn('cutting-cycles'))
+    api.get('/workflow-templates').then(r => setWorkflows(r.data)).catch(devWarn('workflow-templates'))
+    api.get('/operations').then(r => setOperations(r.data)).catch(devWarn('operations'))
   }, [])
 
   // Quando cambia peso finito, quantità o nParts, ricalcola TUTTE le fasi:
@@ -230,6 +231,12 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
       onChange(phases.map((p, i) =>
         i !== idx ? p : calcPhase({ ...p, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost }, machines, quantity, nParts)
       ))
+      // Trattamenti: il backend ridistribuisce il batch tra i siblings con
+      // stesso (treatment_id, material_id). Senza reload, le altre parti
+      // restano coi costi stantii fino al prossimo open. Cfr CLAUDE.md §9.
+      if (phase.treatment_id && onReload) {
+        onReload()
+      }
     } catch (e) {toast.error('Errore nel salvataggio della fase') }
   }
 

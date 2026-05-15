@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import api from '@/lib/api'
 
 export type UserRole = 'admin' | 'ufficio_tecnico' | 'officina' | 'amministrazione'
@@ -42,7 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     api.get('/auth/me')
       .then(r => setUser(r.data as AuthUser))
-      .catch(() => localStorage.removeItem('token'))
+      .catch(() => {
+        // Token presente ma /auth/me KO: scaduto o invalidato dal server
+        // (es. utente disattivato). L'utente vede comunque il redirect a
+        // /login da ProtectedRoute, ma il toast spiega *perché* è successo.
+        localStorage.removeItem('token')
+        toast.info('Sessione scaduta, accedi di nuovo')
+      })
       .finally(() => setLoading(false))
   }, [])
 

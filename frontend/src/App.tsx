@@ -9,6 +9,7 @@ import QuoteEditor from '@/pages/QuoteEditor'
 import QuoteArchivePage from '@/pages/QuoteArchivePage'
 import NewQuotePage from '@/pages/NewQuotePage'
 import NewQuote2DPage from '@/pages/NewQuote2DPage'
+import NewDieQuotePage from '@/pages/NewDieQuotePage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import MachinesPage from '@/pages/settings/MachinesPage'
 import TreatmentsPage from '@/pages/settings/TreatmentsPage'
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="quotes/new" element={<NewQuotePage />} />
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
         <Route path="quotes/2d/new" element={<ProtectedRoute permission="quotes.create"><NewQuote2DPage /></ProtectedRoute>} />
+        <Route path="quotes/die/new" element={<ProtectedRoute permission="dies.create"><NewDieQuotePage /></ProtectedRoute>} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />

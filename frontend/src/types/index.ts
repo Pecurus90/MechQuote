@@ -22,6 +22,10 @@ export interface Treatment {
   name: string
   treatment_type: string | null
   cost_per_kg: number
+  // Modulo Stampi: trattamenti come nitrurazione fatturati a €/dm³.
+  // cost_unit='kg' (default) o 'dm3' switcha la formula nel cost engine.
+  cost_unit?: 'kg' | 'dm3'
+  cost_per_dm3?: number
   minimum_cost: number
   minimum_weight_kg?: number | null
   supplier_id: number | null
@@ -130,6 +134,8 @@ export interface Part {
   material_from_stock?: boolean         // a magazzino: override shipping/cutting da CompanySettings
   margin_percent?: number
   minimum_price?: number
+  // Modulo Stampi: ruolo piastra nel castello.
+  plate_role?: string | null
   total_cost: number
   unit_price: number
   total_price: number
@@ -172,6 +178,9 @@ export interface Quote {
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
+  // Modulo Stampi: popolati solo per quote_type='die'.
+  die_spec?: DieSpec | null
+  die_normalized_items?: DieNormalizedItem[]
 }
 
 // ─── Ordini materiali ──────────────────────────────────────────────────────
@@ -224,6 +233,8 @@ export interface NormalizedSupplier {
   phone?: string | null
   email?: string | null
   notes?: string | null
+  // Modulo Stampi: spedizione aggregata in L2 cost engine.
+  shipping_cost?: number
   active?: boolean
 }
 
@@ -541,5 +552,138 @@ export interface OfficinaCategory {
   icon: string         // nome lucide-react, mappato via lib/icons.ts
   sort_order: number
   created_at?: string
+}
+
+// ─── Modulo Preventivatore Stampi ───────────────────────────────────────────
+
+export type DieSubtype = 'passo' | 'blocco'
+export type DieMode = 'rapid' | 'detailed'
+export type DieDifficulty = 'base' | 'medium' | 'hard'
+
+export interface DieSpec {
+  quote_id: number
+  die_subtype: DieSubtype
+  mode: DieMode
+  bbox_x_mm: number
+  bbox_y_mm: number
+  sheet_thickness_mm: number
+  // Passo
+  n_stations?: number | null
+  pitch_mm?: number | null
+  strip_offset_y_mm: number
+  // Blocco
+  n_operations?: number | null
+  block_strip_offset_mm: number
+  // Castello
+  castle_offset_x_mm?: number | null
+  castle_offset_y_mm?: number | null
+  // Feature
+  difficulty: DieDifficulty
+  n_bends_simple: number
+  n_bends_medium: number
+  n_bends_complex: number
+  n_punches_simple: number
+  n_punches_medium: number
+  n_punches_complex: number
+  // Misc
+  delivery_days?: number | null
+  technical_notes?: string | null
+  extras_amount: number
+  extras_description?: string | null
+  // Snapshot costi (popolati dal cost engine)
+  cost_material: number
+  cost_normalized: number
+  cost_machining: number
+  cost_accessories: number
+  cost_industrial: number
+  // Override matita (NULL = usa calcolato)
+  override_material?: number | null
+  override_normalized?: number | null
+  override_machining?: number | null
+  override_accessories?: number | null
+  // Rapida
+  rapid_min: number
+  rapid_max: number
+}
+
+export interface DieNormalizedItem {
+  id: number
+  quote_id: number
+  normalized_supplier_id?: number | null
+  description: string
+  quantity: number
+  unit_price: number
+  notes?: string | null
+  supplier?: NormalizedSupplier | null
+}
+
+export interface DieSettings {
+  id: number
+  hourly_rate_milling: number
+  hourly_rate_grinding: number
+  hourly_rate_edm_wire: number
+  hourly_rate_edm_die: number
+  cost_bend_simple: number
+  cost_bend_medium: number
+  cost_bend_complex: number
+  cost_punch_simple: number
+  cost_punch_medium: number
+  cost_punch_complex: number
+  cost_per_plate_base: number
+  diff_mult_base: number
+  diff_mult_medium: number
+  diff_mult_hard: number
+  design_hours_base: number
+  design_hours_medium: number
+  design_hours_hard: number
+  design_hourly_rate: number
+  assembly_forfeit_base: number
+  assembly_forfeit_medium: number
+  assembly_forfeit_hard: number
+  default_margin_percent: number
+  default_castle_offset_x_mm: number
+  default_castle_offset_y_mm: number
+  rapid_eur_per_kg: number
+  rapid_n_plates_avg: number
+  rapid_thickness_avg_mm: number
+  rapid_accessories_percent: number
+  rapid_tolerance_percent: number
+}
+
+export interface DieDimensionBracket {
+  id: number
+  label: string
+  area_min_dm2: number
+  area_max_dm2?: number | null
+  coefficient: number
+  sort_order: number
+}
+
+export interface DieTemplatePlate {
+  id: number
+  plate_role: string
+  default_thickness_mm: number
+  default_material_id?: number | null
+  default_treatment_id?: number | null
+  sort_order: number
+}
+
+export interface DieTemplate {
+  id: number
+  name: string
+  description?: string | null
+  die_subtype: DieSubtype
+  suggested_stations?: number | null
+  suggested_pitch_mm?: number | null
+  suggested_n_bends_simple: number
+  suggested_n_bends_medium: number
+  suggested_n_bends_complex: number
+  suggested_n_punches_simple: number
+  suggested_n_punches_medium: number
+  suggested_n_punches_complex: number
+  default_difficulty: DieDifficulty
+  active: boolean
+  created_at: string
+  plates: DieTemplatePlate[]
 }
 

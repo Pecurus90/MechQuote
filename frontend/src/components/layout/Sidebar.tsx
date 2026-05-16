@@ -120,6 +120,12 @@ export default function Sidebar() {
                   <span>Archivio Preventivi</span>
                 </NavLink>
               )}
+              {hasPermission('dies.create') && (
+                <NavLink to="/quotes/die/new" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Nuovo Stampo</span>
+                </NavLink>
+              )}
             </div>
           )}
         </div>

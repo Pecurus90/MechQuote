@@ -17,6 +17,7 @@ import ConfirmDialog from '@/components/ui/confirm-dialog'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
+import DieQuoteEditor from '@/pages/DieQuoteEditor'
 import { toast } from 'sonner'
 
 export default function QuoteEditor() {
@@ -318,6 +319,13 @@ export default function QuoteEditor() {
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Caricamento...</div>
   if (!quote) return null
+
+  // Modulo Stampi: i preventivi tipo 'die' usano un editor dedicato a 2 colonne
+  // (riepilogo costi L1-L7 + spec + piastre + normalizzati). L'editor standard
+  // qui sotto è ottimizzato per single/commessa con fasi di lavorazione.
+  if (quote.quote_type === 'die') {
+    return <DieQuoteEditor />
+  }
 
   const selectedPart = quote.parts[selectedPartIdx] ?? null
   const total = calcQuoteTotal(quote)

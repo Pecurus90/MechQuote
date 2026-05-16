@@ -1,13 +1,16 @@
 // Render side-view (spaccato verticale) del castello stampo: le piastre
 // del template selezionato impilate dall'alto (cappello in cima, base in
-// fondo), con spessori in scala e etichette ruolo a destra. Mostrato solo
-// se è stato scelto un template (altrimenti placeholder).
+// fondo), con spessori in scala e etichette ruolo a destra.
+//
+// Implementazione HTML+CSS (non SVG): il testo SVG con coordinate viewBox
+// diventava illeggibile quando il castello era largo (font reso piccolo
+// in fit-to-container). Con HTML il font ha sempre dimensioni assolute
+// in px, e la larghezza dei rettangoli è semplicemente width:100%.
 import type { DieTemplatePlate } from '@/types'
 
 interface Props {
   plates: DieTemplatePlate[]
-  castleX: number       // mm — usato per la larghezza dei rettangoli
-  height?: number
+  castleX: number
 }
 
 const PLATE_COLORS: Record<string, { fill: string; stroke: string; label: string }> = {
@@ -19,80 +22,72 @@ const PLATE_COLORS: Record<string, { fill: string; stroke: string; label: string
 }
 const DEFAULT_COLOR = { fill: '#f1f5f9', stroke: '#64748b', label: '' }
 
-export default function DieSideView({ plates, castleX, height = 220 }: Props) {
+// Altezza minima per rendere leggibile l'etichetta dentro una piastra,
+// indipendentemente dallo spessore proporzionale.
+const MIN_ROW_PX = 36
+
+export default function DieSideView({ plates, castleX }: Props) {
   if (plates.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed bg-gray-50 flex items-center justify-center text-xs text-gray-400" style={{ height }}>
+      <div className="rounded-lg border border-dashed bg-gray-50 flex items-center justify-center text-xs text-gray-400 h-32">
         Seleziona un template per vedere lo spaccato verticale
       </div>
     )
   }
 
-  // Ordino per sort_order così cappello sta in alto, base in fondo.
   const sorted = [...plates].sort((a, b) => a.sort_order - b.sort_order)
   const totalThickness = sorted.reduce((s, p) => s + (p.default_thickness_mm || 0), 0)
   if (totalThickness <= 0 || castleX <= 0) {
     return (
-      <div className="rounded-lg border border-dashed bg-gray-50 flex items-center justify-center text-xs text-gray-400" style={{ height }}>
+      <div className="rounded-lg border border-dashed bg-gray-50 flex items-center justify-center text-xs text-gray-400 h-32">
         Dati piastra incompleti
       </div>
     )
   }
 
-  // ViewBox: castello largo `castleX` mm, alto `totalThickness` mm.
-  // Aggiungiamo padding orizzontale per etichette a destra (peso ~castleX*0.6 per leggibilità).
-  const labelPad = castleX * 0.7
-  const padding = Math.max(castleX, totalThickness) * 0.06
-  const view = {
-    x: -padding,
-    y: -padding,
-    w: castleX + labelPad + 2 * padding,
-    h: totalThickness + 2 * padding,
-  }
+  // Ogni piastra ha altezza = max(percentuale-su-totale × baseHeight, minimo).
+  // baseHeight dimensionato sul numero di piastre per dare un'altezza utile
+  // anche con stack piccolo. La somma effettiva può superare baseHeight ma
+  // il container è scrollabile in caso (raro: stack > 8 piastre).
+  const baseHeight = Math.max(sorted.length * MIN_ROW_PX, 200)
 
-  let cursorY = 0
   return (
-    <div className="rounded-lg border bg-white overflow-hidden" style={{ height }}>
-      <svg
-        viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="w-full h-full"
-      >
+    <div className="rounded-lg border bg-white p-3">
+      <div className="flex flex-col gap-px">
         {sorted.map(p => {
           const c = PLATE_COLORS[p.plate_role] || { ...DEFAULT_COLOR, label: p.plate_role }
-          const y = cursorY
-          const h = p.default_thickness_mm || 0
-          cursorY += h
-          const labelX = castleX + padding
-          const labelY = y + h / 2
-          // fontSize proporzionato al viewBox per restare leggibile a ogni scala.
-          const fs = Math.max(view.h * 0.045, 4)
+          const thickness = p.default_thickness_mm || 0
+          const proportional = (thickness / totalThickness) * baseHeight
+          const h = Math.max(proportional, MIN_ROW_PX)
           return (
-            <g key={p.id ?? `${p.plate_role}-${p.sort_order}`}>
-              <rect
-                x={0}
-                y={y}
-                width={castleX}
-                height={h}
-                fill={c.fill}
-                stroke={c.stroke}
-                strokeWidth={1.2}
-                vectorEffect="non-scaling-stroke"
-              />
-              <text
-                x={labelX}
-                y={labelY}
-                dominantBaseline="middle"
-                fontSize={fs}
-                fill="#334155"
-                fontFamily="ui-sans-serif, system-ui"
-              >
-                {c.label || p.plate_role} — {h} mm
-              </text>
-            </g>
+            <div
+              key={p.id ?? `${p.plate_role}-${p.sort_order}`}
+              className="flex items-center justify-between px-3 rounded border"
+              style={{
+                height: `${h}px`,
+                backgroundColor: c.fill,
+                borderColor: c.stroke,
+              }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="w-2 h-full inline-block rounded-sm shrink-0"
+                  style={{ backgroundColor: c.stroke, minHeight: '24px' }}
+                />
+                <span className="font-medium text-sm text-gray-800 truncate">
+                  {c.label || p.plate_role}
+                </span>
+              </div>
+              <span className="font-mono text-sm text-gray-700 whitespace-nowrap">
+                {thickness} mm
+              </span>
+            </div>
           )
         })}
-      </svg>
+      </div>
+      <div className="mt-2 text-xs text-gray-500 text-right">
+        Larghezza castello: <span className="font-mono">{Math.round(castleX)} mm</span> · spessore totale: <span className="font-mono">{totalThickness} mm</span>
+      </div>
     </div>
   )
 }

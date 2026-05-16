@@ -77,6 +77,7 @@ export default function DieTopView({
   }
 
   return (
+    <div>
     <div className="rounded-lg border bg-white overflow-hidden" style={{ height }}>
       <svg
         viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
@@ -165,6 +166,28 @@ export default function DieTopView({
           Castello {Math.round(geom.castleX)} × {Math.round(geom.castleY)} mm — {geom.castleAreaDm2.toFixed(2)} dm²
         </text>
       </svg>
+    </div>
+    {/* Legenda colori — sotto il render */}
+    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-sm border-2" style={{ background: COLOR.castleFill, borderColor: COLOR.castleStroke }} />
+        Castello
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-sm border-2 border-dashed" style={{ background: COLOR.stripFill, borderColor: COLOR.stripStroke }} />
+        Striscia
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-sm border-2" style={{ background: COLOR.pieceFill, borderColor: COLOR.pieceStroke }} />
+        Pezzo
+      </span>
+      {dxfAnalysis && (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm border-2 bg-transparent" style={{ borderColor: COLOR.profileStroke }} />
+          Profilo DXF
+        </span>
+      )}
+    </div>
     </div>
   )
 }

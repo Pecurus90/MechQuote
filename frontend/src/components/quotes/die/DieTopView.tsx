@@ -160,11 +160,6 @@ export default function DieTopView({
             </g>
           )}
         </g>
-        {/* Labels: dimensioni castello in alto e a destra (fuori dal flip Y) */}
-        <text x={view.x + view.w / 2} y={view.y + 14}
-          textAnchor="middle" fontSize={11} fill="#475569" fontFamily="ui-monospace, monospace">
-          Castello {Math.round(geom.castleX)} × {Math.round(geom.castleY)} mm — {geom.castleAreaDm2.toFixed(2)} dm²
-        </text>
       </svg>
     </div>
     {/* Legenda colori — sotto il render */}

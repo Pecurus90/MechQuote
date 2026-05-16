@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import { useAuth } from '@/lib/auth'
 import type {
   DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
@@ -305,12 +306,25 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
 
 // ─── Tab 3: Template stampi ──────────────────────────────────────────────────
 
+// 5 piastre standard (cappello/porta_punzoni/premilamiera/matrice/base) con
+// spessori 25/30/25/30/30 mm — stesso default del seed `_seed_die_templates`
+// in `backend/app/main.py`. Riusato per i nuovi template creati dall'utente.
+const STANDARD_PLATES: DieTemplatePlate[] = [
+  { id: 0, plate_role: 'cappello',      default_thickness_mm: 25, default_material_id: null, default_treatment_id: null, sort_order: 1 },
+  { id: 0, plate_role: 'porta_punzoni', default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 2 },
+  { id: 0, plate_role: 'premilamiera',  default_thickness_mm: 25, default_material_id: null, default_treatment_id: null, sort_order: 3 },
+  { id: 0, plate_role: 'matrice',       default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 4 },
+  { id: 0, plate_role: 'base',          default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 5 },
+]
+
 function TemplatesTab({ canWrite }: { canWrite: boolean }) {
   const [list, setList] = useState<DieTemplate[]>([])
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [materials, setMaterials] = useState<Material[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [editingTpl, setEditingTpl] = useState<DieTemplate | null>(null)
+  // `editingTpl.id === 0` → modalità create (POST); altrimenti edit (PUT).
+  const [deleteId, setDeleteId] = useState<number | null>(null)
 
   const load = () => api.get('/die-settings/templates').then(r => setList(r.data))
   useEffect(() => {
@@ -319,11 +333,33 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
     api.get('/treatments').then(r => setTreatments(r.data))
   }, [])
 
-  const removeTpl = async (id: number) => {
-    if (!confirm('Eliminare il template? Operazione irreversibile.')) return
+  const newTemplate = () => {
+    setEditingTpl({
+      id: 0,
+      name: '',
+      description: '',
+      die_subtype: 'blocco',
+      suggested_stations: null,
+      suggested_pitch_mm: null,
+      suggested_n_bends_simple: 0,
+      suggested_n_bends_medium: 0,
+      suggested_n_bends_complex: 0,
+      suggested_n_punches_simple: 0,
+      suggested_n_punches_medium: 0,
+      suggested_n_punches_complex: 0,
+      default_difficulty: 'base',
+      active: true,
+      created_at: '',
+      plates: STANDARD_PLATES.map(p => ({ ...p })),
+    })
+  }
+
+  const confirmDelete = async () => {
+    if (deleteId == null) return
     try {
-      await api.delete(`/die-settings/templates/${id}`)
+      await api.delete(`/die-settings/templates/${deleteId}`)
       toast.success('Template eliminato')
+      setDeleteId(null)
       await load()
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'Errore eliminazione')
@@ -332,9 +368,13 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
 
   const saveTpl = async () => {
     if (!editingTpl) return
+    if (!editingTpl.name.trim()) {
+      toast.error('Nome obbligatorio')
+      return
+    }
     try {
       const payload = {
-        name: editingTpl.name,
+        name: editingTpl.name.trim(),
         description: editingTpl.description,
         die_subtype: editingTpl.die_subtype,
         suggested_stations: editingTpl.suggested_stations,
@@ -355,8 +395,13 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
           sort_order: p.sort_order,
         })),
       }
-      await api.put(`/die-settings/templates/${editingTpl.id}`, payload)
-      toast.success('Template aggiornato')
+      if (editingTpl.id === 0) {
+        await api.post('/die-settings/templates', payload)
+        toast.success('Template creato')
+      } else {
+        await api.put(`/die-settings/templates/${editingTpl.id}`, payload)
+        toast.success('Template aggiornato')
+      }
       setEditingTpl(null)
       await load()
     } catch (e: any) {
@@ -390,7 +435,14 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Template stampi</CardTitle></CardHeader>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Template stampi</CardTitle>
+          {canWrite && (
+            <Button size="sm" onClick={newTemplate}><Plus className="w-3.5 h-3.5 mr-1" />Nuovo template</Button>
+          )}
+        </div>
+      </CardHeader>
       <CardContent className="space-y-2">
         <p className="text-xs text-gray-500 mb-3">I template pre-compilano le piastre e i suggerimenti feature in fase di creazione.</p>
         {list.map(t => (
@@ -406,7 +458,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
               {canWrite && (
                 <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                   <Button size="sm" variant="outline" onClick={() => setEditingTpl(JSON.parse(JSON.stringify(t)))}>Modifica</Button>
-                  <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" onClick={() => removeTpl(t.id)}><X className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" onClick={() => setDeleteId(t.id)}><X className="w-3.5 h-3.5" /></Button>
                 </div>
               )}
             </div>
@@ -441,7 +493,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setEditingTpl(null)}>
             <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto p-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold">Modifica template</h2>
+                <h2 className="font-semibold">{editingTpl.id === 0 ? 'Nuovo template' : 'Modifica template'}</h2>
                 <button onClick={() => setEditingTpl(null)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-3">
@@ -534,12 +586,20 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                 </div>
                 <div className="flex justify-end gap-2 pt-3">
                   <Button variant="outline" onClick={() => setEditingTpl(null)}>Annulla</Button>
-                  <Button onClick={saveTpl}>Salva template</Button>
+                  <Button onClick={saveTpl}>{editingTpl.id === 0 ? 'Crea template' : 'Salva template'}</Button>
                 </div>
               </div>
             </div>
           </div>
         )}
+        <ConfirmDialog
+          open={deleteId != null}
+          title="Eliminare il template?"
+          description="Operazione irreversibile. I preventivi già creati a partire da questo template restano invariati (le piastre sono copiate al momento dell'applicazione)."
+          confirmLabel="Elimina template"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteId(null)}
+        />
       </CardContent>
     </Card>
   )

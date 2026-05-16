@@ -180,11 +180,22 @@ export default function NewDieQuotePage() {
     bboxX: parseFloat(bboxX) || 0,
     bboxY: parseFloat(bboxY) || 0,
     nStations: parseInt(nStations, 10) || 1,
+    pitchMm: parseFloat(pitchMm) || 0,
     stripOffsetY: parseFloat(stripOffsetY) || 0,
     blockOffset: parseFloat(blockOffset) || 0,
     castleOffsetX: parseFloat(castleOffsetX) || 0,
     castleOffsetY: parseFloat(castleOffsetY) || 0,
-  }), [subtype, bboxX, bboxY, nStations, stripOffsetY, blockOffset, castleOffsetX, castleOffsetY])
+  }), [subtype, bboxX, bboxY, nStations, pitchMm, stripOffsetY, blockOffset, castleOffsetX, castleOffsetY])
+
+  // Auto-fill del passo: appena bboxX viene compilato (DXF o manuale), se il
+  // pitch è ancora vuoto e siamo in modalità passo, pre-popola con bboxX
+  // (caso minimo: pezzi adiacenti senza gap, ridimensionabile dall'utente).
+  useEffect(() => {
+    if (subtype !== 'passo') return
+    if (pitchMm !== '') return
+    const bx = parseFloat(bboxX)
+    if (bx > 0) setPitchMm(String(bx))
+  }, [subtype, bboxX, pitchMm])
 
   // Quando l'utente seleziona un template, pre-compila feature (overwrite con preferenze del template).
   useEffect(() => {
@@ -255,6 +266,13 @@ export default function NewDieQuotePage() {
     if (bx <= 0 || by <= 0) {
       toast.error('Dimensioni pezzo (X, Y) obbligatorie')
       return
+    }
+    if (subtype === 'passo') {
+      const p = parseFloat(pitchMm) || 0
+      if (p <= 0) {
+        toast.error('Passo obbligatorio per stampi progressivi')
+        return
+      }
     }
     setSaving(true)
     try {
@@ -587,14 +605,18 @@ export default function NewDieQuotePage() {
               {subtype === 'passo' ? (
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <Label>N. stazioni</Label>
+                    <Label>N. stazioni *</Label>
                     <Input type="number" value={nStations}
                       onChange={e => setNStations(e.target.value)} placeholder="3" />
                   </div>
                   <div>
-                    <Label>Passo (mm, opzionale)</Label>
+                    <Label>Passo (mm) *</Label>
                     <Input type="number" value={pitchMm}
-                      onChange={e => setPitchMm(e.target.value)} placeholder="auto = bbox X" />
+                      onChange={e => setPitchMm(e.target.value)}
+                      placeholder="distanza tra ripetizioni" />
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      Distanza centro–centro tra una stazione e l'altra. Default = X pezzo (no gap).
+                    </p>
                   </div>
                   <div>
                     <Label>Offset Y striscia (mm)</Label>
@@ -679,6 +701,7 @@ export default function NewDieQuotePage() {
                   bboxX={parseFloat(bboxX) || 0}
                   bboxY={parseFloat(bboxY) || 0}
                   nStations={parseInt(nStations, 10) || 1}
+                  pitchMm={parseFloat(pitchMm) || 0}
                   stripOffsetY={parseFloat(stripOffsetY) || 0}
                   blockOffset={parseFloat(blockOffset) || 0}
                   castleOffsetX={parseFloat(castleOffsetX) || 0}

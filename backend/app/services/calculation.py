@@ -483,7 +483,8 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
 def _compute_castle_dimensions(spec: DieSpec) -> Tuple[float, float]:
     """Calcola le dimensioni del castello (X, Y) a partire dalla DieSpec.
 
-    Passo:  strip_x = bbox_x × n_stations
+    Passo:  strip_x = pitch_mm × n_stations   (pitch = distanza tra stazioni;
+                                                fallback a bbox_x se NULL)
             strip_y = bbox_y + strip_offset_y
     Blocco: strip_x = bbox_x + block_strip_offset
             strip_y = bbox_y + block_strip_offset
@@ -496,7 +497,10 @@ def _compute_castle_dimensions(spec: DieSpec) -> Tuple[float, float]:
 
     if spec.die_subtype == 'passo':
         n_st = spec.n_stations or 1
-        strip_x = bbox_x * n_st
+        # Pitch obbligatorio nella UI nuova; fallback a bbox_x per i preventivi
+        # pre-feature (creati quando il campo era opzionale).
+        pitch = spec.pitch_mm or bbox_x
+        strip_x = pitch * n_st
         strip_y = bbox_y + (spec.strip_offset_y_mm or 0.0)
     else:  # blocco
         off = spec.block_strip_offset_mm or 0.0

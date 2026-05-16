@@ -9,6 +9,8 @@ export interface DieGeometryInput {
   bboxX: number          // mm — ingombro pezzo X
   bboxY: number          // mm — ingombro pezzo Y
   nStations?: number     // passo: numero stazioni (default 1)
+  pitchMm?: number       // passo: distanza tra una stazione e l'altra (mm)
+                         // — se mancante, fallback a bboxX (pezzi adiacenti senza gap)
   stripOffsetY?: number  // passo: offset Y striscia (mm)
   blockOffset?: number   // blocco: offset striscia attorno al pezzo (mm)
   castleOffsetX?: number // mm
@@ -33,7 +35,10 @@ export function computeDieGeometry(input: DieGeometryInput): DieGeometryOutput {
   let stripY: number
   if (input.subtype === 'passo') {
     const nSt = input.nStations || 1
-    stripX = bx * nSt
+    // Passo: distanza tra due ripetizioni del pezzo lungo X. Se manca
+    // (preventivi vecchi pre-feature), fallback a bbox X = pezzi adiacenti.
+    const pitch = input.pitchMm || bx
+    stripX = pitch * nSt
     stripY = by + (input.stripOffsetY || 0)
   } else {
     const off = input.blockOffset || 0

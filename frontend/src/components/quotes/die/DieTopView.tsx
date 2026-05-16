@@ -11,6 +11,7 @@ interface Props {
   bboxX: number
   bboxY: number
   nStations?: number
+  pitchMm?: number       // passo: distanza tra ripetizioni (mm)
   stripOffsetY?: number
   blockOffset?: number
   castleOffsetX?: number
@@ -30,13 +31,13 @@ const COLOR = {
 }
 
 export default function DieTopView({
-  subtype, bboxX, bboxY, nStations, stripOffsetY, blockOffset,
+  subtype, bboxX, bboxY, nStations, pitchMm, stripOffsetY, blockOffset,
   castleOffsetX, castleOffsetY, dxfAnalysis, height = 360,
 }: Props) {
   const geom = useMemo(() => computeDieGeometry({
-    subtype, bboxX, bboxY, nStations, stripOffsetY, blockOffset,
+    subtype, bboxX, bboxY, nStations, pitchMm, stripOffsetY, blockOffset,
     castleOffsetX, castleOffsetY,
-  }), [subtype, bboxX, bboxY, nStations, stripOffsetY, blockOffset, castleOffsetX, castleOffsetY])
+  }), [subtype, bboxX, bboxY, nStations, pitchMm, stripOffsetY, blockOffset, castleOffsetX, castleOffsetY])
 
   // ViewBox: castello centrato in (0,0) con padding 10%. Striscia e pezzo
   // sono centrati nello stesso punto del castello (semplificazione: in
@@ -52,16 +53,20 @@ export default function DieTopView({
   }
   const flipY = 2 * view.y + view.h
 
-  // Bbox profili DXF: serve per centrare il profilo dentro il pezzo.
+  // Bbox profili DXF: serve per centrare il profilo dentro il primo pezzo
+  // (stazione 0 nel caso passo multi-stazione, o il pezzo singolo altrimenti).
   const dxfTransform = useMemo(() => {
     if (!dxfAnalysis || dxfAnalysis.profiles.length === 0) return null
     const b = dxfAnalysis.bbox_global
     const bcx = b.x + b.w / 2
     const bcy = b.y + b.h / 2
-    // Trasforma il profilo dal suo sistema (DXF) al sistema del pezzo:
-    // centra il bbox del profilo sull'origine (centro del pezzo, anch'esso (0,0)).
-    return `translate(${cx - bcx}, ${cy - bcy})`
-  }, [dxfAnalysis, cx, cy])
+    let pieceCenterX = cx
+    if (subtype === 'passo' && (nStations || 1) > 1) {
+      const pitch = pitchMm || bboxX
+      pieceCenterX = -geom.stripX / 2 + pitch / 2
+    }
+    return `translate(${pieceCenterX - bcx}, ${cy - bcy})`
+  }, [dxfAnalysis, cx, cy, subtype, nStations, pitchMm, bboxX, geom.stripX])
 
   if (geom.castleX <= 0 || geom.castleY <= 0) {
     return (
@@ -102,11 +107,15 @@ export default function DieTopView({
             strokeDasharray="4 3"
             vectorEffect="non-scaling-stroke"
           />
-          {/* Pezzi: per progressivo, ripete il pezzo n_stations volte sulla striscia */}
+          {/* Pezzi: per progressivo, ripete il pezzo n_stations volte sulla
+              striscia a distanza `pitch` (centro-stazione = inizio_striscia + i×pitch
+              + pitch/2). Il primo pezzo è in evidenza per individuare la stazione
+              dove disegno il profilo DXF. */}
           {subtype === 'passo' && (nStations || 1) > 1 ? (
             Array.from({ length: nStations || 1 }, (_, i) => {
-              const total = (nStations || 1)
-              const pX = cx - geom.stripX / 2 + i * bboxX
+              const pitch = pitchMm || bboxX
+              const stationStartX = cx - geom.stripX / 2 + i * pitch
+              const pX = stationStartX + (pitch - bboxX) / 2  // pezzo centrato nella stazione
               return (
                 <rect
                   key={i}

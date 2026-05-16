@@ -9,10 +9,6 @@ from app.models import (
     DieSpec, DieNormalizedItem, DieSettings, DieDimensionBracket,
 )
 
-# Densità acciaio (kg/dm³) — usato come default per stima Rapida modulo Stampi.
-# Le piastre in stampi di tranciatura/piega sono quasi sempre acciaio utensile.
-_DIE_RAPID_STEEL_DENSITY = 7.85
-
 
 def _round4(x: float) -> float:
     """Arrotonda a 4 decimali half-away-from-zero (gemello Math.round JS).
@@ -532,9 +528,6 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
     L4 = (design_hours[diff] × design_rate) + assembly_forfeit[diff] + extras_amount.
     L5 = L1 + L2 + L3 + L4 — con override_*  matita che sostituisce la voce calcolata.
     L6/L7 (margin + discount) applicati lato UI/PDF, non persistiti qui.
-
-    Se mode='rapid', delega a `_recalculate_die_rapid` che usa la formula
-    sintetica (weight × €/kg × difficoltà + accessori%).
     """
     spec = quote.die_spec
     if not spec:
@@ -542,10 +535,6 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
 
     settings = db.query(DieSettings).filter(DieSettings.id == 1).first()
     if not settings:
-        return
-
-    if spec.mode == 'rapid':
-        _recalculate_die_rapid(spec, settings, db)
         return
 
     # ── L1 Materiali piastre — somma dei costi totali delle Part-piastra.
@@ -623,58 +612,6 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
     spec.cost_machining   = round(cost_machining, 2)
     spec.cost_accessories = round(cost_accessories, 2)
     spec.cost_industrial  = round(eff_material + eff_normalized + eff_machining + eff_accessories, 2)
-    # Rapida: pulisci range (era impostato se l'utente ha switchato modalità).
-    spec.rapid_min = 0.0
-    spec.rapid_max = 0.0
-
-
-def _recalculate_die_rapid(spec: DieSpec, settings: DieSettings, db: Session) -> None:
-    """Modalità Rapida — stima ±tol% sul prezzo industriale.
-
-    Formula sintetica:
-      volume_dm3 = bbox_x × bbox_y × n_plates_avg × thickness_avg / 1_000_000
-      weight_kg  = volume_dm3 × density_steel (7.85)
-      cost_mat   = weight_kg × rapid_eur_per_kg
-      feature    = (Σ bends + Σ punches per fascia) × cost_per_unit × diff_mult
-      cost_acc   = cost_mat × rapid_accessories_percent / 100
-      industrial = cost_mat + feature + cost_acc + extras
-      range      = industrial × (1 ∓ tol)
-    """
-    bbox_x = spec.bbox_x_mm or 0.0
-    bbox_y = spec.bbox_y_mm or 0.0
-    n_pl = settings.rapid_n_plates_avg or 5
-    th = settings.rapid_thickness_avg_mm or 28.0
-    volume_dm3 = (bbox_x * bbox_y * n_pl * th) / 1_000_000.0
-    weight_kg = volume_dm3 * _DIE_RAPID_STEEL_DENSITY
-    cost_material = weight_kg * (settings.rapid_eur_per_kg or 0.0)
-
-    diff = spec.difficulty or 'base'
-    coeff_diff = {
-        'base':   settings.diff_mult_base,
-        'medium': settings.diff_mult_medium,
-        'hard':   settings.diff_mult_hard,
-    }.get(diff, 1.0)
-
-    feature_cost = (
-        (spec.n_bends_simple   or 0) * (settings.cost_bend_simple   or 0.0)
-      + (spec.n_bends_medium   or 0) * (settings.cost_bend_medium   or 0.0)
-      + (spec.n_bends_complex  or 0) * (settings.cost_bend_complex  or 0.0)
-      + (spec.n_punches_simple or 0) * (settings.cost_punch_simple  or 0.0)
-      + (spec.n_punches_medium or 0) * (settings.cost_punch_medium  or 0.0)
-      + (spec.n_punches_complex or 0) * (settings.cost_punch_complex or 0.0)
-    ) * coeff_diff
-
-    cost_accessories = cost_material * (settings.rapid_accessories_percent or 0.0) / 100.0
-    industrial = cost_material + feature_cost + cost_accessories + (spec.extras_amount or 0.0)
-
-    tol = (settings.rapid_tolerance_percent or 20.0) / 100.0
-    spec.cost_material    = round(cost_material, 2)
-    spec.cost_normalized  = 0.0
-    spec.cost_machining   = round(feature_cost, 2)
-    spec.cost_accessories = round(cost_accessories, 2)
-    spec.cost_industrial  = round(industrial, 2)
-    spec.rapid_min        = round(industrial * (1 - tol), 2)
-    spec.rapid_max        = round(industrial * (1 + tol), 2)
 
 
 def recalculate_die_quote(quote_id: int, db: Session) -> None:

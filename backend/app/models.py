@@ -819,7 +819,8 @@ class DieSpec(Base):
 
     quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="CASCADE"), primary_key=True)
     die_subtype = Column(String(20), nullable=False, default='passo')   # passo | blocco
-    mode = Column(String(20), default='detailed')                        # rapid | detailed
+    # Colonna `mode` esiste in DB ('rapid'|'detailed') ma è dormiente: la
+    # modalità Rapida è stata rimossa. Vedi docs/specs/16_legacy_columns.md.
 
     # Geometria pezzo (da DXF bbox o manuale)
     bbox_x_mm = Column(Float, default=0.0)
@@ -869,9 +870,8 @@ class DieSpec(Base):
     override_machining = Column(Float)
     override_accessories = Column(Float)
 
-    # Modalità Rapida — range ±tol% calcolato in _recalculate_die_rapid
-    rapid_min = Column(Float, default=0.0)
-    rapid_max = Column(Float, default=0.0)
+    # Colonne `rapid_min`/`rapid_max` esistono in DB ma sono dormienti
+    # (Modalità Rapida rimossa). Vedi docs/specs/16_legacy_columns.md.
 
     quote = relationship("Quote", back_populates="die_spec")
 
@@ -941,12 +941,8 @@ class DieSettings(Base):
     default_castle_offset_x_mm = Column(Float, default=80.0)
     default_castle_offset_y_mm = Column(Float, default=80.0)
 
-    # Modalità Rapida — 5 parametri per stima ±tol%
-    rapid_eur_per_kg = Column(Float, default=25.0)
-    rapid_n_plates_avg = Column(Integer, default=5)
-    rapid_thickness_avg_mm = Column(Float, default=28.0)
-    rapid_accessories_percent = Column(Float, default=20.0)
-    rapid_tolerance_percent = Column(Float, default=20.0)
+    # 5 colonne `rapid_*` esistono in DB ma sono dormienti (modalità Rapida
+    # rimossa dal cost engine). Vedi docs/specs/16_legacy_columns.md.
 
 
 class DieDimensionBracket(Base):

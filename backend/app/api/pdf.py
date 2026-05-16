@@ -772,8 +772,7 @@ def _render_die_quote(quote: Quote, spec: DieSpec, parts, items, cur: str) -> st
         '<div class="part-card-header"><span class="part-card-title">Dati stampo</span></div>',
         '<table class="data-table" style="width:100%;border-collapse:collapse;">',
         f'<tr><td><strong>Tipo</strong></td><td>{_esc(spec.die_subtype)}</td>'
-        f'<td><strong>Modalità</strong></td><td>{_esc(spec.mode)}</td>'
-        f'<td><strong>Difficoltà</strong></td><td>{_esc(_DIFFICULTY_LABELS.get(spec.difficulty or "base"))}</td></tr>',
+        f'<td><strong>Difficoltà</strong></td><td colspan="3">{_esc(_DIFFICULTY_LABELS.get(spec.difficulty or "base"))}</td></tr>',
         f'<tr><td><strong>Pezzo X×Y</strong></td>'
         f'<td>{_fmt_eur(spec.bbox_x_mm or 0, 1)} × {_fmt_eur(spec.bbox_y_mm or 0, 1)} mm</td>'
         f'<td><strong>Spessore</strong></td><td>{_fmt_eur(spec.sheet_thickness_mm or 0, 2)} mm</td>'
@@ -883,20 +882,12 @@ def _render_die_quote(quote: Quote, spec: DieSpec, parts, items, cur: str) -> st
     parts_html.append('</table></div>')
 
     # ── Prezzo finale (grande)
-    if spec.mode == 'rapid' and spec.rapid_min and spec.rapid_max:
-        parts_html.append(
-            f'<div class="totals" style="padding:18px 24px;text-align:center;background:#1e293b;color:#fff;border-radius:6px;">'
-            f'<div style="font-size:12px;opacity:.75;margin-bottom:4px;">Stima rapida (±tol)</div>'
-            f'<div style="font-size:26px;font-weight:700;">{_fmt_eur(spec.rapid_min, 0)} — {_fmt_eur(spec.rapid_max, 0)} {cur}</div>'
-            f'</div>'
-        )
-    else:
-        parts_html.append(
-            f'<div class="totals" style="padding:18px 24px;display:flex;justify-content:space-between;align-items:baseline;background:#1e293b;color:#fff;border-radius:6px;">'
-            f'<span style="font-size:13px;opacity:.85;">Prezzo finale</span>'
-            f'<span style="font-size:26px;font-weight:700;">{_fmt_eur(final_price)} {cur}</span>'
-            f'</div>'
-        )
+    parts_html.append(
+        f'<div class="totals" style="padding:18px 24px;display:flex;justify-content:space-between;align-items:baseline;background:#1e293b;color:#fff;border-radius:6px;">'
+        f'<span style="font-size:13px;opacity:.85;">Prezzo finale</span>'
+        f'<span style="font-size:26px;font-weight:700;">{_fmt_eur(final_price)} {cur}</span>'
+        f'</div>'
+    )
 
     return ''.join(parts_html)
 

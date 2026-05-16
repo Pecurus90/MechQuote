@@ -170,17 +170,6 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Modalità Rapida (parametri stima)</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {num('rapid_eur_per_kg', '€/kg medio piastre')}
-          {num('rapid_n_plates_avg', 'Numero piastre medio')}
-          {num('rapid_thickness_avg_mm', 'Spessore medio (mm)')}
-          {num('rapid_accessories_percent', 'Accessori %')}
-          {num('rapid_tolerance_percent', 'Tolleranza ±%')}
-        </CardContent>
-      </Card>
-
       <div className="flex justify-end">
         <Button onClick={save} disabled={!canWrite || saving}>
           {saving ? 'Salvataggio…' : 'Salva impostazioni'}

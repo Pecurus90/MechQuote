@@ -58,6 +58,18 @@ Colonne ancora presenti nel DB ma non più mappate da SQLAlchemy:
   di parti del preventivo, anche su quelle che non condividevano la
   macchina. Oggi `divisor = qty` sempre. La colonna DB resta orfana.
 
+### Modulo Stampi — rimozione modalità Rapida (2026-05-16)
+
+La modalità Rapida calcolava una stima ±tol% senza dettagli sulle piastre;
+deciso che il flusso "dettagliato" è sempre quello giusto. Colonne
+dormienti (in DB, non più mappate né lette):
+
+- `die_specs.mode` (`rapid`|`detailed`)
+- `die_specs.rapid_min`, `die_specs.rapid_max`
+- `die_settings.rapid_eur_per_kg`, `rapid_n_plates_avg`,
+  `rapid_thickness_avg_mm`, `rapid_accessories_percent`,
+  `rapid_tolerance_percent`
+
 ---
 
 ## 3. Tabelle droppate (esistite, ora rimosse dal DB)

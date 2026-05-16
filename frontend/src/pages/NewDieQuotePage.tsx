@@ -78,7 +78,6 @@ export default function NewDieQuotePage() {
   const customerRef = useRef<HTMLDivElement>(null)
 
   // Step 2 — geometria
-  const [mode, setMode] = useState<'detailed' | 'rapid'>('detailed')
   const [bboxX, setBboxX] = useState<string>('')
   const [bboxY, setBboxY] = useState<string>('')
   const [sheetThickness, setSheetThickness] = useState<string>('')
@@ -281,7 +280,6 @@ export default function NewDieQuotePage() {
         template_id: templateId ?? undefined,
         spec: {
           die_subtype: subtype,
-          mode,
           bbox_x_mm: bx,
           bbox_y_mm: by,
           sheet_thickness_mm: parseFloat(sheetThickness) || 0,
@@ -484,16 +482,6 @@ export default function NewDieQuotePage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Colonna SX (form) — 3/5 */}
         <div className="lg:col-span-3 space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Modalità di stima</CardTitle></CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <SegmentedButton selected={mode === 'detailed'} onClick={() => setMode('detailed')}>Dettagliata</SegmentedButton>
-                <SegmentedButton selected={mode === 'rapid'} onClick={() => setMode('rapid')}>Rapida (range)</SegmentedButton>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader><CardTitle className="text-base">Geometria pezzo</CardTitle></CardHeader>
             <CardContent className="space-y-3">

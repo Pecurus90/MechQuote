@@ -1055,7 +1055,6 @@ class OfficinaCategoryOut(OfficinaCategoryBase):
 
 class DieSpecBase(BaseModel):
     die_subtype: str = Field(default='passo', pattern=r'^(passo|blocco)$')
-    mode: str = Field(default='detailed', pattern=r'^(rapid|detailed)$')
     bbox_x_mm: Optional[float] = Field(default=0.0, ge=0)
     bbox_y_mm: Optional[float] = Field(default=0.0, ge=0)
     sheet_thickness_mm: Optional[float] = Field(default=0.0, ge=0)
@@ -1091,7 +1090,6 @@ class DieSpecCreate(DieSpecBase):
 class DieSpecUpdate(DieSpecBase):
     # Tutti i campi opzionali per PUT parziali.
     die_subtype: Optional[str] = Field(default=None, pattern=r'^(passo|blocco)$')
-    mode: Optional[str] = Field(default=None, pattern=r'^(rapid|detailed)$')
     difficulty: Optional[str] = Field(default=None, pattern=r'^(base|medium|hard)$')
 
 
@@ -1102,8 +1100,6 @@ class DieSpecOut(DieSpecBase):
     cost_machining: float
     cost_accessories: float
     cost_industrial: float
-    rapid_min: float
-    rapid_max: float
 
     class Config:
         from_attributes = True
@@ -1160,11 +1156,6 @@ class DieSettingsBase(BaseModel):
     default_margin_percent: float = Field(default=30.0, ge=0)
     default_castle_offset_x_mm: float = Field(default=80.0, ge=0)
     default_castle_offset_y_mm: float = Field(default=80.0, ge=0)
-    rapid_eur_per_kg: float = Field(default=25.0, ge=0)
-    rapid_n_plates_avg: int = Field(default=5, ge=1)
-    rapid_thickness_avg_mm: float = Field(default=28.0, ge=0)
-    rapid_accessories_percent: float = Field(default=20.0, ge=0)
-    rapid_tolerance_percent: float = Field(default=20.0, ge=0)
 
 
 class DieSettingsUpdate(DieSettingsBase):

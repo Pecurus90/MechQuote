@@ -565,13 +565,11 @@ export interface OfficinaCategory {
 // ─── Modulo Preventivatore Stampi ───────────────────────────────────────────
 
 export type DieSubtype = 'passo' | 'blocco'
-export type DieMode = 'rapid' | 'detailed'
 export type DieDifficulty = 'base' | 'medium' | 'hard'
 
 export interface DieSpec {
   quote_id: number
   die_subtype: DieSubtype
-  mode: DieMode
   bbox_x_mm: number
   bbox_y_mm: number
   sheet_thickness_mm: number
@@ -609,9 +607,6 @@ export interface DieSpec {
   override_normalized?: number | null
   override_machining?: number | null
   override_accessories?: number | null
-  // Rapida
-  rapid_min: number
-  rapid_max: number
 }
 
 export interface DieNormalizedItem {
@@ -651,11 +646,6 @@ export interface DieSettings {
   default_margin_percent: number
   default_castle_offset_x_mm: number
   default_castle_offset_y_mm: number
-  rapid_eur_per_kg: number
-  rapid_n_plates_avg: number
-  rapid_thickness_avg_mm: number
-  rapid_accessories_percent: number
-  rapid_tolerance_percent: number
 }
 
 export interface DieDimensionBracket {

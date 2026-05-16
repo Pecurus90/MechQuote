@@ -213,7 +213,6 @@ export default function DieQuoteEditor() {
             <h1 className="text-xl font-bold">{quote.quote_number}</h1>
             <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700">Stampo</span>
             <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{quote.status}</span>
-            {spec.mode === 'rapid' && <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700">Rapida</span>}
           </div>
           <p className="text-sm text-gray-500">{quote.customer_name || 'Cliente non specificato'}</p>
         </div>
@@ -499,17 +498,10 @@ export default function DieQuoteEditor() {
                 </tbody>
               </table>
               <div className="mt-3 pt-3 border-t-2 border-gray-800">
-                {spec.mode === 'rapid' ? (
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 mb-1">Stima rapida (±{((spec.rapid_max / industrial - 1) * 100).toFixed(0)}%)</p>
-                    <p className="text-2xl font-bold">€ {spec.rapid_min.toFixed(0)} — € {spec.rapid_max.toFixed(0)}</p>
-                  </div>
-                ) : (
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-medium">Prezzo finale</span>
-                    <span className="text-2xl font-bold text-green-700">€ {finalPrice.toFixed(2)}</span>
-                  </div>
-                )}
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium">Prezzo finale</span>
+                  <span className="text-2xl font-bold text-green-700">€ {finalPrice.toFixed(2)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -572,13 +572,10 @@ def _run_migrations():
          "assembly_forfeit_hard = COALESCE(assembly_forfeit_hard, 1200), "
          "default_margin_percent = COALESCE(default_margin_percent, 30), "
          "default_castle_offset_x_mm = COALESCE(default_castle_offset_x_mm, 80), "
-         "default_castle_offset_y_mm = COALESCE(default_castle_offset_y_mm, 80), "
-         "rapid_eur_per_kg = COALESCE(rapid_eur_per_kg, 25), "
-         "rapid_n_plates_avg = COALESCE(rapid_n_plates_avg, 5), "
-         "rapid_thickness_avg_mm = COALESCE(rapid_thickness_avg_mm, 28), "
-         "rapid_accessories_percent = COALESCE(rapid_accessories_percent, 20), "
-         "rapid_tolerance_percent = COALESCE(rapid_tolerance_percent, 20) "
+         "default_castle_offset_y_mm = COALESCE(default_castle_offset_y_mm, 80) "
          "WHERE id = 1"),
+        # Modalità Rapida rimossa: le colonne rapid_* restano in DB (SQLite
+        # no DROP COLUMN) ma non più popolate/lette. Vedi 16_legacy_columns.md.
 
         # Seed 4 fasce dimensionali castello S/M/L/XL (idempotente).
         ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "

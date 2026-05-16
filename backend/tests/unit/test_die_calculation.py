@@ -32,8 +32,6 @@ def _seed_die_settings(db):
         assembly_forfeit_base=300, assembly_forfeit_medium=600, assembly_forfeit_hard=1200,
         default_margin_percent=30,
         default_castle_offset_x_mm=80, default_castle_offset_y_mm=80,
-        rapid_eur_per_kg=25, rapid_n_plates_avg=5, rapid_thickness_avg_mm=28,
-        rapid_accessories_percent=20, rapid_tolerance_percent=20,
     )
     db.add(s)
     return s
@@ -53,7 +51,7 @@ def _make_die_quote(db, **spec_overrides):
     db.add(q)
     db.flush()
     spec_defaults = dict(
-        quote_id=q.id, die_subtype='blocco', mode='detailed',
+        quote_id=q.id, die_subtype='blocco',
         bbox_x_mm=200, bbox_y_mm=150, sheet_thickness_mm=2.0,
         block_strip_offset_mm=50,
         castle_offset_x_mm=80, castle_offset_y_mm=80,
@@ -138,30 +136,6 @@ def test_die_override_matita_replaces_calculated(db_session):
     # L4 base = 8×50 + 300 + 0 = 700; L1 e L2 = 0 (no materiale, no normalizzati)
     # industrial = 0 + 0 + 999 + 700 = 1699
     assert spec.cost_industrial == pytest.approx(1699.0, rel=1e-3)
-
-
-def test_die_rapid_mode_range(db_session):
-    """Modalità Rapida: volume × densità × €/kg + feature + accessori% + extras,
-    range ±20%."""
-    _seed_die_settings(db_session)
-    _seed_brackets(db_session)
-    q, spec = _make_die_quote(
-        db_session, mode='rapid', difficulty='base',
-        bbox_x_mm=300, bbox_y_mm=200,
-    )
-    db_session.commit()
-    recalculate_die_quote(q.id, db_session)
-    db_session.refresh(spec)
-
-    # volume = 300 × 200 × 5 × 28 / 1e6 = 8.4 dm³
-    # weight = 8.4 × 7.85 = 65.94 kg
-    # cost_mat = 65.94 × 25 = 1648.5
-    # feature = 0 (niente bends/punches), accessories = 1648.5 × 0.2 = 329.7
-    # industrial = 1648.5 + 0 + 329.7 + 0 = 1978.2
-    # range = 1978.2 × (1∓0.2) = [1582.56, 2373.84]
-    assert spec.cost_industrial == pytest.approx(1978.2, rel=1e-3)
-    assert spec.rapid_min == pytest.approx(1582.56, rel=1e-3)
-    assert spec.rapid_max == pytest.approx(2373.84, rel=1e-3)
 
 
 def test_die_l2_normalized_with_shared_shipping(db_session):

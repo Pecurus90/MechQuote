@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Pencil, X, Send, FileText, Save, AlertCircle } from 'lucide-react'
@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import { computeDiePreviewCosts } from '@/lib/dieCalc'
 import type {
   Quote, DieSpec, DieNormalizedItem, NormalizedSupplier, Material, Treatment,
-  DieDifficulty, Part,
+  DieDifficulty, Part, DieSettings, DieDimensionBracket,
 } from '@/types'
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,8 @@ export default function DieQuoteEditor() {
   const [suppliers, setSuppliers] = useState<NormalizedSupplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
+  const [dieSettings, setDieSettings] = useState<DieSettings | null>(null)
+  const [brackets, setBrackets] = useState<DieDimensionBracket[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editingOverride, setEditingOverride] = useState<null | 'material' | 'normalized' | 'machining' | 'accessories'>(null)
@@ -62,12 +65,14 @@ export default function DieQuoteEditor() {
     if (!id) return
     setLoading(true)
     try {
-      const [q, ni, mats, treats, sups] = await Promise.all([
+      const [q, ni, mats, treats, sups, ds, bs] = await Promise.all([
         api.get(`/dies/${id}`),
         api.get(`/dies/${id}/normalized-items`),
         api.get('/materials'),
         api.get('/treatments'),
         api.get('/normalized-suppliers'),
+        api.get('/die-settings'),
+        api.get('/die-settings/brackets'),
       ])
       setQuote(q.data)
       setSpec(q.data.die_spec)
@@ -76,6 +81,8 @@ export default function DieQuoteEditor() {
       setMaterials(mats.data)
       setTreatments(treats.data)
       setSuppliers(sups.data)
+      setDieSettings(ds.data)
+      setBrackets(bs.data)
       // Reset dirty al refresh dati
       setDirtySpec(null)
       setDirtyQuote(null)
@@ -210,6 +217,13 @@ export default function DieQuoteEditor() {
   }
 
   const handleDownloadPdf = async () => {
+    // Se ci sono modifiche pending, salva prima così il PDF è coerente
+    // con quello che l'utente vede nell'editor (altrimenti il BE
+    // riempirebbe il PDF con i valori vecchi dal DB).
+    if (isDirty) {
+      const ok = await handleSave()
+      if (!ok) return
+    }
     try {
       const res = await api.get(`/quotes/${id}/pdf`, { responseType: 'blob' })
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
@@ -225,11 +239,31 @@ export default function DieQuoteEditor() {
     }
   }
 
-  // Calcolo industrial usando override matita quando presenti.
+  // Live preview L3/L4: replico la formula backend lato client per
+  // mostrare i costi aggiornati subito quando l'utente cambia
+  // difficoltà/feature/bbox, senza aspettare il PUT al backend.
+  // L1 e L2 restano snapshot (dipendono da Part.total_cost e aggregati
+  // che ricalcola il backend dopo save). Vedi `lib/dieCalc.ts`.
+  const preview = useMemo(() => {
+    if (!dieSettings || brackets.length === 0) return null
+    return computeDiePreviewCosts({
+      spec,
+      settings: dieSettings,
+      brackets,
+      nPlates: parts.filter(p => p.plate_role).length || parts.length,
+    })
+  }, [spec, dieSettings, brackets, parts])
+
+  const previewMachining = preview?.cost_machining ?? spec.cost_machining
+  const previewAccessories = preview?.cost_accessories ?? spec.cost_accessories
+
+  // Calcolo industrial usando override matita quando presenti, e i
+  // preview lato client per L3/L4 (così cambia il prezzo finale in
+  // tempo reale mentre l'utente edita).
   const effMaterial = spec.override_material ?? spec.cost_material
   const effNormalized = spec.override_normalized ?? spec.cost_normalized
-  const effMachining = spec.override_machining ?? spec.cost_machining
-  const effAccessories = spec.override_accessories ?? spec.cost_accessories
+  const effMachining = spec.override_machining ?? previewMachining
+  const effAccessories = spec.override_accessories ?? previewAccessories
   const industrial = effMaterial + effNormalized + effMachining + effAccessories
   const margin = quote.global_margin_percent || 0
   const discount = quote.global_discount_percent || 0
@@ -560,11 +594,11 @@ export default function DieQuoteEditor() {
                   </tr>
                   <tr className="border-b">
                     <td className="py-2">L3 Lavorazioni (feature × coeff)</td>
-                    <td className="py-2 text-right">{renderOverrideCell('machining', spec.cost_machining, spec.override_machining)}</td>
+                    <td className="py-2 text-right">{renderOverrideCell('machining', previewMachining, spec.override_machining)}</td>
                   </tr>
                   <tr className="border-b">
                     <td className="py-2">L4 Accessori (design + montaggio + extras)</td>
-                    <td className="py-2 text-right">{renderOverrideCell('accessories', spec.cost_accessories, spec.override_accessories)}</td>
+                    <td className="py-2 text-right">{renderOverrideCell('accessories', previewAccessories, spec.override_accessories)}</td>
                   </tr>
                   <tr className="border-b font-semibold bg-gray-50">
                     <td className="py-2">L5 Costo industriale</td>

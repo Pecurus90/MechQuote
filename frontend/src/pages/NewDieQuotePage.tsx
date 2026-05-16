@@ -103,11 +103,8 @@ export default function NewDieQuotePage() {
   const [nPunchesS, setNPunchesS] = useState('0')
   const [nPunchesM, setNPunchesM] = useState('0')
   const [nPunchesC, setNPunchesC] = useState('0')
-  const [deliveryDays, setDeliveryDays] = useState<string>('')
-  const [extrasAmount, setExtrasAmount] = useState<string>('0')
-  const [extrasDescription, setExtrasDescription] = useState<string>('')
-  const [notesCustomer, setNotesCustomer] = useState('')
-  const [notesInternal, setNotesInternal] = useState('')
+  // Consegna / extras / note: gestiti post-creazione nell'editor (UX più
+  // pulita allo Step 2, valori opzionali che possono restare a default).
 
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -281,8 +278,6 @@ export default function NewDieQuotePage() {
         customer_id: customerId ? Number(customerId) : undefined,
         customer_name: customerName || undefined,
         customer_reference: customerReference || undefined,
-        notes_customer: notesCustomer || undefined,
-        notes_internal: notesInternal || undefined,
         template_id: templateId ?? undefined,
         spec: {
           die_subtype: subtype,
@@ -303,9 +298,6 @@ export default function NewDieQuotePage() {
           n_punches_simple: parseInt(nPunchesS, 10) || 0,
           n_punches_medium: parseInt(nPunchesM, 10) || 0,
           n_punches_complex: parseInt(nPunchesC, 10) || 0,
-          delivery_days: deliveryDays ? parseInt(deliveryDays, 10) : undefined,
-          extras_amount: parseFloat(extrasAmount) || 0,
-          extras_description: extrasDescription || undefined,
         },
       }
       const res = await api.post('/dies', payload)
@@ -667,27 +659,6 @@ export default function NewDieQuotePage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Consegna, extras & note</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label>Consegna (gg)</Label><Input type="number" value={deliveryDays} onChange={e => setDeliveryDays(e.target.value)} placeholder="30" /></div>
-                <div><Label>Extras (€)</Label><Input type="number" value={extrasAmount} onChange={e => setExtrasAmount(e.target.value)} /></div>
-              </div>
-              <div>
-                <Label>Descrizione extras</Label>
-                <Input value={extrasDescription} onChange={e => setExtrasDescription(e.target.value)} placeholder="es. trasporto stampo" />
-              </div>
-              <div>
-                <Label>Note cliente (PDF)</Label>
-                <textarea className="w-full rounded-md border px-3 py-2 text-sm" rows={2} value={notesCustomer} onChange={e => setNotesCustomer(e.target.value)} />
-              </div>
-              <div>
-                <Label>Note interne</Label>
-                <textarea className="w-full rounded-md border px-3 py-2 text-sm" rows={2} value={notesInternal} onChange={e => setNotesInternal(e.target.value)} />
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Colonna DX (render live) — 2/5, sticky */}

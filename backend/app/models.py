@@ -104,6 +104,12 @@ class Quote(Base):
     submitted_by = relationship("User", foreign_keys=[submitted_by_user_id])
     completed_by = relationship("User", foreign_keys=[completed_by_user_id])
     material_ordered_by = relationship("User", foreign_keys=[material_ordered_by_user_id])
+    # Modulo Stampi: 1:1 con DieSpec (NULL se quote_type != 'die').
+    die_spec = relationship("DieSpec", uselist=False, back_populates="quote",
+                            cascade="all, delete-orphan")
+    # Modulo Stampi: lista normalizzati a livello quote (NOT per piastra).
+    die_normalized_items = relationship("DieNormalizedItem", back_populates="quote",
+                                        cascade="all, delete-orphan")
 
 
 class Part(Base):
@@ -139,10 +145,11 @@ class Part(Base):
     minimum_price = Column(Float)
     customer_notes = Column(Text)
     internal_notes = Column(Text)
+    # Modulo Stampi: ruolo della piastra nel castello (cappello, porta_punzoni,
+    # premilamiera, matrice, base, o custom). NULL per Part di preventivi standard.
+    plate_role = Column(String(50))
     # Colonne legacy nel DB ma non mappate (drop dal modello, dati restano):
     # rounding_rule, confidence_level — mai applicate nel cost engine.
-    # plate_role: dropped dal modello in rollback Stampi 2026-05-16; la colonna
-    # DB resta (SQLite no DROP COLUMN), sarà rimappata in fase 1 di rifacimento.
     total_cost = Column(Float, default=0.0)
     unit_price = Column(Float, default=0.0)
     total_price = Column(Float, default=0.0)
@@ -276,7 +283,12 @@ class Treatment(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     treatment_type = Column(String(50))
+    # MVP Stampi: il trattamento può fatturare a peso (€/kg) o a volume (€/dm³).
+    # `cost_unit` discrimina; il cost engine usa cost_per_kg × peso oppure
+    # cost_per_dm3 × volume in base a questo flag.
+    cost_unit = Column(String(10), default='kg')  # 'kg' | 'dm3'
     cost_per_kg = Column(Float, default=0.0)
+    cost_per_dm3 = Column(Float, default=0.0)
     minimum_cost = Column(Float, default=0.0)
     minimum_weight_kg = Column(Float, nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"))
@@ -624,6 +636,10 @@ class NormalizedSupplier(Base):
     phone = Column(String(50), nullable=True)
     email = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
+    # MVP Stampi L2: spedizione aggregata per supplier nei preventivi stampo.
+    # Replica pattern di MaterialSupplier.shipping_cost. Per supplier con N
+    # NormalizedItem nello stesso preventivo, lo shipping è "1 viaggio".
+    shipping_cost = Column(Float, default=0.0)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -790,6 +806,204 @@ class OfficinaDocument(Base):
     tool_supplier = relationship("ToolSupplier", foreign_keys=[tool_supplier_id])
     normalized_supplier = relationship("NormalizedSupplier", foreign_keys=[normalized_supplier_id])
 
+
+# ─── Modulo Preventivatore Stampi Lamiera ───────────────────────────────────
+# Quote esteso con quote_type='die' + 6 tabelle satellite.
+# 1 Quote = 1 castello stampo; 1 Part = 1 piastra (riusa material/treatment/
+# spedizioni del cost engine standard, con branch in recalculate_quote per
+# trattamenti €/dm³).
+
+class DieSpec(Base):
+    """1:1 con Quote (quote_type='die'). Parametri non-piastre + snapshot costi."""
+    __tablename__ = "die_specs"
+
+    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="CASCADE"), primary_key=True)
+    die_subtype = Column(String(20), nullable=False, default='passo')   # passo | blocco
+    mode = Column(String(20), default='detailed')                        # rapid | detailed
+
+    # Geometria pezzo (da DXF bbox o manuale)
+    bbox_x_mm = Column(Float, default=0.0)
+    bbox_y_mm = Column(Float, default=0.0)
+    sheet_thickness_mm = Column(Float, default=0.0)
+
+    # Striscia — passo
+    n_stations = Column(Integer)
+    pitch_mm = Column(Float)
+    strip_offset_y_mm = Column(Float, default=0.0)
+
+    # Striscia — blocco
+    n_operations = Column(Integer)
+    block_strip_offset_mm = Column(Float, default=0.0)
+
+    # Ingombro castello (offset attorno alla striscia)
+    castle_offset_x_mm = Column(Float)
+    castle_offset_y_mm = Column(Float)
+
+    # Difficoltà + feature
+    difficulty = Column(String(20), default='base')                      # base | medium | hard
+    n_bends_simple = Column(Integer, default=0)
+    n_bends_medium = Column(Integer, default=0)
+    n_bends_complex = Column(Integer, default=0)
+    n_punches_simple = Column(Integer, default=0)
+    n_punches_medium = Column(Integer, default=0)
+    n_punches_complex = Column(Integer, default=0)
+
+    # Misc (consegna, note, extras)
+    delivery_days = Column(Integer)
+    technical_notes = Column(Text)
+    extras_amount = Column(Float, default=0.0)
+    extras_description = Column(String(200))
+
+    # Snapshot costi calcolati (popolati da recalculate_die_quote)
+    cost_material = Column(Float, default=0.0)
+    cost_normalized = Column(Float, default=0.0)
+    cost_machining = Column(Float, default=0.0)
+    cost_accessories = Column(Float, default=0.0)
+    cost_industrial = Column(Float, default=0.0)
+
+    # Override "matita" sulle 4 voci L1-L4 (NULL = usa calcolato).
+    # L'UI permette di forzare manualmente una voce; il cost engine la usa
+    # al posto del calcolato per la riga di L5 industriale.
+    override_material = Column(Float)
+    override_normalized = Column(Float)
+    override_machining = Column(Float)
+    override_accessories = Column(Float)
+
+    # Modalità Rapida — range ±tol% calcolato in _recalculate_die_rapid
+    rapid_min = Column(Float, default=0.0)
+    rapid_max = Column(Float, default=0.0)
+
+    quote = relationship("Quote", back_populates="die_spec")
+
+
+class DieNormalizedItem(Base):
+    """Componente commerciale del preventivo stampo, aggregato a livello Quote
+    (NON per piastra — semplifica UI/PDF). L2 cost engine somma qty × unit_price
+    + shipping aggregato per NormalizedSupplier.shipping_cost."""
+    __tablename__ = "die_normalized_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="CASCADE"), nullable=False)
+    normalized_supplier_id = Column(Integer, ForeignKey("normalized_suppliers.id"))
+    description = Column(String(200), nullable=False)
+    quantity = Column(Integer, default=1)
+    unit_price = Column(Float, default=0.0)
+    notes = Column(Text)
+
+    quote = relationship("Quote", back_populates="die_normalized_items")
+    supplier = relationship("NormalizedSupplier")
+
+
+class DieSettings(Base):
+    """Singleton id=1 — tariffe + default + parametri Rapida del modulo Stampi.
+    11 sezioni configurabili dall'UI Impostazioni Stampi."""
+    __tablename__ = "die_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+
+    # 1. Tariffe orarie officina
+    hourly_rate_milling = Column(Float, default=45.0)
+    hourly_rate_grinding = Column(Float, default=50.0)
+    hourly_rate_edm_wire = Column(Float, default=60.0)
+    hourly_rate_edm_die = Column(Float, default=55.0)
+
+    # 2+3. Costi pieghe + punzoni per fascia (€/unità, prima dei coeff dim/diff)
+    cost_bend_simple = Column(Float, default=80.0)
+    cost_bend_medium = Column(Float, default=160.0)
+    cost_bend_complex = Column(Float, default=320.0)
+    cost_punch_simple = Column(Float, default=120.0)
+    cost_punch_medium = Column(Float, default=240.0)
+    cost_punch_complex = Column(Float, default=480.0)
+
+    # 4. Costo base per piastra (cost_per_plate_base × n_plates in L3)
+    cost_per_plate_base = Column(Float, default=150.0)
+
+    # 6. Moltiplicatori difficoltà globale
+    diff_mult_base = Column(Float, default=1.0)
+    diff_mult_medium = Column(Float, default=1.3)
+    diff_mult_hard = Column(Float, default=1.7)
+
+    # 7. Progettazione: ore CAD per difficoltà × tariffa €/h
+    design_hours_base = Column(Float, default=8.0)
+    design_hours_medium = Column(Float, default=16.0)
+    design_hours_hard = Column(Float, default=32.0)
+    design_hourly_rate = Column(Float, default=50.0)
+
+    # 8. Forfait montaggio/collaudo per difficoltà
+    assembly_forfeit_base = Column(Float, default=300.0)
+    assembly_forfeit_medium = Column(Float, default=600.0)
+    assembly_forfeit_hard = Column(Float, default=1200.0)
+
+    # 9. Margine commerciale default
+    default_margin_percent = Column(Float, default=30.0)
+
+    # 10. Offset XY default per ingombro castello (mm)
+    default_castle_offset_x_mm = Column(Float, default=80.0)
+    default_castle_offset_y_mm = Column(Float, default=80.0)
+
+    # Modalità Rapida — 5 parametri per stima ±tol%
+    rapid_eur_per_kg = Column(Float, default=25.0)
+    rapid_n_plates_avg = Column(Integer, default=5)
+    rapid_thickness_avg_mm = Column(Float, default=28.0)
+    rapid_accessories_percent = Column(Float, default=20.0)
+    rapid_tolerance_percent = Column(Float, default=20.0)
+
+
+class DieDimensionBracket(Base):
+    """5. Fasce dimensionali castello — area dm² → coefficiente moltiplicativo L3.
+    Lookup: `area_min ≤ area < area_max` (ultima fascia ha area_max=NULL).
+    Numero fasce configurabile dall'UI."""
+    __tablename__ = "die_dimension_brackets"
+
+    id = Column(Integer, primary_key=True)
+    label = Column(String(20), nullable=False)                # S, M, L, XL
+    area_min_dm2 = Column(Float, nullable=False, default=0.0)
+    area_max_dm2 = Column(Float)
+    coefficient = Column(Float, nullable=False, default=1.0)
+    sort_order = Column(Integer, default=0)
+
+
+class DieTemplate(Base):
+    """11. Template stampo. Il wizard creazione preventivo lo applica
+    precompilando piastre + suggerimenti feature."""
+    __tablename__ = "die_templates"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    die_subtype = Column(String(20), nullable=False, default='passo')
+    suggested_stations = Column(Integer)
+    suggested_pitch_mm = Column(Float)
+    suggested_n_bends_simple = Column(Integer, default=0)
+    suggested_n_bends_medium = Column(Integer, default=0)
+    suggested_n_bends_complex = Column(Integer, default=0)
+    suggested_n_punches_simple = Column(Integer, default=0)
+    suggested_n_punches_medium = Column(Integer, default=0)
+    suggested_n_punches_complex = Column(Integer, default=0)
+    default_difficulty = Column(String(20), default='base')
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    plates = relationship("DieTemplatePlate", back_populates="template",
+                          cascade="all, delete-orphan",
+                          order_by="DieTemplatePlate.sort_order")
+
+
+class DieTemplatePlate(Base):
+    """Riga piastra di un DieTemplate."""
+    __tablename__ = "die_template_plates"
+
+    id = Column(Integer, primary_key=True)
+    template_id = Column(Integer, ForeignKey("die_templates.id", ondelete="CASCADE"), nullable=False)
+    plate_role = Column(String(50), nullable=False)
+    default_thickness_mm = Column(Float, default=0.0)
+    default_material_id = Column(Integer, ForeignKey("materials.id"))
+    default_treatment_id = Column(Integer, ForeignKey("treatments.id"))
+    sort_order = Column(Integer, default=0)
+
+    template = relationship("DieTemplate", back_populates="plates")
+    default_material = relationship("Material")
+    default_treatment = relationship("Treatment")
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

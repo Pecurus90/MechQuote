@@ -246,7 +246,16 @@ def update_quote(
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
     ensure_editable(quote, current_user)
-    for key, value in data.model_dump(exclude_unset=True).items():
+    payload = data.model_dump(exclude_unset=True)
+    # quote_type immutabile post-create: cambiare il tipo dopo la creazione
+    # corromperebbe le tabelle satellite (DieSpec orphan se die → single,
+    # o spec mancante se single → die). Rifiuta esplicitamente.
+    if 'quote_type' in payload and payload['quote_type'] != quote.quote_type:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo preventivo non modificabile (attuale: '{quote.quote_type}')",
+        )
+    for key, value in payload.items():
         setattr(quote, key, value)
     db.commit()
     return _load_quote(quote_id, db)

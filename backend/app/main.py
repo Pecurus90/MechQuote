@@ -63,6 +63,7 @@ from app.api import (
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
     normalized_suppliers,
+    dies, die_normalized_items, die_settings,
 )
 app.include_router(auth.router)
 app.include_router(auth.users_router, dependencies=_auth)
@@ -93,6 +94,10 @@ app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
 app.include_router(officina.router, dependencies=_auth)
 app.include_router(normalized_suppliers.router, dependencies=_auth)
+# Modulo Stampi — 3 router con prefix dedicato.
+app.include_router(dies.router, dependencies=_auth)
+app.include_router(die_normalized_items.router, dependencies=_auth)
+app.include_router(die_settings.router, dependencies=_auth)
 
 
 def _run_migrations():
@@ -517,27 +522,80 @@ def _run_migrations():
         "DELETE FROM role_permissions WHERE permission_key = 'quotes.view_all'",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.view_all' FROM roles WHERE name IN ('admin','amministrazione')",
 
-        # ═══ Preventivatore Stampi — ROLLBACK (2026-05-16) ═══
-        # Drop di tutte le tabelle stampi legacy (MVP1+2+3 deviate dalla spec) +
-        # cleanup quotes die orfani + revoke permessi. Il rifacimento parte dalla
-        # fase 1 successiva con schema fresh (DieSpec, DieNormalizedItem, ecc).
-        # Idempotente: DROP TABLE IF EXISTS, DELETE permissive.
-        # parts.plate_role: colonna resta in DB (SQLite no DROP COLUMN); il modello
-        # smette di mapparla; verrà rimappata in fase 1.
-        "DROP TABLE IF EXISTS die_template_plates",
-        "DROP TABLE IF EXISTS die_templates",
-        "DROP TABLE IF EXISTS die_dimension_brackets",
-        "DROP TABLE IF EXISTS die_settings",
-        "DROP TABLE IF EXISTS normalized_items",
-        "DROP TABLE IF EXISTS die_quote_specs",
-        "DELETE FROM role_permissions WHERE permission_key IN ('dies.create','dies.archive','dies.pdf','dies.settings')",
-        # Quote.quote_type='die' → DieSpec orphan dopo i DROP, totale corrotto:
-        # cancello esplicitamente per evitare archivio inconsistente.
-        "DELETE FROM quotes WHERE quote_type='die'",
+        # ═══ Preventivatore Stampi Lamiera — Schema fresh (Fase 1, 2026-05-16) ═══
+        # Rollback delle tabelle legacy MVP1+2+3 già eseguito nel commit
+        # precedente (DROP IF EXISTS sulle vecchie die_quote_specs/normalized_items/...
+        # ora rimosse anche da `quotes` con quote_type='die').
+        # Le tabelle nuove (die_specs, die_normalized_items, die_settings,
+        # die_dimension_brackets, die_templates, die_template_plates) vengono
+        # create da SQLAlchemy create_all() ai modelli definiti in models.py.
+        # Qui aggiungiamo solo:
+        # - ALTER su treatments per cost_unit + cost_per_dm3 (Fase 1.1)
+        # - ALTER su normalized_suppliers per shipping_cost (Fase 1.2)
+        # - INSERT OR IGNORE + UPDATE COALESCE su die_settings singleton
+        # - Seed 4 fasce dimensionali castello
+        # - Seed 5 template default + piastre standard
+        # - Permessi dies.* + ruoli (Fase 1.6)
 
-        # NB: parts.plate_role era stata aggiunta in MVP1 ma non viene droppata
-        # (SQLite non supporta DROP COLUMN). Resta come colonna morta in DB
-        # finché la fase 1 di rifacimento non la rimappa nel modello Part.
+        # 1.1 Treatment: cost_unit (kg|dm3) + cost_per_dm3
+        "ALTER TABLE treatments ADD COLUMN cost_unit VARCHAR(10) DEFAULT 'kg'",
+        "ALTER TABLE treatments ADD COLUMN cost_per_dm3 FLOAT DEFAULT 0",
+        "UPDATE treatments SET cost_unit='kg' WHERE cost_unit IS NULL OR cost_unit=''",
+
+        # 1.2 NormalizedSupplier: shipping_cost
+        "ALTER TABLE normalized_suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0",
+
+        # Singleton DieSettings + seed default operativi (SQLAlchemy create_all
+        # non applica DEFAULT SQL — COALESCE ricopre il caso DB legacy).
+        "INSERT OR IGNORE INTO die_settings (id) VALUES (1)",
+        ("UPDATE die_settings SET "
+         "hourly_rate_milling = COALESCE(hourly_rate_milling, 45), "
+         "hourly_rate_grinding = COALESCE(hourly_rate_grinding, 50), "
+         "hourly_rate_edm_wire = COALESCE(hourly_rate_edm_wire, 60), "
+         "hourly_rate_edm_die = COALESCE(hourly_rate_edm_die, 55), "
+         "cost_bend_simple = COALESCE(cost_bend_simple, 80), "
+         "cost_bend_medium = COALESCE(cost_bend_medium, 160), "
+         "cost_bend_complex = COALESCE(cost_bend_complex, 320), "
+         "cost_punch_simple = COALESCE(cost_punch_simple, 120), "
+         "cost_punch_medium = COALESCE(cost_punch_medium, 240), "
+         "cost_punch_complex = COALESCE(cost_punch_complex, 480), "
+         "cost_per_plate_base = COALESCE(cost_per_plate_base, 150), "
+         "diff_mult_base = COALESCE(diff_mult_base, 1.0), "
+         "diff_mult_medium = COALESCE(diff_mult_medium, 1.3), "
+         "diff_mult_hard = COALESCE(diff_mult_hard, 1.7), "
+         "design_hours_base = COALESCE(design_hours_base, 8), "
+         "design_hours_medium = COALESCE(design_hours_medium, 16), "
+         "design_hours_hard = COALESCE(design_hours_hard, 32), "
+         "design_hourly_rate = COALESCE(design_hourly_rate, 50), "
+         "assembly_forfeit_base = COALESCE(assembly_forfeit_base, 300), "
+         "assembly_forfeit_medium = COALESCE(assembly_forfeit_medium, 600), "
+         "assembly_forfeit_hard = COALESCE(assembly_forfeit_hard, 1200), "
+         "default_margin_percent = COALESCE(default_margin_percent, 30), "
+         "default_castle_offset_x_mm = COALESCE(default_castle_offset_x_mm, 80), "
+         "default_castle_offset_y_mm = COALESCE(default_castle_offset_y_mm, 80), "
+         "rapid_eur_per_kg = COALESCE(rapid_eur_per_kg, 25), "
+         "rapid_n_plates_avg = COALESCE(rapid_n_plates_avg, 5), "
+         "rapid_thickness_avg_mm = COALESCE(rapid_thickness_avg_mm, 28), "
+         "rapid_accessories_percent = COALESCE(rapid_accessories_percent, 20), "
+         "rapid_tolerance_percent = COALESCE(rapid_tolerance_percent, 20) "
+         "WHERE id = 1"),
+
+        # Seed 4 fasce dimensionali castello S/M/L/XL (idempotente).
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'S', 0, 20, 1.0, 1 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='S')"),
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'M', 20, 50, 1.3, 2 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='M')"),
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'L', 50, 100, 1.6, 3 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='L')"),
+        ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
+         "SELECT 'XL', 100, NULL, 2.0, 4 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='XL')"),
+
+        # Permessi dies.* — admin + ufficio_tecnico (create/archive/pdf) + amministrazione (archive/pdf), admin (settings).
+        "DELETE FROM role_permissions WHERE permission_key IN ('dies.create','dies.archive','dies.pdf','dies.settings')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.create' FROM roles WHERE name IN ('admin','ufficio_tecnico')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.archive' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.pdf' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.settings' FROM roles WHERE name = 'admin'",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -673,11 +731,74 @@ def _seed_edm_defaults():
 #   venv/bin/python -m scripts.one_shot_db_fixes
 
 
+def _seed_die_templates():
+    """Seed dei 5 template stampo della spec utente (idempotente: skip se
+    la tabella ha già righe). Ogni template ha 5 piastre standard
+    (cappello/porta_punzoni/premilamiera/matrice/base) con spessori 25/30/25/30/30 mm.
+    Materiale + trattamento sono NULL: l'utente li assegna dall'editor o
+    dall'Impostazioni Stampi tab Template."""
+    from sqlalchemy.orm import Session
+    from app.models import DieTemplate, DieTemplatePlate
+
+    STANDARD_PLATES = [
+        ('cappello', 25.0, 1),
+        ('porta_punzoni', 30.0, 2),
+        ('premilamiera', 25.0, 3),
+        ('matrice', 30.0, 4),
+        ('base', 30.0, 5),
+    ]
+
+    TEMPLATES = [
+        # name, description, die_subtype, suggested_stations, suggested_pitch_mm,
+        # n_bends_s/m/c, n_punches_s/m/c, default_difficulty
+        ('Tranciatura semplice a blocco',
+         'Stampo a blocco con 1-2 stazioni: 5 piastre standard, solo tranciatura.',
+         'blocco', None, None, 0, 0, 0, 1, 0, 0, 'base'),
+        ('Tranciatura + piega a blocco',
+         'Stampo a blocco con tranciatura e una piega.',
+         'blocco', None, None, 1, 0, 0, 1, 0, 0, 'base'),
+        ('Progressivo 3-4 stazioni',
+         'Stampo a passo medio: 3-4 stazioni, pieghe e punzoni medi.',
+         'passo', 3, None, 0, 2, 0, 0, 2, 0, 'medium'),
+        ('Progressivo complesso 5+ stazioni',
+         'Stampo a passo complesso: 5+ stazioni, feature articolate.',
+         'passo', 6, None, 1, 2, 2, 2, 2, 2, 'hard'),
+        ('Tranciatura fine (precisione)',
+         'Stampo a blocco per tranciatura di precisione (1 stazione, punzone medio).',
+         'blocco', 1, None, 0, 0, 0, 0, 1, 0, 'hard'),
+    ]
+
+    with Session(engine) as db:
+        if db.query(DieTemplate).count() > 0:
+            return  # già seedato
+
+        for (name, desc, subtype, stations, pitch,
+             nbs, nbm, nbc, nps, npm, npc, diff) in TEMPLATES:
+            tpl = DieTemplate(
+                name=name, description=desc, die_subtype=subtype,
+                suggested_stations=stations, suggested_pitch_mm=pitch,
+                suggested_n_bends_simple=nbs, suggested_n_bends_medium=nbm, suggested_n_bends_complex=nbc,
+                suggested_n_punches_simple=nps, suggested_n_punches_medium=npm, suggested_n_punches_complex=npc,
+                default_difficulty=diff, active=True,
+            )
+            db.add(tpl)
+            db.flush()
+            for role, thickness, order in STANDARD_PLATES:
+                db.add(DieTemplatePlate(
+                    template_id=tpl.id,
+                    plate_role=role,
+                    default_thickness_mm=thickness,
+                    sort_order=order,
+                ))
+        db.commit()
+
+
 _run_migrations()
 _seed_categories()
 _seed_roles()
 _seed_operations()
 _seed_edm_defaults()
+_seed_die_templates()
 
 
 @app.get("/api/health")

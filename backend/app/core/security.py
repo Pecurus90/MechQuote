@@ -67,3 +67,17 @@ def require_permission(key: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permesso negato")
         return current_user
     return Depends(_check)
+
+
+def require_any_permission(*keys: str):
+    """Return a Depends che passa se l'utente ha ALMENO UNA delle chiavi.
+
+    Usato per endpoint condivisi tra moduli (es. parts.py + phases.py usati
+    sia da preventivi standard che da preventivi stampi: chi modifica le
+    piastre deve avere `quotes.create` OPPURE `dies.create`)."""
+    def _check(current_user=Depends(get_current_user)):
+        perms = getattr(current_user, '_permissions', [])
+        if not any(k in perms for k in keys):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permesso negato")
+        return current_user
+    return Depends(_check)

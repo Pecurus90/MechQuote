@@ -1,0 +1,333 @@
+"""API per il modulo Preventivatore Stampi.
+
+Endpoint:
+  POST   /api/dies                       — crea Quote(quote_type='die') + DieSpec
+                                            (+ Part piastre se template_id)
+  GET    /api/dies/{quote_id}            — alias GET /api/quotes/{id} con
+                                            joinedload mirato (die_spec, normalized).
+  PUT    /api/dies/{quote_id}/spec       — aggiorna DieSpec (incluso override matita)
+  POST   /api/dies/{quote_id}/recalculate — ricalcola e ritorna lo snapshot DieSpec
+  POST   /api/dies/{quote_id}/clone      — duplica come revisione (_rev2, _rev3, …)
+  POST   /api/dies/{quote_id}/apply-template/{template_id}
+                                          — applica template clean-slate (drop parts
+                                            esistenti, crea nuove piastre)
+  GET    /api/dies/{quote_id}/find-similar — top-5 stampi simili (subtype + area)
+"""
+import logging
+from datetime import date as date_type
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload
+
+from app.core.database import get_db
+from app.core.security import require_permission, get_current_user
+from app.models import (
+    Quote, Part, DieSpec, DieTemplate, DieTemplatePlate, DieSettings,
+    CompanySettings, User,
+)
+from app.schemas import (
+    DieQuoteCreate, DieSpecOut, DieSpecUpdate, QuoteOut,
+)
+from app.services.calculation import (
+    recalculate_die_quote, _compute_castle_dimensions,
+)
+from app.api.quotes import ensure_editable, _load_quote
+
+logger = logging.getLogger(__name__)
+_can_write = require_permission('dies.create')
+
+router = APIRouter(prefix="/api/dies", tags=["dies"])
+
+
+def _create_plates_from_template(quote: Quote, template: DieTemplate, db: Session) -> None:
+    """Crea le Part-piastre del castello a partire dalle righe del template.
+
+    raw_x/raw_y restano None: verranno auto-compilate da `recalculate_die_quote`
+    leggendo le dimensioni castello dalla DieSpec. raw_z = thickness del template.
+    """
+    cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
+    default_min = (cs.default_minimum_part_price if cs else 0.0) or 0.0
+    for tpl_plate in template.plates:
+        part = Part(
+            quote_id=quote.id,
+            part_code=f"{quote.quote_number}_{tpl_plate.plate_role}",
+            quantity=1,
+            quote_mode="manual",
+            plate_role=tpl_plate.plate_role,
+            raw_z_mm=tpl_plate.default_thickness_mm,
+            material_id=tpl_plate.default_material_id,
+            minimum_price=default_min,
+        )
+        db.add(part)
+
+
+@router.post("", response_model=QuoteOut)
+def create_die_quote(
+    data: DieQuoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    if db.query(Quote).filter(Quote.quote_number == data.quote_number).first():
+        raise HTTPException(status_code=400, detail=f"Numero preventivo '{data.quote_number}' già esistente")
+
+    cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
+    die_settings = db.query(DieSettings).filter(DieSettings.id == 1).first()
+
+    quote = Quote(
+        quote_number=data.quote_number,
+        quote_type='die',
+        customer_id=data.customer_id,
+        customer_name=data.customer_name,
+        customer_reference=data.customer_reference,
+        quote_date=date_type.today(),
+        notes_customer=data.notes_customer,
+        notes_internal=data.notes_internal,
+        created_by_user_id=current_user.id,
+    )
+    if die_settings:
+        quote.global_margin_percent = die_settings.default_margin_percent
+    elif cs:
+        quote.global_margin_percent = cs.default_margin_percent
+    if cs:
+        quote.transport_cost = cs.default_transport_cost
+        quote.packaging_cost = cs.default_packaging_cost
+
+    db.add(quote)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Numero preventivo '{data.quote_number}' già esistente",
+        )
+    db.refresh(quote)
+
+    spec_data = data.spec.model_dump(exclude_unset=True)
+    # Default castle offset da DieSettings se l'utente non li ha specificati.
+    if die_settings:
+        if spec_data.get('castle_offset_x_mm') is None:
+            spec_data['castle_offset_x_mm'] = die_settings.default_castle_offset_x_mm
+        if spec_data.get('castle_offset_y_mm') is None:
+            spec_data['castle_offset_y_mm'] = die_settings.default_castle_offset_y_mm
+    spec = DieSpec(quote_id=quote.id, **spec_data)
+    db.add(spec)
+    db.commit()
+
+    if data.template_id:
+        template = db.query(DieTemplate).options(
+            joinedload(DieTemplate.plates)
+        ).filter(DieTemplate.id == data.template_id).first()
+        if not template:
+            raise HTTPException(status_code=404, detail="Template non trovato")
+        _create_plates_from_template(quote, template, db)
+        db.commit()
+
+    # Recalc per popolare snapshot DieSpec + auto-fill X/Y piastre.
+    recalculate_die_quote(quote.id, db)
+    logger.info("Stampo creato: id=%s number=%r by=%s template_id=%s",
+                quote.id, quote.quote_number, current_user.username, data.template_id)
+    return _load_quote(quote.id, db)
+
+
+@router.get("/{quote_id}", response_model=QuoteOut)
+def get_die_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    quote = _load_quote(quote_id, db)
+    if not quote or quote.quote_type != 'die':
+        raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
+    return quote
+
+
+@router.put("/{quote_id}/spec", response_model=DieSpecOut)
+def update_die_spec(
+    quote_id: int,
+    data: DieSpecUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote or quote.quote_type != 'die':
+        raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
+    ensure_editable(quote, current_user)
+    spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+    if not spec:
+        raise HTTPException(status_code=404, detail="Spec stampo non trovata")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(spec, k, v)
+    db.commit()
+    recalculate_die_quote(quote_id, db)
+    db.refresh(spec)
+    return spec
+
+
+@router.post("/{quote_id}/recalculate", response_model=DieSpecOut)
+def recalculate_endpoint(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote or quote.quote_type != 'die':
+        raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
+    ensure_editable(quote, current_user)
+    recalculate_die_quote(quote_id, db)
+    spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+    return spec
+
+
+@router.post("/{quote_id}/clone", response_model=QuoteOut)
+def clone_die_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    """Duplica come revisione: aggiunge suffisso `_rev2`, `_rev3`, … al quote_number.
+
+    Copia spec + piastre. Status reset a 'bozza'. Costi snapshot ricalcolati.
+    """
+    src = _load_quote(quote_id, db)
+    if not src or src.quote_type != 'die':
+        raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
+
+    # Determina suffisso revisione successivo: scansiona quote_number tipo
+    # 'BASE_revN' con N max esistente + 1; se non c'è suffisso, _rev2.
+    base_number = src.quote_number
+    rev = 2
+    if '_rev' in base_number:
+        base_number, _, n = base_number.rpartition('_rev')
+        try:
+            rev = int(n) + 1
+        except ValueError:
+            rev = 2
+    new_number = f"{base_number}_rev{rev}"
+    while db.query(Quote).filter(Quote.quote_number == new_number).first():
+        rev += 1
+        new_number = f"{base_number}_rev{rev}"
+
+    new_quote = Quote(
+        quote_number=new_number,
+        quote_type='die',
+        customer_id=src.customer_id,
+        customer_name=src.customer_name,
+        customer_reference=src.customer_reference,
+        quote_date=date_type.today(),
+        global_margin_percent=src.global_margin_percent,
+        global_discount_percent=src.global_discount_percent,
+        transport_cost=src.transport_cost,
+        packaging_cost=src.packaging_cost,
+        notes_customer=src.notes_customer,
+        notes_internal=src.notes_internal,
+        created_by_user_id=current_user.id,
+        status='bozza',
+    )
+    db.add(new_quote)
+    db.commit()
+    db.refresh(new_quote)
+
+    if src.die_spec:
+        spec_copy = {c.name: getattr(src.die_spec, c.name)
+                     for c in src.die_spec.__table__.columns
+                     if c.name != 'quote_id'}
+        # Snapshot costi resettati: verranno ricalcolati.
+        for k in ('cost_material', 'cost_normalized', 'cost_machining',
+                  'cost_accessories', 'cost_industrial', 'rapid_min', 'rapid_max'):
+            spec_copy[k] = 0.0
+        db.add(DieSpec(quote_id=new_quote.id, **spec_copy))
+
+    for src_part in src.parts:
+        new_part = Part(
+            quote_id=new_quote.id,
+            part_code=src_part.part_code,
+            quantity=src_part.quantity,
+            plate_role=src_part.plate_role,
+            material_id=src_part.material_id,
+            raw_z_mm=src_part.raw_z_mm,
+            minimum_price=src_part.minimum_price,
+            margin_percent=src_part.margin_percent,
+        )
+        db.add(new_part)
+
+    db.commit()
+    recalculate_die_quote(new_quote.id, db)
+    logger.info("Stampo clonato: src=%s → new=%s by=%s", quote_id, new_quote.id, current_user.username)
+    return _load_quote(new_quote.id, db)
+
+
+@router.post("/{quote_id}/apply-template/{template_id}", response_model=QuoteOut)
+def apply_template(
+    quote_id: int,
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    """Applica template clean-slate: drop tutte le Part esistenti e crea le piastre
+    del template. Spec e normalizzati restano invariati."""
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote or quote.quote_type != 'die':
+        raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
+    ensure_editable(quote, current_user)
+    template = db.query(DieTemplate).options(
+        joinedload(DieTemplate.plates)
+    ).filter(DieTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template non trovato")
+
+    db.query(Part).filter(Part.quote_id == quote_id).delete()
+    db.commit()
+
+    _create_plates_from_template(quote, template, db)
+    db.commit()
+    recalculate_die_quote(quote_id, db)
+    return _load_quote(quote_id, db)
+
+
+@router.get("/{quote_id}/find-similar", response_model=list[QuoteOut])
+def find_similar(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Top-5 preventivi stampo simili. Criterio:
+      - stesso die_subtype
+      - area castello entro ±30%
+      - escluso il quote corrente
+    Ordinato per data di creazione discendente."""
+    spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+    if not spec:
+        raise HTTPException(status_code=404, detail="Spec stampo non trovata")
+
+    castle_x, castle_y = _compute_castle_dimensions(spec)
+    area = (castle_x * castle_y) / 10_000.0  # dm²
+
+    others = db.query(Quote).options(
+        joinedload(Quote.die_spec),
+    ).filter(
+        Quote.quote_type == 'die',
+        Quote.id != quote_id,
+    ).all()
+
+    def _matches(q: Quote) -> bool:
+        if not q.die_spec or q.die_spec.die_subtype != spec.die_subtype:
+            return False
+        cx, cy = _compute_castle_dimensions(q.die_spec)
+        a = (cx * cy) / 10_000.0
+        if area == 0:
+            return a == 0
+        return 0.7 <= (a / area) <= 1.3
+
+    matches = sorted(
+        (q for q in others if _matches(q)),
+        key=lambda q: q.created_at,
+        reverse=True,
+    )[:5]
+    return [_load_quote(q.id, db) for q in matches]

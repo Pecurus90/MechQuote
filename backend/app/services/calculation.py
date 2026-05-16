@@ -6,7 +6,12 @@ from app.models import (
     Part, ManufacturingPhase, Quote, Material,
     EdmConfig, EdmCutSpeed, CuttingCycle, Treatment, MaterialSupplier, Supplier,
     CompanySettings,
+    DieSpec, DieNormalizedItem, DieSettings, DieDimensionBracket,
 )
+
+# Densità acciaio (kg/dm³) — usato come default per stima Rapida modulo Stampi.
+# Le piastre in stampi di tranciatura/piega sono quasi sempre acciaio utensile.
+_DIE_RAPID_STEEL_DENSITY = 7.85
 
 
 def _round4(x: float) -> float:
@@ -198,9 +203,39 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         joinedload(Part.phases).joinedload(ManufacturingPhase.treatment).joinedload(Treatment.supplier),
     ).all()
     if not parts:
+        # Caso edge: preventivo senza parti. Per quote_type='die' calcoliamo
+        # comunque L2/L3/L4/L5 (lavorazioni + accessori + override matita)
+        # così l'utente vede una stima anche prima di aggiungere le piastre.
+        if quote.quote_type == 'die':
+            _recalculate_die_levels(quote, [], db)
+            db.commit()
         return
 
     n_parts = len(parts)
+
+    # ─── Modulo Stampi: auto-fill X/Y piastre da castello ────────────────
+    # Per quote_type='die', le piastre del castello hanno X/Y derivate dalla
+    # geometria del pezzo + striscia + offset castello. Se l'utente non ha
+    # forzato manualmente raw_x/raw_y sulla piastra, calcoliamo i valori
+    # dall'ingombro castello e li scriviamo PRIMA della pipeline costi
+    # (così la formula materiale grezzo li vede subito).
+    #
+    # Override manuale preservato: se la piastra ha raw_x_mm o raw_y_mm
+    # diversi dai valori castello attuali, l'utente ha modificato a mano →
+    # non sovrascriviamo. Marker: salviamo i valori castello in `description`?
+    # No: usiamo regola semplice — se raw_x/y == None OR (raw_x, raw_y) == 0,
+    # auto-fill. Se l'utente ha messo manualmente un valore != 0 lo lasciamo.
+    if quote.quote_type == 'die':
+        spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+        if spec:
+            castle_x, castle_y = _compute_castle_dimensions(spec)
+            for p in parts:
+                if not p.plate_role:
+                    continue
+                if not p.raw_x_mm:
+                    p.raw_x_mm = castle_x
+                if not p.raw_y_mm:
+                    p.raw_y_mm = castle_y
 
     # ─── Pre-aggregazioni ────────────────────────────────────────────────
     # Tutti i pesi sono peso_finito × qty (massa fisica del batch).
@@ -208,6 +243,10 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     # = batch separati nel forno. Spedizioni: chiave supplier_id — fornitore
     # = 1 viaggio per tutta la commessa (anche con materiali/trattamenti misti).
     treatment_batch: Dict[Tuple[int, Optional[int]], float] = defaultdict(float)
+    # Modulo Stampi: per trattamenti con cost_unit='dm3' aggregiamo anche il
+    # volume del batch (dm³). Riusato per distribuire la quota part_share
+    # proporzionale al volume invece che al peso.
+    treatment_batch_volume: Dict[Tuple[int, Optional[int]], float] = defaultdict(float)
     treatment_shipping: Dict[int, float] = defaultdict(float)
     material_shipping: Dict[int, float] = defaultdict(float)
 
@@ -249,12 +288,18 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             material_shipping_n[p.material.supplier_id] += 1
         if p.material_from_stock and not p.customer_supplied_material:
             n_from_stock += 1
+        # Volume parte (dm³) × qty — usato da trattamenti con cost_unit='dm3'.
+        part_vol_dm3 = (
+            (p.raw_x_mm or 0.0) * (p.raw_y_mm or 0.0) * (p.raw_z_mm or 0.0)
+            / 1_000_000.0 * qty_p
+        )
         for ph in p.phases:
             if ph.treatment_id and ph.treatment:
                 # Chiave batch (treatment_id, material_id): stesso trattamento
                 # ma materiali diversi = batch separati per il fornitore.
                 batch_key = (ph.treatment_id, p.material_id)
                 treatment_batch[batch_key] += finished_w
+                treatment_batch_volume[batch_key] += part_vol_dm3
                 treatment_batch_n[batch_key] += 1
                 if ph.treatment.supplier_id:
                     # Spedizione trattamento: per supplier_id (1 viaggio).
@@ -337,23 +382,43 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 batch_w = treatment_batch.get(batch_key, 0.0)
                 n_grp = treatment_batch_n.get(batch_key, 1)
 
+                # Soglia: sempre confrontata sul peso (kg) del batch, anche
+                # per trattamenti €/dm³ — la soglia è capacità del forno.
                 below_threshold = (
                     t.minimum_weight_kg and t.minimum_weight_kg > 0
                     and batch_w < t.minimum_weight_kg
                 )
-                total_batch_cost = (
-                    (t.minimum_cost or 0.0) if below_threshold
-                    else (t.cost_per_kg or 0.0) * batch_w
-                )
 
-                if batch_w > 0:
-                    part_share = total_batch_cost * finished_weight / batch_w
+                # Modulo Stampi: trattamenti €/dm³ (nitrurazione, ecc) calcolano
+                # sul VOLUME del batch invece che sul peso. La quota part_share
+                # è proporzionale al volume del singolo pezzo.
+                if (t.cost_unit or 'kg') == 'dm3':
+                    batch_v = treatment_batch_volume.get(batch_key, 0.0)
+                    total_batch_cost = (
+                        (t.minimum_cost or 0.0) if below_threshold
+                        else (t.cost_per_dm3 or 0.0) * batch_v
+                    )
+                    part_vol = (
+                        (part.raw_x_mm or 0.0) * (part.raw_y_mm or 0.0)
+                        * (part.raw_z_mm or 0.0) / 1_000_000.0 * qty
+                    )
+                    if batch_v > 0:
+                        part_share = total_batch_cost * part_vol / batch_v
+                    else:
+                        part_share = 0.0
                 else:
-                    # batch_w=0 → tutte le parti del gruppo hanno peso 0:
-                    # stato invalido temporaneo (treatment selezionato ma peso
-                    # finito non compilato). Frontend mostra warning rosso sul
-                    # campo peso. Costo a 0 in attesa che l'utente compili.
-                    part_share = 0.0
+                    total_batch_cost = (
+                        (t.minimum_cost or 0.0) if below_threshold
+                        else (t.cost_per_kg or 0.0) * batch_w
+                    )
+                    if batch_w > 0:
+                        part_share = total_batch_cost * finished_weight / batch_w
+                    else:
+                        # batch_w=0 → tutte le parti del gruppo hanno peso 0:
+                        # stato invalido temporaneo (treatment selezionato ma peso
+                        # finito non compilato). Frontend mostra warning rosso sul
+                        # campo peso. Costo a 0 in attesa che l'utente compili.
+                        part_share = 0.0
                 phase.variable_cost_per_part = _round4(part_share / qty)
 
                 # Spedizione trattamento: quota proporzionale al peso PEZZO
@@ -407,6 +472,213 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         part.unit_price = round(max(part.total_cost, minimum) * (1 + margin / 100), 2)
         part.total_price = round(part.unit_price * qty, 2)
 
+    # Modulo Stampi: dopo aver ricalcolato L1 (materiali piastre per Part),
+    # aggrega L2-L5 nello snapshot DieSpec. La commit finale è sotto.
+    if quote.quote_type == 'die':
+        _recalculate_die_levels(quote, parts, db)
+
     db.commit()
+
+
+def _compute_castle_dimensions(spec: DieSpec) -> Tuple[float, float]:
+    """Calcola le dimensioni del castello (X, Y) a partire dalla DieSpec.
+
+    Passo:  strip_x = bbox_x × n_stations
+            strip_y = bbox_y + strip_offset_y
+    Blocco: strip_x = bbox_x + block_strip_offset
+            strip_y = bbox_y + block_strip_offset
+    Castle: castle_xy = strip_xy + 2 × castle_offset_xy
+    """
+    bbox_x = spec.bbox_x_mm or 0.0
+    bbox_y = spec.bbox_y_mm or 0.0
+    off_x = spec.castle_offset_x_mm or 0.0
+    off_y = spec.castle_offset_y_mm or 0.0
+
+    if spec.die_subtype == 'passo':
+        n_st = spec.n_stations or 1
+        strip_x = bbox_x * n_st
+        strip_y = bbox_y + (spec.strip_offset_y_mm or 0.0)
+    else:  # blocco
+        off = spec.block_strip_offset_mm or 0.0
+        strip_x = bbox_x + off
+        strip_y = bbox_y + off
+
+    castle_x = strip_x + 2 * off_x
+    castle_y = strip_y + 2 * off_y
+    return (round(castle_x, 2), round(castle_y, 2))
+
+
+def _bracket_coefficient(area_dm2: float, brackets) -> float:
+    """Lookup coefficiente fascia dimensionale per area castello in dm².
+    Regola: area_min ≤ area < area_max (ultima fascia ha area_max=NULL).
+    Fallback 1.0 se nessuna fascia matcha (config incompleta)."""
+    for b in brackets:
+        if b.area_min_dm2 <= area_dm2 and (b.area_max_dm2 is None or area_dm2 < b.area_max_dm2):
+            return b.coefficient or 1.0
+    return 1.0
+
+
+def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
+    """Aggrega i 7 livelli costo nel DieSpec del quote.
+
+    L1 = Σ Part.total_cost × qty (piastre, calcolate dal motore standard).
+    L2 = Σ DieNormalizedItem.qty × unit_price + spedizione aggregata
+         per NormalizedSupplier.shipping_cost (1 viaggio per fornitore).
+    L3 = (features × coeff_dim × coeff_diff) + (cost_per_plate_base × n_plates).
+    L4 = (design_hours[diff] × design_rate) + assembly_forfeit[diff] + extras_amount.
+    L5 = L1 + L2 + L3 + L4 — con override_*  matita che sostituisce la voce calcolata.
+    L6/L7 (margin + discount) applicati lato UI/PDF, non persistiti qui.
+
+    Se mode='rapid', delega a `_recalculate_die_rapid` che usa la formula
+    sintetica (weight × €/kg × difficoltà + accessori%).
+    """
+    spec = quote.die_spec
+    if not spec:
+        return
+
+    settings = db.query(DieSettings).filter(DieSettings.id == 1).first()
+    if not settings:
+        return
+
+    if spec.mode == 'rapid':
+        _recalculate_die_rapid(spec, settings, db)
+        return
+
+    # ── L1 Materiali piastre — somma dei costi totali delle Part-piastra.
+    cost_material = sum(
+        (p.total_cost or 0.0) * (p.quantity or 1)
+        for p in parts if p.plate_role
+    )
+
+    # ── L2 Normalizzati + spedizione aggregata per fornitore.
+    norm_items = db.query(DieNormalizedItem).filter(
+        DieNormalizedItem.quote_id == quote.id
+    ).options(joinedload(DieNormalizedItem.supplier)).all()
+    cost_normalized = sum(
+        (it.quantity or 0) * (it.unit_price or 0.0) for it in norm_items
+    )
+    # Spedizione: somma una sola volta per supplier_id distinto.
+    suppliers_used = {it.normalized_supplier_id for it in norm_items if it.normalized_supplier_id}
+    for sup_id in suppliers_used:
+        for it in norm_items:
+            if it.normalized_supplier_id == sup_id and it.supplier:
+                cost_normalized += (it.supplier.shipping_cost or 0.0)
+                break
+
+    # ── L3 Lavorazioni: feature × coeff_dim × coeff_diff + base × n_plates.
+    castle_x, castle_y = _compute_castle_dimensions(spec)
+    castle_area_dm2 = (castle_x * castle_y) / 10_000.0   # mm² → dm²
+    brackets = db.query(DieDimensionBracket).order_by(DieDimensionBracket.sort_order).all()
+    coeff_dim = _bracket_coefficient(castle_area_dm2, brackets)
+    diff = spec.difficulty or 'base'
+    coeff_diff = {
+        'base':   settings.diff_mult_base,
+        'medium': settings.diff_mult_medium,
+        'hard':   settings.diff_mult_hard,
+    }.get(diff, 1.0)
+
+    feature_cost = (
+        (spec.n_bends_simple   or 0) * (settings.cost_bend_simple   or 0.0)
+      + (spec.n_bends_medium   or 0) * (settings.cost_bend_medium   or 0.0)
+      + (spec.n_bends_complex  or 0) * (settings.cost_bend_complex  or 0.0)
+      + (spec.n_punches_simple or 0) * (settings.cost_punch_simple  or 0.0)
+      + (spec.n_punches_medium or 0) * (settings.cost_punch_medium  or 0.0)
+      + (spec.n_punches_complex or 0) * (settings.cost_punch_complex or 0.0)
+    )
+    n_plates = sum(1 for p in parts if p.plate_role)
+    cost_machining = (
+        feature_cost * coeff_dim * coeff_diff
+        + (settings.cost_per_plate_base or 0.0) * n_plates
+    )
+
+    # ── L4 Accessori: progettazione + montaggio + extras.
+    design_hours = {
+        'base':   settings.design_hours_base,
+        'medium': settings.design_hours_medium,
+        'hard':   settings.design_hours_hard,
+    }.get(diff, 0.0) or 0.0
+    assembly = {
+        'base':   settings.assembly_forfeit_base,
+        'medium': settings.assembly_forfeit_medium,
+        'hard':   settings.assembly_forfeit_hard,
+    }.get(diff, 0.0) or 0.0
+    cost_accessories = (
+        design_hours * (settings.design_hourly_rate or 0.0)
+        + assembly
+        + (spec.extras_amount or 0.0)
+    )
+
+    # Override "matita": NULL = usa calcolato, altrimenti forza valore manuale.
+    eff_material      = spec.override_material      if spec.override_material      is not None else cost_material
+    eff_normalized    = spec.override_normalized    if spec.override_normalized    is not None else cost_normalized
+    eff_machining     = spec.override_machining     if spec.override_machining     is not None else cost_machining
+    eff_accessories   = spec.override_accessories   if spec.override_accessories   is not None else cost_accessories
+
+    spec.cost_material    = round(cost_material, 2)
+    spec.cost_normalized  = round(cost_normalized, 2)
+    spec.cost_machining   = round(cost_machining, 2)
+    spec.cost_accessories = round(cost_accessories, 2)
+    spec.cost_industrial  = round(eff_material + eff_normalized + eff_machining + eff_accessories, 2)
+    # Rapida: pulisci range (era impostato se l'utente ha switchato modalità).
+    spec.rapid_min = 0.0
+    spec.rapid_max = 0.0
+
+
+def _recalculate_die_rapid(spec: DieSpec, settings: DieSettings, db: Session) -> None:
+    """Modalità Rapida — stima ±tol% sul prezzo industriale.
+
+    Formula sintetica:
+      volume_dm3 = bbox_x × bbox_y × n_plates_avg × thickness_avg / 1_000_000
+      weight_kg  = volume_dm3 × density_steel (7.85)
+      cost_mat   = weight_kg × rapid_eur_per_kg
+      feature    = (Σ bends + Σ punches per fascia) × cost_per_unit × diff_mult
+      cost_acc   = cost_mat × rapid_accessories_percent / 100
+      industrial = cost_mat + feature + cost_acc + extras
+      range      = industrial × (1 ∓ tol)
+    """
+    bbox_x = spec.bbox_x_mm or 0.0
+    bbox_y = spec.bbox_y_mm or 0.0
+    n_pl = settings.rapid_n_plates_avg or 5
+    th = settings.rapid_thickness_avg_mm or 28.0
+    volume_dm3 = (bbox_x * bbox_y * n_pl * th) / 1_000_000.0
+    weight_kg = volume_dm3 * _DIE_RAPID_STEEL_DENSITY
+    cost_material = weight_kg * (settings.rapid_eur_per_kg or 0.0)
+
+    diff = spec.difficulty or 'base'
+    coeff_diff = {
+        'base':   settings.diff_mult_base,
+        'medium': settings.diff_mult_medium,
+        'hard':   settings.diff_mult_hard,
+    }.get(diff, 1.0)
+
+    feature_cost = (
+        (spec.n_bends_simple   or 0) * (settings.cost_bend_simple   or 0.0)
+      + (spec.n_bends_medium   or 0) * (settings.cost_bend_medium   or 0.0)
+      + (spec.n_bends_complex  or 0) * (settings.cost_bend_complex  or 0.0)
+      + (spec.n_punches_simple or 0) * (settings.cost_punch_simple  or 0.0)
+      + (spec.n_punches_medium or 0) * (settings.cost_punch_medium  or 0.0)
+      + (spec.n_punches_complex or 0) * (settings.cost_punch_complex or 0.0)
+    ) * coeff_diff
+
+    cost_accessories = cost_material * (settings.rapid_accessories_percent or 0.0) / 100.0
+    industrial = cost_material + feature_cost + cost_accessories + (spec.extras_amount or 0.0)
+
+    tol = (settings.rapid_tolerance_percent or 20.0) / 100.0
+    spec.cost_material    = round(cost_material, 2)
+    spec.cost_normalized  = 0.0
+    spec.cost_machining   = round(feature_cost, 2)
+    spec.cost_accessories = round(cost_accessories, 2)
+    spec.cost_industrial  = round(industrial, 2)
+    spec.rapid_min        = round(industrial * (1 - tol), 2)
+    spec.rapid_max        = round(industrial * (1 + tol), 2)
+
+
+def recalculate_die_quote(quote_id: int, db: Session) -> None:
+    """Wrapper pubblico: ricalcola un preventivo stampo (delega a `recalculate_quote`).
+
+    Esiste come API esplicita per call-site che vogliono dichiarare l'intent
+    ('sto ricalcolando uno stampo, non un preventivo generico'). Internamente
+    il dispatch è già nel branch finale di `recalculate_quote`."""
+    recalculate_quote(quote_id, db)
 
 

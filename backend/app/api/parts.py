@@ -5,14 +5,16 @@ import logging
 import os
 
 from app.core.database import get_db
-from app.core.security import require_permission, get_current_user
+from app.core.security import require_permission, require_any_permission, get_current_user
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut
 from app.services.calculation import recalculate_part, recalculate_quote
 from app.api.quotes import ensure_editable
 
 logger = logging.getLogger(__name__)
-_can_write = require_permission('quotes.create')
+# Endpoint condiviso tra preventivi standard e stampi: chi modifica una Part
+# può avere `quotes.create` (standard) OPPURE `dies.create` (stampi).
+_can_write = require_any_permission('quotes.create', 'dies.create')
 
 
 def _quote_for_part(part_id: int, db: Session) -> Quote:

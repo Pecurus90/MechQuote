@@ -3,13 +3,15 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import require_permission, get_current_user
+from app.core.security import require_permission, require_any_permission, get_current_user
 from app.models import ManufacturingPhase, Part, Quote, User
 from app.schemas import PhaseCreate, PhaseUpdate, PhaseOut
 from app.services.calculation import recalculate_part
 from app.api.quotes import ensure_editable
 
-_can_write = require_permission('quotes.create')
+# Endpoint condiviso tra preventivi standard e stampi (piastre = Part con
+# plate_role, fasi standard sulle piastre).
+_can_write = require_any_permission('quotes.create', 'dies.create')
 
 
 def _quote_for_part(part_id: int, db: Session) -> Quote:

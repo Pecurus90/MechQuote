@@ -464,19 +464,14 @@ export default function NewDieQuotePage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setStep('code')} className="text-gray-500 hover:text-rose-700 flex items-center gap-1 text-sm">
-            <ArrowLeft className="w-4 h-4" /> Cambia codice / tipo
-          </button>
-          <div className="text-sm font-mono font-semibold text-rose-700 bg-rose-50 px-3 py-1 rounded">{quoteNumber}</div>
-          <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
-            {subtype === 'passo' ? 'A Passo (Progressivo)' : 'A Blocco'}
-          </span>
-        </div>
-        <Button onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Creazione…' : 'Crea preventivo'}
-        </Button>
+      <div className="flex items-center gap-3">
+        <button onClick={() => setStep('code')} className="text-gray-500 hover:text-rose-700 flex items-center gap-1 text-sm">
+          <ArrowLeft className="w-4 h-4" /> Cambia codice / tipo
+        </button>
+        <div className="text-sm font-mono font-semibold text-rose-700 bg-rose-50 px-3 py-1 rounded">{quoteNumber}</div>
+        <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+          {subtype === 'passo' ? 'A Passo (Progressivo)' : 'A Blocco'}
+        </span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -692,6 +687,21 @@ export default function NewDieQuotePage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Submit "evidente" — sticky insieme ai due render, sempre visibile
+                senza dover scorrere in alto. */}
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving}
+              className={`w-full py-4 rounded-xl border-2 text-base font-semibold transition-all shadow-md ${
+                saving
+                  ? 'bg-gray-200 border-gray-200 text-gray-500 cursor-wait'
+                  : 'bg-rose-600 border-rose-700 text-white hover:bg-rose-700 hover:shadow-lg active:scale-[0.99]'
+              }`}
+            >
+              {saving ? 'Creazione preventivo…' : 'Crea preventivo →'}
+            </button>
           </div>
         </div>
       </div>

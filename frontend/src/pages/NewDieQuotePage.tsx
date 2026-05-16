@@ -26,6 +26,31 @@ function Label({ children, className = '' }: { children: React.ReactNode; classN
   return <label className={`text-xs font-medium text-gray-600 block mb-1 ${className}`}>{children}</label>
 }
 
+/** Toggle "pill" ad alta visibilità per scelte multi-opzione (modalità,
+ *  difficoltà, tipologia). I Button variant=default/outline standard non
+ *  segnalano abbastanza la selezione attiva: questo segmented riempie di
+ *  rosa il bottone attivo + bordo spesso, hover state preview rosa chiaro. */
+function SegmentedButton({
+  selected, onClick, children, disabled = false,
+}: { selected: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+        disabled
+          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+          : selected
+            ? 'border-rose-600 bg-rose-600 text-white shadow-sm'
+            : 'border-gray-200 bg-white text-gray-700 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50/50'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 type Step = 'code' | 'settings'
 
 export default function NewDieQuotePage() {
@@ -453,8 +478,8 @@ export default function NewDieQuotePage() {
             <CardHeader><CardTitle className="text-base">Modalità di stima</CardTitle></CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                <Button variant={mode === 'detailed' ? 'default' : 'outline'} onClick={() => setMode('detailed')}>Dettagliata</Button>
-                <Button variant={mode === 'rapid' ? 'default' : 'outline'} onClick={() => setMode('rapid')}>Rapida (range)</Button>
+                <SegmentedButton selected={mode === 'detailed'} onClick={() => setMode('detailed')}>Dettagliata</SegmentedButton>
+                <SegmentedButton selected={mode === 'rapid'} onClick={() => setMode('rapid')}>Rapida (range)</SegmentedButton>
               </div>
             </CardContent>
           </Card>
@@ -604,9 +629,9 @@ export default function NewDieQuotePage() {
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 {(['base', 'medium', 'hard'] as DieDifficulty[]).map(d => (
-                  <Button key={d} variant={difficulty === d ? 'default' : 'outline'} onClick={() => setDifficulty(d)}>
+                  <SegmentedButton key={d} selected={difficulty === d} onClick={() => setDifficulty(d)}>
                     {d === 'base' ? 'Base' : d === 'medium' ? 'Media' : 'Alta'}
-                  </Button>
+                  </SegmentedButton>
                 ))}
               </div>
               <div className="grid grid-cols-3 gap-2">

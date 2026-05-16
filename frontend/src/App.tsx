@@ -34,6 +34,7 @@ import ToolAttributesPage from '@/pages/settings/ToolAttributesPage'
 import MaterialSuppliersPage from '@/pages/settings/MaterialSuppliersPage'
 import TreatmentSuppliersPage from '@/pages/settings/TreatmentSuppliersPage'
 import NormalizedSuppliersPage from '@/pages/settings/NormalizedSuppliersPage'
+import DiesSettingsPage from '@/pages/settings/DiesSettingsPage'
 import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
 import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
 import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
@@ -101,6 +102,7 @@ function AppRoutes() {
         <Route path="settings/edm/cycles"   element={<ProtectedRoute permission="settings"><CuttingCyclesPage /></ProtectedRoute>} />
         <Route path="settings/edm/drilling" element={<ProtectedRoute permission="settings"><DrillingTimesPage /></ProtectedRoute>} />
         <Route path="settings/edm/config"   element={<ProtectedRoute permission="settings"><EdmConfigPage /></ProtectedRoute>} />
+        <Route path="settings/dies"         element={<ProtectedRoute permission="dies.settings"><DiesSettingsPage /></ProtectedRoute>} />
 
         {/* Clienti */}
         <Route path="settings/customers" element={

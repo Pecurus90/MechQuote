@@ -624,6 +624,9 @@ class DashboardKPI(BaseModel):
     total_part_codes: int
     cnc_quoted_value: float
     edm_quoted_value: float
+    # Modulo Stampi: valore preventivato dei quote_type='die' (industriale ×
+    # margine × sconto), escluso dal split CNC/EDM.
+    dies_quoted_value: float = 0.0
 
 
 class MonthlyData(BaseModel):

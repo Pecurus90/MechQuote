@@ -346,13 +346,19 @@ export interface DashboardQuoteRow {
 export interface QuoteListItem {
   id: number
   quote_number: string
+  quote_type?: string             // 'single' | 'commessa' | 'die'
   customer_name: string
   quote_date: string
   status: string
+  global_margin_percent?: number
+  global_discount_percent?: number
   created_by_user_id?: number | null
   material_ordered_at?: string | null
   material_ordered_by?: UserMinimal | null
   parts: { total_price?: number }[]
+  // Modulo Stampi: presente solo per quote_type==='die'. Usato per calcolare
+  // il `display_price` dell'archivio (cost_industrial × margin × discount).
+  die_spec?: { cost_industrial: number } | null
 }
 
 // Template di flusso lavoro: sequenza di (Macchina + Lavorazione).
@@ -399,6 +405,8 @@ export interface DashboardKPI {
   total_part_codes: number
   cnc_quoted_value: number
   edm_quoted_value: number
+  // Modulo Stampi: prezzo finale (industriale × margine × sconto) cumulato.
+  dies_quoted_value?: number
 }
 
 // ─── Wire EDM ───────────────────────────────────────────────────────────────

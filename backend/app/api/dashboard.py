@@ -70,17 +70,39 @@ def get_kpi(db: Session = Depends(get_db), _=_can_view):
     # 3. Conteggio totale parti (codici)
     total_part_codes = db.execute(text("SELECT COUNT(*) AS n FROM parts")).scalar() or 0
 
-    # 4. Split CNC/EDM per quote_mode (somma parti.total_price condizionale)
+    # 4. Split CNC/EDM per quote_mode (somma parti.total_price condizionale).
+    # Esclude i preventivi tipo 'die' (le piastre stampo non sono CNC/EDM
+    # nel senso lavorazione-cliente, sono materiale interno dello stampo).
     mode_split = db.execute(text(
         """
         SELECT
-          COALESCE(SUM(CASE WHEN quote_mode IN ('manual','step','mixed') THEN total_price ELSE 0 END), 0) AS cnc,
-          COALESCE(SUM(CASE WHEN quote_mode IN ('dxf','mixed') THEN total_price ELSE 0 END), 0) AS edm
-        FROM parts
+          COALESCE(SUM(CASE WHEN p.quote_mode IN ('manual','step','mixed') THEN p.total_price ELSE 0 END), 0) AS cnc,
+          COALESCE(SUM(CASE WHEN p.quote_mode IN ('dxf','mixed') THEN p.total_price ELSE 0 END), 0) AS edm
+        FROM parts p
+        JOIN quotes q ON q.id = p.quote_id
+        WHERE q.quote_type != 'die' OR q.quote_type IS NULL
         """
     )).first()
     cnc_value = float(mode_split.cnc or 0.0)
     edm_value = float(mode_split.edm or 0.0)
+
+    # 5. Modulo Stampi: valore preventivato per quote_type='die'. Il prezzo
+    # finale è cost_industrial × (1 + margin%) × (1 - discount%); somma su
+    # tutti i preventivi stampo (non solo i 'completato', allineato al resto
+    # del KPI che include anche bozze e inviati).
+    dies_value = db.execute(text(
+        """
+        SELECT COALESCE(SUM(
+          ds.cost_industrial
+          * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+          * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+        ), 0) AS v
+        FROM die_specs ds
+        JOIN quotes q ON q.id = ds.quote_id
+        WHERE q.quote_type = 'die'
+        """
+    )).scalar() or 0.0
+    dies_quoted_value = float(dies_value)
 
     return DashboardKPI(
         total_quotes=total_quotes,
@@ -93,6 +115,7 @@ def get_kpi(db: Session = Depends(get_db), _=_can_view):
         total_part_codes=int(total_part_codes),
         cnc_quoted_value=round(cnc_value, 2),
         edm_quoted_value=round(edm_value, 2),
+        dies_quoted_value=round(dies_quoted_value, 2),
     )
 
 

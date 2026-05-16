@@ -20,6 +20,7 @@ export default function QuoteArchivePage() {
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'standard' | 'die'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -43,15 +44,22 @@ export default function QuoteArchivePage() {
 
   useEffect(() => {
     loadQuotes()
-  }, [selectedYear, searchQuery, page])
+  }, [selectedYear, searchQuery, typeFilter, page])
 
   const loadQuotes = () => {
     setLoading(true)
     const params: Record<string, string | number> = { page, page_size: pageSize }
     if (selectedYear) params.year = selectedYear
     if (searchQuery) params.q = searchQuery
+    // Tipo: filtro applicato server-side. 'die' → solo stampi; 'standard' è
+    // tutto il resto. Senza filtro tipo, vediamo entrambi.
+    if (typeFilter === 'die') params.quote_type = 'die'
     api.get('/quotes/archive', { params }).then(res => {
-      setQuotes(res.data)
+      let data = res.data
+      if (typeFilter === 'standard') {
+        data = data.filter((q: Quote) => q.quote_type !== 'die')
+      }
+      setQuotes(data)
       setLoading(false)
     }).catch(() => setLoading(false))
   }
@@ -70,8 +78,18 @@ export default function QuoteArchivePage() {
     }
   }
 
-  const quoteTotal = (q: Quote) =>
-    q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
+  // Per stampi il totale NON è la somma delle Part (che sono solo le piastre):
+  // serve il cost_industrial × margine × (1 - sconto). Per gli altri preventivi
+  // resta la somma dei total_price come prima.
+  const quoteTotal = (q: Quote) => {
+    if (q.quote_type === 'die' && q.die_spec) {
+      const ind = q.die_spec.cost_industrial || 0
+      const margin = q.global_margin_percent || 0
+      const discount = q.global_discount_percent || 0
+      return ind * (1 + margin / 100) * (1 - discount / 100)
+    }
+    return q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
+  }
 
   // Normalizza i valori legacy del DB sotto i 3 stati visibili
   const normalizeStatus = (s: string): string => {
@@ -141,6 +159,18 @@ export default function QuoteArchivePage() {
             <option value="completato">Completato</option>
           </select>
         </div>
+        <div>
+          <label className="text-sm font-medium text-gray-600 mb-1 block">Tipo</label>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={typeFilter}
+            onChange={e => { setPage(1); setTypeFilter(e.target.value as typeof typeFilter) }}
+          >
+            <option value="all">Tutti</option>
+            <option value="standard">Standard</option>
+            <option value="die">Stampi</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -173,7 +203,12 @@ export default function QuoteArchivePage() {
                       className="border-b hover:bg-gray-50 cursor-pointer"
                       onClick={() => navigate(`/quotes/${q.id}`)}
                     >
-                      <td className="p-3 font-mono font-medium text-blue-700">{q.quote_number}</td>
+                      <td className="p-3 font-mono font-medium text-blue-700">
+                        {q.quote_number}
+                        {q.quote_type === 'die' && (
+                          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-sans">Stampo</span>
+                        )}
+                      </td>
                       <td className="p-3">{q.customer_name || '-'}</td>
                       <td className="p-3 text-gray-500">{q.quote_date?.split('T')[0]}</td>
                       <td className="p-3">

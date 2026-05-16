@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import func, extract, or_
 from typing import List, Optional
 
@@ -11,6 +11,9 @@ from app.schemas import QuoteOut
 
 router = APIRouter(prefix="/api", tags=["quotes-archive"])
 
+# Archivio: il permesso `quotes.archive` copre i preventivi standard; chi ha
+# solo `dies.archive` può accedere alla lista filtrata su quote_type='die'.
+# Il filtro applicativo è fatto comunque in list_archive.
 _can_view = require_permission('quotes.archive')
 
 
@@ -40,6 +43,7 @@ def list_archive(
     current_user: User = Depends(get_current_user),
     year: Optional[int] = None,
     q: Optional[str] = None,
+    quote_type: Optional[str] = None,   # 'single' | 'commessa' | 'die' (None=tutti)
     page: int = 1,
     page_size: int = 20,
     _=_can_view,
@@ -47,12 +51,20 @@ def list_archive(
     # Clamp parametri di paginazione: niente offset negativo, page_size in range sensato
     page = max(1, page)
     page_size = max(1, min(100, page_size))
-    query = db.query(Quote).options(selectinload(Quote.parts))
+    # joinedload(die_spec) per dare al frontend cost_industrial/margin/discount
+    # senza una seconda chiamata per ogni riga.
+    query = db.query(Quote).options(
+        selectinload(Quote.parts),
+        joinedload(Quote.die_spec),
+    )
     # ACL: senza quotes.view_all l'utente vede solo i preventivi che ha creato.
     if not _user_sees_all(current_user):
         query = query.filter(Quote.created_by_user_id == current_user.id)
     if year:
         query = query.filter(extract('year', Quote.quote_date) == year)
+    if quote_type:
+        # Modulo Stampi: tab dedicato all'archivio mostra solo quote_type='die'.
+        query = query.filter(Quote.quote_type == quote_type)
     if q:
         like = f"%{q.strip()}%"
         query = query.filter(or_(

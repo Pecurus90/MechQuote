@@ -31,14 +31,20 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.security import require_permission
+from app.core.security import require_permission, require_any_permission
 from app.models import (
     Quote, Part, ManufacturingPhase, Material, CompanySettings,
+    DieSpec, DieNormalizedItem,
 )
 
 router = APIRouter(prefix="/api", tags=["pdf"])
 
-_can_pdf = require_permission('quotes.pdf')
+# Endpoint condiviso: chi ha `quotes.pdf` può scaricare il PDF di un preventivo
+# standard, chi ha `dies.pdf` può scaricare il PDF di un preventivo stampo.
+# Backend non distingue al gating: chi ha l'una o l'altra può richiedere il PDF;
+# se in pratica l'utente clicca su un quote_type che non corrisponde al suo
+# permesso, il bottone PDF sarà nascosto dal frontend (gating UI separato).
+_can_pdf = require_any_permission('quotes.pdf', 'dies.pdf')
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -726,6 +732,175 @@ def _render_footer(cs) -> str:
     return f'<div class="doc-footer">{_esc(co_name)} &nbsp;·&nbsp; Documento generato da MechQuote</div>\n'
 
 
+# ─── Modulo Stampi: PDF dedicato ────────────────────────────────────────────
+
+_PLATE_ROLE_LABELS = {
+    'cappello': 'Cappello',
+    'porta_punzoni': 'Porta punzoni',
+    'premilamiera': 'Premilamiera',
+    'matrice': 'Matrice',
+    'base': 'Base',
+}
+
+_DIFFICULTY_LABELS = {'base': 'Base', 'medium': 'Media', 'hard': 'Alta'}
+
+
+def _render_die_quote(quote: Quote, spec: DieSpec, parts, items, cur: str) -> str:
+    """Render contenuto specifico stampo: dati, piastre, normalizzati, L1-L7.
+
+    Pensato per essere chiamato DOPO header + meta-bar, e PRIMA di
+    notes + footer. Restituisce frammento HTML.
+    """
+    margin = quote.global_margin_percent or 0.0
+    discount = quote.global_discount_percent or 0.0
+
+    eff_material    = spec.override_material    if spec.override_material    is not None else spec.cost_material
+    eff_normalized  = spec.override_normalized  if spec.override_normalized  is not None else spec.cost_normalized
+    eff_machining   = spec.override_machining   if spec.override_machining   is not None else spec.cost_machining
+    eff_accessories = spec.override_accessories if spec.override_accessories is not None else spec.cost_accessories
+
+    industrial = eff_material + eff_normalized + eff_machining + eff_accessories
+    with_margin = industrial * (1 + margin / 100)
+    final_price = with_margin * (1 - discount / 100)
+
+    def _override_marker(override) -> str:
+        return ' <span style="color:#d97706;font-size:9px;">[manuale]</span>' if override is not None else ''
+
+    # ── Box dati stampo
+    parts_html = [
+        '<div class="part-card">',
+        '<div class="part-card-header"><span class="part-card-title">Dati stampo</span></div>',
+        '<table class="data-table" style="width:100%;border-collapse:collapse;">',
+        f'<tr><td><strong>Tipo</strong></td><td>{_esc(spec.die_subtype)}</td>'
+        f'<td><strong>Modalità</strong></td><td>{_esc(spec.mode)}</td>'
+        f'<td><strong>Difficoltà</strong></td><td>{_esc(_DIFFICULTY_LABELS.get(spec.difficulty or "base"))}</td></tr>',
+        f'<tr><td><strong>Pezzo X×Y</strong></td>'
+        f'<td>{_fmt_eur(spec.bbox_x_mm or 0, 1)} × {_fmt_eur(spec.bbox_y_mm or 0, 1)} mm</td>'
+        f'<td><strong>Spessore</strong></td><td>{_fmt_eur(spec.sheet_thickness_mm or 0, 2)} mm</td>'
+        f'<td><strong>Consegna</strong></td><td>{spec.delivery_days or "—"} gg</td></tr>',
+        f'<tr><td><strong>Pieghe</strong></td>'
+        f'<td colspan="2">{spec.n_bends_simple or 0} sempl. + {spec.n_bends_medium or 0} med. + {spec.n_bends_complex or 0} compl.</td>'
+        f'<td><strong>Punzoni</strong></td>'
+        f'<td colspan="2">{spec.n_punches_simple or 0} sempl. + {spec.n_punches_medium or 0} med. + {spec.n_punches_complex or 0} compl.</td></tr>',
+        '</table>',
+        '</div>',
+    ]
+
+    # ── Box piastre
+    if parts:
+        parts_html.append('<div class="part-card">')
+        parts_html.append('<div class="part-card-header"><span class="part-card-title">Piastre castello</span></div>')
+        parts_html.append('<table class="phases-table" style="width:100%;border-collapse:collapse;font-size:11px;">')
+        parts_html.append(
+            '<thead><tr style="background:#f9fafb;">'
+            '<th style="text-align:left;padding:6px 8px;">Ruolo</th>'
+            '<th style="text-align:left;padding:6px 8px;">Materiale</th>'
+            '<th style="text-align:right;padding:6px 8px;">X × Y × Z (mm)</th>'
+            '<th style="text-align:right;padding:6px 8px;">Costo (€)</th>'
+            '</tr></thead><tbody>'
+        )
+        for p in parts:
+            role = _PLATE_ROLE_LABELS.get(p.plate_role or '', p.plate_role or '—')
+            mat = p.material.name if p.material else '—'
+            dims = (
+                f"{_fmt_eur(p.raw_x_mm or 0, 1)} × {_fmt_eur(p.raw_y_mm or 0, 1)} × {_fmt_eur(p.raw_z_mm or 0, 1)}"
+            )
+            parts_html.append(
+                f'<tr style="border-top:1px solid #e5e7eb;">'
+                f'<td style="padding:5px 8px;">{_esc(role)}</td>'
+                f'<td style="padding:5px 8px;">{_esc(mat)}</td>'
+                f'<td style="padding:5px 8px;text-align:right;">{dims}</td>'
+                f'<td style="padding:5px 8px;text-align:right;">{_fmt_eur(p.total_cost or 0)} {cur}</td>'
+                f'</tr>'
+            )
+        parts_html.append('</tbody></table></div>')
+
+    # ── Box normalizzati (raggruppati per supplier)
+    if items:
+        from collections import defaultdict
+        groups: dict = defaultdict(list)
+        for it in items:
+            key = it.supplier.name if it.supplier else 'Senza fornitore'
+            groups[key].append(it)
+        parts_html.append('<div class="part-card">')
+        parts_html.append('<div class="part-card-header"><span class="part-card-title">Normalizzati</span></div>')
+        for supplier_name, group in groups.items():
+            parts_html.append(f'<div style="font-weight:600;margin:8px 0 4px;">{_esc(supplier_name)}</div>')
+            parts_html.append('<table class="phases-table" style="width:100%;border-collapse:collapse;font-size:11px;">')
+            parts_html.append(
+                '<thead><tr style="background:#f9fafb;">'
+                '<th style="text-align:left;padding:5px 8px;">Descrizione</th>'
+                '<th style="text-align:right;padding:5px 8px;width:60px;">Qty</th>'
+                '<th style="text-align:right;padding:5px 8px;width:90px;">€/u</th>'
+                '<th style="text-align:right;padding:5px 8px;width:90px;">Totale</th>'
+                '</tr></thead><tbody>'
+            )
+            for it in group:
+                tot = (it.quantity or 0) * (it.unit_price or 0.0)
+                parts_html.append(
+                    f'<tr style="border-top:1px solid #e5e7eb;">'
+                    f'<td style="padding:4px 8px;">{_esc(it.description)}</td>'
+                    f'<td style="padding:4px 8px;text-align:right;">{it.quantity or 0}</td>'
+                    f'<td style="padding:4px 8px;text-align:right;">{_fmt_eur(it.unit_price or 0)}</td>'
+                    f'<td style="padding:4px 8px;text-align:right;">{_fmt_eur(tot)}</td>'
+                    f'</tr>'
+                )
+            parts_html.append('</tbody></table>')
+        parts_html.append('</div>')
+
+    # ── Riepilogo costi L1-L7
+    parts_html.append('<div class="part-card">')
+    parts_html.append('<div class="part-card-header"><span class="part-card-title">Riepilogo costi</span></div>')
+    parts_html.append('<table class="cost-table" style="width:100%;border-collapse:collapse;font-size:12px;">')
+    rows = [
+        ('L1 Materiale piastre',   eff_material,   spec.override_material),
+        ('L2 Normalizzati + spedizione', eff_normalized, spec.override_normalized),
+        ('L3 Lavorazioni (feature × coeff)', eff_machining, spec.override_machining),
+        ('L4 Accessori (design + montaggio + extras)', eff_accessories, spec.override_accessories),
+    ]
+    for label, value, override in rows:
+        parts_html.append(
+            f'<tr style="border-bottom:1px solid #e5e7eb;">'
+            f'<td style="padding:6px 8px;">{label}{_override_marker(override)}</td>'
+            f'<td style="padding:6px 8px;text-align:right;">{_fmt_eur(value)} {cur}</td>'
+            f'</tr>'
+        )
+    parts_html.append(
+        f'<tr style="background:#f3f4f6;font-weight:600;">'
+        f'<td style="padding:7px 8px;">L5 Costo industriale</td>'
+        f'<td style="padding:7px 8px;text-align:right;">{_fmt_eur(industrial)} {cur}</td>'
+        f'</tr>'
+    )
+    parts_html.append(
+        f'<tr><td style="padding:5px 8px;">L6 Margine ({_fmt_eur(margin, 1)}%)</td>'
+        f'<td style="padding:5px 8px;text-align:right;">+ {_fmt_eur(with_margin - industrial)} {cur}</td></tr>'
+    )
+    if discount > 0:
+        parts_html.append(
+            f'<tr><td style="padding:5px 8px;">L7 Sconto ({_fmt_eur(discount, 1)}%)</td>'
+            f'<td style="padding:5px 8px;text-align:right;color:#6b7280;">− {_fmt_eur(with_margin - final_price)} {cur}</td></tr>'
+        )
+    parts_html.append('</table></div>')
+
+    # ── Prezzo finale (grande)
+    if spec.mode == 'rapid' and spec.rapid_min and spec.rapid_max:
+        parts_html.append(
+            f'<div class="totals" style="padding:18px 24px;text-align:center;background:#1e293b;color:#fff;border-radius:6px;">'
+            f'<div style="font-size:12px;opacity:.75;margin-bottom:4px;">Stima rapida (±tol)</div>'
+            f'<div style="font-size:26px;font-weight:700;">{_fmt_eur(spec.rapid_min, 0)} — {_fmt_eur(spec.rapid_max, 0)} {cur}</div>'
+            f'</div>'
+        )
+    else:
+        parts_html.append(
+            f'<div class="totals" style="padding:18px 24px;display:flex;justify-content:space-between;align-items:baseline;background:#1e293b;color:#fff;border-radius:6px;">'
+            f'<span style="font-size:13px;opacity:.85;">Prezzo finale</span>'
+            f'<span style="font-size:26px;font-weight:700;">{_fmt_eur(final_price)} {cur}</span>'
+            f'</div>'
+        )
+
+    return ''.join(parts_html)
+
+
 # ─── Generazione PDF ────────────────────────────────────────────────────────
 
 def generate_quote_pdf(quote_id: int, db: Session) -> str:
@@ -762,6 +937,37 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
         _render_header(quote, cs),
         _render_meta_bar(quote),
     ]
+
+    # Modulo Stampi: branch dedicato. Salta tutto il rendering standard
+    # (parti × fasi × totali) e usa il layout L1-L7 specifico.
+    if quote.quote_type == 'die':
+        spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+        norm_items = db.query(DieNormalizedItem).options(
+            joinedload(DieNormalizedItem.supplier)
+        ).filter(DieNormalizedItem.quote_id == quote_id).all()
+        if spec:
+            html_parts.append(_render_die_quote(quote, spec, parts, norm_items, cur))
+        html_parts.append(_render_notes(quote))
+        html_parts.append(_render_footer(cs))
+        html_parts.append('</body></html>')
+        # Skip standard rendering pipeline below.
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.set_content(''.join(html_parts), wait_until="networkidle")
+            pdf_bytes = page.pdf(format="A4", margin={
+                "top": "14mm", "bottom": "18mm", "left": "12mm", "right": "12mm"
+            }, print_background=True)
+            browser.close()
+        tmp = tempfile.NamedTemporaryFile(
+            delete=False, suffix=".pdf",
+            prefix=f"preventivo_stampo_{quote_id}_"
+        )
+        tmp.write(pdf_bytes)
+        tmp.close()
+        return tmp.name
+
     if not parts:
         # Avviso esplicito invece di un PDF muto: senza questo blocco l'utente
         # scarica un PDF con solo intestazione + totali a zero, senza capire

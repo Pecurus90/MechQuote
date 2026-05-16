@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight, AlertTriangle, Wrench } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight, AlertTriangle, Wrench, Hammer } from 'lucide-react'
 import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
@@ -163,8 +163,12 @@ function StatusPill({ label, value, color }: { label: string; value: number; col
 function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
   const diff = kpi.percentage_diff
   const diffPositive = diff >= 0
+  // Card "Valore stampi" mostrata solo quando ci sono preventivi stampo
+  // in archivio: per officine senza modulo stampi attivo, la dashboard
+  // resta a 4 card come prima.
+  const showDies = (kpi.dies_quoted_value ?? 0) > 0
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className={`grid grid-cols-2 ${showDies ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
       <Card>
         <CardHeader className="pb-1">
           <CardDescription>Valore totale preventivato</CardDescription>
@@ -209,6 +213,18 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
           su {kpi.total_quotes} preventivi
         </CardContent>
       </Card>
+
+      {showDies && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription className="flex items-center gap-1.5"><Hammer className="w-3.5 h-3.5" /> Valore stampi</CardDescription>
+            <CardTitle className="text-3xl text-rose-700">{fmtEur(kpi.dies_quoted_value || 0)} €</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-gray-500">
+            Preventivi modulo Stampi
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

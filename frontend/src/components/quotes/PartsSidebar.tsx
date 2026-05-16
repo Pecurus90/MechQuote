@@ -53,11 +53,7 @@ export default function PartsSidebar({
             }`}
           >
             <div className="flex items-center justify-between gap-1">
-              <span className="text-sm font-medium text-gray-800 truncate">
-                {part.plate_role
-                  ? part.plate_role.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
-                  : <span className="font-mono">{part.part_code}</span>}
-              </span>
+              <span className="text-sm font-mono font-medium text-gray-800 truncate">{part.part_code}</span>
               <div className="flex items-center gap-1 shrink-0">
                 {partsWithIssues.has(idx) && (
                   <span className="text-amber-500 text-xs" title="Dati mancanti">⚠</span>

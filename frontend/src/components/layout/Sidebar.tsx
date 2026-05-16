@@ -296,16 +296,6 @@ export default function Sidebar() {
                   </>
                 )}
 
-                {hasPermission('dies.settings') && (
-                  <>
-                    <p className={sectionLabelClass}>Stampi</p>
-                    <NavLink to="/settings/dies" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Hammer className="w-3.5 h-3.5 shrink-0" />
-                      <span>Tariffe & fasce</span>
-                    </NavLink>
-                  </>
-                )}
-
                 {showAziendaSection && (
                   <>
                     <p className={sectionLabelClass}>Azienda</p>

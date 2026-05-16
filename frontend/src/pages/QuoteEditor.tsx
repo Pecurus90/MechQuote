@@ -15,11 +15,6 @@ import QuoteBottomBar from '@/components/quotes/QuoteBottomBar'
 import QuoteValidationModal from '@/components/quotes/QuoteValidationModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import QuoteTopBar from '@/pages/QuoteEditor/QuoteTopBar'
-import DieSpecPanel from '@/components/quotes/DieSpecPanel'
-import DieCostSummary from '@/components/quotes/DieCostSummary'
-import DieIsometricView from '@/components/quotes/DieIsometricView'
-import SimilarDiesPanel from '@/components/quotes/SimilarDiesPanel'
-import NormalizedItemsEditor from '@/components/quotes/NormalizedItemsEditor'
 import { validateQuote } from '@/lib/quoteValidation'
 import type { PartIssue } from '@/lib/quoteValidation'
 import { toast } from 'sonner'
@@ -330,7 +325,6 @@ export default function QuoteEditor() {
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   const isLocked = quote.status !== 'bozza' && !hasRole('admin')
-  const isDie = quote.quote_type === 'die'
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-gray-50">
@@ -339,25 +333,9 @@ export default function QuoteEditor() {
         isLocked={isLocked}
         saving={saving}
         canSubmit={hasPermission('quotes.send')}
-        canCloneDie={isDie && hasPermission('dies.create')}
         onSave={saveQuote}
         onSubmitForReview={submitForReview}
         onPdfClick={handlePdfClick}
-        onCloneDie={async () => {
-          if (!quote.id) return
-          if (!confirm('Duplicare questo preventivo come nuova revisione?')) return
-          setSaving(true)
-          try {
-            const res = await api.post(`/dies/${quote.id}/clone`)
-            toast.success(`Revisione creata: ${res.data.quote_number}`)
-            navigate(`/quotes/${res.data.id}`)
-          } catch (e) {
-            const err = e as { response?: { data?: { detail?: string } } }
-            toast.error(err?.response?.data?.detail || 'Errore nella duplicazione')
-          } finally {
-            setSaving(false)
-          }
-        }}
       />
 
       {isLocked && (
@@ -383,53 +361,7 @@ export default function QuoteEditor() {
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-          {/* ─── Branch Preventivatore Stampi ─── */}
-          {isDie && selectedPartIdx === -1 && quote.die_spec && (
-            <>
-              <DieCostSummary quote={quote} spec={quote.die_spec} />
-              {!quote.die_spec.quick_mode && quote.parts.length > 0 && (
-                <DieIsometricView plates={quote.parts} />
-              )}
-              <DieSpecPanel
-                spec={quote.die_spec}
-                readOnly={isLocked}
-                onChange={next => setQuote(q => q ? { ...q, die_spec: next } : q)}
-                onSaved={reloadQuote}
-              />
-              {quote.id && <SimilarDiesPanel quoteId={quote.id} />}
-            </>
-          )}
-          {isDie && selectedPartIdx >= 0 && selectedPart && (
-            <>
-              <PartCard
-                part={selectedPart}
-                machines={machines}
-                materials={materials}
-                suppliers={suppliers}
-                treatments={treatments}
-                nParts={quote.parts.length || 1}
-                globalMarginPercent={quote.global_margin_percent}
-                siblings={quote.parts.filter((_, i) => i !== selectedPartIdx)}
-                companySettings={companySettings}
-                readOnly={isLocked}
-                onUpdate={updates => updatePart(selectedPartIdx, updates)}
-                onSave={(override) => savePart(selectedPartIdx, override)}
-                onPhasesChange={phases => updatePart(selectedPartIdx, { phases })}
-                onReload={() => reloadPart(selectedPartIdx)}
-              />
-              {selectedPart.id && (
-                <NormalizedItemsEditor
-                  partId={selectedPart.id}
-                  items={selectedPart.normalized_items || []}
-                  readOnly={isLocked}
-                  onChanged={reloadQuote}
-                />
-              )}
-            </>
-          )}
-
-          {/* ─── Branch standard (manuale + 2D) ─── */}
-          {!isDie && selectedPartIdx === -1 && quote.parts.length > 1 && (
+          {selectedPartIdx === -1 && quote.parts.length > 1 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Riepilogo Commessa</CardTitle>
@@ -501,7 +433,7 @@ export default function QuoteEditor() {
           )}
 
           {/* Quote details panel (solo branch standard) */}
-          {!isDie && selectedPartIdx === -1 && (
+          {selectedPartIdx === -1 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Dati Preventivo</CardTitle>
@@ -559,11 +491,11 @@ export default function QuoteEditor() {
             </Card>
           )}
 
-          {!isDie && selectedPartIdx >= 0 && !selectedPart && (
+          {selectedPartIdx >= 0 && !selectedPart && (
             <div className="text-center text-gray-400 pt-16">Seleziona una parte dalla lista</div>
           )}
 
-          {!isDie && selectedPartIdx >= 0 && selectedPart && (
+          {selectedPartIdx >= 0 && selectedPart && (
             <PartCard
               part={selectedPart}
               machines={machines}

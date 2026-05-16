@@ -33,8 +33,7 @@ const modes = [
     icon: Hammer,
     title: 'Preventivazione Stampi',
     description: 'Modulo dedicato per stampi e trance lamiera. Configurazione di blocchi, matrici, punzoni e fasi specifiche del settore stampaggio.',
-    available: true,
-    to: '/quotes/die/new',
+    available: false,
     color: 'rose',
   },
 ] as const
@@ -59,10 +58,10 @@ const colorMap = {
     button: '',
   },
   rose: {
-    card: 'border-rose-200 hover:border-rose-400 hover:shadow-rose-100',
-    icon: 'bg-rose-100 text-rose-600',
-    badge: 'bg-rose-600 text-white',
-    button: 'bg-rose-600 hover:bg-rose-700 text-white',
+    card: 'border-gray-200 opacity-60',
+    icon: 'bg-rose-100 text-rose-500',
+    badge: 'bg-gray-200 text-gray-500',
+    button: '',
   },
 }
 

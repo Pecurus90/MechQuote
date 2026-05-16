@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Pencil, X, Copy, Search } from 'lucide-react'
+import { Pencil, X, Send, FileText, Save, AlertCircle } from 'lucide-react'
 
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type {
   Quote, DieSpec, DieNormalizedItem, NormalizedSupplier, Material, Treatment,
-  DieDifficulty, DieSubtype, Part,
+  DieDifficulty, Part,
 } from '@/types'
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -27,9 +28,10 @@ const PLATE_ROLE_LABELS: Record<string, string> = {
 
 export default function DieQuoteEditor() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { hasPermission } = useAuth()
   const canWrite = hasPermission('dies.create')
+  const canSubmit = hasPermission('quotes.send')
+  const canPdf = hasPermission('quotes.pdf') || hasPermission('dies.pdf')
 
   const [quote, setQuote] = useState<Quote | null>(null)
   const [spec, setSpec] = useState<DieSpec | null>(null)
@@ -42,6 +44,19 @@ export default function DieQuoteEditor() {
   const [saving, setSaving] = useState(false)
   const [editingOverride, setEditingOverride] = useState<null | 'material' | 'normalized' | 'machining' | 'accessories'>(null)
   const [overrideValue, setOverrideValue] = useState('')
+
+  // Dirty tracking: ogni handler modifica SOLO lo state locale e accumula
+  // il "patch" che verrà inviato col click Salva. Pattern allineato al
+  // preventivo manuale (QuoteEditor.tsx): niente autosave on-change.
+  // Mappiamo i patch invece di solo gli id per non sovrascrivere campi
+  // auto-fillati dal backend (es. raw_x/y delle piastre dopo PUT spec).
+  const [dirtySpec, setDirtySpec] = useState<Partial<DieSpec> | null>(null)
+  const [dirtyQuote, setDirtyQuote] = useState<Partial<Quote> | null>(null)
+  const [dirtyParts, setDirtyParts] = useState<Map<number, Partial<Part>>>(new Map())
+  const [dirtyItems, setDirtyItems] = useState<Map<number, Partial<DieNormalizedItem>>>(new Map())
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
+
+  const isDirty = !!dirtySpec || !!dirtyQuote || dirtyParts.size > 0 || dirtyItems.size > 0
 
   const load = async () => {
     if (!id) return
@@ -61,6 +76,11 @@ export default function DieQuoteEditor() {
       setMaterials(mats.data)
       setTreatments(treats.data)
       setSuppliers(sups.data)
+      // Reset dirty al refresh dati
+      setDirtySpec(null)
+      setDirtyQuote(null)
+      setDirtyParts(new Map())
+      setDirtyItems(new Map())
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'Errore caricamento')
     } finally {
@@ -76,39 +96,43 @@ export default function DieQuoteEditor() {
 
   const editable = quote.status === 'bozza'
 
-  const saveSpec = async (patch: Partial<DieSpec>) => {
-    setSaving(true)
-    try {
-      const res = await api.put(`/dies/${id}/spec`, patch)
-      setSpec(res.data)
-      // Ricarica anche le parts perché i raw_x/y delle piastre possono
-      // essere auto-aggiornate dal castello.
-      const q = await api.get(`/dies/${id}`)
-      setParts(q.data.parts || [])
-      setQuote(q.data)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore salvataggio')
-    } finally {
-      setSaving(false)
-    }
+  // ─── Local mutators (state-only, mark dirty) ────────────────────────────
+  const setSpecLocal = (patch: Partial<DieSpec>) => {
+    setSpec(s => s ? { ...s, ...patch } : s)
+    setDirtySpec(d => ({ ...(d || {}), ...patch }))
+  }
+
+  const setQuoteLocal = (patch: Partial<Quote>) => {
+    setQuote(q => q ? { ...q, ...patch } : q)
+    setDirtyQuote(d => ({ ...(d || {}), ...patch }))
+  }
+
+  const updatePartLocal = (partId: number, patch: Partial<Part>) => {
+    setParts(ps => ps.map(p => p.id === partId ? { ...p, ...patch } : p))
+    setDirtyParts(m => {
+      const next = new Map(m)
+      next.set(partId, { ...next.get(partId), ...patch })
+      return next
+    })
+  }
+
+  const updateItemLocal = (itemId: number, patch: Partial<DieNormalizedItem>) => {
+    setNormalizedItems(items => items.map(i => i.id === itemId ? { ...i, ...patch } : i))
+    setDirtyItems(m => {
+      const next = new Map(m)
+      next.set(itemId, { ...next.get(itemId), ...patch })
+      return next
+    })
   }
 
   const setOverride = (key: 'material' | 'normalized' | 'machining' | 'accessories', value: number | null) => {
     const k = `override_${key}` as keyof DieSpec
-    saveSpec({ [k]: value } as Partial<DieSpec>)
+    setSpecLocal({ [k]: value } as Partial<DieSpec>)
     setEditingOverride(null)
     setOverrideValue('')
   }
 
-  const updatePart = async (partId: number, patch: Partial<Part>) => {
-    try {
-      await api.put(`/parts/${partId}`, patch)
-      await load()
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore aggiornamento piastra')
-    }
-  }
-
+  // ─── Operazioni di lista (immediate POST/DELETE, eccezione strutturale) ─
   const addNormalizedItem = async () => {
     try {
       await api.post(`/dies/${id}/normalized-items`, {
@@ -122,15 +146,6 @@ export default function DieQuoteEditor() {
     }
   }
 
-  const updateNormalizedItem = async (itemId: number, patch: Partial<DieNormalizedItem>) => {
-    try {
-      await api.put(`/dies/${id}/normalized-items/${itemId}`, patch)
-      await load()
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore aggiornamento normalizzato')
-    }
-  }
-
   const deleteNormalizedItem = async (itemId: number) => {
     try {
       await api.delete(`/dies/${id}/normalized-items/${itemId}`)
@@ -140,13 +155,73 @@ export default function DieQuoteEditor() {
     }
   }
 
-  const cloneRev = async () => {
+  // ─── Save consolidato ───────────────────────────────────────────────────
+  // Ordine: quote → spec → parts → items. Spec prima delle parts perché il
+  // backend può auto-riallineare X/Y delle piastre dopo un cambio di
+  // geometria del castello; mandando le parts dirty dopo, le sovrascriviamo
+  // (ma solo nei campi che l'utente ha effettivamente modificato).
+  const handleSave = async (): Promise<boolean> => {
+    if (!isDirty) return true
+    setSaving(true)
     try {
-      const res = await api.post(`/dies/${id}/clone`)
-      toast.success(`Creata revisione ${res.data.quote_number}`)
-      navigate(`/quotes/${res.data.id}`)
+      if (dirtyQuote && quote) {
+        await api.put(`/quotes/${id}`, {
+          ...dirtyQuote,
+          quote_type: quote.quote_type,  // immutabilità rispetta dal BE
+        })
+      }
+      if (dirtySpec) {
+        await api.put(`/dies/${id}/spec`, dirtySpec)
+      }
+      for (const [partId, patch] of dirtyParts) {
+        await api.put(`/parts/${partId}`, patch)
+      }
+      for (const [itemId, patch] of dirtyItems) {
+        await api.put(`/dies/${id}/normalized-items/${itemId}`, patch)
+      }
+      await load()  // reset dirty + fresh state
+      toast.success('Modifiche salvate')
+      return true
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore duplicazione')
+      toast.error(e?.response?.data?.detail || 'Errore salvataggio')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Invia per revisione: prima salva eventuali pending, poi PATCH status.
+  const performSubmit = async () => {
+    setConfirmSubmit(false)
+    if (isDirty) {
+      const ok = await handleSave()
+      if (!ok) return
+    }
+    setSaving(true)
+    try {
+      await api.patch(`/quotes/${id}/status`, { status: 'inviato' })
+      toast.success('Preventivo inviato per revisione')
+      await load()
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Errore invio')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    try {
+      const res = await api.get(`/quotes/${id}/pdf`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `preventivo_stampo_${quote?.quote_number || id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Errore download PDF')
     }
   }
 
@@ -209,16 +284,36 @@ export default function DieQuoteEditor() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold">{quote.quote_number}</h1>
-            <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700">Stampo</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+              Stampo {spec.die_subtype === 'passo' ? 'a Passo' : 'a Blocco'}
+            </span>
             <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{quote.status}</span>
+            {isDirty && (
+              <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />Modifiche non salvate
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-500">{quote.customer_name || 'Cliente non specificato'}</p>
         </div>
         <div className="flex gap-2">
-          {canWrite && <Button variant="outline" onClick={cloneRev}><Copy className="w-4 h-4 mr-1" />Duplica rev</Button>}
-          <Button variant="outline" onClick={() => navigate('/quotes/archive')}>Archivio</Button>
+          {editable && canSubmit && (
+            <Button variant="outline" disabled={saving} onClick={() => setConfirmSubmit(true)}>
+              <Send className="w-4 h-4 mr-1" /> Invia per revisione
+            </Button>
+          )}
+          {canPdf && (
+            <Button variant="outline" onClick={handleDownloadPdf}>
+              <FileText className="w-4 h-4 mr-1" /> PDF
+            </Button>
+          )}
+          {editable && canWrite && (
+            <Button disabled={saving || !isDirty} onClick={handleSave}>
+              <Save className="w-4 h-4 mr-1" /> {saving ? 'Salvataggio…' : 'Salva'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -228,26 +323,14 @@ export default function DieQuoteEditor() {
           <Card>
             <CardHeader><CardTitle className="text-base">Dati stampo</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <Label>Tipo</Label>
-                  <select
-                    disabled={!editable || !canWrite}
-                    className="flex h-9 w-full rounded-md border px-2 text-sm"
-                    value={spec.die_subtype}
-                    onChange={e => saveSpec({ die_subtype: e.target.value as DieSubtype })}
-                  >
-                    <option value="passo">Passo</option>
-                    <option value="blocco">Blocco</option>
-                  </select>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label>Difficoltà</Label>
                   <select
                     disabled={!editable || !canWrite}
                     className="flex h-9 w-full rounded-md border px-2 text-sm"
                     value={spec.difficulty}
-                    onChange={e => saveSpec({ difficulty: e.target.value as DieDifficulty })}
+                    onChange={e => setSpecLocal({ difficulty: e.target.value as DieDifficulty })}
                   >
                     <option value="base">Base</option>
                     <option value="medium">Media</option>
@@ -260,7 +343,7 @@ export default function DieQuoteEditor() {
                     type="number"
                     disabled={!editable || !canWrite}
                     value={spec.delivery_days ?? ''}
-                    onChange={e => saveSpec({ delivery_days: e.target.value ? parseInt(e.target.value, 10) : null })}
+                    onChange={e => setSpecLocal({ delivery_days: e.target.value ? parseInt(e.target.value, 10) : null })}
                   />
                 </div>
               </div>
@@ -269,21 +352,21 @@ export default function DieQuoteEditor() {
                   <Label>Pezzo X (mm)</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.bbox_x_mm}
-                    onChange={e => saveSpec({ bbox_x_mm: parseFloat(e.target.value) || 0 })}
+                    onChange={e => setSpecLocal({ bbox_x_mm: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>Pezzo Y (mm)</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.bbox_y_mm}
-                    onChange={e => saveSpec({ bbox_y_mm: parseFloat(e.target.value) || 0 })}
+                    onChange={e => setSpecLocal({ bbox_y_mm: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>Spessore (mm)</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.sheet_thickness_mm}
-                    onChange={e => saveSpec({ sheet_thickness_mm: parseFloat(e.target.value) || 0 })}
+                    onChange={e => setSpecLocal({ sheet_thickness_mm: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
               </div>
@@ -292,42 +375,42 @@ export default function DieQuoteEditor() {
                   <Label>P semp</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.n_bends_simple}
-                    onChange={e => saveSpec({ n_bends_simple: parseInt(e.target.value, 10) || 0 })}
+                    onChange={e => setSpecLocal({ n_bends_simple: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>P media</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.n_bends_medium}
-                    onChange={e => saveSpec({ n_bends_medium: parseInt(e.target.value, 10) || 0 })}
+                    onChange={e => setSpecLocal({ n_bends_medium: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>P compl</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.n_bends_complex}
-                    onChange={e => saveSpec({ n_bends_complex: parseInt(e.target.value, 10) || 0 })}
+                    onChange={e => setSpecLocal({ n_bends_complex: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>Pz semp</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.n_punches_simple}
-                    onChange={e => saveSpec({ n_punches_simple: parseInt(e.target.value, 10) || 0 })}
+                    onChange={e => setSpecLocal({ n_punches_simple: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>Pz media</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.n_punches_medium}
-                    onChange={e => saveSpec({ n_punches_medium: parseInt(e.target.value, 10) || 0 })}
+                    onChange={e => setSpecLocal({ n_punches_medium: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
                 <div>
                   <Label>Pz compl</Label>
                   <Input type="number" disabled={!editable || !canWrite}
                     value={spec.n_punches_complex}
-                    onChange={e => saveSpec({ n_punches_complex: parseInt(e.target.value, 10) || 0 })}
+                    onChange={e => setSpecLocal({ n_punches_complex: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
               </div>
@@ -361,7 +444,7 @@ export default function DieQuoteEditor() {
                             disabled={!editable || !canWrite}
                             className="w-14 text-right border-b border-gray-200 bg-transparent"
                             value={p.raw_z_mm || 0}
-                            onChange={e => p.id && updatePart(p.id, { raw_z_mm: parseFloat(e.target.value) || 0 })}
+                            onChange={e => p.id && updatePartLocal(p.id, { raw_z_mm: parseFloat(e.target.value) || 0 })}
                           />
                         </td>
                         <td className="pl-2 py-1">
@@ -369,7 +452,7 @@ export default function DieQuoteEditor() {
                             disabled={!editable || !canWrite}
                             className="text-xs h-6 w-full"
                             value={p.material_id || ''}
-                            onChange={e => p.id && updatePart(p.id, { material_id: e.target.value ? Number(e.target.value) : undefined })}
+                            onChange={e => p.id && updatePartLocal(p.id, { material_id: e.target.value ? Number(e.target.value) : undefined })}
                           >
                             <option value="">—</option>
                             {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -415,7 +498,7 @@ export default function DieQuoteEditor() {
                             disabled={!editable || !canWrite}
                             className="w-full border-b border-gray-200 bg-transparent text-sm"
                             value={it.description}
-                            onChange={e => updateNormalizedItem(it.id, { description: e.target.value })}
+                            onChange={e => updateItemLocal(it.id, { description: e.target.value })}
                           />
                         </td>
                         <td className="py-1">
@@ -423,7 +506,7 @@ export default function DieQuoteEditor() {
                             disabled={!editable || !canWrite}
                             className="text-xs h-6 w-full"
                             value={it.normalized_supplier_id || ''}
-                            onChange={e => updateNormalizedItem(it.id, { normalized_supplier_id: e.target.value ? Number(e.target.value) : null })}
+                            onChange={e => updateItemLocal(it.id, { normalized_supplier_id: e.target.value ? Number(e.target.value) : null })}
                           >
                             <option value="">—</option>
                             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -433,14 +516,14 @@ export default function DieQuoteEditor() {
                           <input type="number" disabled={!editable || !canWrite}
                             className="w-12 text-right border-b border-gray-200 bg-transparent"
                             value={it.quantity}
-                            onChange={e => updateNormalizedItem(it.id, { quantity: parseInt(e.target.value, 10) || 1 })}
+                            onChange={e => updateItemLocal(it.id, { quantity: parseInt(e.target.value, 10) || 1 })}
                           />
                         </td>
                         <td className="text-right py-1">
                           <input type="number" disabled={!editable || !canWrite}
                             className="w-16 text-right border-b border-gray-200 bg-transparent"
                             value={it.unit_price}
-                            onChange={e => updateNormalizedItem(it.id, { unit_price: parseFloat(e.target.value) || 0 })}
+                            onChange={e => updateItemLocal(it.id, { unit_price: parseFloat(e.target.value) || 0 })}
                           />
                         </td>
                         <td className="text-right py-1">€ {(it.quantity * it.unit_price).toFixed(2)}</td>
@@ -514,29 +597,34 @@ export default function DieQuoteEditor() {
                 <Label>Margine (%)</Label>
                 <Input type="number" disabled={!editable || !canWrite}
                   value={quote.global_margin_percent}
-                  onChange={async e => {
-                    const v = parseFloat(e.target.value) || 0
-                    await api.put(`/quotes/${id}`, { global_margin_percent: v, quote_type: quote.quote_type })
-                    setQuote({ ...quote, global_margin_percent: v })
-                  }}
+                  onChange={e => setQuoteLocal({ global_margin_percent: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div>
                 <Label>Sconto (%)</Label>
                 <Input type="number" disabled={!editable || !canWrite}
                   value={quote.global_discount_percent}
-                  onChange={async e => {
-                    const v = parseFloat(e.target.value) || 0
-                    await api.put(`/quotes/${id}`, { global_discount_percent: v, quote_type: quote.quote_type })
-                    setQuote({ ...quote, global_discount_percent: v })
-                  }}
+                  onChange={e => setQuoteLocal({ global_discount_percent: parseFloat(e.target.value) || 0 })}
                 />
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-      {saving && <div className="fixed bottom-4 right-4 px-3 py-2 rounded bg-gray-800 text-white text-sm">Salvataggio…</div>}
+
+      <ConfirmDialog
+        open={confirmSubmit}
+        title="Inviare per revisione?"
+        description={
+          isDirty
+            ? "Le modifiche non salvate verranno salvate prima dell'invio. Dopo l'invio il preventivo non sarà più modificabile (salvo da admin)."
+            : "Dopo l'invio il preventivo non sarà più modificabile (salvo da admin)."
+        }
+        confirmLabel="Invia per revisione"
+        variant="destructive"
+        onConfirm={performSubmit}
+        onCancel={() => setConfirmSubmit(false)}
+      />
     </div>
   )
 }

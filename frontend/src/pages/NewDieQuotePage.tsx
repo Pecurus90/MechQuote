@@ -585,7 +585,7 @@ export default function NewDieQuotePage() {
               {subtype === 'passo' ? (
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <Label>N. stazioni *</Label>
+                    <Label>N. passi *</Label>
                     <Input type="number" value={nStations}
                       onChange={e => setNStations(e.target.value)} placeholder="3" />
                   </div>
@@ -594,9 +594,6 @@ export default function NewDieQuotePage() {
                     <Input type="number" value={pitchMm}
                       onChange={e => setPitchMm(e.target.value)}
                       placeholder="distanza tra ripetizioni" />
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Distanza centro–centro tra una stazione e l'altra. Default = X pezzo (no gap).
-                    </p>
                   </div>
                   <div>
                     <Label>Offset Y striscia (mm)</Label>

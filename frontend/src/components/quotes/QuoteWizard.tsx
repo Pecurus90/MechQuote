@@ -1,20 +1,17 @@
-// Wizard creazione preventivo manuale.
-//
-// Pattern allineato a NewDieQuotePage Step 1 (codice composto + 2
-// card-button per tipologia) e usa le primitive shared:
-// PageContainer, SettingsPageHeader, PrimaryCtaButton.
+// Wizard creazione preventivo manuale — pattern IDENTICO a
+// NewDieQuotePage Step 1: composizione codice +
+// 2 card-button per il tipo che fanno direttamente il submit.
 //
 // Logica funzionale invariata: combobox cliente con autocomplete +
-// composizione codice {cli3}-{aa}{cat}_{prog3} + POST /api/quotes.
+// formula {cli3}-{aa}{cat}_{prog3} + POST /api/quotes. I parametri
+// (data, margine, qty default) restano a valori di default del
+// backend e si rifiniscono nell'editor del preventivo.
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { FileText, Layers } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import PageContainer from '@/components/ui/page-container'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import type { Category, Customer } from '@/types'
 import api from '@/lib/api'
-import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 
 interface Props {
@@ -23,22 +20,18 @@ interface Props {
   onCreated: (quoteId: number) => void
 }
 
+type QuoteType = 'single' | 'commessa'
+
 
 export default function QuoteWizard({ categories, customers, onCreated }: Props) {
   const currentYear = new Date().getFullYear().toString().slice(-2)
-  const [form, setForm] = useState({
-    customer_id: '',
-    customer_name: '',
-    customer_code: '',
-    year: currentYear,
-    category_code: categories[0]?.code || 'A',
-    progressive: '',
-    quote_type: 'single' as 'single' | 'commessa',
-    num_components: 2,
-    default_quantity: 1,
-    global_margin_percent: 20,
-    quote_date: new Date().toISOString().split('T')[0],
-  })
+  const [customerId, setCustomerId] = useState<string>('')
+  const [customerName, setCustomerName] = useState<string>('')
+  const [customerCode, setCustomerCode] = useState<string>('')
+  const [customerReference, setCustomerReference] = useState<string>('')
+  const [year, setYear] = useState<string>(currentYear)
+  const [categoryCode, setCategoryCode] = useState<string>(categories[0]?.code || 'A')
+  const [progressive, setProgressive] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerOpen, setCustomerOpen] = useState(false)
@@ -63,41 +56,34 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
     ).slice(0, 10)
   }, [customers, customerSearch])
 
-  const set = (k: keyof typeof form, v: unknown) => setForm(f => ({ ...f, [k]: v }))
-
-  const selectCustomer = (customerId: string) => {
-    const cust = customers.find(c => c.id === Number(customerId))
-    setForm(f => ({
-      ...f,
-      customer_id: customerId,
-      customer_name: cust?.name || '',
-      customer_code: cust ? String(cust.customer_number).padStart(3, '0') : f.customer_code,
-    }))
+  const selectCustomer = (c: Customer) => {
+    setCustomerId(String(c.id))
+    setCustomerName(c.name)
+    setCustomerCode(String(c.customer_number).padStart(3, '0'))
+    setCustomerSearch('')
+    setCustomerOpen(false)
   }
 
-  const quoteNumber = form.customer_code && form.progressive
-    ? `${form.customer_code}-${form.year}${form.category_code}_${form.progressive.padStart(3, '0')}`
+  const quoteNumber = customerCode && progressive
+    ? `${customerCode}-${year}${categoryCode}_${progressive.padStart(3, '0')}`
     : ''
 
-  const submit = async () => {
-    const missing: string[] = []
-    if (!form.customer_code) missing.push('Codice cliente')
-    if (!form.progressive) missing.push('Numero progressivo')
-    if (missing.length > 0) {
-      toast.error(`Campi mancanti: ${missing.join(', ')}`)
+  const canProceed = !!(customerCode && progressive && categoryCode && year)
+
+  const proceedTo = async (type: QuoteType) => {
+    if (!canProceed) {
+      toast.error('Compila cliente, categoria e progressivo prima di scegliere il tipo')
       return
     }
     setSaving(true)
     try {
       const res = await api.post('/quotes', {
         quote_number: quoteNumber,
-        quote_type: form.quote_type,
-        num_components: form.quote_type === 'commessa' ? form.num_components : undefined,
-        default_quantity: form.default_quantity,
-        customer_id: form.customer_id ? Number(form.customer_id) : undefined,
-        customer_name: form.customer_name,
-        global_margin_percent: form.global_margin_percent,
-        quote_date: form.quote_date,
+        quote_type: type,
+        num_components: type === 'commessa' ? 2 : undefined,
+        customer_id: customerId ? Number(customerId) : undefined,
+        customer_name: customerName || undefined,
+        customer_reference: customerReference || undefined,
       })
       onCreated(res.data.id)
     } catch (e) {
@@ -109,18 +95,18 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
     }
   }
 
-  const canSubmit = !!(form.customer_code && form.progressive && form.category_code && form.year)
-
   return (
-    <PageContainer>
-      <SettingsPageHeader
-        icon={FileText}
-        color="blue"
-        title="Nuovo Preventivo Manuale"
-        subtitle="Componi il codice e scegli il tipo di preventivo"
-      />
+    <div className="p-6 max-w-4xl mx-auto space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+          <FileText className="w-5 h-5" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold">Nuovo Preventivo Manuale</h1>
+          <p className="text-xs text-gray-500">Componi il codice e scegli il tipo</p>
+        </div>
+      </div>
 
-      {/* Cliente & codice preventivo */}
       <Card>
         <CardHeader><CardTitle className="text-base">Cliente & codice preventivo</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -130,14 +116,13 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               <Input
                 className="h-9"
                 placeholder="Cerca per nome o codice cliente…"
-                value={customerSearch || form.customer_name}
+                value={customerSearch || customerName}
                 onFocus={() => setCustomerOpen(true)}
                 onChange={e => {
-                  const v = e.target.value
-                  setCustomerSearch(v)
+                  setCustomerSearch(e.target.value)
                   setCustomerOpen(true)
-                  // se l'utente digita liberamente, scollega l'anagrafica
-                  setForm(f => ({ ...f, customer_id: '', customer_name: v }))
+                  setCustomerId('')
+                  setCustomerName(e.target.value)
                 }}
               />
               {customerOpen && filteredCustomers.length > 0 && (
@@ -147,24 +132,19 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                       key={c.id}
                       type="button"
                       className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-3 border-b last:border-0"
-                      onMouseDown={e => {
-                        e.preventDefault()
-                        setCustomerSearch('')
-                        setCustomerOpen(false)
-                        selectCustomer(String(c.id))
-                      }}
+                      onMouseDown={e => { e.preventDefault(); selectCustomer(c) }}
                     >
                       <span className="font-mono text-xs text-gray-400 w-10 shrink-0">
                         {String(c.customer_number).padStart(3, '0')}
                       </span>
-                      <span className="text-sm text-gray-800 truncate">{c.name}</span>
+                      <span className="text-sm">{c.name}</span>
                     </button>
                   ))}
                 </div>
               )}
-              {form.customer_id && (
+              {customerId && (
                 <p className="mt-1 text-xs text-blue-700 font-medium">
-                  ✓ {String(customers.find(c => c.id === Number(form.customer_id))?.customer_number).padStart(3, '0')} — {form.customer_name}
+                  ✓ {customerCode} — {customerName}
                 </p>
               )}
             </div>
@@ -176,20 +156,20 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               <Input
                 className="w-16 text-center font-mono h-9"
                 maxLength={3}
-                value={form.customer_code}
-                onChange={e => set('customer_code', e.target.value.replace(/\D/g, '').slice(0, 3))}
+                value={customerCode}
+                onChange={e => setCustomerCode(e.target.value.replace(/\D/g, '').slice(0, 3))}
               />
               <span className="text-gray-400">-</span>
               <Input
                 className="w-12 text-center font-mono h-9"
                 maxLength={2}
-                value={form.year}
-                onChange={e => set('year', e.target.value.replace(/\D/g, '').slice(0, 2))}
+                value={year}
+                onChange={e => setYear(e.target.value.replace(/\D/g, '').slice(0, 2))}
               />
               <select
                 className="h-9 rounded-md border bg-background px-2 text-sm font-mono w-40"
-                value={form.category_code}
-                onChange={e => set('category_code', e.target.value)}
+                value={categoryCode}
+                onChange={e => setCategoryCode(e.target.value)}
               >
                 {categories.map(c => (
                   <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
@@ -199,8 +179,8 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               <Input
                 className="w-20 text-center font-mono h-9"
                 maxLength={3}
-                value={form.progressive}
-                onChange={e => set('progressive', e.target.value.replace(/\D/g, '').slice(0, 3))}
+                value={progressive}
+                onChange={e => setProgressive(e.target.value.replace(/\D/g, '').slice(0, 3))}
                 placeholder="001"
               />
             </div>
@@ -210,24 +190,29 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               </p>
             )}
           </div>
+
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Riferimento cliente (opzionale)</label>
+            <Input value={customerReference} onChange={e => setCustomerReference(e.target.value)} placeholder="es. RDA-2026-001" />
+          </div>
         </CardContent>
       </Card>
 
-      {/* Tipo preventivo — 2 card-button grandi, stile NewDieQuotePage */}
       <Card>
         <CardHeader><CardTitle className="text-base">Tipo preventivo</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() => set('quote_type', 'single')}
-              className={`relative p-6 rounded-xl border-2 text-left transition-all bg-white ${
-                form.quote_type === 'single'
-                  ? 'border-blue-600 shadow-md ring-2 ring-blue-100'
-                  : 'border-blue-200 hover:border-blue-400 hover:shadow-md cursor-pointer'
+              disabled={!canProceed || saving}
+              onClick={() => proceedTo('single')}
+              className={`relative p-6 rounded-xl border-2 text-left transition-all ${
+                canProceed && !saving
+                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer bg-white'
+                  : 'border-gray-200 opacity-50 cursor-not-allowed bg-gray-50'
               }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
                 <FileText className="w-6 h-6" />
               </div>
               <h3 className="font-semibold text-lg">Preventivo singolo</h3>
@@ -236,99 +221,29 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
 
             <button
               type="button"
-              onClick={() => set('quote_type', 'commessa')}
-              className={`relative p-6 rounded-xl border-2 text-left transition-all bg-white ${
-                form.quote_type === 'commessa'
-                  ? 'border-blue-600 shadow-md ring-2 ring-blue-100'
-                  : 'border-blue-200 hover:border-blue-400 hover:shadow-md cursor-pointer'
+              disabled={!canProceed || saving}
+              onClick={() => proceedTo('commessa')}
+              className={`relative p-6 rounded-xl border-2 text-left transition-all ${
+                canProceed && !saving
+                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer bg-white'
+                  : 'border-gray-200 opacity-50 cursor-not-allowed bg-gray-50'
               }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
                 <Layers className="w-6 h-6" />
               </div>
               <h3 className="font-semibold text-lg">Commessa multi-parti</h3>
-              <p className="text-sm text-gray-500 mt-1">Più componenti del preventivo (es. assieme con N codici): le parti vengono pre-create dal sistema.</p>
+              <p className="text-sm text-gray-500 mt-1">Più componenti del preventivo: il sistema crea N parti pre-codificate (default 2, modificabili nell'editor).</p>
             </button>
           </div>
+          {!canProceed && (
+            <p className="text-xs text-amber-600 mt-3">Compila cliente, categoria e progressivo per sbloccare la scelta.</p>
+          )}
+          {saving && (
+            <p className="text-xs text-gray-500 mt-3">Creazione preventivo…</p>
+          )}
         </CardContent>
       </Card>
-
-      {/* Parametri */}
-      <Card>
-        <CardHeader><CardTitle className="text-base">Parametri</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {form.quote_type === 'commessa' && (
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">N° componenti</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={50}
-                  className="h-9"
-                  value={form.num_components}
-                  onFocus={e => e.currentTarget.select()}
-                  onChange={e => set('num_components', parseInt(e.target.value, 10) || 1)}
-                />
-              </div>
-            )}
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Data</label>
-              <Input
-                type="date"
-                className="h-9"
-                value={form.quote_date}
-                onChange={e => set('quote_date', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Margine default (%)</label>
-              <Input
-                type="number"
-                min={0}
-                max={200}
-                step={1}
-                className="h-9"
-                value={form.global_margin_percent}
-                onFocus={e => e.currentTarget.select()}
-                onChange={e => set('global_margin_percent', parseDecimal(e.target.value) || 0)}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">
-                {form.quote_type === 'commessa' ? 'Qtà per componente' : 'Quantità pezzi'}
-              </label>
-              <Input
-                type="number"
-                min={1}
-                className="h-9"
-                value={form.default_quantity}
-                onFocus={e => e.currentTarget.select()}
-                onChange={e => set('default_quantity', parseInt(e.target.value, 10) || 1)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* CTA finale full-width, stile wizard stampi */}
-      <button
-        type="button"
-        onClick={submit}
-        disabled={saving || !canSubmit}
-        className={`w-full py-4 rounded-xl border-2 text-base font-semibold transition-all shadow-md ${
-          saving || !canSubmit
-            ? 'bg-gray-200 border-gray-200 text-gray-500 cursor-not-allowed'
-            : 'bg-blue-600 border-blue-700 text-white hover:bg-blue-700 hover:shadow-lg active:scale-[0.99]'
-        }`}
-      >
-        {saving ? 'Creazione preventivo…' : 'Crea preventivo →'}
-      </button>
-      {!canSubmit && (
-        <p className="text-xs text-amber-600 text-center -mt-3">
-          Compila cliente, categoria e progressivo per sbloccare la creazione
-        </p>
-      )}
-    </PageContainer>
+    </div>
   )
 }

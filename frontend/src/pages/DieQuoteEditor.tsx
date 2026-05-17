@@ -65,8 +65,16 @@ export default function DieQuoteEditor() {
     if (!id) return
     setLoading(true)
     try {
-      const [q, ni, mats, treats, sups, ds, bs] = await Promise.all([
-        api.get(`/dies/${id}`),
+      // Core endpoints (devono riuscire o l'editor non parte):
+      const q = await api.get(`/dies/${id}`)
+      setQuote(q.data)
+      setSpec(q.data.die_spec)
+      setParts(q.data.parts || [])
+
+      // Endpoint secondari (Promise.allSettled): se uno fallisce, l'editor
+      // si carica lo stesso usando i dati che ha. Es: senza die-settings i
+      // preview L3/L4 cadono sui snapshot DB.
+      const [ni, mats, treats, sups, ds, bs] = await Promise.allSettled([
         api.get(`/dies/${id}/normalized-items`),
         api.get('/materials'),
         api.get('/treatments'),
@@ -74,22 +82,24 @@ export default function DieQuoteEditor() {
         api.get('/die-settings'),
         api.get('/die-settings/brackets'),
       ])
-      setQuote(q.data)
-      setSpec(q.data.die_spec)
-      setParts(q.data.parts || [])
-      setNormalizedItems(ni.data)
-      setMaterials(mats.data)
-      setTreatments(treats.data)
-      setSuppliers(sups.data)
-      setDieSettings(ds.data)
-      setBrackets(bs.data)
+      if (ni.status === 'fulfilled') setNormalizedItems(ni.value.data)
+      if (mats.status === 'fulfilled') setMaterials(mats.value.data)
+      if (treats.status === 'fulfilled') setTreatments(treats.value.data)
+      if (sups.status === 'fulfilled') setSuppliers(sups.value.data)
+      if (ds.status === 'fulfilled') setDieSettings(ds.value.data)
+      if (bs.status === 'fulfilled') setBrackets(bs.value.data)
+      // Log delle eventuali failure (no toast, è secondario)
+      for (const r of [ni, mats, treats, sups, ds, bs]) {
+        if (r.status === 'rejected') console.warn('Endpoint secondario fallito:', r.reason)
+      }
       // Reset dirty al refresh dati
       setDirtySpec(null)
       setDirtyQuote(null)
       setDirtyParts(new Map())
       setDirtyItems(new Map())
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore caricamento')
+      console.error('DieQuoteEditor.load failed:', e)
+      toast.error(e?.response?.data?.detail || 'Errore caricamento preventivo')
     } finally {
       setLoading(false)
     }

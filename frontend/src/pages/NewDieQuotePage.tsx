@@ -302,7 +302,15 @@ export default function NewDieQuotePage() {
       toast.success('Preventivo stampo creato')
       navigate(`/quotes/${res.data.id}`)
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore creazione preventivo')
+      // Log esteso in console oltre al toast: aiuta a diagnosticare quando
+      // il messaggio del toast sparisce o non è abbastanza informativo
+      // (es. errore di rete senza response.data.detail).
+      console.error('Creazione preventivo stampo fallita:', e?.response?.data || e?.message || e)
+      const detail = e?.response?.data?.detail
+      const msg = Array.isArray(detail)
+        ? detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+        : (detail || e?.message || 'Errore creazione preventivo')
+      toast.error(msg)
     } finally {
       setSaving(false)
     }

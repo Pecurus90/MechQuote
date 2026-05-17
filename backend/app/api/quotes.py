@@ -182,10 +182,11 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
             # (type, target_user_id, target_quote_id WHERE type='quote_completed').
             # Race concorrenti producono al massimo 1 notifica.
             reviewer_name = current_user.full_name or current_user.username
+            type_label = 'stampo ' if quote.quote_type == 'die' else ''
             create_notification(
                 db,
                 type='quote_completed',
-                title=f"Preventivo {quote.quote_number} completato",
+                title=f"Preventivo {type_label}{quote.quote_number} completato",
                 body=f"Letto da {reviewer_name}",
                 created_by_user_id=current_user.id,
                 target_user_id=quote.submitted_by_user_id,
@@ -221,10 +222,11 @@ def update_quote_status(
     db.commit()
     # Notifica chi può completare (admin + amministrazione)
     sender_name = current_user.full_name or current_user.username
+    type_label = 'stampo ' if quote.quote_type == 'die' else ''
     create_notification(
         db,
         type='quote_submitted',
-        title=f"Preventivo {quote.quote_number} da revisionare",
+        title=f"Preventivo {type_label}{quote.quote_number} da revisionare",
         body=f"Inviato da {sender_name}",
         created_by_user_id=current_user.id,
         target_roles=['admin', 'amministrazione'],

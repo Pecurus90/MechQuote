@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Plus, Archive, FileText, Activity,
-  Box, Cog, Layers, Ruler, Building2, Workflow,
-  Tag, Users, Database, ChevronDown, ChevronRight, LogOut, UserCog, ShieldCheck, Bell, Settings,
-  Zap, Gauge, Drill, SlidersHorizontal, Package, ShoppingCart, Wrench, Hammer,
+  Box, Building2,
+  Tag, Users, ChevronDown, ChevronRight, LogOut, Bell, Settings,
+  Zap, Package, ShoppingCart, Wrench, Hammer,
+  Truck, Factory, Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -211,21 +212,9 @@ export default function Sidebar() {
                       <Box className="w-3.5 h-3.5 shrink-0" />
                       <span>Materiali</span>
                     </NavLink>
-                    <NavLink to="/settings/machines" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Cog className="w-3.5 h-3.5 shrink-0" />
-                      <span>Centri di costo</span>
-                    </NavLink>
-                    <NavLink to="/settings/treatments" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Ruler className="w-3.5 h-3.5 shrink-0" />
-                      <span>Trattamenti</span>
-                    </NavLink>
-                    <NavLink to="/settings/operations" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Layers className="w-3.5 h-3.5 shrink-0" />
-                      <span>Lavorazioni</span>
-                    </NavLink>
-                    <NavLink to="/settings/workflows" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Workflow className="w-3.5 h-3.5 shrink-0" />
-                      <span>Template flusso</span>
+                    <NavLink to="/settings/catalog" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Factory className="w-3.5 h-3.5 shrink-0" />
+                      <span>Lavorazioni & Macchine</span>
                     </NavLink>
                     <NavLink to="/settings/categories" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Tag className="w-3.5 h-3.5 shrink-0" />
@@ -247,51 +236,19 @@ export default function Sidebar() {
                 {(showCatalog || hasPermission('tools')) && (
                   <>
                     <p className={sectionLabelClass}>Fornitori</p>
-                    {showCatalog && (
-                      <NavLink to="/settings/material-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <Box className="w-3.5 h-3.5 shrink-0" />
-                        <span>Fornitori materiali</span>
-                      </NavLink>
-                    )}
-                    {showCatalog && (
-                      <NavLink to="/settings/treatment-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <Ruler className="w-3.5 h-3.5 shrink-0" />
-                        <span>Fornitori trattamenti</span>
-                      </NavLink>
-                    )}
-                    {hasPermission('tools') && (
-                      <NavLink to="/settings/tool-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <Wrench className="w-3.5 h-3.5 shrink-0" />
-                        <span>Fornitori utensili</span>
-                      </NavLink>
-                    )}
-                    {showCatalog && (
-                      <NavLink to="/settings/normalized-suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <Cog className="w-3.5 h-3.5 shrink-0" />
-                        <span>Fornitori normalizzati</span>
-                      </NavLink>
-                    )}
+                    <NavLink to="/settings/suppliers" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Truck className="w-3.5 h-3.5 shrink-0" />
+                      <span>Fornitori</span>
+                    </NavLink>
                   </>
                 )}
 
                 {showCatalog && (
                   <>
                     <p className={sectionLabelClass}>Wire EDM</p>
-                    <NavLink to="/settings/edm/config" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-                      <span>Parametri globali</span>
-                    </NavLink>
-                    <NavLink to="/settings/edm/speeds" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Gauge className="w-3.5 h-3.5 shrink-0" />
-                      <span>Velocità di taglio</span>
-                    </NavLink>
-                    <NavLink to="/settings/edm/cycles" className={({ isActive }) => navLinkClass(isActive, true)}>
+                    <NavLink to="/settings/edm" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Zap className="w-3.5 h-3.5 shrink-0" />
-                      <span>Cicli di taglio</span>
-                    </NavLink>
-                    <NavLink to="/settings/edm/drilling" className={({ isActive }) => navLinkClass(isActive, true)}>
-                      <Drill className="w-3.5 h-3.5 shrink-0" />
-                      <span>Tempi foratura</span>
+                      <span>Wire EDM</span>
                     </NavLink>
                   </>
                 )}
@@ -319,24 +276,10 @@ export default function Sidebar() {
                 {showSystemSection && (
                   <>
                     <p className={sectionLabelClass}>Sistema</p>
-                    {canUsers && (
-                      <NavLink to="/settings/users" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <UserCog className="w-3.5 h-3.5 shrink-0" />
-                        <span>Utenti</span>
-                      </NavLink>
-                    )}
-                    {canUsers && (
-                      <NavLink to="/settings/roles" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span>Ruoli e Permessi</span>
-                      </NavLink>
-                    )}
-                    {canBackup && (
-                      <NavLink to="/settings/backup" className={({ isActive }) => navLinkClass(isActive, true)}>
-                        <Database className="w-3.5 h-3.5 shrink-0" />
-                        <span>Backup / Esporta</span>
-                      </NavLink>
-                    )}
+                    <NavLink to="/settings/system" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Shield className="w-3.5 h-3.5 shrink-0" />
+                      <span>Utenti, ruoli, backup</span>
+                    </NavLink>
                   </>
                 )}
 

@@ -11,17 +11,10 @@ import NewQuotePage from '@/pages/NewQuotePage'
 import NewQuote2DPage from '@/pages/NewQuote2DPage'
 import NewDieQuotePage from '@/pages/NewDieQuotePage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
-import MachinesPage from '@/pages/settings/MachinesPage'
-import TreatmentsPage from '@/pages/settings/TreatmentsPage'
-import WorkflowTemplatesPage from '@/pages/settings/WorkflowTemplatesPage'
-import OperationsPage from '@/pages/settings/OperationsPage'
 import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
 import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
 import CustomersPage from '@/pages/settings/CustomersPage'
-import BackupSettingsPage from '@/pages/settings/BackupSettingsPage'
 import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
-import UsersPage from '@/pages/settings/UsersPage'
-import RolesPage from '@/pages/settings/RolesPage'
 import ActivityPage from '@/pages/ActivityPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
 import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
@@ -29,16 +22,13 @@ import ToolsPage from '@/pages/ToolsPage'
 import OfficinaHub from '@/pages/officina/OfficinaHub'
 import OfficinaDocumentsPage from '@/pages/officina/DocumentsPage'
 import OfficinaMaterialsPage from '@/pages/officina/MaterialsPage'
-import ToolSuppliersPage from '@/pages/settings/ToolSuppliersPage'
 import ToolAttributesPage from '@/pages/settings/ToolAttributesPage'
-import MaterialSuppliersPage from '@/pages/settings/MaterialSuppliersPage'
-import TreatmentSuppliersPage from '@/pages/settings/TreatmentSuppliersPage'
-import NormalizedSuppliersPage from '@/pages/settings/NormalizedSuppliersPage'
 import DiesSettingsPage from '@/pages/settings/DiesSettingsPage'
-import EdmConfigPage from '@/pages/settings/edm/EdmConfigPage'
-import EdmSpeedsPage from '@/pages/settings/edm/EdmSpeedsPage'
-import CuttingCyclesPage from '@/pages/settings/edm/CuttingCyclesPage'
-import DrillingTimesPage from '@/pages/settings/edm/DrillingTimesPage'
+// Container "raggruppati" — ognuno ospita più tab interni:
+import SuppliersSettingsPage from '@/pages/settings/SuppliersSettingsPage'
+import EdmSettingsPage from '@/pages/settings/EdmSettingsPage'
+import CatalogSettingsPage from '@/pages/settings/CatalogSettingsPage'
+import SystemSettingsPage from '@/pages/settings/SystemSettingsPage'
 
 function ProtectedRoute({
   children,
@@ -79,35 +69,20 @@ function AppRoutes() {
         <Route path="officina/materiali" element={<ProtectedRoute permission="officina"><OfficinaMaterialsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
 
-        {/* Settings — gated dal sistema dei permessi dinamici */}
+        {/* Settings — pagine atomiche residue */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />
-        <Route path="settings/machines"   element={<ProtectedRoute permission="settings"><MachinesPage /></ProtectedRoute>} />
-        <Route path="settings/operations" element={<ProtectedRoute permission="settings"><OperationsPage /></ProtectedRoute>} />
-        <Route path="settings/tool-suppliers" element={<ProtectedRoute permission="tools"><ToolSuppliersPage /></ProtectedRoute>} />
         <Route path="settings/tool-attributes" element={<ProtectedRoute permission="tools"><ToolAttributesPage /></ProtectedRoute>} />
-        <Route path="settings/material-suppliers" element={<ProtectedRoute permission="settings"><MaterialSuppliersPage /></ProtectedRoute>} />
-        <Route path="settings/treatment-suppliers" element={<ProtectedRoute permission="settings"><TreatmentSuppliersPage /></ProtectedRoute>} />
-        <Route path="settings/normalized-suppliers" element={<ProtectedRoute permission="settings"><NormalizedSuppliersPage /></ProtectedRoute>} />
-        <Route path="settings/workflows"  element={<ProtectedRoute permission="settings"><WorkflowTemplatesPage /></ProtectedRoute>} />
-        <Route path="settings/treatments" element={<ProtectedRoute permission="settings"><TreatmentsPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />
         <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />
         <Route path="settings/company"    element={<ProtectedRoute permission="company"><CompanySettingsPage /></ProtectedRoute>} />
-        <Route path="settings/backup"     element={<ProtectedRoute permission="backup"><BackupSettingsPage /></ProtectedRoute>} />
-        <Route path="settings/users"      element={<ProtectedRoute permission="users"><UsersPage /></ProtectedRoute>} />
-        <Route path="settings/roles"      element={<ProtectedRoute permission="users"><RolesPage /></ProtectedRoute>} />
+        <Route path="settings/customers"  element={<ProtectedRoute permission="customers"><CustomersPage /></ProtectedRoute>} />
+        <Route path="settings/dies"       element={<ProtectedRoute permission="dies.settings"><DiesSettingsPage /></ProtectedRoute>} />
 
-        {/* Wire EDM */}
-        <Route path="settings/edm/speeds"   element={<ProtectedRoute permission="settings"><EdmSpeedsPage /></ProtectedRoute>} />
-        <Route path="settings/edm/cycles"   element={<ProtectedRoute permission="settings"><CuttingCyclesPage /></ProtectedRoute>} />
-        <Route path="settings/edm/drilling" element={<ProtectedRoute permission="settings"><DrillingTimesPage /></ProtectedRoute>} />
-        <Route path="settings/edm/config"   element={<ProtectedRoute permission="settings"><EdmConfigPage /></ProtectedRoute>} />
-        <Route path="settings/dies"         element={<ProtectedRoute permission="dies.settings"><DiesSettingsPage /></ProtectedRoute>} />
-
-        {/* Clienti */}
-        <Route path="settings/customers" element={
-          <ProtectedRoute permission="customers"><CustomersPage /></ProtectedRoute>
-        } />
+        {/* Settings — container "raggruppati" con tab interni */}
+        <Route path="settings/suppliers" element={<ProtectedRoute permission="settings"><SuppliersSettingsPage /></ProtectedRoute>} />
+        <Route path="settings/edm"       element={<ProtectedRoute permission="settings"><EdmSettingsPage /></ProtectedRoute>} />
+        <Route path="settings/catalog"   element={<ProtectedRoute permission="settings"><CatalogSettingsPage /></ProtectedRoute>} />
+        <Route path="settings/system"    element={<ProtectedRoute permission="users"><SystemSettingsPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

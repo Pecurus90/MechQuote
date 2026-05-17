@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { Plus, Trash2, Check, X, ShieldCheck } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Role } from '@/types'
@@ -98,7 +99,7 @@ export default function RolesPage() {
   const permKeys = Object.keys(permissions)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={ShieldCheck}
         color="gray"
@@ -233,6 +234,6 @@ export default function RolesPage() {
         onConfirm={confirmDeleteRole}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Workflow } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -147,7 +148,7 @@ export default function WorkflowTemplatesPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <PageContainer>
       <SettingsPageHeader
         icon={Workflow}
         color="indigo"
@@ -312,6 +313,6 @@ export default function WorkflowTemplatesPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

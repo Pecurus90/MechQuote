@@ -8,6 +8,7 @@ import api from '@/lib/api'
 import { FileText, Plus, Trash2, Search, X, Archive } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
@@ -107,7 +108,7 @@ export default function QuoteArchivePage() {
   const confirmingQuote = quotes.find(q => q.id === confirmDeleteId)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Archive}
         color="blue"
@@ -285,6 +286,6 @@ export default function QuoteArchivePage() {
         onConfirm={() => { if (confirmDeleteId !== null) handleDelete(confirmDeleteId) }}
         onCancel={() => setConfirmDeleteId(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

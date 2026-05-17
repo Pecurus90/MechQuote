@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth'
 import { Plus, Pencil, Trash2, Check, X, UserCog } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { ApiUser, Role as ApiRole } from '@/types'
@@ -135,7 +136,7 @@ export default function UsersPage() {
   const inp = 'h-7 text-xs px-2'
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <PageContainer>
       <SettingsPageHeader
         icon={UserCog}
         color="gray"
@@ -303,6 +304,6 @@ export default function UsersPage() {
         onConfirm={confirmDeleteUser}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

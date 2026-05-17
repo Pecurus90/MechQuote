@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Search, Package, FileDown, History, X } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { STATUS_LABELS } from '@/lib/constants'
@@ -163,7 +164,7 @@ export default function OrdersMaterialsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Package}
         color="blue"
@@ -443,6 +444,6 @@ export default function OrdersMaterialsPage() {
           )}
         </div>
       </div>
-    </div>
+    </PageContainer>
   )
 }

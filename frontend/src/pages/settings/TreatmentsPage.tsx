@@ -9,6 +9,7 @@ import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import type { Supplier, Treatment } from '@/types'
 
 interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string }
@@ -120,7 +121,7 @@ export default function TreatmentsPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
+    <PageContainer>
       <SettingsPageHeader
         icon={Ruler}
         color="orange"
@@ -341,6 +342,6 @@ export default function TreatmentsPage() {
         onConfirm={confirmDeleteTreat}
         onCancel={() => setPendingDelTreat(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

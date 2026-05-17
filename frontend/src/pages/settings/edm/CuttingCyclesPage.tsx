@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Zap } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import type { CuttingCycle, CuttingPass, PassType } from '@/types'
 import { toast } from 'sonner'
@@ -102,7 +103,7 @@ export default function CuttingCyclesPage() {
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <PageContainer>
       <SettingsPageHeader
         icon={Zap}
         color="amber"
@@ -235,6 +236,6 @@ export default function CuttingCyclesPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

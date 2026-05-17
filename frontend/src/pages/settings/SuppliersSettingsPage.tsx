@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Truck } from 'lucide-react'
 
+import PageContainer from '@/components/ui/page-container'
 import MaterialSuppliersPage from './MaterialSuppliersPage'
 import TreatmentSuppliersPage from './TreatmentSuppliersPage'
 import ToolSuppliersPage from './ToolSuppliersPage'
@@ -21,7 +22,7 @@ export default function SuppliersSettingsPage() {
   const [tab, setTab] = useState<Tab>('materials')
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-4">
+    <PageContainer width="xl">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
           <Truck className="w-5 h-5" />
@@ -52,6 +53,6 @@ export default function SuppliersSettingsPage() {
         {tab === 'tools' && <ToolSuppliersPage />}
         {tab === 'normalized' && <NormalizedSuppliersPage />}
       </div>
-    </div>
+    </PageContainer>
   )
 }

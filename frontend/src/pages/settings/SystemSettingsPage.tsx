@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Shield } from 'lucide-react'
 
+import PageContainer from '@/components/ui/page-container'
 import UsersPage from './UsersPage'
 import RolesPage from './RolesPage'
 import BackupSettingsPage from './BackupSettingsPage'
@@ -18,7 +19,7 @@ export default function SystemSettingsPage() {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-4">
+    <PageContainer width="xl">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center">
           <Shield className="w-5 h-5" />
@@ -48,6 +49,6 @@ export default function SystemSettingsPage() {
         {tab === 'roles' && <RolesPage />}
         {tab === 'backup' && <BackupSettingsPage />}
       </div>
-    </div>
+    </PageContainer>
   )
 }

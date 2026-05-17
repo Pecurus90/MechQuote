@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import { useAuth } from '@/lib/auth'
 import type {
   DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
@@ -31,7 +32,7 @@ export default function DiesSettingsPage() {
   const [tab, setTab] = useState<Tab>('tariffe')
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-4">
+    <PageContainer width="xl">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
           <Hammer className="w-5 h-5" />
@@ -61,7 +62,7 @@ export default function DiesSettingsPage() {
       {tab === 'tariffe' && <TariffeTab canWrite={canWrite} />}
       {tab === 'fasce' && <FasceTab canWrite={canWrite} />}
       {tab === 'template' && <TemplatesTab canWrite={canWrite} />}
-    </div>
+    </PageContainer>
   )
 }
 

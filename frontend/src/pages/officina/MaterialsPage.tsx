@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Box, FileText, Upload, Trash2, Search, ExternalLink, ChevronLeft, X } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
@@ -113,7 +114,7 @@ export default function OfficinaMaterialsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <PageContainer>
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
           <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
@@ -267,6 +268,6 @@ export default function OfficinaMaterialsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

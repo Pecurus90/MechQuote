@@ -10,6 +10,7 @@ import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import type { Material, MaterialSupplier } from '@/types'
 
 interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string }
@@ -113,7 +114,7 @@ export default function MaterialsPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
+    <PageContainer>
       <SettingsPageHeader
         icon={Box}
         color="blue"
@@ -351,6 +352,6 @@ export default function MaterialsPage() {
         onConfirm={confirmDeleteMaterial}
         onCancel={() => setPendingDelMaterial(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

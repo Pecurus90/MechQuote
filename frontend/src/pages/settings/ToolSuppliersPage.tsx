@@ -9,6 +9,7 @@ import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import type { ToolSupplier } from '@/types'
 
 interface FormState {
@@ -86,7 +87,7 @@ export default function ToolSuppliersPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
+    <PageContainer width="md">
       <SettingsPageHeader
         icon={Wrench}
         color="violet"
@@ -181,6 +182,6 @@ export default function ToolSuppliersPage() {
         onConfirm={confirmDel}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

@@ -11,6 +11,7 @@ import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import type { Tool, ToolAttribute, ToolSupplier } from '@/types'
 
 type ScanMode = 'load' | 'unload'
@@ -232,7 +233,7 @@ export default function ToolsPage() {
   const supplierName = (id?: number | null) => suppliers.find(s => s.id === id)?.name ?? '—'
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Wrench}
         color="violet"
@@ -463,6 +464,6 @@ export default function ToolsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

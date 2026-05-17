@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Factory } from 'lucide-react'
 
+import PageContainer from '@/components/ui/page-container'
 import OperationsPage from './OperationsPage'
 import TreatmentsPage from './TreatmentsPage'
 import MachinesPage from './MachinesPage'
@@ -21,7 +22,7 @@ export default function CatalogSettingsPage() {
   const [tab, setTab] = useState<Tab>('operations')
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-4">
+    <PageContainer width="xl">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
           <Factory className="w-5 h-5" />
@@ -52,6 +53,6 @@ export default function CatalogSettingsPage() {
         {tab === 'machines' && <MachinesPage />}
         {tab === 'workflows' && <WorkflowTemplatesPage />}
       </div>
-    </div>
+    </PageContainer>
   )
 }

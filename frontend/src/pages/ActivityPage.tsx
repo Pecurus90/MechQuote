@@ -9,6 +9,7 @@ import { ACTIVITY_KIND } from '@/lib/activity'
 import type { ActivityRow } from '@/types'
 import { Activity as ActivityIcon, Search } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 
 type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert'
@@ -42,7 +43,7 @@ export default function ActivityPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <PageContainer>
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <SettingsPageHeader
           icon={ActivityIcon}
@@ -138,6 +139,6 @@ export default function ActivityPage() {
           <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>
         )}
       </div>
-    </div>
+    </PageContainer>
   )
 }

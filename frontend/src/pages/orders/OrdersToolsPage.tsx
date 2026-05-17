@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Search, Wrench, FileDown, History, X, AlertTriangle } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -95,7 +96,7 @@ export default function OrdersToolsPage() {
   const hasItems = preview && preview.groups.length > 0
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <PageContainer>
       <SettingsPageHeader
         icon={Wrench}
         color="violet"
@@ -284,6 +285,6 @@ export default function OrdersToolsPage() {
           </Card>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

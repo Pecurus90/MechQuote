@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Zap } from 'lucide-react'
 
+import PageContainer from '@/components/ui/page-container'
 import EdmConfigPage from './edm/EdmConfigPage'
 import EdmSpeedsPage from './edm/EdmSpeedsPage'
 import CuttingCyclesPage from './edm/CuttingCyclesPage'
@@ -20,7 +21,7 @@ export default function EdmSettingsPage() {
   const [tab, setTab] = useState<Tab>('config')
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-4">
+    <PageContainer width="xl">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
           <Zap className="w-5 h-5" />
@@ -51,6 +52,6 @@ export default function EdmSettingsPage() {
         {tab === 'cycles' && <CuttingCyclesPage />}
         {tab === 'drilling' && <DrillingTimesPage />}
       </div>
-    </div>
+    </PageContainer>
   )
 }

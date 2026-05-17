@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Download, Upload, FileJson, Database } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -63,7 +64,7 @@ export default function BackupSettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Database}
         color="gray"
@@ -114,6 +115,6 @@ export default function BackupSettingsPage() {
         onConfirm={doImport}
         onCancel={() => setPendingImportFile(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Drill } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import type { DrillingTime } from '@/types'
 import { toast } from 'sonner'
@@ -116,7 +117,7 @@ export default function DrillingTimesPage() {
   )
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <PageContainer>
       <SettingsPageHeader
         icon={Drill}
         color="amber"
@@ -218,6 +219,6 @@ export default function DrillingTimesPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

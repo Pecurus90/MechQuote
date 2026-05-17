@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Building2 } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { CompanySettings } from '@/types'
@@ -49,7 +50,7 @@ export default function CompanySettingsPage() {
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <PageContainer>
       <SettingsPageHeader
         icon={Building2}
         color="emerald"
@@ -165,6 +166,6 @@ export default function CompanySettingsPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   )
 }

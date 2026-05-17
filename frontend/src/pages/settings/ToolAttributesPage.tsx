@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Wrench } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -203,7 +204,7 @@ function AttributeTable({ section }: { section: Section }) {
 
 export default function ToolAttributesPage() {
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
+    <PageContainer width="md">
       <SettingsPageHeader
         icon={Wrench}
         color="violet"
@@ -211,6 +212,6 @@ export default function ToolAttributesPage() {
         subtitle="Valori usati nei dropdown del catalogo utensili. Aggiungere/rimuovere voci qui non modifica gli utensili esistenti."
       />
       {SECTIONS.map(s => <AttributeTable key={s.key} section={s} />)}
-    </div>
+    </PageContainer>
   )
 }

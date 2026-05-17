@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { Plus, Pencil, Trash2, Check, X, Search, Tag } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Category } from '@/types'
@@ -66,7 +67,7 @@ export default function QuoteCategoriesPage() {
   )
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-6">
+    <PageContainer width="md">
       <SettingsPageHeader
         icon={Tag}
         color="violet"
@@ -189,6 +190,6 @@ export default function QuoteCategoriesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

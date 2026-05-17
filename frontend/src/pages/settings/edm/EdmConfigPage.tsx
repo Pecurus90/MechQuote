@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { SlidersHorizontal } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import type { EdmConfig, Machine } from '@/types'
 import { toast } from 'sonner'
@@ -55,7 +56,7 @@ export default function EdmConfigPage() {
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
+    <PageContainer width="md">
       <SettingsPageHeader
         icon={SlidersHorizontal}
         color="amber"
@@ -153,6 +154,6 @@ export default function EdmConfigPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   )
 }

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Gauge } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import type { EdmCutSpeed } from '@/types'
 import { toast } from 'sonner'
@@ -131,7 +132,7 @@ export default function EdmSpeedsPage() {
   )
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Gauge}
         color="amber"
@@ -237,6 +238,6 @@ export default function EdmSpeedsPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

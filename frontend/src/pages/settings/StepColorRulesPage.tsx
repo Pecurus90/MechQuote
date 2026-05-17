@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search, Palette } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
+import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -67,7 +68,7 @@ export default function StepColorRulesPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <PageContainer>
       <SettingsPageHeader
         icon={Palette}
         color="orange"
@@ -179,6 +180,6 @@ export default function StepColorRulesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </PageContainer>
   )
 }

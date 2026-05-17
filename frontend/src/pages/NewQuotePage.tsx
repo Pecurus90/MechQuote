@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { FileText, Scan, Box, Hammer, Plus } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PageContainer from '@/components/ui/page-container'
 
 const modes = [
   {
@@ -71,15 +72,13 @@ export default function NewQuotePage() {
   const navigate = useNavigate()
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <SettingsPageHeader
-          icon={Plus}
-          color="blue"
-          title="Nuovo Preventivo"
-          subtitle="Scegli come vuoi costruire il preventivo"
-        />
-      </div>
+    <PageContainer>
+      <SettingsPageHeader
+        icon={Plus}
+        color="blue"
+        title="Nuovo Preventivo"
+        subtitle="Scegli come vuoi costruire il preventivo"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {modes.map(mode => {
@@ -115,6 +114,6 @@ export default function NewQuotePage() {
           )
         })}
       </div>
-    </div>
+    </PageContainer>
   )
 }

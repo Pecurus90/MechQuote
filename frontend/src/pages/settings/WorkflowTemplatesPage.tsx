@@ -155,7 +155,7 @@ export default function WorkflowTemplatesPage() {
         subtitle="Sequenze (Macchina + Lavorazione) applicate in un colpo al preventivo. L'apply genera le fasi pre-popolate."
         action={
           editingId === null ? (
-            <PrimaryCtaButton size="sm" onClick={startNew}>
+            <PrimaryCtaButton color="indigo" size="sm" onClick={startNew}>
               <Plus className="w-4 h-4" /> Nuovo flusso
             </PrimaryCtaButton>
           ) : undefined
@@ -254,7 +254,7 @@ export default function WorkflowTemplatesPage() {
             </div>
 
             <div className="flex items-center gap-2 pt-2">
-              <Button onClick={save}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+              <PrimaryCtaButton color="indigo" onClick={save}>Salva</PrimaryCtaButton>
               <Button variant="outline" onClick={() => setEditingId(null)}>
                 <X className="w-4 h-4 mr-1" /> Annulla
               </Button>

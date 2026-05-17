@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Wrench } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -107,9 +108,9 @@ function AttributeTable({ section }: { section: Section }) {
           <h2 className="font-semibold">{section.title}</h2>
           <p className="text-xs text-gray-500">{section.description}</p>
         </div>
-        <Button size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
-          <Plus className="w-4 h-4 mr-1" /> Aggiungi
-        </Button>
+        <PrimaryCtaButton color="violet" size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
+          <Plus className="w-4 h-4" /> Aggiungi
+        </PrimaryCtaButton>
       </div>
       <CardContent className="p-0">
         <table className="table-fixed w-full text-sm">

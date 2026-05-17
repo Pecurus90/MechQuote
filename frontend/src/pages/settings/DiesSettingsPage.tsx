@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { useAuth } from '@/lib/auth'
 import type {
   DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
@@ -171,9 +172,9 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={save} disabled={!canWrite || saving}>
+        <PrimaryCtaButton color="rose" onClick={save} disabled={!canWrite || saving}>
           {saving ? 'Salvataggio…' : 'Salva impostazioni'}
-        </Button>
+        </PrimaryCtaButton>
       </div>
     </div>
   )
@@ -261,7 +262,7 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
                   <td className="text-right py-1.5">
                     {e ? (
                       <div className="flex justify-end gap-1">
-                        <Button size="sm" onClick={() => save(cur)}>OK</Button>
+                        <PrimaryCtaButton color="rose" size="sm" onClick={() => save(cur)}>OK</PrimaryCtaButton>
                         <Button size="sm" variant="outline" onClick={() => setEditing(prev => { const c = { ...prev }; delete c[b.id]; return c })}>Annulla</Button>
                       </div>
                     ) : canWrite && (
@@ -283,7 +284,7 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
                   onChange={e => setNewRow({ ...newRow, coefficient: parseFloat(e.target.value) || 0 })} /></td>
                 <td className="py-1.5"><Input className="h-8 text-right" type="number" value={newRow.sort_order ?? 0}
                   onChange={e => setNewRow({ ...newRow, sort_order: parseInt(e.target.value, 10) || 0 })} /></td>
-                <td className="text-right py-1.5"><Button size="sm" onClick={create}><Plus className="w-3.5 h-3.5" /></Button></td>
+                <td className="text-right py-1.5"><PrimaryCtaButton color="rose" size="sm" onClick={create}><Plus className="w-3.5 h-3.5" /></PrimaryCtaButton></td>
               </tr>
             )}
           </tbody>
@@ -428,7 +429,9 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Template stampi</CardTitle>
           {canWrite && (
-            <Button size="sm" onClick={newTemplate}><Plus className="w-3.5 h-3.5 mr-1" />Nuovo template</Button>
+            <PrimaryCtaButton color="rose" size="sm" onClick={newTemplate}>
+              <Plus className="w-3.5 h-3.5" />Nuovo template
+            </PrimaryCtaButton>
           )}
         </div>
       </CardHeader>
@@ -575,7 +578,9 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                 </div>
                 <div className="flex justify-end gap-2 pt-3">
                   <Button variant="outline" onClick={() => setEditingTpl(null)}>Annulla</Button>
-                  <Button onClick={saveTpl}>{editingTpl.id === 0 ? 'Crea template' : 'Salva template'}</Button>
+                  <PrimaryCtaButton color="rose" onClick={saveTpl}>
+                    {editingTpl.id === 0 ? 'Crea template' : 'Salva template'}
+                  </PrimaryCtaButton>
                 </div>
               </div>
             </div>

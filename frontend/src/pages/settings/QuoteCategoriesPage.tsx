@@ -78,7 +78,7 @@ export default function QuoteCategoriesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-40" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
+            <PrimaryCtaButton color="violet" size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
               <Plus className="w-4 h-4" /> Nuova
             </PrimaryCtaButton>
           </div>

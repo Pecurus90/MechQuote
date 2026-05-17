@@ -99,7 +99,7 @@ export default function MaterialSuppliersPage() {
         title="Fornitori materiali"
         subtitle="Chi vende il materiale grezzo (con spese spedizione e taglio)."
         action={
-          <PrimaryCtaButton onClick={startNew}>
+          <PrimaryCtaButton color="blue" onClick={startNew}>
             <Plus className="w-4 h-4" /> Nuovo
           </PrimaryCtaButton>
         }
@@ -172,7 +172,7 @@ export default function MaterialSuppliersPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <PrimaryCtaButton onClick={save}>Salva</PrimaryCtaButton>
+                <PrimaryCtaButton color="blue" onClick={save}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
               </div>
             </CardContent>

@@ -56,7 +56,7 @@ export default function CompanySettingsPage() {
         title="Dati Azienda"
         subtitle="Anagrafica + default operativi (margine, prezzo minimo, trasporto, packaging)"
         action={
-          <PrimaryCtaButton onClick={handleSave} disabled={saving}>
+          <PrimaryCtaButton color="emerald" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvataggio...' : 'Salva'}
           </PrimaryCtaButton>
         }

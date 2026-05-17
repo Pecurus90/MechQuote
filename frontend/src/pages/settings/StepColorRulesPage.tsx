@@ -79,7 +79,7 @@ export default function StepColorRulesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => resetForm(true)}>
+            <PrimaryCtaButton color="orange" size="sm" onClick={() => resetForm(true)}>
               <Plus className="w-4 h-4" /> Nuova
             </PrimaryCtaButton>
           </div>
@@ -165,7 +165,7 @@ export default function StepColorRulesPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <PrimaryCtaButton color="orange" onClick={handleSave}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => resetForm()}>Annulla</Button>
               </div>
             </CardContent>

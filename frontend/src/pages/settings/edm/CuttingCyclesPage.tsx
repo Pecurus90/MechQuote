@@ -110,7 +110,7 @@ export default function CuttingCyclesPage() {
         subtitle='Template sequenze di passate. Es. "Standard 1+3" = 1 sgrossatura + 3 finiture, applicati alla fase Wire EDM.'
         action={
           editingId === null ? (
-            <PrimaryCtaButton size="sm" onClick={startNew}>
+            <PrimaryCtaButton color="amber" size="sm" onClick={startNew}>
               <Plus className="w-4 h-4" /> Nuovo ciclo
             </PrimaryCtaButton>
           ) : undefined
@@ -181,9 +181,7 @@ export default function CuttingCyclesPage() {
             </div>
 
             <div className="flex items-center gap-2 pt-2">
-              <Button onClick={save}>
-                <Save className="w-4 h-4 mr-1" /> Salva
-              </Button>
+              <PrimaryCtaButton color="amber" onClick={save}>Salva</PrimaryCtaButton>
               <Button variant="outline" onClick={() => setEditingId(null)}>
                 <X className="w-4 h-4 mr-1" /> Annulla
               </Button>

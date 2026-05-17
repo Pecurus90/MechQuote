@@ -139,7 +139,7 @@ export default function EdmSpeedsPage() {
         subtitle="Avanzamento filo (mm/min) per famiglia materiale × altezza. Le passate derivano dai fattori in Parametri globali."
         action={
           !showNew ? (
-            <PrimaryCtaButton size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+            <PrimaryCtaButton color="amber" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
               <Plus className="w-4 h-4" /> Nuova riga
             </PrimaryCtaButton>
           ) : undefined

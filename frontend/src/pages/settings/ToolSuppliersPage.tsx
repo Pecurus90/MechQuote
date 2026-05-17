@@ -93,7 +93,7 @@ export default function ToolSuppliersPage() {
         title="Fornitori utensili"
         subtitle="Elenco fornitori di utensili (separato dai fornitori di trattamenti)."
         action={
-          <PrimaryCtaButton onClick={startNew}>
+          <PrimaryCtaButton color="violet" onClick={startNew}>
             <Plus className="w-4 h-4" /> Nuovo
           </PrimaryCtaButton>
         }
@@ -166,7 +166,7 @@ export default function ToolSuppliersPage() {
                 <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
               </div>
               <div className="flex gap-2 mt-4">
-                <PrimaryCtaButton onClick={save}>Salva</PrimaryCtaButton>
+                <PrimaryCtaButton color="violet" onClick={save}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
               </div>
             </CardContent>

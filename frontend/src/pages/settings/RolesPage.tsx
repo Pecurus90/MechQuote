@@ -106,7 +106,7 @@ export default function RolesPage() {
         subtitle="Configura i permessi per ogni ruolo — salvato al click"
         action={
           !showNew ? (
-            <PrimaryCtaButton size="sm" onClick={() => setShowNew(true)}>
+            <PrimaryCtaButton color="gray" size="sm" onClick={() => setShowNew(true)}>
               <Plus className="w-4 h-4" /> Nuovo Ruolo
             </PrimaryCtaButton>
           ) : undefined

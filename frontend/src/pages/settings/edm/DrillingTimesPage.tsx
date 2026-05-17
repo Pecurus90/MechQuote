@@ -124,7 +124,7 @@ export default function DrillingTimesPage() {
         subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Lookup discreto su diametro."
         action={
           !showNew ? (
-            <PrimaryCtaButton size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+            <PrimaryCtaButton color="amber" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
               <Plus className="w-4 h-4" /> Nuova riga
             </PrimaryCtaButton>
           ) : undefined

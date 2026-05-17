@@ -93,7 +93,7 @@ export default function NormalizedSuppliersPage() {
         title="Fornitori normalizzati"
         subtitle="Fornitori di componenti standard: viti, bulloni, cuscinetti, dadi, rondelle, guarnizioni, raccordi (es. Bossard, Würth, Misumi)."
         action={
-          <PrimaryCtaButton onClick={startNew}>
+          <PrimaryCtaButton color="sky" onClick={startNew}>
             <Plus className="w-4 h-4" /> Nuovo
           </PrimaryCtaButton>
         }
@@ -166,7 +166,7 @@ export default function NormalizedSuppliersPage() {
                 <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
               </div>
               <div className="flex gap-2 mt-4">
-                <PrimaryCtaButton onClick={save}>Salva</PrimaryCtaButton>
+                <PrimaryCtaButton color="sky" onClick={save}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
               </div>
             </CardContent>

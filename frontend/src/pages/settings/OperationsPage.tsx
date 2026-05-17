@@ -81,7 +81,7 @@ export default function OperationsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => reset(true)}>
+            <PrimaryCtaButton color="indigo" size="sm" onClick={() => reset(true)}>
               <Plus className="w-4 h-4" /> Nuova
             </PrimaryCtaButton>
           </div>
@@ -134,7 +134,7 @@ export default function OperationsPage() {
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="es. Tornitura sgrossatura" autoFocus />
               </div>
               <div className="flex gap-2 mt-4">
-                <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <PrimaryCtaButton color="indigo" onClick={handleSave}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => reset()}>Annulla</Button>
               </div>
             </CardContent>

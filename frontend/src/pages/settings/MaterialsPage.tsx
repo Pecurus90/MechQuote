@@ -130,7 +130,7 @@ export default function MaterialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => setSupForm(emptySupplier())}>
+            <PrimaryCtaButton color="blue" size="sm" onClick={() => setSupForm(emptySupplier())}>
               <Plus className="w-4 h-4" /> Nuovo fornitore
             </PrimaryCtaButton>
           </div>
@@ -213,7 +213,7 @@ export default function MaterialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => setMatForm(emptyMat())}>
+            <PrimaryCtaButton color="blue" size="sm" onClick={() => setMatForm(emptyMat())}>
               <Plus className="w-4 h-4" /> Nuovo materiale
             </PrimaryCtaButton>
           </div>
@@ -330,7 +330,7 @@ export default function MaterialsPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={saveMaterial}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <PrimaryCtaButton color="blue" onClick={saveMaterial}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setMatForm(null)}>Annulla</Button>
               </div>
             </CardContent>

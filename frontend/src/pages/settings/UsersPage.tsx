@@ -143,7 +143,7 @@ export default function UsersPage() {
         subtitle="Crea e gestisci gli account di accesso"
         action={
           !showNew ? (
-            <PrimaryCtaButton size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+            <PrimaryCtaButton color="gray" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
               <Plus className="w-4 h-4" /> Nuovo Utente
             </PrimaryCtaButton>
           ) : undefined

@@ -137,7 +137,7 @@ export default function TreatmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => setSupForm(emptySupplier())}>
+            <PrimaryCtaButton color="orange" size="sm" onClick={() => setSupForm(emptySupplier())}>
               <Plus className="w-4 h-4" /> Nuovo fornitore
             </PrimaryCtaButton>
           </div>
@@ -216,7 +216,7 @@ export default function TreatmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchTreat} onChange={e => setSearchTreat(e.target.value)} className="pl-9 w-40" />
             </div>
-            <PrimaryCtaButton size="sm" onClick={() => setTreatForm(emptyTreat())}>
+            <PrimaryCtaButton color="orange" size="sm" onClick={() => setTreatForm(emptyTreat())}>
               <Plus className="w-4 h-4" /> Nuovo trattamento
             </PrimaryCtaButton>
           </div>
@@ -320,7 +320,7 @@ export default function TreatmentsPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={saveTreat}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <PrimaryCtaButton color="orange" onClick={saveTreat}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setTreatForm(null)}>Annulla</Button>
               </div>
             </CardContent>

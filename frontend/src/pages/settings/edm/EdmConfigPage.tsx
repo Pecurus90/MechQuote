@@ -62,7 +62,7 @@ export default function EdmConfigPage() {
         title="Parametri Wire EDM"
         subtitle="Costanti globali del calcolo: fattori di velocità per tipo di passata e tempo pierce di default."
         action={
-          <PrimaryCtaButton onClick={handleSave} disabled={saving}>
+          <PrimaryCtaButton color="amber" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvataggio...' : 'Salva'}
           </PrimaryCtaButton>
         }

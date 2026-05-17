@@ -136,7 +136,7 @@ export default function CustomersPage() {
               <Upload className="w-4 h-4 mr-1" />
               {importing ? 'Import...' : 'Importa CSV'}
             </Button>
-            <PrimaryCtaButton size="sm" onClick={() => { setEditingId(0); setForm(emptyForm()) }}>
+            <PrimaryCtaButton color="emerald" size="sm" onClick={() => { setEditingId(0); setForm(emptyForm()) }}>
               <Plus className="w-4 h-4" /> Nuovo Cliente
             </PrimaryCtaButton>
           </div>
@@ -220,9 +220,9 @@ export default function CustomersPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-6">
-                <Button onClick={handleSave} disabled={!form.name || !form.customer_number}>
-                  <Save className="w-4 h-4 mr-1" /> Salva
-                </Button>
+                <PrimaryCtaButton color="emerald" onClick={handleSave} disabled={!form.name || !form.customer_number}>
+                  Salva
+                </PrimaryCtaButton>
                 <Button variant="outline" onClick={closeForm}>Annulla</Button>
               </div>
             </CardContent>

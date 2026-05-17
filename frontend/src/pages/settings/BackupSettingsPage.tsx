@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Download, Upload, FileJson, Database } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -81,10 +82,10 @@ export default function BackupSettingsPage() {
             <p className="text-sm text-gray-500 mb-4">
               Esporta tutti i dati del database in formato JSON. Include preventivi, clienti, materiali, macchine, ecc.
             </p>
-            <Button onClick={handleExport} disabled={exporting} className="w-full">
-              <FileJson className="w-4 h-4 mr-1" />
+            <PrimaryCtaButton color="emerald" onClick={handleExport} disabled={exporting} className="w-full justify-center">
+              <FileJson className="w-4 h-4" />
               {exporting ? 'Esportazione...' : 'Scarica Backup'}
-            </Button>
+            </PrimaryCtaButton>
           </CardContent>
         </Card>
 
@@ -98,10 +99,10 @@ export default function BackupSettingsPage() {
             <p className="text-sm text-gray-500 mb-4">
               Importa dati da un file di backup JSON. <strong>Attenzione:</strong> tutti i dati attuali verranno sovrascritti.
             </p>
-            <Button onClick={handleImport} disabled={importing} variant="destructive" className="w-full">
-              <Upload className="w-4 h-4 mr-1" />
+            <PrimaryCtaButton color="red" onClick={handleImport} disabled={importing} className="w-full justify-center">
+              <Upload className="w-4 h-4" />
               {importing ? 'Importazione...' : 'Ripristina Backup'}
-            </Button>
+            </PrimaryCtaButton>
           </CardContent>
         </Card>
       </div>

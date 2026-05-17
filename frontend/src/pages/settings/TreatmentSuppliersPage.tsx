@@ -102,7 +102,7 @@ export default function TreatmentSuppliersPage() {
         title="Fornitori trattamenti"
         subtitle="Fornitori esterni per trattamenti termici/superficiali e lavorazioni in conto terzi."
         action={
-          <PrimaryCtaButton onClick={startNew}>
+          <PrimaryCtaButton color="orange" onClick={startNew}>
             <Plus className="w-4 h-4" /> Nuovo
           </PrimaryCtaButton>
         }
@@ -177,7 +177,7 @@ export default function TreatmentSuppliersPage() {
                 <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
               </div>
               <div className="flex gap-2 mt-4">
-                <PrimaryCtaButton onClick={save}>Salva</PrimaryCtaButton>
+                <PrimaryCtaButton color="orange" onClick={save}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
               </div>
             </CardContent>

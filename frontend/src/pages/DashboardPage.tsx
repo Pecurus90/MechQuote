@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight, AlertTriangle, Wrench, Hammer } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Check, Send, FileText, Inbox, ChevronRight, AlertTriangle, Wrench, Hammer, BarChart3, Percent, Clock, Package, CalendarClock } from 'lucide-react'
+import PageContainer from '@/components/ui/page-container'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
@@ -23,7 +25,10 @@ export default function DashboardPage() {
   const { hasPermission } = useAuth()
   const canReview = hasPermission('quotes.complete')
   const canTools = hasPermission('tools')
-  const [lowStockCount, setLowStockCount] = useState(0)
+  const canOrderMaterials = hasPermission('orders.materials')
+  const [alerts, setAlerts] = useState<{ low_stock_tools: number; stale_submitted: number; to_order_materials: number }>({
+    low_stock_tools: 0, stale_submitted: 0, to_order_materials: 0,
+  })
 
   const [kpi, setKpi] = useState<DashboardKPI | null>(null)
   const [monthly, setMonthly] = useState<MonthlyData[]>([])
@@ -59,36 +64,39 @@ export default function DashboardPage() {
       toast.error('Errore nel caricamento dashboard')
     }).finally(() => setLoading(false))
 
-    if (canTools) {
-      api.get('/tools/low-stock-count')
-        .then(r => setLowStockCount(r.data?.count ?? 0))
-        .catch(() => undefined)
-    }
-  }, [canReview, canTools])
+    // Alert panel: 1 endpoint, 3 counts. Niente preghiera permessi qui —
+    // l'endpoint richiede solo `dashboard` (già verificato dal canView del
+    // page mount). Le righe del pannello mostrate solo se can{Tools,Order}.
+    api.get('/dashboard/alerts')
+      .then(r => setAlerts(r.data || { low_stock_tools: 0, stale_submitted: 0, to_order_materials: 0 }))
+      .catch(() => undefined)
+  }, [canReview])
 
   if (loading || !kpi || !stats) return (
     <div className="flex items-center justify-center h-64 text-gray-500">Caricamento...</div>
   )
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
-      <DashboardHeader stats={stats} onNew={() => navigate('/quotes/new')} />
-      {canTools && lowStockCount > 0 && (
-        <button
-          onClick={() => navigate('/orders/tools')}
-          className="w-full bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg px-4 py-3 flex items-center gap-3 text-left transition-colors"
-        >
-          <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
-          <div className="flex-1">
-            <div className="text-sm font-semibold text-orange-800">
-              {lowStockCount} utensil{lowStockCount === 1 ? 'e' : 'i'} sotto la quantità minima
-            </div>
-            <div className="text-xs text-orange-700">Apri Ordini utensili per generare il PDF aggregato per fornitore</div>
-          </div>
-          <Wrench className="w-4 h-4 text-orange-500 shrink-0" />
-          <ChevronRight className="w-4 h-4 text-orange-400 shrink-0" />
-        </button>
-      )}
+    <PageContainer width="xl">
+      <SettingsPageHeader
+        icon={BarChart3}
+        color="blue"
+        title="Dashboard"
+        subtitle="Riepilogo lavoro e numeri chiave"
+        action={
+          <PrimaryCtaButton color="blue" onClick={() => navigate('/quotes/new')}>
+            <Plus className="w-4 h-4" /> Nuovo Preventivo
+          </PrimaryCtaButton>
+        }
+      />
+      <StatusChips stats={stats} onClick={(status) => navigate(`/quotes/archive?status=${status}`)} />
+      <AlertPanel
+        alerts={alerts}
+        canTools={canTools}
+        canOrderMaterials={canOrderMaterials}
+        canReview={canReview}
+        onNavigate={navigate}
+      />
       <KPIGrid kpi={kpi} />
       {monthly.length > 0 && <MonthlyChart data={monthly} />}
 
@@ -129,34 +137,115 @@ export default function DashboardPage() {
           onSeeAll={() => navigate('/activity')}
         />
       </div>
-    </div>
+    </PageContainer>
   )
 }
 
 // ─── Sezioni interne (co-locate, usate solo qui) ──────────────────────────────
 
-function DashboardHeader({ stats, onNew }: { stats: WorkflowStats; onNew: () => void }) {
-  const counts = stats.by_status
+// Pannello Alert: mostra 0..N righe per problemi attivi. Se tutte 0,
+// niente visualizzazione (zero rumore). Ogni riga linka alla pagina
+// di azione per risolvere il problema.
+interface AlertCounts {
+  low_stock_tools: number
+  stale_submitted: number
+  to_order_materials: number
+}
+function AlertPanel({
+  alerts, canTools, canOrderMaterials, canReview, onNavigate,
+}: {
+  alerts: AlertCounts
+  canTools: boolean
+  canOrderMaterials: boolean
+  canReview: boolean
+  onNavigate: (path: string) => void
+}) {
+  const rows = [
+    canTools && alerts.low_stock_tools > 0 && {
+      key: 'tools',
+      icon: Wrench,
+      bg: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
+      iconColor: 'text-orange-600',
+      titleColor: 'text-orange-800',
+      bodyColor: 'text-orange-700',
+      title: `${alerts.low_stock_tools} utensil${alerts.low_stock_tools === 1 ? 'e' : 'i'} sotto la quantità minima`,
+      body: 'Apri Ordini utensili per generare il PDF aggregato per fornitore',
+      onClick: () => onNavigate('/orders/tools'),
+    },
+    canReview && alerts.stale_submitted > 0 && {
+      key: 'stale',
+      icon: Clock,
+      bg: 'bg-amber-50 hover:bg-amber-100 border-amber-200',
+      iconColor: 'text-amber-600',
+      titleColor: 'text-amber-800',
+      bodyColor: 'text-amber-700',
+      title: `${alerts.stale_submitted} preventiv${alerts.stale_submitted === 1 ? 'o' : 'i'} in revisione da > 7 giorni`,
+      body: 'Bottleneck di revisione: aprili per smaltire',
+      onClick: () => onNavigate('/quotes/archive?status=inviato'),
+    },
+    canOrderMaterials && alerts.to_order_materials > 0 && {
+      key: 'to-order',
+      icon: Package,
+      bg: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
+      iconColor: 'text-blue-600',
+      titleColor: 'text-blue-800',
+      bodyColor: 'text-blue-700',
+      title: `${alerts.to_order_materials} preventiv${alerts.to_order_materials === 1 ? 'o completato senza' : 'i completati senza'} ordine materiale`,
+      body: 'Apri Ordini materiali per generare la lista per fornitore',
+      onClick: () => onNavigate('/orders/materials'),
+    },
+  ].filter(Boolean) as Array<{
+    key: string; icon: typeof Wrench; bg: string; iconColor: string;
+    titleColor: string; bodyColor: string; title: string; body: string;
+    onClick: () => void
+  }>
+
+  if (rows.length === 0) return null
+
   return (
-    <div className="flex items-center justify-between gap-4 flex-wrap">
-      <div className="flex items-center gap-2 flex-wrap">
-        <h2 className="text-2xl font-bold text-gray-900 mr-2">Dashboard</h2>
-        <StatusPill label="Bozza" value={counts.bozza ?? 0} color="bg-gray-100 text-gray-700" />
-        <StatusPill label="Inviato" value={counts.inviato ?? 0} color="bg-amber-100 text-amber-700" />
-        <StatusPill label="Completato" value={counts.completato ?? 0} color="bg-green-100 text-green-700" />
-      </div>
-      <Button onClick={onNew}>
-        <Plus className="w-4 h-4 mr-1.5" /> Nuovo Preventivo
-      </Button>
+    <div className="space-y-2">
+      {rows.map(r => (
+        <button
+          key={r.key}
+          type="button"
+          onClick={r.onClick}
+          className={`w-full border rounded-lg px-4 py-3 flex items-center gap-3 text-left transition-colors ${r.bg}`}
+        >
+          <r.icon className={`w-5 h-5 shrink-0 ${r.iconColor}`} />
+          <div className="flex-1">
+            <div className={`text-sm font-semibold ${r.titleColor}`}>{r.title}</div>
+            <div className={`text-xs ${r.bodyColor}`}>{r.body}</div>
+          </div>
+          <ChevronRight className={`w-4 h-4 shrink-0 ${r.iconColor} opacity-70`} />
+        </button>
+      ))}
     </div>
   )
 }
 
-function StatusPill({ label, value, color }: { label: string; value: number; color: string }) {
+// 3 chip cliccabili con conteggio per stato. Click → archivio preventivi
+// filtrato per quel status (via query param ?status=X).
+function StatusChips({ stats, onClick }: { stats: WorkflowStats; onClick: (status: 'bozza' | 'inviato' | 'completato') => void }) {
+  const counts = stats.by_status
+  const CHIPS = [
+    { status: 'bozza' as const,      label: 'Bozze',       count: counts.bozza ?? 0,      colors: 'bg-gray-50 border-gray-200 hover:border-gray-400 text-gray-700' },
+    { status: 'inviato' as const,    label: 'In revisione', count: counts.inviato ?? 0,    colors: 'bg-amber-50 border-amber-200 hover:border-amber-400 text-amber-800' },
+    { status: 'completato' as const, label: 'Completati',  count: counts.completato ?? 0, colors: 'bg-green-50 border-green-200 hover:border-green-400 text-green-800' },
+  ]
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
-      {value} {label}
-    </span>
+    <div className="grid grid-cols-3 gap-3">
+      {CHIPS.map(c => (
+        <button
+          key={c.status}
+          type="button"
+          onClick={() => onClick(c.status)}
+          className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md ${c.colors}`}
+        >
+          <div className="text-3xl font-bold leading-none">{c.count}</div>
+          <div className="text-sm font-medium mt-1">{c.label}</div>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -165,10 +254,19 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
   const diffPositive = diff >= 0
   // Card "Valore stampi" mostrata solo quando ci sono preventivi stampo
   // in archivio: per officine senza modulo stampi attivo, la dashboard
-  // resta a 4 card come prima.
+  // resta a 4+1 card come prima.
   const showDies = (kpi.dies_quoted_value ?? 0) > 0
+  // Margine medio: solo se ho almeno un preventivo (cost > 0)
+  const margin = kpi.avg_margin_percent ?? 0
+  const showMargin = kpi.total_quotes > 0
+  // Grid columns: 4 base + 1 stampi (opzionale) + 1 margine (opzionale).
+  // Su sm/md sempre 2 col; su lg dinamico in base ai card presenti.
+  const lgCols = (showDies && showMargin) ? 'lg:grid-cols-6'
+    : (showDies || showMargin) ? 'lg:grid-cols-5'
+    : 'lg:grid-cols-4'
+  const marginColor = margin >= 30 ? 'text-green-600' : margin >= 15 ? 'text-amber-600' : 'text-red-500'
   return (
-    <div className={`grid grid-cols-2 ${showDies ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+    <div className={`grid grid-cols-2 ${lgCols} gap-4`}>
       <Card>
         <CardHeader className="pb-1">
           <CardDescription>Valore totale preventivato</CardDescription>
@@ -222,6 +320,18 @@ function KPIGrid({ kpi }: { kpi: DashboardKPI }) {
           </CardHeader>
           <CardContent className="text-sm text-gray-500">
             Preventivi modulo Stampi
+          </CardContent>
+        </Card>
+      )}
+
+      {showMargin && (
+        <Card>
+          <CardHeader className="pb-1">
+            <CardDescription className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5" /> Margine medio</CardDescription>
+            <CardTitle className={`text-3xl ${marginColor}`}>{margin.toFixed(1)}%</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-gray-500">
+            Su preventivi standard (no stampi)
           </CardContent>
         </Card>
       )}

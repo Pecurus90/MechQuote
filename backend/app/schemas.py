@@ -627,6 +627,9 @@ class DashboardKPI(BaseModel):
     # Modulo Stampi: valore preventivato dei quote_type='die' (industriale ×
     # margine × sconto), escluso dal split CNC/EDM.
     dies_quoted_value: float = 0.0
+    # Margine medio % sui preventivi standard (non die):
+    # (Σ unit_price × qty - Σ total_cost × qty) / Σ total_cost × qty * 100.
+    avg_margin_percent: float = 0.0
 
 
 class MonthlyData(BaseModel):

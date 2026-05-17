@@ -407,6 +407,8 @@ export interface DashboardKPI {
   edm_quoted_value: number
   // Modulo Stampi: prezzo finale (industriale × margine × sconto) cumulato.
   dies_quoted_value?: number
+  // Margine medio % sui preventivi standard (non die).
+  avg_margin_percent?: number
 }
 
 // ─── Wire EDM ───────────────────────────────────────────────────────────────

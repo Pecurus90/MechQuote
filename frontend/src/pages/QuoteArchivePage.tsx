@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -22,7 +22,15 @@ export default function QuoteArchivePage() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>('all')
+  // Init dello status filter da query string (?status=bozza|inviato|completato).
+  // Permette ai chip della dashboard di linkare l'archivio già filtrato.
+  const [searchParams] = useSearchParams()
+  const initialStatus = searchParams.get('status')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>(
+    initialStatus === 'bozza' || initialStatus === 'inviato' || initialStatus === 'completato'
+      ? initialStatus
+      : 'all'
+  )
   const [typeFilter, setTypeFilter] = useState<'all' | 'single' | 'commessa' | 'die'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')

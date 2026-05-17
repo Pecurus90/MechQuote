@@ -104,6 +104,25 @@ def get_kpi(db: Session = Depends(get_db), _=_can_view):
     )).scalar() or 0.0
     dies_quoted_value = float(dies_value)
 
+    # 6. Margine medio % sui preventivi standard (non die — i die hanno
+    # un margine "globale" sull'industriale e non per parte, calcolo a parte).
+    # Formula: ((Σ unit_price × qty) - (Σ total_cost × qty)) / (Σ total_cost × qty) × 100
+    # Se total_cost=0 → 0% (parte senza costo, non significativa per la media).
+    margin_row = db.execute(text(
+        """
+        SELECT
+          COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
+          COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
+        FROM parts p
+        JOIN quotes q ON q.id = p.quote_id
+        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL)
+          AND p.total_cost > 0
+        """
+    )).first()
+    revenue = float(margin_row.revenue or 0.0)
+    cost = float(margin_row.cost or 0.0)
+    avg_margin_percent = ((revenue - cost) / cost * 100.0) if cost > 0 else 0.0
+
     return DashboardKPI(
         total_quotes=total_quotes,
         total_quotes_this_month=total_quotes_this_month,
@@ -116,6 +135,7 @@ def get_kpi(db: Session = Depends(get_db), _=_can_view):
         cnc_quoted_value=round(cnc_value, 2),
         edm_quoted_value=round(edm_value, 2),
         dies_quoted_value=round(dies_quoted_value, 2),
+        avg_margin_percent=round(avg_margin_percent, 2),
     )
 
 
@@ -195,6 +215,46 @@ def get_workflow_stats(
         my_pending_count=my_pending,
         to_review_count=to_review,
     )
+
+
+@router.get("/dashboard/alerts")
+def get_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """Conteggi per il pannello Alert della dashboard. Niente row di dettaglio
+    qui: solo i counts, le pagine target hanno già le loro liste complete.
+
+    Ritorna:
+    - low_stock_tools: utensili con quantity < minimum
+    - stale_submitted: preventivi inviati > 7gg senza completamento
+    - to_order_materials: preventivi completati senza ordine materiale
+    """
+    from datetime import datetime, timezone
+    from app.models import Tool
+
+    # 1. Utensili sotto scorta
+    low_stock = db.execute(text(
+        "SELECT COUNT(*) FROM tools WHERE quantity < minimum_quantity AND minimum_quantity > 0"
+    )).scalar() or 0
+
+    # 2. Preventivi inviati > 7 giorni
+    threshold = datetime.now(timezone.utc) - timedelta(days=7)
+    stale_submitted = db.execute(text(
+        "SELECT COUNT(*) FROM quotes WHERE status = 'inviato' AND submitted_at < :t"
+    ), {"t": threshold}).scalar() or 0
+
+    # 3. Completati senza ordine materiale
+    to_order = db.execute(text(
+        "SELECT COUNT(*) FROM quotes WHERE status = 'completato' AND material_ordered_at IS NULL"
+    )).scalar() or 0
+
+    return {
+        "low_stock_tools": int(low_stock),
+        "stale_submitted": int(stale_submitted),
+        "to_order_materials": int(to_order),
+    }
 
 
 @router.get("/dashboard/my-quotes", response_model=List[DashboardQuoteRow])

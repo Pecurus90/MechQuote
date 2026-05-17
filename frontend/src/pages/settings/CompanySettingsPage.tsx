@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Save } from 'lucide-react'
+import { Building2 } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { CompanySettings } from '@/types'
@@ -48,12 +50,17 @@ export default function CompanySettingsPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Dati Azienda</h1>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="w-4 h-4 mr-1" /> {saving ? 'Salvataggio...' : 'Salva'}
-        </Button>
-      </div>
+      <SettingsPageHeader
+        icon={Building2}
+        color="emerald"
+        title="Dati Azienda"
+        subtitle="Anagrafica + default operativi (margine, prezzo minimo, trasporto, packaging)"
+        action={
+          <PrimaryCtaButton onClick={handleSave} disabled={saving}>
+            {saving ? 'Salvataggio...' : 'Salva'}
+          </PrimaryCtaButton>
+        }
+      />
 
       <Card>
         <CardHeader>

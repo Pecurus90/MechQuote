@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Save } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import type { EdmConfig, Machine } from '@/types'
 import { toast } from 'sonner'
@@ -54,17 +56,17 @@ export default function EdmConfigPage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Parametri Wire EDM</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Costanti globali del calcolo: fattori di velocità per tipo di passata e tempo pierce di default.
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="w-4 h-4 mr-1" /> {saving ? 'Salvataggio...' : 'Salva'}
-        </Button>
-      </div>
+      <SettingsPageHeader
+        icon={SlidersHorizontal}
+        color="amber"
+        title="Parametri Wire EDM"
+        subtitle="Costanti globali del calcolo: fattori di velocità per tipo di passata e tempo pierce di default."
+        action={
+          <PrimaryCtaButton onClick={handleSave} disabled={saving}>
+            {saving ? 'Salvataggio...' : 'Salva'}
+          </PrimaryCtaButton>
+        }
+      />
 
       <Card>
         <CardHeader>

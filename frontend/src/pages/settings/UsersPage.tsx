@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, UserCog } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { ApiUser, Role as ApiRole } from '@/types'
@@ -134,17 +136,19 @@ export default function UsersPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestione Utenti</h1>
-          <p className="text-sm text-gray-500 mt-1">Crea e gestisci gli account di accesso</p>
-        </div>
-        {!showNew && (
-          <Button size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo Utente
-          </Button>
-        )}
-      </div>
+      <SettingsPageHeader
+        icon={UserCog}
+        color="gray"
+        title="Gestione Utenti"
+        subtitle="Crea e gestisci gli account di accesso"
+        action={
+          !showNew ? (
+            <PrimaryCtaButton size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+              <Plus className="w-4 h-4" /> Nuovo Utente
+            </PrimaryCtaButton>
+          ) : undefined
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

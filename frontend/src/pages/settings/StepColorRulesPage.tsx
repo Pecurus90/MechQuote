@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Palette } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -66,18 +68,23 @@ export default function StepColorRulesPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Regole Colori STEP</h1>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
+      <SettingsPageHeader
+        icon={Palette}
+        color="orange"
+        title="Regole Colori STEP"
+        subtitle="Mappa colore→fase per import 3D STEP (dormiente in attesa di feature import)"
+        action={
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
+            </div>
+            <PrimaryCtaButton size="sm" onClick={() => resetForm(true)}>
+              <Plus className="w-4 h-4" /> Nuova
+            </PrimaryCtaButton>
           </div>
-          <Button size="sm" onClick={() => resetForm(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Nuova
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

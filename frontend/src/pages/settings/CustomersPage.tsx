@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, Upload } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Upload, Users } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -103,41 +105,43 @@ export default function CustomersPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Clienti</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{customers.length} clienti</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
+      <SettingsPageHeader
+        icon={Users}
+        color="emerald"
+        title="Clienti"
+        subtitle={`${customers.length} clienti in anagrafica`}
+        action={
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleImport(f)
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={importing}
+              onClick={() => fileInputRef.current?.click()}
+              title="Importa un CSV clienti del gestionale (separatore ;)"
+            >
+              <Upload className="w-4 h-4 mr-1" />
+              {importing ? 'Import...' : 'Importa CSV'}
+            </Button>
+            <PrimaryCtaButton size="sm" onClick={() => { setEditingId(0); setForm(emptyForm()) }}>
+              <Plus className="w-4 h-4" /> Nuovo Cliente
+            </PrimaryCtaButton>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={e => {
-              const f = e.target.files?.[0]
-              if (f) handleImport(f)
-            }}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={importing}
-            onClick={() => fileInputRef.current?.click()}
-            title="Importa un CSV clienti del gestionale (separatore ;)"
-          >
-            <Upload className="w-4 h-4 mr-1" />
-            {importing ? 'Import...' : 'Importa CSV'}
-          </Button>
-          <Button size="sm" onClick={() => { setEditingId(0); setForm(emptyForm()) }}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo Cliente
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

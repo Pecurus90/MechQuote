@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Ruler } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import type { Supplier, Treatment } from '@/types'
 
 interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string }
@@ -119,7 +121,12 @@ export default function TreatmentsPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold">Trattamenti</h1>
+      <SettingsPageHeader
+        icon={Ruler}
+        color="orange"
+        title="Trattamenti"
+        subtitle="Trattamenti termici/superficiali con tariffa €/kg o €/dm³ e fornitori associati"
+      />
 
       {/* ── Fornitori trattamenti ── */}
       <section>
@@ -130,9 +137,9 @@ export default function TreatmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
             </div>
-            <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
-              <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
-            </Button>
+            <PrimaryCtaButton size="sm" onClick={() => setSupForm(emptySupplier())}>
+              <Plus className="w-4 h-4" /> Nuovo fornitore
+            </PrimaryCtaButton>
           </div>
         </div>
         <Card>
@@ -209,9 +216,9 @@ export default function TreatmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchTreat} onChange={e => setSearchTreat(e.target.value)} className="pl-9 w-40" />
             </div>
-            <Button size="sm" onClick={() => setTreatForm(emptyTreat())}>
-              <Plus className="w-4 h-4 mr-1" /> Nuovo trattamento
-            </Button>
+            <PrimaryCtaButton size="sm" onClick={() => setTreatForm(emptyTreat())}>
+              <Plus className="w-4 h-4" /> Nuovo trattamento
+            </PrimaryCtaButton>
           </div>
         </div>
         <Card>

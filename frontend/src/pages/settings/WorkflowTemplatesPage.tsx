@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Link } from 'react-router-dom'
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Workflow } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -146,24 +148,19 @@ export default function WorkflowTemplatesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Workflow className="w-5 h-5" /> Template flusso
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Sequenze di fasi (Macchina + Lavorazione) da applicare in colpo
-            solo al preventivo. Esempio: Tornitura Mazak → Foratura Sodick →
-            Taglio EDM Sodick AG400. L'apply genera le fasi pre-popolate; tempi
-            e profili DXF si compilano nel preventivo.
-          </p>
-        </div>
-        {editingId === null && (
-          <Button size="sm" onClick={startNew}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo flusso
-          </Button>
-        )}
-      </div>
+      <SettingsPageHeader
+        icon={Workflow}
+        color="indigo"
+        title="Template flusso"
+        subtitle="Sequenze (Macchina + Lavorazione) applicate in un colpo al preventivo. L'apply genera le fasi pre-popolate."
+        action={
+          editingId === null ? (
+            <PrimaryCtaButton size="sm" onClick={startNew}>
+              <Plus className="w-4 h-4" /> Nuovo flusso
+            </PrimaryCtaButton>
+          ) : undefined
+        }
+      />
 
       {editingId !== null && (
         <Card>

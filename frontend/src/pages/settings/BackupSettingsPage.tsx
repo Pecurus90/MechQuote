@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Download, Upload, FileJson } from 'lucide-react'
+import { Download, Upload, FileJson, Database } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -62,7 +63,12 @@ export default function BackupSettingsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Backup e Ripristino</h1>
+      <SettingsPageHeader
+        icon={Database}
+        color="gray"
+        title="Backup e Ripristino"
+        subtitle="Esporta tutto il DB come JSON e reimporta da un file di backup"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>

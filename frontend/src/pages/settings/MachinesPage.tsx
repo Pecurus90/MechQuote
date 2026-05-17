@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Cog } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -88,18 +90,23 @@ export default function MachinesPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Centri di costo</h1>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
+      <SettingsPageHeader
+        icon={Cog}
+        color="indigo"
+        title="Centri di costo"
+        subtitle="Macchine e postazioni con tariffa €/h e setup"
+        action={
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
+            </div>
+            <PrimaryCtaButton size="sm" onClick={() => resetForm(true)}>
+              <Plus className="w-4 h-4" /> Nuovo
+            </PrimaryCtaButton>
           </div>
-          <Button size="sm" onClick={() => resetForm(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

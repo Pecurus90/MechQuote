@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, Gauge } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import type { EdmCutSpeed } from '@/types'
 import { toast } from 'sonner'
@@ -130,21 +132,19 @@ export default function EdmSpeedsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Velocità di taglio Wire EDM</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Avanzamento lineare del filo in <strong>mm/min</strong> per ogni famiglia di
-            materiale e range di altezza (di solito step di 10mm: 0-10, 10-20, …).
-            Le velocità delle altre passate sono derivate dai fattori in <em>Parametri globali</em>.
-          </p>
-        </div>
-        {!showNew && (
-          <Button size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
-            <Plus className="w-4 h-4 mr-1" /> Nuova riga
-          </Button>
-        )}
-      </div>
+      <SettingsPageHeader
+        icon={Gauge}
+        color="amber"
+        title="Velocità di taglio Wire EDM"
+        subtitle="Avanzamento filo (mm/min) per famiglia materiale × altezza. Le passate derivano dai fattori in Parametri globali."
+        action={
+          !showNew ? (
+            <PrimaryCtaButton size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+              <Plus className="w-4 h-4" /> Nuova riga
+            </PrimaryCtaButton>
+          ) : undefined
+        }
+      />
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">

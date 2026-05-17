@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, FileText } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, FileText, Box } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import type { Material, MaterialSupplier } from '@/types'
 
 interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string }
@@ -112,7 +114,12 @@ export default function MaterialsPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold">Materiali</h1>
+      <SettingsPageHeader
+        icon={Box}
+        color="blue"
+        title="Materiali"
+        subtitle="Anagrafica materiali con densità, costo €/kg e scheda tecnica"
+      />
 
       {/* ── Fornitori materiali ── */}
       <section>
@@ -123,9 +130,9 @@ export default function MaterialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
             </div>
-            <Button size="sm" onClick={() => setSupForm(emptySupplier())}>
-              <Plus className="w-4 h-4 mr-1" /> Nuovo fornitore
-            </Button>
+            <PrimaryCtaButton size="sm" onClick={() => setSupForm(emptySupplier())}>
+              <Plus className="w-4 h-4" /> Nuovo fornitore
+            </PrimaryCtaButton>
           </div>
         </div>
         <Card>
@@ -206,9 +213,9 @@ export default function MaterialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
             </div>
-            <Button size="sm" onClick={() => setMatForm(emptyMat())}>
-              <Plus className="w-4 h-4 mr-1" /> Nuovo materiale
-            </Button>
+            <PrimaryCtaButton size="sm" onClick={() => setMatForm(emptyMat())}>
+              <Plus className="w-4 h-4" /> Nuovo materiale
+            </PrimaryCtaButton>
           </div>
         </div>
         <Card>

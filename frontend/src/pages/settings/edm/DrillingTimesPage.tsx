@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, Drill } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import type { DrillingTime } from '@/types'
 import { toast } from 'sonner'
@@ -115,22 +117,19 @@ export default function DrillingTimesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Velocità di foratura</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Velocità di avanzamento (mm/sec) per ogni famiglia di materiale × diametro elettrodo.
-            Lookup discreto: il diametro elettrodo deve corrispondere esattamente. Tempo per foro
-            calcolato come <code className="px-1 bg-muted rounded">altezza_pezzo / mm_per_sec</code>,
-            poi moltiplicato per il numero di fori del preventivo.
-          </p>
-        </div>
-        {!showNew && (
-          <Button size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
-            <Plus className="w-4 h-4 mr-1" /> Nuova riga
-          </Button>
-        )}
-      </div>
+      <SettingsPageHeader
+        icon={Drill}
+        color="amber"
+        title="Velocità di foratura"
+        subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Lookup discreto su diametro."
+        action={
+          !showNew ? (
+            <PrimaryCtaButton size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+              <Plus className="w-4 h-4" /> Nuova riga
+            </PrimaryCtaButton>
+          ) : undefined
+        }
+      />
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">

@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
-import { Plus, Trash2, Check, X } from 'lucide-react'
+import { Plus, Trash2, Check, X, ShieldCheck } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Role } from '@/types'
@@ -97,17 +99,19 @@ export default function RolesPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ruoli e Permessi</h1>
-          <p className="text-sm text-gray-500 mt-1">Configura i permessi per ogni ruolo — salvato al click</p>
-        </div>
-        {!showNew && (
-          <Button size="sm" onClick={() => setShowNew(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo Ruolo
-          </Button>
-        )}
-      </div>
+      <SettingsPageHeader
+        icon={ShieldCheck}
+        color="gray"
+        title="Ruoli e Permessi"
+        subtitle="Configura i permessi per ogni ruolo — salvato al click"
+        action={
+          !showNew ? (
+            <PrimaryCtaButton size="sm" onClick={() => setShowNew(true)}>
+              <Plus className="w-4 h-4" /> Nuovo Ruolo
+            </PrimaryCtaButton>
+          ) : undefined
+        }
+      />
 
       {/* New role form */}
       {showNew && (

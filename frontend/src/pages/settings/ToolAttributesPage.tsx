@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Wrench } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -202,15 +203,12 @@ function AttributeTable({ section }: { section: Section }) {
 export default function ToolAttributesPage() {
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Wrench className="w-6 h-6 text-blue-700" /> Attributi utensili
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Gestisci i valori usati nei dropdown del catalogo utensili.
-          Aggiungere/rimuovere voci qui non modifica gli utensili esistenti.
-        </p>
-      </div>
+      <SettingsPageHeader
+        icon={Wrench}
+        color="violet"
+        title="Attributi utensili"
+        subtitle="Valori usati nei dropdown del catalogo utensili. Aggiungere/rimuovere voci qui non modifica gli utensili esistenti."
+      />
       {SECTIONS.map(s => <AttributeTable key={s.key} section={s} />)}
     </div>
   )

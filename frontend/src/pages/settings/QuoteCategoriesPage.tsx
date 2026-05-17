@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
-import { Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, Search, Tag } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Category } from '@/types'
@@ -65,23 +67,23 @@ export default function QuoteCategoriesPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Categorie Preventivo</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            La lettera appare nel codice preventivo (es. 240-26<strong>A</strong>_001)
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-40" />
+      <SettingsPageHeader
+        icon={Tag}
+        color="violet"
+        title="Categorie Preventivo"
+        subtitle="La lettera appare nel codice preventivo (es. 240-26A_001)"
+        action={
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-40" />
+            </div>
+            <PrimaryCtaButton size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
+              <Plus className="w-4 h-4" /> Nuova
+            </PrimaryCtaButton>
           </div>
-          <Button size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
-            <Plus className="w-4 h-4 mr-1" /> Nuova
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">

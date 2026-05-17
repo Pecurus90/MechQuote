@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Box } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Box } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import type { MaterialSupplier } from '@/types'
 
 interface FormState {
@@ -91,19 +93,17 @@ export default function MaterialSuppliersPage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Box className="w-6 h-6 text-blue-700" /> Fornitori materiali
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Chi vende il materiale grezzo (con spese spedizione e taglio).
-          </p>
-        </div>
-        <Button size="sm" onClick={startNew}>
-          <Plus className="w-4 h-4 mr-1" /> Nuovo
-        </Button>
-      </div>
+      <SettingsPageHeader
+        icon={Box}
+        color="blue"
+        title="Fornitori materiali"
+        subtitle="Chi vende il materiale grezzo (con spese spedizione e taglio)."
+        action={
+          <PrimaryCtaButton onClick={startNew}>
+            <Plus className="w-4 h-4" /> Nuovo
+          </PrimaryCtaButton>
+        }
+      />
 
       <Card>
         <CardContent className="p-0">
@@ -172,7 +172,7 @@ export default function MaterialSuppliersPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button onClick={save}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <PrimaryCtaButton onClick={save}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
               </div>
             </CardContent>

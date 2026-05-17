@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Trash2, ChevronUp, ChevronDown, Save, X } from 'lucide-react'
+import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Zap } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import type { CuttingCycle, CuttingPass, PassType } from '@/types'
 import { toast } from 'sonner'
@@ -101,20 +103,19 @@ export default function CuttingCyclesPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Cicli di taglio</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Template di sequenze di passate. Esempio: "Standard 1+3" = 1 sgrossatura + 3 finiture.
-            Vengono applicati alla fase Wire EDM nel preventivo.
-          </p>
-        </div>
-        {editingId === null && (
-          <Button size="sm" onClick={startNew}>
-            <Plus className="w-4 h-4 mr-1" /> Nuovo ciclo
-          </Button>
-        )}
-      </div>
+      <SettingsPageHeader
+        icon={Zap}
+        color="amber"
+        title="Cicli di taglio"
+        subtitle='Template sequenze di passate. Es. "Standard 1+3" = 1 sgrossatura + 3 finiture, applicati alla fase Wire EDM.'
+        action={
+          editingId === null ? (
+            <PrimaryCtaButton size="sm" onClick={startNew}>
+              <Plus className="w-4 h-4" /> Nuovo ciclo
+            </PrimaryCtaButton>
+          ) : undefined
+        }
+      />
 
       {editingId !== null && (
         <Card>

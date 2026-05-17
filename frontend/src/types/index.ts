@@ -589,6 +589,43 @@ export interface Statistics {
   margin_monthly: StatsMarginPoint[]
 }
 
+// Tab "Materiali" — statistiche ordini materiali
+export interface StatsCountPoint {
+  month: string
+  count: number
+}
+
+export interface StatsSupplierRow {
+  supplier_name: string
+  count: number
+}
+
+export interface StatsLeadTimePoint {
+  month: string
+  avg_days: number
+}
+
+export interface MaterialsStats {
+  period: string
+  trend_monthly: StatsCountPoint[]
+  top_suppliers: StatsSupplierRow[]
+  lead_time_avg_days: number
+  lead_time_monthly: StatsLeadTimePoint[]
+}
+
+// Tab "Utensili" — statistiche ordini utensili
+export interface StatsToolRow {
+  code: string
+  total_quantity: number
+}
+
+export interface ToolsStats {
+  period: string
+  trend_monthly: StatsCountPoint[]
+  top_suppliers: StatsSupplierRow[]
+  top_tools: StatsToolRow[]
+}
+
 
 export interface OfficinaCategory {
   id: number

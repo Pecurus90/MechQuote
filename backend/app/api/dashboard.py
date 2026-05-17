@@ -19,6 +19,8 @@ from app.models import Quote, Part, User, Notification, NotificationRead
 from app.schemas import (
     DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow,
     StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
+    MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
+    StatsLeadTimePoint, StatsToolRow,
 )
 from app.api.notifications import serialize_notification
 
@@ -374,6 +376,177 @@ def get_statistics(
         top_customers=top_customers,
         by_category=by_category,
         margin_monthly=margin_monthly,
+    )
+
+
+@router.get("/dashboard/statistics/orders-materials", response_model=MaterialsStatsOut)
+def get_materials_stats(
+    period: str = 'year',
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """3 dataset per il tab Materiali della pagina /statistics."""
+    date_from, date_to = _period_range(period)
+    where_mo = []
+    params: dict = {}
+    if date_from is not None:
+        where_mo.append("mo.created_at >= :date_from")
+        params['date_from'] = date_from
+    if date_to is not None:
+        # +1 giorno per includere il bound finale (timestamp).
+        where_mo.append("mo.created_at < date(:date_to, '+1 day')")
+        params['date_to'] = date_to
+    mo_filter = (' WHERE ' + ' AND '.join(where_mo)) if where_mo else ''
+
+    # 1. Trend ordini per mese
+    rows_trend = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', mo.created_at) AS m, COUNT(*) AS n
+        FROM material_orders mo
+        {mo_filter}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    trend = [StatsCountPoint(month=r.m, count=int(r.n)) for r in rows_trend]
+
+    # 2. Top fornitori materiali: passa per MaterialOrderQuote → Quote → Parts → Material → supplier.
+    # Conta n. preventivi distinti (NON parts: l'ordine è "verso il fornitore X
+    # con N preventivi"). Aggregazione via supplier_id.
+    rows_sup = db.execute(text(
+        f"""
+        SELECT ms.name AS name, COUNT(DISTINCT moq.quote_id) AS n
+        FROM material_orders mo
+        JOIN material_order_quotes moq ON moq.material_order_id = mo.id
+        JOIN parts p ON p.quote_id = moq.quote_id
+        JOIN materials mat ON mat.id = p.material_id
+        JOIN material_suppliers ms ON ms.id = mat.supplier_id
+        {mo_filter}
+        GROUP BY ms.id, ms.name
+        ORDER BY n DESC
+        LIMIT 10
+        """
+    ), params).all()
+    top_suppliers = [StatsSupplierRow(supplier_name=r.name, count=int(r.n)) for r in rows_sup]
+
+    # 3. Lead time medio "completato → ordine materiale" (giorni).
+    # Solo quote con entrambe le date popolate. julianday() è SQLite-specifico.
+    where_q = []
+    q_params: dict = {}
+    if date_from is not None:
+        where_q.append("q.material_ordered_at >= :date_from")
+        q_params['date_from'] = date_from
+    if date_to is not None:
+        where_q.append("q.material_ordered_at < date(:date_to, '+1 day')")
+        q_params['date_to'] = date_to
+    q_filter = (' AND ' + ' AND '.join(where_q)) if where_q else ''
+    lt_row = db.execute(text(
+        f"""
+        SELECT AVG(julianday(q.material_ordered_at) - julianday(q.completed_at)) AS avg_d
+        FROM quotes q
+        WHERE q.completed_at IS NOT NULL
+          AND q.material_ordered_at IS NOT NULL
+          {q_filter}
+        """
+    ), q_params).scalar()
+    lead_time_avg = float(lt_row) if lt_row is not None else 0.0
+
+    rows_lt = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.material_ordered_at) AS m,
+               AVG(julianday(q.material_ordered_at) - julianday(q.completed_at)) AS avg_d
+        FROM quotes q
+        WHERE q.completed_at IS NOT NULL
+          AND q.material_ordered_at IS NOT NULL
+          {q_filter}
+        GROUP BY m ORDER BY m
+        """
+    ), q_params).all()
+    lead_time_monthly = [
+        StatsLeadTimePoint(month=r.m, avg_days=round(float(r.avg_d or 0), 2))
+        for r in rows_lt
+    ]
+
+    return MaterialsStatsOut(
+        period=period,
+        trend_monthly=trend,
+        top_suppliers=top_suppliers,
+        lead_time_avg_days=round(lead_time_avg, 2),
+        lead_time_monthly=lead_time_monthly,
+    )
+
+
+@router.get("/dashboard/statistics/tools", response_model=ToolsStatsOut)
+def get_tools_stats(
+    period: str = 'year',
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """3 dataset per il tab Utensili della pagina /statistics."""
+    date_from, date_to = _period_range(period)
+    where = []
+    params: dict = {}
+    if date_from is not None:
+        where.append("toord.created_at >= :date_from")
+        params['date_from'] = date_from
+    if date_to is not None:
+        where.append("toord.created_at < date(:date_to, '+1 day')")
+        params['date_to'] = date_to
+    flt = (' WHERE ' + ' AND '.join(where)) if where else ''
+
+    # 1. Trend ordini per mese
+    rows_trend = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', toord.created_at) AS m, COUNT(*) AS n
+        FROM tool_orders toord
+        {flt}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    trend = [StatsCountPoint(month=r.m, count=int(r.n)) for r in rows_trend]
+
+    # 2. Top fornitori utensili: aggregazione su supplier_name_snapshot
+    # (string, non FK — lo snapshot conserva il nome esatto al momento ordine).
+    # Usiamo le stesse condizioni di flt ma con `AND` join semplice.
+    where_sup = ["toi.supplier_name_snapshot IS NOT NULL", "toi.supplier_name_snapshot != ''"]
+    if date_from is not None:
+        where_sup.append("toord.created_at >= :date_from")
+    if date_to is not None:
+        where_sup.append("toord.created_at < date(:date_to, '+1 day')")
+    sup_filter = ' WHERE ' + ' AND '.join(where_sup)
+    rows_sup = db.execute(text(
+        f"""
+        SELECT toi.supplier_name_snapshot AS name, COUNT(*) AS n
+        FROM tool_order_items toi
+        JOIN tool_orders toord ON toord.id = toi.tool_order_id
+        {sup_filter}
+        GROUP BY toi.supplier_name_snapshot
+        ORDER BY n DESC
+        LIMIT 10
+        """
+    ), params).all()
+    top_suppliers = [StatsSupplierRow(supplier_name=r.name, count=int(r.n)) for r in rows_sup]
+
+    # 3. Top utensili: code_snapshot + somma quantity_at_time
+    rows_tools = db.execute(text(
+        f"""
+        SELECT toi.code_snapshot AS code, SUM(toi.quantity_at_time) AS qty
+        FROM tool_order_items toi
+        JOIN tool_orders toord ON toord.id = toi.tool_order_id
+        {flt}
+        GROUP BY toi.code_snapshot
+        ORDER BY qty DESC
+        LIMIT 10
+        """
+    ), params).all()
+    top_tools = [StatsToolRow(code=r.code, total_quantity=int(r.qty or 0)) for r in rows_tools]
+
+    return ToolsStatsOut(
+        period=period,
+        trend_monthly=trend,
+        top_suppliers=top_suppliers,
+        top_tools=top_tools,
     )
 
 

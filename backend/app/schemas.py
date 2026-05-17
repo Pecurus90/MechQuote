@@ -683,6 +683,46 @@ class StatisticsOut(BaseModel):
     margin_monthly: List[StatsMarginPoint]
 
 
+# ─── Statistics: tab Materiali ────────────────────────────────────────────
+
+class StatsCountPoint(BaseModel):
+    """Conteggio per mese, riusato da più tab (ordini materiali, utensili)."""
+    month: str
+    count: int
+
+
+class StatsSupplierRow(BaseModel):
+    supplier_name: str
+    count: int
+
+
+class StatsLeadTimePoint(BaseModel):
+    month: str
+    avg_days: float
+
+
+class MaterialsStatsOut(BaseModel):
+    period: str
+    trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
+    top_suppliers: List[StatsSupplierRow]           # top 10 fornitori materiale
+    lead_time_avg_days: float                       # media periodo
+    lead_time_monthly: List[StatsLeadTimePoint]     # trend per mese
+
+
+# ─── Statistics: tab Utensili ─────────────────────────────────────────────
+
+class StatsToolRow(BaseModel):
+    code: str
+    total_quantity: int
+
+
+class ToolsStatsOut(BaseModel):
+    period: str
+    trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
+    top_suppliers: List[StatsSupplierRow]           # top 10 fornitori utensili
+    top_tools: List[StatsToolRow]                   # top 10 utensili più ordinati
+
+
 class DashboardQuoteRow(BaseModel):
     id: int
     quote_number: str

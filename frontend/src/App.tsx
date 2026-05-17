@@ -16,6 +16,7 @@ import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
 import CustomersPage from '@/pages/settings/CustomersPage'
 import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
 import ActivityPage from '@/pages/ActivityPage'
+import StatisticsPage from '@/pages/StatisticsPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
 import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
 import ToolsPage from '@/pages/ToolsPage'
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="officina/documenti" element={<ProtectedRoute permission="officina"><OfficinaDocumentsPage /></ProtectedRoute>} />
         <Route path="officina/materiali" element={<ProtectedRoute permission="officina"><OfficinaMaterialsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
+        <Route path="statistics" element={<ProtectedRoute permission="dashboard"><StatisticsPage /></ProtectedRoute>} />
 
         {/* Settings — pagine atomiche residue */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />

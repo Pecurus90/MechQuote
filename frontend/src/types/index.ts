@@ -556,6 +556,40 @@ export interface OfficinaDocument {
   normalized_supplier?: { id: number; name: string } | null
 }
 
+// ─── Statistics page (4 dataset aggregati) ──────────────────────────────
+
+export interface StatsTrendPoint {
+  month: string         // YYYY-MM
+  standard: number      // € preventivati per quote_type single+commessa
+  dies: number          // € preventivati per quote_type='die'
+}
+
+export interface StatsCustomerRow {
+  customer_id: number | null
+  customer_name: string
+  total: number
+}
+
+export interface StatsCategoryRow {
+  category_code: string
+  count: number
+  total: number
+}
+
+export interface StatsMarginPoint {
+  month: string
+  margin_percent: number
+}
+
+export interface Statistics {
+  period: 'year' | '12m' | 'prev_year' | 'all'
+  trend_monthly: StatsTrendPoint[]
+  top_customers: StatsCustomerRow[]
+  by_category: StatsCategoryRow[]
+  margin_monthly: StatsMarginPoint[]
+}
+
+
 export interface OfficinaCategory {
   id: number
   name: string

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Plus, Archive, FileText, Activity,
+  LayoutDashboard, LineChart, Plus, Archive, FileText, Activity,
   Box, Building2,
   Tag, Users, ChevronDown, ChevronRight, LogOut, Bell, Settings,
   Zap, Package, ShoppingCart, Wrench, Hammer,
@@ -89,6 +89,13 @@ export default function Sidebar() {
           <NavLink to="/dashboard" className={({ isActive }) => navLinkClass(isActive)}>
             <LayoutDashboard className="w-4 h-4 shrink-0" />
             <span>Dashboard</span>
+          </NavLink>
+        )}
+
+        {canDashboard && (
+          <NavLink to="/statistics" className={({ isActive }) => navLinkClass(isActive)}>
+            <LineChart className="w-4 h-4 shrink-0" />
+            <span>Statistiche</span>
           </NavLink>
         )}
 

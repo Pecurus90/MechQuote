@@ -648,6 +648,41 @@ class WorkflowStats(BaseModel):
     to_review_count: int
 
 
+# ─── Statistics page (StatisticsOut) ──────────────────────────────────────
+# 4 dataset aggregati per la pagina /statistics. Tutti calcolati lato BE
+# con SQL aggregato (no row idratate in Python).
+
+class StatsTrendPoint(BaseModel):
+    month: str        # YYYY-MM
+    standard: float   # € preventivati per quote_type single+commessa
+    dies: float       # € preventivati per quote_type='die'
+
+
+class StatsCustomerRow(BaseModel):
+    customer_id: Optional[int] = None
+    customer_name: str
+    total: float
+
+
+class StatsCategoryRow(BaseModel):
+    category_code: str
+    count: int
+    total: float
+
+
+class StatsMarginPoint(BaseModel):
+    month: str
+    margin_percent: float
+
+
+class StatisticsOut(BaseModel):
+    period: str                              # 'year' | '12m' | 'prev_year' | 'all'
+    trend_monthly: List[StatsTrendPoint]
+    top_customers: List[StatsCustomerRow]
+    by_category: List[StatsCategoryRow]
+    margin_monthly: List[StatsMarginPoint]
+
+
 class DashboardQuoteRow(BaseModel):
     id: int
     quote_number: str

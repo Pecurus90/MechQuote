@@ -16,7 +16,10 @@ from fastapi import HTTPException
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import Quote, Part, User, Notification, NotificationRead
-from app.schemas import DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow
+from app.schemas import (
+    DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow,
+    StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
+)
 from app.api.notifications import serialize_notification
 
 
@@ -214,6 +217,163 @@ def get_workflow_stats(
         my_drafts_count=my_drafts,
         my_pending_count=my_pending,
         to_review_count=to_review,
+    )
+
+
+def _period_range(period: str):
+    """Restituisce (date_from, date_to) per i preset di periodo della pagina
+    /statistics. None = nessun filtro su quel bound."""
+    today = date.today()
+    if period == 'year':
+        return (date(today.year, 1, 1), today)
+    if period == '12m':
+        return (today - timedelta(days=365), today)
+    if period == 'prev_year':
+        prev = today.year - 1
+        return (date(prev, 1, 1), date(prev, 12, 31))
+    # 'all' o sconosciuto
+    return (None, None)
+
+
+@router.get("/dashboard/statistics", response_model=StatisticsOut)
+def get_statistics(
+    period: str = 'year',
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """Dataset aggregato per la pagina /statistics. 4 dataset in 1 risposta.
+    Param `period`: year (default) | 12m | prev_year | all.
+    """
+    date_from, date_to = _period_range(period)
+    where_parts = []
+    params: dict = {}
+    if date_from is not None:
+        where_parts.append("q.quote_date >= :date_from")
+        params['date_from'] = date_from
+    if date_to is not None:
+        where_parts.append("q.quote_date <= :date_to")
+        params['date_to'] = date_to
+    date_filter = (' AND ' + ' AND '.join(where_parts)) if where_parts else ''
+
+    # ─── 1. Trend mensile per tipo (standard vs dies) ──────────────────
+    # Standard: somma parts.total_price (escluso die).
+    rows_std = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(p.total_price), 0) AS v
+        FROM parts p
+        JOIN quotes q ON q.id = p.quote_id
+        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL)
+          {date_filter}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    # Stampi: cost_industrial × margin × discount.
+    rows_die = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(
+          ds.cost_industrial
+          * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+          * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+        ), 0) AS v
+        FROM die_specs ds
+        JOIN quotes q ON q.id = ds.quote_id
+        WHERE q.quote_type = 'die'
+          {date_filter}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    months = sorted({r.m for r in rows_std} | {r.m for r in rows_die})
+    std_map = {r.m: float(r.v or 0) for r in rows_std}
+    die_map = {r.m: float(r.v or 0) for r in rows_die}
+    trend = [StatsTrendPoint(month=m, standard=std_map.get(m, 0.0), dies=die_map.get(m, 0.0))
+             for m in months]
+
+    # ─── 2. Top 10 clienti (combinato standard + stampi) ──────────────
+    rows_cust = db.execute(text(
+        f"""
+        SELECT q.customer_id, q.customer_name,
+          COALESCE(
+            CASE WHEN q.quote_type = 'die'
+                 THEN ds.cost_industrial
+                      * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+                      * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+                 ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+            END, 0
+          ) AS total
+        FROM quotes q
+        LEFT JOIN die_specs ds ON ds.quote_id = q.id
+        WHERE q.customer_name IS NOT NULL AND q.customer_name != ''
+          {date_filter}
+        """
+    ), params).all()
+    cust_agg: dict[tuple, float] = {}
+    for r in rows_cust:
+        key = (r.customer_id, r.customer_name)
+        cust_agg[key] = cust_agg.get(key, 0.0) + float(r.total or 0)
+    top_customers = [
+        StatsCustomerRow(customer_id=cid, customer_name=name, total=round(v, 2))
+        for (cid, name), v in sorted(cust_agg.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+
+    # ─── 3. Distribuzione per categoria (lettera nel quote_number) ────
+    # quote_number formato: CCC-YYL_PPP → lettera in posizione 8 (1-based)
+    rows_cat = db.execute(text(
+        f"""
+        SELECT
+          SUBSTR(q.quote_number, 8, 1) AS cat,
+          COUNT(*) AS cnt,
+          COALESCE(SUM(
+            COALESCE(
+              CASE WHEN q.quote_type = 'die'
+                   THEN ds.cost_industrial
+                        * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+                        * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+                   ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+              END, 0
+            )
+          ), 0) AS total
+        FROM quotes q
+        LEFT JOIN die_specs ds ON ds.quote_id = q.id
+        WHERE q.quote_number IS NOT NULL
+          {date_filter}
+        GROUP BY cat ORDER BY total DESC
+        """
+    ), params).all()
+    by_category = [
+        StatsCategoryRow(category_code=(r.cat or '?'), count=int(r.cnt), total=round(float(r.total or 0), 2))
+        for r in rows_cat
+        if r.cat and r.cat.strip()  # esclude righe con quote_number malformato
+    ]
+
+    # ─── 4. Margine medio mensile (solo standard) ─────────────────────
+    # Margine medio = (Σ revenue - Σ cost) / Σ cost × 100 per ogni mese.
+    rows_margin = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
+          COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
+        FROM parts p
+        JOIN quotes q ON q.id = p.quote_id
+        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL)
+          AND p.total_cost > 0
+          {date_filter}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    margin_monthly = []
+    for r in rows_margin:
+        cost = float(r.cost or 0)
+        rev = float(r.revenue or 0)
+        m_pct = ((rev - cost) / cost * 100.0) if cost > 0 else 0.0
+        margin_monthly.append(StatsMarginPoint(month=r.m, margin_percent=round(m_pct, 2)))
+
+    return StatisticsOut(
+        period=period,
+        trend_monthly=trend,
+        top_customers=top_customers,
+        by_category=by_category,
+        margin_monthly=margin_monthly,
     )
 
 

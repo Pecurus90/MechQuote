@@ -9,6 +9,8 @@ import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import type { Tool, ToolAttribute, ToolSupplier } from '@/types'
 
 type ScanMode = 'load' | 'unload'
@@ -231,19 +233,17 @@ export default function ToolsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Wrench className="w-6 h-6 text-blue-700" /> Utensili
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {tools.length} utensil{tools.length === 1 ? 'e' : 'i'} mostrati
-          </p>
-        </div>
-        <Button size="sm" onClick={startNew}>
-          <Plus className="w-4 h-4 mr-1" /> Nuovo utensile
-        </Button>
-      </div>
+      <SettingsPageHeader
+        icon={Wrench}
+        color="violet"
+        title="Utensili"
+        subtitle={`${tools.length} utensil${tools.length === 1 ? 'e' : 'i'} mostrati`}
+        action={
+          <PrimaryCtaButton color="violet" size="sm" onClick={startNew}>
+            <Plus className="w-4 h-4" /> Nuovo utensile
+          </PrimaryCtaButton>
+        }
+      />
 
       {/* Scan zone */}
       <Card>
@@ -447,7 +447,7 @@ export default function ToolsPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-5">
-                <Button onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Salva</Button>
+                <PrimaryCtaButton color="violet" onClick={handleSave}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
               </div>
             </CardContent>

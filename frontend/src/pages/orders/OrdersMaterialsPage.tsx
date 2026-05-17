@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Search, Package, FileDown, History, X } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { STATUS_LABELS } from '@/lib/constants'
@@ -162,26 +164,21 @@ export default function OrdersMaterialsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Package className="w-6 h-6 text-blue-700" />
-            Ordini materiali
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-            Seleziona i preventivi e genera un PDF con la lista dei materiali da
-            ordinare, raggruppati per fornitore. I preventivi inclusi vengono
-            marcati come <strong>"materiale ordinato"</strong>.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowHistory(s => !s)}
-        >
-          <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-        </Button>
-      </div>
+      <SettingsPageHeader
+        icon={Package}
+        color="blue"
+        title="Ordini materiali"
+        subtitle='Seleziona preventivi e genera un PDF lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowHistory(s => !s)}
+          >
+            <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
+          </Button>
+        }
+      />
 
       {stats && (
         <KpiBar items={[
@@ -429,16 +426,15 @@ export default function OrdersMaterialsPage() {
                 </CardContent>
               </Card>
 
-              <Button
+              <PrimaryCtaButton
+                color="blue"
                 onClick={exportOrder}
                 disabled={exporting || selectedIds.size === 0}
-                variant="outline"
-                size="lg"
-                className="w-full"
+                className="w-full justify-center py-3"
               >
-                <FileDown className="w-4 h-4 mr-2" />
+                <FileDown className="w-4 h-4" />
                 {exporting ? 'Generazione in corso...' : `PDF ordine (${selectedIds.size} preventiv${selectedIds.size === 1 ? 'o' : 'i'})`}
-              </Button>
+              </PrimaryCtaButton>
               <p className="text-[11px] text-gray-400 text-center">
                 I preventivi selezionati saranno marcati come "materiale ordinato"
                 e verrà inviata notifica a ufficio tecnico e amministrazione.

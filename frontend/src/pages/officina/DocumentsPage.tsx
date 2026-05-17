@@ -7,6 +7,8 @@ import {
   FileText, Upload, Trash2, Search, ExternalLink, X, ChevronLeft,
   Image as ImageIcon, FileSpreadsheet, FileType2, Box,
 } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
@@ -260,30 +262,25 @@ export default function OfficinaDocumentsPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Link to="/officina" className="hover:text-blue-700 flex items-center gap-1">
-              <ChevronLeft className="w-3 h-3" /> Officina
-            </Link>
-          </div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="w-6 h-6 text-blue-700" /> Documenti
-            {filterCat && (
-              <span className="text-base font-normal text-gray-500">— {filterCat}</span>
-            )}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-            PDF, Word, Excel, immagini e DXF consultabili dall'officina. Click su un file
-            per aprirlo: i PDF/immagini si aprono in nuova tab, i DXF mostrano l'anteprima
-            del disegno, gli altri si scaricano.
-          </p>
+      <div>
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+          <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
+            <ChevronLeft className="w-3 h-3" /> Officina
+          </Link>
         </div>
-        {canWrite && (
-          <Button size="sm" onClick={openUpload}>
-            <Upload className="w-4 h-4 mr-1" /> Carica file
-          </Button>
-        )}
+        <SettingsPageHeader
+          icon={FileText}
+          color="emerald"
+          title={filterCat ? `Documenti — ${filterCat}` : 'Documenti'}
+          subtitle="PDF, Word, Excel, immagini e DXF consultabili dall'officina"
+          action={
+            canWrite ? (
+              <PrimaryCtaButton color="emerald" size="sm" onClick={openUpload}>
+                <Upload className="w-4 h-4" /> Carica file
+              </PrimaryCtaButton>
+            ) : undefined
+          }
+        />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -572,9 +569,9 @@ export default function OfficinaDocumentsPage() {
                 </p>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button onClick={handleUpload} disabled={uploading}>
-                  <Upload className="w-4 h-4 mr-1" /> {uploading ? 'Caricamento...' : 'Carica'}
-                </Button>
+                <PrimaryCtaButton color="emerald" onClick={handleUpload} disabled={uploading}>
+                  <Upload className="w-4 h-4" /> {uploading ? 'Caricamento...' : 'Carica'}
+                </PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setUploadForm(null)} disabled={uploading}>
                   Annulla
                 </Button>

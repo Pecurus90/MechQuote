@@ -8,6 +8,7 @@ import { timeAgo } from '@/lib/timeAgo'
 import { ACTIVITY_KIND } from '@/lib/activity'
 import type { ActivityRow } from '@/types'
 import { Activity as ActivityIcon, Search } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import { toast } from 'sonner'
 
 type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert'
@@ -43,10 +44,12 @@ export default function ActivityPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-end justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <ActivityIcon className="w-6 h-6 text-gray-500" />
-          Attività del team
-        </h1>
+        <SettingsPageHeader
+          icon={ActivityIcon}
+          color="gray"
+          title="Attività del team"
+          subtitle="Log delle modifiche ai preventivi (chi, quando, cosa)"
+        />
         <div className="flex items-end gap-3 flex-wrap">
           <div className="w-72">
             <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>

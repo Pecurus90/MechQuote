@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import type { QuoteListItem as Quote } from '@/types'
 import api from '@/lib/api'
-import { FileText, Plus, Trash2, Search, X } from 'lucide-react'
+import { FileText, Plus, Trash2, Search, X, Archive } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
@@ -106,12 +108,17 @@ export default function QuoteArchivePage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Archivio Preventivi</h1>
-        <Button onClick={() => navigate('/quotes/manual/new')}>
-          <Plus className="w-4 h-4 mr-1.5" /> Nuovo Preventivo
-        </Button>
-      </div>
+      <SettingsPageHeader
+        icon={Archive}
+        color="blue"
+        title="Archivio Preventivi"
+        subtitle="Tutti i preventivi storici filtrabili per anno, stato e tipo"
+        action={
+          <PrimaryCtaButton color="blue" onClick={() => navigate('/quotes/new')}>
+            <Plus className="w-4 h-4" /> Nuovo Preventivo
+          </PrimaryCtaButton>
+        }
+      />
 
       <div className="flex gap-4 items-end flex-wrap">
         <div className="flex-1 min-w-[240px]">

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Box, FileText, Upload, Trash2, Search, ExternalLink, ChevronLeft, X } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
@@ -114,17 +116,18 @@ export default function OfficinaMaterialsPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link to="/officina" className="hover:text-blue-700 flex items-center gap-1">
+          <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
             <ChevronLeft className="w-3 h-3" /> Officina
           </Link>
         </div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Box className="w-6 h-6 text-blue-700" /> Materiali
-        </h1>
-        <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-          Elenco materiali in catalogo con schede tecniche PDF.
-          {canWrite && <> Allega o sostituisci una scheda per renderla consultabile dall'officinista.</>}
-        </p>
+        <SettingsPageHeader
+          icon={Box}
+          color="emerald"
+          title="Materiali"
+          subtitle={canWrite
+            ? "Catalogo materiali con schede tecniche PDF. Allega o sostituisci una scheda per renderla consultabile dall'officinista."
+            : "Catalogo materiali con schede tecniche PDF consultabili."}
+        />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -244,9 +247,9 @@ export default function OfficinaMaterialsPage() {
                 )}
               </div>
               <div className="flex gap-2 mt-4">
-                <Button onClick={handleUpload} disabled={uploading || !selectedFile}>
-                  <Upload className="w-4 h-4 mr-1" /> {uploading ? 'Caricamento...' : 'Carica'}
-                </Button>
+                <PrimaryCtaButton color="emerald" onClick={handleUpload} disabled={uploading || !selectedFile}>
+                  <Upload className="w-4 h-4" /> {uploading ? 'Caricamento...' : 'Carica'}
+                </PrimaryCtaButton>
                 <Button variant="outline" onClick={() => { setUploadFor(null); setSelectedFile(null) }} disabled={uploading}>
                   Annulla
                 </Button>

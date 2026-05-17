@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Search, Wrench, FileDown, History, X, AlertTriangle } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -94,33 +96,29 @@ export default function OrdersToolsPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Wrench className="w-6 h-6 text-blue-700" /> Ordini utensili
-          </h1>
-          <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-            Lista utensili sotto la quantità minima, raggruppati per fornitore.
-            Click <strong>"Esporta PDF"</strong> per creare l'ordine: il PDF viene
-            scaricato e il documento viene salvato nello storico (UO-NNNN).
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={createOrder}
-            disabled={creating || !hasItems}
-            title={hasItems ? 'Crea ordine + scarica PDF' : 'Nessun utensile sotto minimo'}
-          >
-            <FileDown className="w-4 h-4 mr-1" />
-            {creating ? 'Genero...' : 'Esporta PDF ordine'}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
-            <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-          </Button>
-        </div>
-      </div>
+      <SettingsPageHeader
+        icon={Wrench}
+        color="violet"
+        title="Ordini utensili"
+        subtitle={`Utensili sotto quantità minima raggruppati per fornitore. "Esporta PDF" crea l'ordine (UO-NNNN nello storico).`}
+        action={
+          <div className="flex items-center gap-2 flex-wrap">
+            <PrimaryCtaButton
+              color="violet"
+              size="sm"
+              onClick={createOrder}
+              disabled={creating || !hasItems}
+              title={hasItems ? 'Crea ordine + scarica PDF' : 'Nessun utensile sotto minimo'}
+            >
+              <FileDown className="w-4 h-4" />
+              {creating ? 'Genero...' : 'Esporta PDF ordine'}
+            </PrimaryCtaButton>
+            <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
+              <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
+            </Button>
+          </div>
+        }
+      />
 
       {stats && (
         <KpiBar items={[

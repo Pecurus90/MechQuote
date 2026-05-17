@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Hammer, Box, Plus, Pencil, Trash2 } from 'lucide-react'
+import { FileText, Hammer, Box, Plus, Pencil, Trash2, Factory } from 'lucide-react'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
@@ -49,14 +50,12 @@ export default function OfficinaHub() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Hammer className="w-6 h-6 text-blue-700" /> Officina
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Documentazione operativa per il personale di produzione.
-        </p>
-      </div>
+      <SettingsPageHeader
+        icon={Factory}
+        color="emerald"
+        title="Officina"
+        subtitle="Documentazione operativa per il personale di produzione"
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Card fisse */}

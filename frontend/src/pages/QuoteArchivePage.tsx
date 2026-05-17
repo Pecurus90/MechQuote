@@ -23,7 +23,7 @@ export default function QuoteArchivePage() {
   const [years, setYears] = useState<number[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>('all')
-  const [typeFilter, setTypeFilter] = useState<'all' | 'standard' | 'die'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'single' | 'commessa' | 'die'>('all')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -54,15 +54,12 @@ export default function QuoteArchivePage() {
     const params: Record<string, string | number> = { page, page_size: pageSize }
     if (selectedYear) params.year = selectedYear
     if (searchQuery) params.q = searchQuery
-    // Tipo: filtro applicato server-side. 'die' → solo stampi; 'standard' è
-    // tutto il resto. Senza filtro tipo, vediamo entrambi.
-    if (typeFilter === 'die') params.quote_type = 'die'
+    // Tipo: filtro server-side via param `quote_type` (single|commessa|die).
+    // L'endpoint /api/quotes/archive accetta già qualunque valore di
+    // quote_type, quindi è solo un passthrough.
+    if (typeFilter !== 'all') params.quote_type = typeFilter
     api.get('/quotes/archive', { params }).then(res => {
-      let data = res.data
-      if (typeFilter === 'standard') {
-        data = data.filter((q: Quote) => q.quote_type !== 'die')
-      }
-      setQuotes(data)
+      setQuotes(res.data)
       setLoading(false)
     }).catch(() => setLoading(false))
   }
@@ -175,7 +172,8 @@ export default function QuoteArchivePage() {
             onChange={e => { setPage(1); setTypeFilter(e.target.value as typeof typeFilter) }}
           >
             <option value="all">Tutti</option>
-            <option value="standard">Standard</option>
+            <option value="single">Singolo</option>
+            <option value="commessa">Commessa</option>
             <option value="die">Stampi</option>
           </select>
         </div>
@@ -215,6 +213,9 @@ export default function QuoteArchivePage() {
                         {q.quote_number}
                         {q.quote_type === 'die' && (
                           <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-sans">Stampo</span>
+                        )}
+                        {q.quote_type === 'commessa' && (
+                          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-sans">Commessa</span>
                         )}
                       </td>
                       <td className="p-3">{q.customer_name || '-'}</td>

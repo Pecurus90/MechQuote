@@ -107,6 +107,20 @@ export default function DieQuoteEditor() {
 
   useEffect(() => { load() }, [id])
 
+  // Rules of Hooks: TUTTI gli hooks devono essere chiamati nello stesso
+  // ordine ad ogni render. Il useMemo del preview va dichiarato PRIMA
+  // dell'early return per "Caricamento…": gestisce internamente il caso
+  // spec=null restituendo null, così non aggiunge condizioni.
+  const preview = useMemo(() => {
+    if (!spec || !dieSettings || brackets.length === 0) return null
+    return computeDiePreviewCosts({
+      spec,
+      settings: dieSettings,
+      brackets,
+      nPlates: parts.filter(p => p.plate_role).length || parts.length,
+    })
+  }, [spec, dieSettings, brackets, parts])
+
   if (loading || !quote || !spec) {
     return <div className="p-8 text-sm text-gray-500">Caricamento…</div>
   }
@@ -254,16 +268,7 @@ export default function DieQuoteEditor() {
   // difficoltà/feature/bbox, senza aspettare il PUT al backend.
   // L1 e L2 restano snapshot (dipendono da Part.total_cost e aggregati
   // che ricalcola il backend dopo save). Vedi `lib/dieCalc.ts`.
-  const preview = useMemo(() => {
-    if (!dieSettings || brackets.length === 0) return null
-    return computeDiePreviewCosts({
-      spec,
-      settings: dieSettings,
-      brackets,
-      nPlates: parts.filter(p => p.plate_role).length || parts.length,
-    })
-  }, [spec, dieSettings, brackets, parts])
-
+  // useMemo dichiarato sopra (prima dell'early return loading).
   const previewMachining = preview?.cost_machining ?? spec.cost_machining
   const previewAccessories = preview?.cost_accessories ?? spec.cost_accessories
 

@@ -121,12 +121,14 @@ Chiavi attuali (`PERMISSION_KEYS`):
 - `dashboard` · `quotes.create` · `quotes.archive` · `quotes.pdf`
 - `quotes.send` (chi può "Invia per revisione")
 - `quotes.complete` (chi marca completato aprendo)
+- `quotes.view_all` (vede tutti i preventivi, non solo i propri)
 - `customers` · `settings` (catalogo) · `company` (dati azienda)
 - `users` · `backup` · `notifications`
 - `orders.materials` (Ordini materiali — lista + PDF)
 - `tools` (Gestione utensili **e** ordini utensili — copertura voluta)
 - `officina` (Officina — lettura documenti / reference / calcolatori)
 - `officina.write` (Officina — upload + modifica)
+- `dies.create` · `dies.archive` · `dies.pdf` · `dies.settings` (modulo Preventivatore Stampi)
 
 ### Regole di gating
 
@@ -282,6 +284,31 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 
 **Archeologia DB** (campi deferred, colonne orfane, campi rimossi) → `docs/specs/16_legacy_columns.md`. **Regola operativa**: la fonte di verità è `models.py`. Colonne SQLite non mappate dal modello = inesistenti (non leggerle, non scriverle).
 
+### Cost engine Stampi (7 livelli, modulo Preventivatore Stampi)
+
+`Quote.quote_type='die'` attiva un secondo cost engine, allineato alla spec utente. Backend autoritativo in `backend/app/services/calculation.py` `_recalculate_die_levels()` (chiamato in coda a `recalculate_quote` se il preventivo è di tipo die). Frontend live preview (solo L3/L4) in `frontend/src/lib/dieCalc.ts` `computeDiePreviewCosts()` — gemello DRY.
+
+```
+L1 Materiale piastre  = Σ Part.total_cost × qty  (filtra per plate_role != NULL)
+L2 Normalizzati       = Σ (qty × unit_price) + Σ shipping_cost per fornitore distinto
+L3 Lavorazioni        = featureCost × coeff_dim × coeff_diff + cost_per_plate_base × n_plates
+L4 Accessori          = design_hours[diff] × design_hourly_rate + assembly_forfeit[diff] + extras
+L5 Industriale        = (override_material ?? L1) + (override_normalized ?? L2) + (override_machining ?? L3) + (override_accessories ?? L4)
+L6 Markup (UI/PDF)    = L5 × (1 + global_margin_percent / 100)
+L7 Sconto (UI/PDF)    = L6 × (1 - global_discount_percent / 100)
+```
+
+- `featureCost` = Σ (n_bends_{simple,medium,complex} × cost_bend_{simple,medium,complex}) + Σ (n_punches_*  × cost_punch_*)
+- `coeff_dim` = lookup `DieDimensionBracket` per `area_castello_dm² ∈ [area_min, area_max)`, fallback 1.0
+- `coeff_diff` = `DieSettings.diff_mult_{base,medium,hard}` su `spec.difficulty`
+- `cost_per_plate_base`, `design_hours_*`, `assembly_forfeit_*`, tariffe → `DieSettings` (singleton id=1)
+- **Override matita**: `DieSpec.override_{material,normalized,machining,accessories}` — null-coalesce; impostarli forza la riga corrispondente in L5 ignorando il calcolato.
+- **Auto-fill X/Y piastre**: in `recalculate_quote`, per Part con `plate_role != NULL`, se `raw_x_mm/raw_y_mm IS NULL` vengono popolati dal castello calcolato (override esplicito utente preservato, anche se 0).
+
+Gemelli geometria/lookup (devono restare identici):
+- `_compute_castle_dimensions(spec)` ↔ `computeDieGeometry(input)`
+- `_bracket_coefficient(area, brackets)` ↔ `bracketCoefficient(area, brackets)`
+
 ---
 
 ## 5. Standards di codice
@@ -403,6 +430,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | Rinominare attributo `Tool*` (Type/Brand/Location) senza cascade | Utensili con `tool_type/brand/location` orfano (FK su stringa libera) | Pattern in `_mount_tool_attribute_crud` di `api/tools.py`: PUT esegue UPDATE manuale su `tools` con whitelist `_ALLOWED_TOOL_COLUMNS`. Mai bypassare. |
 | Upload officina senza filtro MIME / size | File arbitrari in `uploads/officina/`, possibile DoS storage | Limiti in `api/officina.py` (MIME whitelist + 50 MB hard cap come `parts.py`). Gating `officina.write` obbligatorio. |
 | Modifica catalogo senza badge KPI ordini sincronizzato | Mini-dashboard ordini materiali/utensili mostra dati stantii | Endpoint POST/PATCH/DELETE su `Quote` (material_ordered_at) o `Tool` (quantity/minimum) deve aggiornare gli aggregati esposti da `orders.py` / `orders_tools.py` low-stock. |
+| Aggiunta tabella nuova senza riga in `EXPORT_ORDER` di `api/backup.py` | Backup non porta con sé la tabella → restore lascia il modulo monco. Episodio 2026-05-17: 6 tabelle die_* + NormalizedSupplier escluse. | Quando aggiungi un modello nuovo, registralo in `EXPORT_ORDER` in ordine FK-safe (parent prima dei child). Test rapido: grep nel JSON di `GET /api/backup/export` per il nome tabella. |
 
 ---
 
@@ -412,6 +440,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 backend/app/
   api/             # Un file per resource group:
                    #  Quotes/Costing: quotes, quotes_archive, parts, phases, pdf
+                   #  Stampi: dies, die_normalized_items, die_settings
                    #  Catalog: customers, materials, machines, treatments, catalog,
                    #           operations, workflow_templates, normalized_suppliers
                    #  Officina: officina
@@ -479,6 +508,13 @@ frontend/src/
 | `backend/app/api/orders.py` + `orders_tools.py` | Material/Tool orders, lista + aggregate + low-stock |
 | `backend/app/api/tools.py` | CRUD `Tool` + factory CRUD attributi (Type/Brand/Location) con cascade rename |
 | `backend/app/api/edm.py` | EdmConfig singleton + EdmCutSpeed + CuttingCycle + DrillingTime |
+| `backend/app/api/dies.py` | CRUD preventivo stampo + clone (rev2/3) + apply-template + find-similar |
+| `backend/app/api/die_normalized_items.py` | CRUD normalizzati su preventivo stampo |
+| `backend/app/api/die_settings.py` | DieSettings singleton + DieDimensionBracket + DieTemplate CRUD |
+| `frontend/src/pages/NewDieQuotePage.tsx` | Wizard creazione stampo (2 step + DXF + render live) |
+| `frontend/src/pages/DieQuoteEditor.tsx` | Editor preventivo stampo (form + cost table L1-L7 con override matita) |
+| `frontend/src/pages/settings/DiesSettingsPage.tsx` | Impostazioni Stampi (3 tab: tariffe, fasce, template) |
+| `frontend/src/lib/dieCalc.ts` | computeDieGeometry / bracketCoefficient / computeDiePreviewCosts (gemelli backend) |
 | `frontend/src/pages/QuoteEditor.tsx` | Editor preventivo (~600 righe) |
 | `frontend/src/pages/DashboardPage.tsx` | Dashboard role-aware (KPI + grafico multi-metrica + sezioni di lavoro) |
 | `frontend/src/pages/ToolsPage.tsx` | Anagrafica utensili + filtri + scan codice |

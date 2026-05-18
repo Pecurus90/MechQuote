@@ -148,6 +148,16 @@ class Part(Base):
     # Modulo Stampi: ruolo della piastra nel castello (cappello, porta_punzoni,
     # premilamiera, matrice, base, o custom). NULL per Part di preventivi standard.
     plate_role = Column(String(50))
+    # Sprint B — snapshot dei parametri "tipici per ruolo" copiati dal
+    # DieTemplatePlate al momento dell'apply-template. Usati da
+    # `_estimate_die_plate_hours` per calcolare le ore meccaniche piastra
+    # (setup + h/dm² × n_facce × area + station_bonus × n_stazioni).
+    # Tutti NULL = fallback ai valori default-per-ruolo nel cost engine.
+    die_setup_h = Column(Float)
+    die_n_milled_faces = Column(Integer)
+    die_n_ground_faces = Column(Integer)
+    die_n_drilled_faces = Column(Integer)
+    die_station_bonus_h = Column(Float)
     # Colonne legacy nel DB ma non mappate (drop dal modello, dati restano):
     # rounding_rule, confidence_level — mai applicate nel cost engine.
     total_cost = Column(Float, default=0.0)
@@ -826,6 +836,15 @@ class DieSpec(Base):
     bbox_x_mm = Column(Float, default=0.0)
     bbox_y_mm = Column(Float, default=0.0)
     sheet_thickness_mm = Column(Float, default=0.0)
+    # Perimetro pezzo: driver chiave per stima ore EDM filo (matrice + estrattore +
+    # punzoni sagomati). Da DXF (somma profili.length) o stimato a partire dal
+    # bbox via `2*(X+Y)*complexity_factor`. NULL = il cost engine usa il fallback
+    # bbox×complexity_factor invece del valore esplicito.
+    perimeter_pezzo_mm = Column(Float)
+    # Moltiplicatore complessità profilo per la stima del perimetro senza DXF.
+    # 1.0 = rettangolare puro; 1.3 = sagoma media; 1.6 = sagoma complessa;
+    # 1.9 = molto articolato. Default conservativo a 1.2.
+    complexity_factor = Column(Float, default=1.2)
 
     # Striscia — passo
     n_stations = Column(Integer)
@@ -861,6 +880,15 @@ class DieSpec(Base):
     cost_machining = Column(Float, default=0.0)
     cost_accessories = Column(Float, default=0.0)
     cost_industrial = Column(Float, default=0.0)
+    # Sprint A — breakdown lavorazioni: cost_machining_edm è la stima delle ore
+    # EDM filo per piastre stampo (matrice + porta_punzoni). Affiancato a
+    # cost_machining (feature × coeff) durante taratura, in attesa di Sprint D
+    # che farà cleanup del vecchio L3.
+    cost_machining_edm = Column(Float, default=0.0)
+    # Sprint B — breakdown lavorazioni meccaniche piastre (setup + h/dm² ×
+    # n_facce + station_bonus). Sommato a cost_machining come gli altri
+    # breakdown. Costo = ore_totali × hourly_rate_milling.
+    cost_machining_mech = Column(Float, default=0.0)
 
     # Override "matita" sulle 4 voci L1-L4 (NULL = usa calcolato).
     # L'UI permette di forzare manualmente una voce; il cost engine la usa
@@ -941,6 +969,29 @@ class DieSettings(Base):
     default_castle_offset_x_mm = Column(Float, default=80.0)
     default_castle_offset_y_mm = Column(Float, default=80.0)
 
+    # 11. Driver EDM filo per piastre stampo (Sprint A)
+    # Ciclo EDM di default per la stima ore (riusa CuttingCycle del modulo Wire EDM).
+    # NULL → il cost engine usa il primo CuttingCycle attivo.
+    wire_edm_cycle_id = Column(Integer, ForeignKey("cutting_cycles.id"))
+    # Moltiplicatore: estrattore taglia una sagoma più piccola della matrice
+    # (offset interno). Lunghezza EDM porta_punzoni = perimetro × n_stazioni × factor.
+    edm_extractor_factor = Column(Float, default=0.6)
+    # Moltiplicatore: punzoni sagomati (medium/complex) contribuiscono metri EDM
+    # proporzionali al perimetro pezzo × questo factor.
+    edm_punch_factor = Column(Float, default=0.3)
+
+    # 12. Produttività MACCHINE officina per lavorazione piastre stampo (Sprint B).
+    # Ore per dm² di superficie lavorata, per operazione. Sono parametri della
+    # specifica officina (non della tipologia di stampo). Cambiando macchina,
+    # cambia il numero.
+    milling_h_per_dm2 = Column(Float, default=0.15)
+    grinding_h_per_dm2 = Column(Float, default=0.10)
+    drilling_h_per_dm2 = Column(Float, default=0.20)
+    # Sopra questa area si applica un coefficiente per gestire la manipolazione
+    # extra (gru, posizionamento, macchine speciali) di piastre molto grandi.
+    large_plate_threshold_dm2 = Column(Float, default=80.0)
+    large_plate_factor = Column(Float, default=1.25)
+
     # 5 colonne `rapid_*` esistono in DB ma sono dormienti (modalità Rapida
     # rimossa dal cost engine). Vedi docs/specs/16_legacy_columns.md.
 
@@ -983,6 +1034,13 @@ class DieTemplate(Base):
     plates = relationship("DieTemplatePlate", back_populates="template",
                           cascade="all, delete-orphan",
                           order_by="DieTemplatePlate.sort_order")
+    # Sprint C — BoM normalizzati scalabile: il template dichiara la "ricetta"
+    # commerciale standard (4 colonne, N molle, kit viti…) con formula di
+    # quantità che scala con dimensioni/feature dello stampo. Auto-generato
+    # come DieNormalizedItem al momento del POST /api/dies.
+    normalized_items = relationship("DieTemplateNormalized", back_populates="template",
+                                    cascade="all, delete-orphan",
+                                    order_by="DieTemplateNormalized.sort_order")
 
 
 class DieTemplatePlate(Base):
@@ -996,10 +1054,44 @@ class DieTemplatePlate(Base):
     default_material_id = Column(Integer, ForeignKey("materials.id"))
     default_treatment_id = Column(Integer, ForeignKey("treatments.id"))
     sort_order = Column(Integer, default=0)
+    # Sprint B — costanti "tipiche per ruolo" usate per stimare le ore di
+    # lavorazione meccanica della piastra. Copiate su Part al momento
+    # dell'apply-template (snapshot). Modificabili dall'editor template stampi.
+    setup_hours_fixed = Column(Float, default=0.4)        # bloccaggio + zero macchina
+    n_milled_faces = Column(Integer, default=2)           # facce fresate
+    n_ground_faces = Column(Integer, default=0)           # facce rettificate
+    n_drilled_faces = Column(Integer, default=1)          # facce con foratura/filettatura
+    station_bonus_hours = Column(Float, default=0.0)      # ore extra per stazione (matrice/porta_punzoni)
 
     template = relationship("DieTemplate", back_populates="plates")
     default_material = relationship("Material")
     default_treatment = relationship("Treatment")
+
+
+class DieTemplateNormalized(Base):
+    """Riga "BoM normalizzati di default" di un DieTemplate (Sprint C).
+
+    Dichiara la ricetta commerciale standard (colonne, boccole, molle, viti,
+    spine…). `quantity_formula` è una mini-espressione che scala il numero
+    di pezzi con dimensioni/feature dello stampo, valutata server-side via
+    `core.expression_eval` (no `eval`, whitelist nodi AST + variabili).
+
+    Esempi: "4" (fissa), "n_stations * 2 + 4" (molle proporzionali alle
+    stazioni), "4 if area_castello_dm2 < 30 else 6" (colonne più grandi se
+    castello supera soglia).
+    """
+    __tablename__ = "die_template_normalized"
+
+    id = Column(Integer, primary_key=True)
+    template_id = Column(Integer, ForeignKey("die_templates.id", ondelete="CASCADE"), nullable=False)
+    description = Column(String(200), nullable=False)
+    normalized_supplier_id = Column(Integer, ForeignKey("normalized_suppliers.id"))
+    quantity_formula = Column(String(100), default="1")
+    unit_price_default = Column(Float, default=0.0)
+    sort_order = Column(Integer, default=0)
+
+    template = relationship("DieTemplate", back_populates="normalized_items")
+    supplier = relationship("NormalizedSupplier")
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

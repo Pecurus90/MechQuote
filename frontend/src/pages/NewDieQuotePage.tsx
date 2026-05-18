@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Hammer, Square, Layers, ArrowLeft, Upload, FileText, X } from 'lucide-react'
 
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -84,6 +84,10 @@ export default function NewDieQuotePage() {
   const [dxfAnalysis, setDxfAnalysis] = useState<DxfAnalysis | null>(null)
   const [dxfFileName, setDxfFileName] = useState<string>('')
   const [manualGeometry, setManualGeometry] = useState(false)  // toggle anche se DXF caricato
+  // Sprint A — perimetro pezzo (driver EDM). Da DXF (somma profiles.length)
+  // o manuale; complexity_factor è il moltiplicatore per il fallback bbox.
+  const [perimeterMm, setPerimeterMm] = useState<string>('')
+  const [complexityFactor, setComplexityFactor] = useState<string>('1.2')
 
   // Step 2 — template & parametri
   const [templateId, setTemplateId] = useState<number | null>(null)
@@ -109,24 +113,36 @@ export default function NewDieQuotePage() {
   const [saving, setSaving] = useState(false)
 
   // ─── Load anagrafiche ─────────────────────────────────────────────────────
+  // allSettled invece di all: se una singola call fallisce (es. die-settings
+  // non ancora seedato su DB legacy) il wizard si apre comunque con le altre
+  // anagrafiche e mostra un warning sulla parte mancante.
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       api.get('/customers'),
       api.get('/quote-categories'),
       api.get('/die-settings/templates'),
       api.get('/die-settings'),
     ]).then(([c, cat, t, s]) => {
-      setCustomers(c.data)
-      setCategories(cat.data)
-      setTemplates(t.data)
-      setDieSettings(s.data)
-      if (cat.data.length > 0 && !categoryCode) setCategoryCode(cat.data[0].code)
-      // Default offset castello da DieSettings
-      if (s.data) {
-        setCastleOffsetX(String(s.data.default_castle_offset_x_mm ?? 80))
-        setCastleOffsetY(String(s.data.default_castle_offset_y_mm ?? 80))
+      if (c.status === 'fulfilled') setCustomers(c.value.data)
+      else toast.error('Errore caricamento clienti')
+      if (cat.status === 'fulfilled') {
+        setCategories(cat.value.data)
+        if (cat.value.data.length > 0 && !categoryCode) setCategoryCode(cat.value.data[0].code)
+      } else {
+        toast.error('Errore caricamento categorie')
       }
-    }).catch(() => toast.error('Errore caricamento dati'))
+      if (t.status === 'fulfilled') setTemplates(t.value.data)
+      else toast.error('Errore caricamento template stampi')
+      if (s.status === 'fulfilled') {
+        setDieSettings(s.value.data)
+        if (s.value.data) {
+          setCastleOffsetX(String(s.value.data.default_castle_offset_x_mm ?? 80))
+          setCastleOffsetY(String(s.value.data.default_castle_offset_y_mm ?? 80))
+        }
+      } else {
+        toast.error('Errore caricamento impostazioni stampi')
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -232,10 +248,16 @@ export default function NewDieQuotePage() {
       // Auto-popola bbox X/Y dal bbox globale del DXF
       setBboxX(analysis.bbox_global.w.toFixed(1))
       setBboxY(analysis.bbox_global.h.toFixed(1))
+      // Sprint A: perimetro pezzo = somma lunghezze profili chiusi. Se non
+      // ce ne sono, fallback al perimetro del bbox globale (rettangolare).
+      const perim = analysis.total_length_mm > 0
+        ? analysis.total_length_mm
+        : 2 * (analysis.bbox_global.w + analysis.bbox_global.h)
+      setPerimeterMm(perim.toFixed(1))
       setManualGeometry(false)
-      toast.success(`DXF caricato: ${analysis.profiles.length} profili, bbox ${analysis.bbox_global.w.toFixed(0)}×${analysis.bbox_global.h.toFixed(0)} mm`)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore parsing DXF')
+      toast.success(`DXF caricato: ${analysis.profiles.length} profili, perimetro ${perim.toFixed(0)} mm, bbox ${analysis.bbox_global.w.toFixed(0)}×${analysis.bbox_global.h.toFixed(0)} mm`)
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore parsing DXF'))
     } finally {
       setUploading(false)
     }
@@ -269,7 +291,25 @@ export default function NewDieQuotePage() {
         toast.error('Passo obbligatorio per stampi progressivi')
         return
       }
+      const ns = parseInt(nStations, 10) || 0
+      if (ns < 1) {
+        toast.error('Numero di stazioni obbligatorio (≥ 1) per stampi progressivi')
+        return
+      }
     }
+
+    // Sprint E — warning soft (toast info, non bloccanti): segnali al
+    // l'utente situazioni sospette prima del POST.
+    const areaCastDm2 = (geom.castleX * geom.castleY) / 10_000
+    if (areaCastDm2 > 200) {
+      toast.warning(`Castello molto grande (${areaCastDm2.toFixed(1)} dm²). Conferma le dimensioni.`)
+    }
+    const nBendsTotal = (parseInt(nBendsS, 10) || 0) + (parseInt(nBendsM, 10) || 0) + (parseInt(nBendsC, 10) || 0)
+    const nPunchesTotal = (parseInt(nPunchesS, 10) || 0) + (parseInt(nPunchesM, 10) || 0) + (parseInt(nPunchesC, 10) || 0)
+    if (difficulty === 'hard' && (nBendsTotal + nPunchesTotal) === 0) {
+      toast.warning('Difficoltà alta senza pieghe né punzoni: controlla i dati.')
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -283,9 +323,15 @@ export default function NewDieQuotePage() {
           bbox_x_mm: bx,
           bbox_y_mm: by,
           sheet_thickness_mm: parseFloat(sheetThickness) || 0,
+          perimeter_pezzo_mm: parseFloat(perimeterMm) || undefined,
+          complexity_factor: parseFloat(complexityFactor) || 1.2,
           n_stations: subtype === 'passo' ? (parseInt(nStations, 10) || 1) : undefined,
           pitch_mm: subtype === 'passo' && pitchMm ? parseFloat(pitchMm) : undefined,
           strip_offset_y_mm: subtype === 'passo' ? (parseFloat(stripOffsetY) || 0) : 0,
+          // Sprint E — blocco richiede n_operations ≥ 1; il wizard non lo
+          // espone esplicitamente (raffinabile post-creazione nell'editor),
+          // default a 1 = una sola fase di tranciatura/piega.
+          n_operations: subtype === 'blocco' ? 1 : undefined,
           block_strip_offset_mm: subtype === 'blocco' ? (parseFloat(blockOffset) || 0) : 0,
           castle_offset_x_mm: parseFloat(castleOffsetX) || 0,
           castle_offset_y_mm: parseFloat(castleOffsetY) || 0,
@@ -301,16 +347,12 @@ export default function NewDieQuotePage() {
       const res = await api.post('/dies', payload)
       toast.success('Preventivo stampo creato')
       navigate(`/quotes/${res.data.id}`)
-    } catch (e: any) {
+    } catch (e) {
       // Log esteso in console oltre al toast: aiuta a diagnosticare quando
       // il messaggio del toast sparisce o non è abbastanza informativo
       // (es. errore di rete senza response.data.detail).
-      console.error('Creazione preventivo stampo fallita:', e?.response?.data || e?.message || e)
-      const detail = e?.response?.data?.detail
-      const msg = Array.isArray(detail)
-        ? detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
-        : (detail || e?.message || 'Errore creazione preventivo')
-      toast.error(msg)
+      console.error('Creazione preventivo stampo fallita:', e)
+      toast.error(getApiErrorDetail(e, 'Errore creazione preventivo'))
     } finally {
       setSaving(false)
     }
@@ -548,6 +590,37 @@ export default function NewDieQuotePage() {
                     onChange={e => setSheetThickness(e.target.value)} placeholder="2" />
                 </div>
               </div>
+              {/* Sprint A — Perimetro pezzo: driver per stima ore EDM filo */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>
+                    Perimetro pezzo (mm)
+                    {dxfAnalysis && <span className="text-xs text-blue-600 ml-1">auto da DXF</span>}
+                  </Label>
+                  <Input type="number" value={perimeterMm}
+                    onChange={e => setPerimeterMm(e.target.value)}
+                    placeholder={bboxX && bboxY ? `~${Math.round(2 * (parseFloat(bboxX) + parseFloat(bboxY)) * parseFloat(complexityFactor || '1.2'))}` : 'opzionale'} />
+                </div>
+                <div>
+                  <Label>Complessità profilo</Label>
+                  <select
+                    value={complexityFactor}
+                    onChange={e => setComplexityFactor(e.target.value)}
+                    disabled={!!perimeterMm && !!dxfAnalysis}
+                    className="w-full h-9 px-2 border rounded text-sm"
+                  >
+                    <option value="1.0">Rettangolare (1.0)</option>
+                    <option value="1.2">Quasi rettangolare (1.2)</option>
+                    <option value="1.3">Sagoma media (1.3)</option>
+                    <option value="1.6">Sagoma complessa (1.6)</option>
+                    <option value="1.9">Molto articolato (1.9)</option>
+                  </select>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-500 -mt-1">
+                Il perimetro guida la stima delle ore EDM filo (matrice + estrattore). Se non lo conosci,
+                il sistema lo stima da 2×(X+Y)×complessità.
+              </p>
               {dxfAnalysis && (
                 <div>
                   <button

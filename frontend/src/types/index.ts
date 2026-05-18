@@ -136,6 +136,12 @@ export interface Part {
   minimum_price?: number
   // Modulo Stampi: ruolo piastra nel castello.
   plate_role?: string | null
+  // Sprint B — snapshot produttività piastra (NULL = fallback default per ruolo).
+  die_setup_h?: number | null
+  die_n_milled_faces?: number | null
+  die_n_ground_faces?: number | null
+  die_n_drilled_faces?: number | null
+  die_station_bonus_h?: number | null
   total_cost: number
   unit_price: number
   total_price: number
@@ -646,6 +652,12 @@ export interface DieSpec {
   bbox_x_mm: number
   bbox_y_mm: number
   sheet_thickness_mm: number
+  // Perimetro pezzo (Sprint A): driver chiave per stima ore EDM filo.
+  // NULL → cost engine usa fallback 2*(X+Y)*complexity_factor.
+  perimeter_pezzo_mm?: number | null
+  // Moltiplicatore complessità per fallback senza DXF.
+  // 1.0 rettangolare / 1.3 sagoma media / 1.6 sagoma complessa / 1.9 molto articolato
+  complexity_factor?: number | null
   // Passo
   n_stations?: number | null
   pitch_mm?: number | null
@@ -673,6 +685,8 @@ export interface DieSpec {
   cost_material: number
   cost_normalized: number
   cost_machining: number
+  cost_machining_edm: number   // Sprint A: breakdown EDM (incluso in cost_machining)
+  cost_machining_mech: number  // Sprint B: breakdown lavorazioni meccaniche piastre
   cost_accessories: number
   cost_industrial: number
   // Override matita (NULL = usa calcolato)
@@ -719,6 +733,16 @@ export interface DieSettings {
   default_margin_percent: number
   default_castle_offset_x_mm: number
   default_castle_offset_y_mm: number
+  // Sprint A — driver EDM filo per piastre stampo
+  wire_edm_cycle_id?: number | null
+  edm_extractor_factor: number
+  edm_punch_factor: number
+  // Sprint B — produttività macchine officina (h/dm² per operazione)
+  milling_h_per_dm2: number
+  grinding_h_per_dm2: number
+  drilling_h_per_dm2: number
+  large_plate_threshold_dm2: number
+  large_plate_factor: number
 }
 
 export interface DieDimensionBracket {
@@ -736,6 +760,25 @@ export interface DieTemplatePlate {
   default_thickness_mm: number
   default_material_id?: number | null
   default_treatment_id?: number | null
+  sort_order: number
+  // Sprint B — costanti "tipiche per ruolo" per stima ore meccaniche piastra.
+  setup_hours_fixed: number
+  n_milled_faces: number
+  n_ground_faces: number
+  n_drilled_faces: number
+  station_bonus_hours: number
+}
+
+// Sprint C — BoM normalizzati scalabile sul template stampo.
+// Le formule scalano i pezzi con dimensioni/feature dello stampo
+// (variabili: n_stations, n_bends_total, n_punches_total, area_castello_dm2,
+//  castle_x_mm, castle_y_mm, bbox_x_mm, bbox_y_mm).
+export interface DieTemplateNormalized {
+  id: number
+  description: string
+  normalized_supplier_id?: number | null
+  quantity_formula: string
+  unit_price_default: number
   sort_order: number
 }
 
@@ -756,5 +799,6 @@ export interface DieTemplate {
   active: boolean
   created_at: string
   plates: DieTemplatePlate[]
+  normalized_items: DieTemplateNormalized[]
 }
 

@@ -14,6 +14,8 @@ Endpoint:
   GET    /api/dies/{quote_id}/find-similar — top-5 stampi simili (subtype + area)
 """
 import logging
+import os
+import shutil
 from datetime import date as date_type
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,7 +25,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import (
-    Quote, Part, DieSpec, DieTemplate, DieTemplatePlate, DieSettings,
+    Quote, Part, PartFile, DieSpec, DieTemplate, DieTemplatePlate,
+    DieTemplateNormalized, DieNormalizedItem, DieSettings,
     CompanySettings, User,
 )
 from app.schemas import (
@@ -32,6 +35,7 @@ from app.schemas import (
 from app.services.calculation import (
     recalculate_die_quote, _compute_castle_dimensions,
 )
+from app.core.expression_eval import evaluate_quantity_formula
 from app.api.quotes import ensure_editable, _load_quote
 
 logger = logging.getLogger(__name__)
@@ -40,11 +44,65 @@ _can_write = require_permission('dies.create')
 router = APIRouter(prefix="/api/dies", tags=["dies"])
 
 
+def _formula_variables(spec: DieSpec) -> dict:
+    """Costruisce il dict di variabili passate al valutatore di
+    `quantity_formula`. Mantieni la whitelist coerente con
+    `evaluate_quantity_formula` documentazione (UI + test)."""
+    castle_x, castle_y = _compute_castle_dimensions(spec)
+    return {
+        'n_stations':         spec.n_stations or 1,
+        'n_bends_total':      ((spec.n_bends_simple or 0) + (spec.n_bends_medium or 0) + (spec.n_bends_complex or 0)),
+        'n_punches_total':    ((spec.n_punches_simple or 0) + (spec.n_punches_medium or 0) + (spec.n_punches_complex or 0)),
+        'area_castello_dm2':  round((castle_x * castle_y) / 10_000.0, 4),
+        'castle_x_mm':        castle_x,
+        'castle_y_mm':        castle_y,
+        'bbox_x_mm':          spec.bbox_x_mm or 0.0,
+        'bbox_y_mm':          spec.bbox_y_mm or 0.0,
+    }
+
+
+def _create_normalized_from_template(
+    quote: Quote, template: DieTemplate, spec: DieSpec, db: Session,
+) -> None:
+    """Sprint C — auto-genera DieNormalizedItem dal template BoM scalabile.
+
+    Per ogni DieTemplateNormalized del template, valuta `quantity_formula`
+    nel contesto della spec corrente e crea un item nel preventivo.
+    **Skip-if-exists** sulla `description`: se l'utente ha già un item con
+    quella descrizione (es. dopo apply-template successivo a edit manuale),
+    non lo sovrascrive.
+    """
+    variables = _formula_variables(spec)
+    existing_descriptions = {
+        it.description for it in db.query(DieNormalizedItem).filter(
+            DieNormalizedItem.quote_id == quote.id
+        ).all()
+    }
+    for tpl_norm in template.normalized_items:
+        if tpl_norm.description in existing_descriptions:
+            continue
+        qty = evaluate_quantity_formula(tpl_norm.quantity_formula or '1', variables)
+        if qty <= 0:
+            continue
+        db.add(DieNormalizedItem(
+            quote_id=quote.id,
+            normalized_supplier_id=tpl_norm.normalized_supplier_id,
+            description=tpl_norm.description,
+            quantity=qty,
+            unit_price=tpl_norm.unit_price_default or 0.0,
+        ))
+
+
 def _create_plates_from_template(quote: Quote, template: DieTemplate, db: Session) -> None:
     """Crea le Part-piastre del castello a partire dalle righe del template.
 
     raw_x/raw_y restano None: verranno auto-compilate da `recalculate_die_quote`
     leggendo le dimensioni castello dalla DieSpec. raw_z = thickness del template.
+
+    Sprint B: i 5 parametri produttività (setup_h, n_milled, n_ground, n_drilled,
+    station_bonus_h) vengono copiati come snapshot su Part. Così il preventivo
+    resta ricalcolabile identico anche se il template di partenza cambia.
+    L'utente può modificarli per il singolo preventivo senza toccare il template.
     """
     cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
     default_min = (cs.default_minimum_part_price if cs else 0.0) or 0.0
@@ -58,6 +116,12 @@ def _create_plates_from_template(quote: Quote, template: DieTemplate, db: Sessio
             raw_z_mm=tpl_plate.default_thickness_mm,
             material_id=tpl_plate.default_material_id,
             minimum_price=default_min,
+            # Snapshot Sprint B
+            die_setup_h=tpl_plate.setup_hours_fixed,
+            die_n_milled_faces=tpl_plate.n_milled_faces,
+            die_n_ground_faces=tpl_plate.n_ground_faces,
+            die_n_drilled_faces=tpl_plate.n_drilled_faces,
+            die_station_bonus_h=tpl_plate.station_bonus_hours,
         )
         db.add(part)
 
@@ -118,11 +182,14 @@ def create_die_quote(
 
     if data.template_id:
         template = db.query(DieTemplate).options(
-            joinedload(DieTemplate.plates)
+            joinedload(DieTemplate.plates),
+            joinedload(DieTemplate.normalized_items),
         ).filter(DieTemplate.id == data.template_id).first()
         if not template:
             raise HTTPException(status_code=404, detail="Template non trovato")
         _create_plates_from_template(quote, template, db)
+        # Sprint C — BoM normalizzati auto-popolata.
+        _create_normalized_from_template(quote, template, spec, db)
         db.commit()
 
     # Recalc per popolare snapshot DieSpec + auto-fill X/Y piastre.
@@ -239,7 +306,8 @@ def clone_die_quote(
                      if c.name != 'quote_id'}
         # Snapshot costi resettati: verranno ricalcolati.
         for k in ('cost_material', 'cost_normalized', 'cost_machining',
-                  'cost_accessories', 'cost_industrial', 'rapid_min', 'rapid_max'):
+                  'cost_machining_edm', 'cost_machining_mech',
+                  'cost_accessories', 'cost_industrial'):
             spec_copy[k] = 0.0
         db.add(DieSpec(quote_id=new_quote.id, **spec_copy))
 
@@ -253,8 +321,38 @@ def clone_die_quote(
             raw_z_mm=src_part.raw_z_mm,
             minimum_price=src_part.minimum_price,
             margin_percent=src_part.margin_percent,
+            # Snapshot Sprint B — propaga la configurazione di lavorazione piastra
+            die_setup_h=src_part.die_setup_h,
+            die_n_milled_faces=src_part.die_n_milled_faces,
+            die_n_ground_faces=src_part.die_n_ground_faces,
+            die_n_drilled_faces=src_part.die_n_drilled_faces,
+            die_station_bonus_h=src_part.die_station_bonus_h,
         )
         db.add(new_part)
+        db.flush()  # serve new_part.id per il nuovo path file
+
+        # Copia i PartFile (tipicamente il DXF della piastra): clone blob
+        # fisico per evitare che il delete del src cancelli anche il file
+        # della revisione (listener PartFile.before_delete in models.py).
+        for src_file in src_part.files:
+            if not src_file.path or not os.path.exists(src_file.path):
+                continue
+            new_path = f"uploads/part_{new_part.id}_{src_file.filename}"
+            try:
+                os.makedirs("uploads", exist_ok=True)
+                shutil.copyfile(src_file.path, new_path)
+            except OSError as e:
+                logger.warning(
+                    "Clone stampo: copia file fallita src=%s → %s: %s",
+                    src_file.path, new_path, e,
+                )
+                continue
+            db.add(PartFile(
+                part_id=new_part.id,
+                file_type=src_file.file_type,
+                filename=src_file.filename,
+                path=new_path,
+            ))
 
     db.commit()
     recalculate_die_quote(new_quote.id, db)
@@ -271,13 +369,15 @@ def apply_template(
     _=_can_write,
 ):
     """Applica template clean-slate: drop tutte le Part esistenti e crea le piastre
-    del template. Spec e normalizzati restano invariati."""
+    del template. La BoM normalizzati (Sprint C) viene aggiunta in modalità
+    skip-if-exists: l'utente non perde gli item già editati manualmente."""
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote or quote.quote_type != 'die':
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     ensure_editable(quote, current_user)
     template = db.query(DieTemplate).options(
-        joinedload(DieTemplate.plates)
+        joinedload(DieTemplate.plates),
+        joinedload(DieTemplate.normalized_items),
     ).filter(DieTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template non trovato")
@@ -286,6 +386,10 @@ def apply_template(
     db.commit()
 
     _create_plates_from_template(quote, template, db)
+    # Sprint C — aggiungi BoM normalizzati mancanti (skip su description esistenti).
+    spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+    if spec:
+        _create_normalized_from_template(quote, template, spec, db)
     db.commit()
     recalculate_die_quote(quote_id, db)
     return _load_quote(quote_id, db)
@@ -300,6 +404,8 @@ def find_similar(
     """Top-5 preventivi stampo simili. Criterio:
       - stesso die_subtype
       - area castello entro ±30%
+      - n. pieghe totali entro ±2
+      - n. punzoni totali entro ±2
       - escluso il quote corrente
     Ordinato per data di creazione discendente."""
     spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
@@ -308,6 +414,16 @@ def find_similar(
 
     castle_x, castle_y = _compute_castle_dimensions(spec)
     area = (castle_x * castle_y) / 10_000.0  # dm²
+    bends_target = (
+        (spec.n_bends_simple or 0)
+        + (spec.n_bends_medium or 0)
+        + (spec.n_bends_complex or 0)
+    )
+    punches_target = (
+        (spec.n_punches_simple or 0)
+        + (spec.n_punches_medium or 0)
+        + (spec.n_punches_complex or 0)
+    )
 
     others = db.query(Quote).options(
         joinedload(Quote.die_spec),
@@ -322,8 +438,25 @@ def find_similar(
         cx, cy = _compute_castle_dimensions(q.die_spec)
         a = (cx * cy) / 10_000.0
         if area == 0:
-            return a == 0
-        return 0.7 <= (a / area) <= 1.3
+            if a != 0:
+                return False
+        elif not (0.7 <= (a / area) <= 1.3):
+            return False
+        bends = (
+            (q.die_spec.n_bends_simple or 0)
+            + (q.die_spec.n_bends_medium or 0)
+            + (q.die_spec.n_bends_complex or 0)
+        )
+        if abs(bends - bends_target) > 2:
+            return False
+        punches = (
+            (q.die_spec.n_punches_simple or 0)
+            + (q.die_spec.n_punches_medium or 0)
+            + (q.die_spec.n_punches_complex or 0)
+        )
+        if abs(punches - punches_target) > 2:
+            return False
+        return True
 
     matches = sorted(
         (q for q in others if _matches(q)),

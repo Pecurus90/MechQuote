@@ -90,42 +90,40 @@ def _compute_material_cost(part: Part, material: Optional[Material]) -> Optional
     return round(kg * cost_per_kg * scrap, 2)
 
 
-def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session) -> Optional[float]:
-    """Calcola cycle_hours_per_part per una fase Wire EDM, dato lunghezza/altezza/ciclo.
+def _compute_edm_hours_pure(
+    cut_length_mm: float,
+    cut_height_mm: float,
+    material_family: Optional[str],
+    cycle_id: Optional[int],
+    n_pierce: int,
+    db: Session,
+) -> Optional[float]:
+    """Calcola ore EDM filo da geometria pura, decoupled da Phase/Part.
 
-    Si attiva quando la macchina della fase è di tipo `wire_edm` (caratteristica
-    fisica della macchina, non etichetta utente — vedi feedback memory). Ritorna
-    None se i campi non sono popolati (lascia il valore manuale) o se manca la
-    riga di velocità per (famiglia materiale, altezza).
+    Riusato sia dal cost engine standard (wrapper `_compute_edm_cycle_hours`)
+    sia dalla stima ore EDM per piastre stampo (`_estimate_die_edm_hours`).
+
+    Ritorna None se mancano dati per il lookup (no family, no cycle, no riga
+    velocità per range altezza). In quel caso il chiamante usa fallback.
     """
-    if not phase.machine or phase.machine.machine_type != 'wire_edm':
-        return None
-    if not (phase.cut_length_mm and phase.cut_height_mm and phase.cutting_cycle_id):
-        return None
-    if not part.material_id:
+    if not cut_length_mm or not cut_height_mm or not cycle_id or not material_family:
         return None
 
     cfg = db.query(EdmConfig).filter(EdmConfig.id == 1).first()
     if not cfg:
         return None
 
-    # Lookup velocità per famiglia: una riga famiglia copre tutti i materiali
-    # della stessa famiglia (acciaio_inox, alluminio, …). Se il materiale non ha
-    # famiglia categorizzata, niente auto-calc.
-    material = db.query(Material).filter(Material.id == part.material_id).first()
-    if not material or not material.family:
-        return None
-
+    # Lookup velocità per famiglia × range altezza.
     speed_row = db.query(EdmCutSpeed).filter(
-        EdmCutSpeed.material_family == material.family,
-        EdmCutSpeed.thickness_min_mm <= phase.cut_height_mm,
-        EdmCutSpeed.thickness_max_mm >= phase.cut_height_mm,
+        EdmCutSpeed.material_family == material_family,
+        EdmCutSpeed.thickness_min_mm <= cut_height_mm,
+        EdmCutSpeed.thickness_max_mm >= cut_height_mm,
     ).first()
     if not speed_row or not speed_row.speed_mm_per_min:
         return None
 
     cycle = db.query(CuttingCycle).options(joinedload(CuttingCycle.passes)).filter(
-        CuttingCycle.id == phase.cutting_cycle_id
+        CuttingCycle.id == cycle_id
     ).first()
     if not cycle or not cycle.passes:
         return None
@@ -138,19 +136,38 @@ def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session)
     base_speed = speed_row.speed_mm_per_min  # mm/min lineari (avanzamento filo)
     pierce_time = speed_row.pierce_time_s if speed_row.pierce_time_s is not None else cfg.default_pierce_time_s
 
-    # Formula corretta (no area-based): lo spessore serve solo al lookup della
-    # riga in EdmCutSpeed (range step 10mm: 0-10, 10-20, …). Il tempo di taglio
-    # dipende dalla LUNGHEZZA del profilo e dalla velocità lineare per quel
-    # range × fattore di passata.
+    # Formula: lo spessore serve solo al lookup della riga EdmCutSpeed (range step
+    # 10mm). Tempo di taglio = lunghezza profilo / (velocità × factor passata).
     total_min = 0.0
     for p in cycle.passes:
         factor = factor_for.get(p.pass_type, 1.0)
         speed_pass = base_speed * factor
         if speed_pass > 0:
-            total_min += phase.cut_length_mm / speed_pass
+            total_min += cut_length_mm / speed_pass
 
-    total_min += (phase.n_pierce or 0) * pierce_time / 60.0
+    total_min += (n_pierce or 0) * pierce_time / 60.0
     return round(total_min / 60.0, 4)  # ore
+
+
+def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session) -> Optional[float]:
+    """Wrapper retro-compatibile: estrae i parametri da Phase+Part e delega
+    a `_compute_edm_hours_pure`. Si attiva solo se la macchina della fase è
+    di tipo `wire_edm` (caratteristica fisica, non etichetta utente)."""
+    if not phase.machine or phase.machine.machine_type != 'wire_edm':
+        return None
+    if not part.material_id:
+        return None
+    material = db.query(Material).filter(Material.id == part.material_id).first()
+    if not material or not material.family:
+        return None
+    return _compute_edm_hours_pure(
+        cut_length_mm=phase.cut_length_mm or 0.0,
+        cut_height_mm=phase.cut_height_mm or 0.0,
+        material_family=material.family,
+        cycle_id=phase.cutting_cycle_id,
+        n_pierce=phase.n_pierce or 0,
+        db=db,
+    )
 
 
 def recalculate_part(part_id: int, db: Session) -> None:
@@ -216,11 +233,9 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     # dall'ingombro castello e li scriviamo PRIMA della pipeline costi
     # (così la formula materiale grezzo li vede subito).
     #
-    # Override manuale preservato: se la piastra ha raw_x_mm o raw_y_mm
-    # diversi dai valori castello attuali, l'utente ha modificato a mano →
-    # non sovrascriviamo. Marker: salviamo i valori castello in `description`?
-    # No: usiamo regola semplice — se raw_x/y == None OR (raw_x, raw_y) == 0,
-    # auto-fill. Se l'utente ha messo manualmente un valore != 0 lo lasciamo.
+    # Override manuale preservato: solo se raw_x_mm/raw_y_mm sono NULL
+    # auto-popoliamo dal castello. Qualsiasi valore esplicito (incluso 0)
+    # rappresenta una scelta utente da rispettare.
     if quote.quote_type == 'die':
         spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
         if spec:
@@ -228,9 +243,9 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             for p in parts:
                 if not p.plate_role:
                     continue
-                if not p.raw_x_mm:
+                if p.raw_x_mm is None:
                     p.raw_x_mm = castle_x
-                if not p.raw_y_mm:
+                if p.raw_y_mm is None:
                     p.raw_y_mm = castle_y
 
     # ─── Pre-aggregazioni ────────────────────────────────────────────────
@@ -518,14 +533,155 @@ def _bracket_coefficient(area_dm2: float, brackets) -> float:
     return 1.0
 
 
+# Default Sprint B per ruolo piastra: usati come fallback quando il Part non
+# ha lo snapshot popolato (es. piastre create prima di Sprint B, o senza
+# template). Coerenti coi default del seed `_seed_die_templates`.
+_PLATE_ROLE_DEFAULTS = {
+    'cappello':      (0.3, 1, 0, 1, 0.0),
+    'porta_punzoni': (0.5, 2, 1, 2, 0.4),
+    'premilamiera':  (0.4, 2, 1, 1, 0.0),
+    'matrice':       (0.5, 2, 2, 2, 0.5),
+    'base':          (0.3, 1, 0, 1, 0.0),
+}
+
+
+def _estimate_die_plate_hours(plate, spec, settings) -> float:
+    """Stima ore meccaniche di una piastra: setup_fisso + Σ(area × h/dm² × n_facce)
+    + station_bonus × n_stazioni. Sopra `large_plate_threshold_dm2` applica
+    `large_plate_factor` (gestione gru/manipolazione piastre extra-large).
+
+    Usa lo snapshot su Part se presente; altrimenti default-per-ruolo da
+    `_PLATE_ROLE_DEFAULTS` (cover legacy + piastre senza template).
+    """
+    if not plate.plate_role:
+        return 0.0
+    area_dm2 = ((plate.raw_x_mm or 0.0) * (plate.raw_y_mm or 0.0)) / 10_000.0
+    if area_dm2 <= 0:
+        return 0.0
+
+    # Snapshot Part → priorità; fallback default per ruolo.
+    defaults = _PLATE_ROLE_DEFAULTS.get(plate.plate_role, (0.4, 2, 0, 1, 0.0))
+    setup_h     = plate.die_setup_h         if plate.die_setup_h         is not None else defaults[0]
+    n_milled    = plate.die_n_milled_faces  if plate.die_n_milled_faces  is not None else defaults[1]
+    n_ground    = plate.die_n_ground_faces  if plate.die_n_ground_faces  is not None else defaults[2]
+    n_drilled   = plate.die_n_drilled_faces if plate.die_n_drilled_faces is not None else defaults[3]
+    station_bon = plate.die_station_bonus_h if plate.die_station_bonus_h is not None else defaults[4]
+
+    milling_h  = settings.milling_h_per_dm2  if settings.milling_h_per_dm2  is not None else 0.15
+    grinding_h = settings.grinding_h_per_dm2 if settings.grinding_h_per_dm2 is not None else 0.10
+    drilling_h = settings.drilling_h_per_dm2 if settings.drilling_h_per_dm2 is not None else 0.20
+
+    ore = (
+        setup_h
+        + area_dm2 * n_milled  * milling_h
+        + area_dm2 * n_ground  * grinding_h
+        + area_dm2 * n_drilled * drilling_h
+        + (spec.n_stations or 1) * station_bon
+    )
+    threshold = settings.large_plate_threshold_dm2 or 80.0
+    factor = settings.large_plate_factor or 1.0
+    if area_dm2 > threshold and factor > 1.0:
+        ore *= factor
+    return round(ore, 4)
+
+
+def _estimate_die_perimeter(spec) -> float:
+    """Perimetro pezzo per la stima EDM. Se l'utente l'ha valorizzato (da DXF
+    o manuale) si usa quello. Fallback: 2*(X+Y) × complexity_factor."""
+    if spec.perimeter_pezzo_mm and spec.perimeter_pezzo_mm > 0:
+        return float(spec.perimeter_pezzo_mm)
+    bx = spec.bbox_x_mm or 0.0
+    by = spec.bbox_y_mm or 0.0
+    cf = spec.complexity_factor or 1.2
+    return 2.0 * (bx + by) * cf
+
+
+def _estimate_die_edm_hours(spec, parts, settings, db: Session) -> Dict[int, float]:
+    """Stima ore EDM filo per ciascuna piastra stampo che vi contribuisce.
+
+    Driver = perimetro pezzo × n_stazioni × moltiplicatore_per_ruolo.
+      - matrice:       lunghezza = perimetro × n_stazioni
+      - porta_punzoni: lunghezza = perimetro × n_stazioni × edm_extractor_factor
+                       + ore extra per punzoni sagomati (medium + complex×1.5)
+                         × edm_punch_factor (proporzionali a perimetro pezzo)
+
+    Riusa `_compute_edm_hours_pure` per la conversione metri→ore, che a sua volta
+    fa lookup su `EdmCutSpeed` per (material_family, spessore piastra).
+
+    Returns:
+        Dict[plate_id, hours]. Piastre senza material.family o senza cycle non
+        contribuiscono (skip silenzioso — l'utente vedrà ore=0 e capirà che
+        manca la calibrazione famiglia/ciclo).
+    """
+    plates = [p for p in parts if p.plate_role]
+    if not plates:
+        return {}
+
+    perimeter = _estimate_die_perimeter(spec)
+    if perimeter <= 0:
+        return {}
+
+    n_stations = spec.n_stations or 1
+    cycle_id = settings.wire_edm_cycle_id
+    if not cycle_id:
+        # Fallback: primo CuttingCycle attivo.
+        cyc = db.query(CuttingCycle).filter(CuttingCycle.active == True).order_by(CuttingCycle.id).first()
+        cycle_id = cyc.id if cyc else None
+    if not cycle_id:
+        return {}
+
+    extractor_f = settings.edm_extractor_factor if settings.edm_extractor_factor is not None else 0.6
+    punch_f = settings.edm_punch_factor if settings.edm_punch_factor is not None else 0.3
+
+    # Ore extra punzoni: contribuiscono solo se ci sono punzoni medi/complessi.
+    n_punches_weighted = (spec.n_punches_medium or 0) + 1.5 * (spec.n_punches_complex or 0)
+    punch_extra_length = perimeter * n_punches_weighted * punch_f
+
+    hours_by_plate: Dict[int, float] = {}
+    for plate in plates:
+        role = plate.plate_role
+        if role == 'matrice':
+            length = perimeter * n_stations
+        elif role == 'porta_punzoni':
+            length = perimeter * n_stations * extractor_f + punch_extra_length
+        else:
+            continue  # cappello/premilamiera/base non hanno EDM in questo modello
+        if not plate.material_id:
+            continue
+        mat = db.query(Material).filter(Material.id == plate.material_id).first()
+        if not mat or not mat.family:
+            continue
+        n_pierce = n_stations  # un pre-foro per ogni sagoma
+        ore = _compute_edm_hours_pure(
+            cut_length_mm=length,
+            cut_height_mm=plate.raw_z_mm or 0.0,
+            material_family=mat.family,
+            cycle_id=cycle_id,
+            n_pierce=n_pierce,
+            db=db,
+        )
+        if ore is not None and plate.id is not None:
+            hours_by_plate[plate.id] = ore
+
+    return hours_by_plate
+
+
 def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
     """Aggrega i 7 livelli costo nel DieSpec del quote.
 
     L1 = Σ Part.total_cost × qty (piastre, calcolate dal motore standard).
     L2 = Σ DieNormalizedItem.qty × unit_price + spedizione aggregata
          per NormalizedSupplier.shipping_cost (1 viaggio per fornitore).
-    L3 = (features × coeff_dim × coeff_diff) + (cost_per_plate_base × n_plates).
-    L4 = (design_hours[diff] × design_rate) + assembly_forfeit[diff] + extras_amount.
+    L3 = lavorazione_meccanica_piastre + EDM_filo_piastre — derivata da
+         driver geometrici (perimetro pezzo, area piastre, n_stazioni) via
+         Sprint A/B. Sprint D ha rimosso il vecchio "feature × coeff × coeff
+         + base × n_plates": la dipendenza dalla geometria è già contenuta
+         nelle ore meccaniche e EDM.
+    L4 = (design_hours[diff] + bonus_feature) × design_rate
+         + assembly_forfeit[diff] + extras_amount.
+         Sprint D ha aggiunto un bonus a `design_hours` proporzionale al
+         numero di pieghe (0.4 h/cad) e punzoni (0.3 h/cad): più feature
+         = più CAD/programmazione.
     L5 = L1 + L2 + L3 + L4 — con override_*  matita che sostituisce la voce calcolata.
     L6/L7 (margin + discount) applicati lato UI/PDF, non persistiti qui.
     """
@@ -559,37 +715,44 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
                 break
 
     # ── L3 Lavorazioni: feature × coeff_dim × coeff_diff + base × n_plates.
-    castle_x, castle_y = _compute_castle_dimensions(spec)
-    castle_area_dm2 = (castle_x * castle_y) / 10_000.0   # mm² → dm²
-    brackets = db.query(DieDimensionBracket).order_by(DieDimensionBracket.sort_order).all()
-    coeff_dim = _bracket_coefficient(castle_area_dm2, brackets)
     diff = spec.difficulty or 'base'
-    coeff_diff = {
-        'base':   settings.diff_mult_base,
-        'medium': settings.diff_mult_medium,
-        'hard':   settings.diff_mult_hard,
-    }.get(diff, 1.0)
 
-    feature_cost = (
-        (spec.n_bends_simple   or 0) * (settings.cost_bend_simple   or 0.0)
-      + (spec.n_bends_medium   or 0) * (settings.cost_bend_medium   or 0.0)
-      + (spec.n_bends_complex  or 0) * (settings.cost_bend_complex  or 0.0)
-      + (spec.n_punches_simple or 0) * (settings.cost_punch_simple  or 0.0)
-      + (spec.n_punches_medium or 0) * (settings.cost_punch_medium  or 0.0)
-      + (spec.n_punches_complex or 0) * (settings.cost_punch_complex or 0.0)
+    # ── L3 — lavorazione stampo: EDM filo + ore meccaniche piastre (Sprint A/B).
+    # La dipendenza da feature/dimensioni è già contenuta nei driver:
+    #  - matrice/porta_punzoni: ore EDM ∝ perimetro pezzo × n_stazioni
+    #  - ogni piastra: ore mecc. = setup + Σ(area × h/dm² × n_facce) + station_bonus
+    #  - punzoni medium/complex aggiungono metri EDM (edm_punch_factor)
+    edm_hours_map = _estimate_die_edm_hours(spec, parts, settings, db)
+    total_edm_hours = sum(edm_hours_map.values())
+    cost_machining_edm = total_edm_hours * (settings.hourly_rate_edm_die or 0.0)
+
+    total_mech_hours = sum(
+        _estimate_die_plate_hours(p, spec, settings) for p in parts if p.plate_role
     )
-    n_plates = sum(1 for p in parts if p.plate_role)
-    cost_machining = (
-        feature_cost * coeff_dim * coeff_diff
-        + (settings.cost_per_plate_base or 0.0) * n_plates
-    )
+    cost_machining_mech = total_mech_hours * (settings.hourly_rate_milling or 0.0)
+
+    cost_machining_total = cost_machining_edm + cost_machining_mech
 
     # ── L4 Accessori: progettazione + montaggio + extras.
-    design_hours = {
+    # Sprint D — bonus ore design proporzionale alle feature (pieghe + punzoni):
+    # più feature ⇒ più ore di CAD/programmazione, indipendentemente dalla
+    # difficoltà globale.
+    base_design_hours = {
         'base':   settings.design_hours_base,
         'medium': settings.design_hours_medium,
         'hard':   settings.design_hours_hard,
     }.get(diff, 0.0) or 0.0
+    n_bends_total = (
+        (spec.n_bends_simple or 0)
+        + (spec.n_bends_medium or 0)
+        + (spec.n_bends_complex or 0)
+    )
+    n_punches_total = (
+        (spec.n_punches_simple or 0)
+        + (spec.n_punches_medium or 0)
+        + (spec.n_punches_complex or 0)
+    )
+    design_hours = base_design_hours + n_bends_total * 0.4 + n_punches_total * 0.3
     assembly = {
         'base':   settings.assembly_forfeit_base,
         'medium': settings.assembly_forfeit_medium,
@@ -602,16 +765,19 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
     )
 
     # Override "matita": NULL = usa calcolato, altrimenti forza valore manuale.
+    # `override_machining` agisce sul TOTALE L3 (mech + EDM).
     eff_material      = spec.override_material      if spec.override_material      is not None else cost_material
     eff_normalized    = spec.override_normalized    if spec.override_normalized    is not None else cost_normalized
-    eff_machining     = spec.override_machining     if spec.override_machining     is not None else cost_machining
+    eff_machining     = spec.override_machining     if spec.override_machining     is not None else cost_machining_total
     eff_accessories   = spec.override_accessories   if spec.override_accessories   is not None else cost_accessories
 
-    spec.cost_material    = round(cost_material, 2)
-    spec.cost_normalized  = round(cost_normalized, 2)
-    spec.cost_machining   = round(cost_machining, 2)
-    spec.cost_accessories = round(cost_accessories, 2)
-    spec.cost_industrial  = round(eff_material + eff_normalized + eff_machining + eff_accessories, 2)
+    spec.cost_material        = round(cost_material, 2)
+    spec.cost_normalized      = round(cost_normalized, 2)
+    spec.cost_machining       = round(cost_machining_total, 2)
+    spec.cost_machining_edm   = round(cost_machining_edm, 2)
+    spec.cost_machining_mech  = round(cost_machining_mech, 2)
+    spec.cost_accessories     = round(cost_accessories, 2)
+    spec.cost_industrial      = round(eff_material + eff_normalized + eff_machining + eff_accessories, 2)
 
 
 def recalculate_die_quote(quote_id: int, db: Session) -> None:

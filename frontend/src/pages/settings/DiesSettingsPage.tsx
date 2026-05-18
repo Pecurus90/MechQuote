@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Hammer, Plus, X } from 'lucide-react'
 
@@ -12,6 +12,7 @@ import PageContainer from '@/components/ui/page-container'
 import { useAuth } from '@/lib/auth'
 import type {
   DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
+  DieTemplateNormalized, NormalizedSupplier,
   Material, Treatment, DieSubtype, DieDifficulty,
 } from '@/types'
 
@@ -71,9 +72,12 @@ export default function DiesSettingsPage() {
 function TariffeTab({ canWrite }: { canWrite: boolean }) {
   const [s, setS] = useState<DieSettings | null>(null)
   const [saving, setSaving] = useState(false)
+  const [cycles, setCycles] = useState<{ id: number; name: string }[]>([])
 
   useEffect(() => {
     api.get('/die-settings').then(r => setS(r.data)).catch(() => toast.error('Errore caricamento'))
+    // Cicli EDM per dropdown wire_edm_cycle_id
+    api.get('/cutting-cycles').then(r => setCycles(r.data)).catch(() => { /* lista vuota: cycle_id resta editabile come number */ })
   }, [])
 
   const update = (patch: Partial<DieSettings>) => setS(prev => prev ? { ...prev, ...patch } : prev)
@@ -116,8 +120,16 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">2+3. Costi feature (€/unità)</CardTitle></CardHeader>
+      <Card className="opacity-70">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            2+3. Costi feature (€/unità)
+            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
+          </CardTitle>
+          <p className="text-xs text-gray-500">
+            Sostituiti dai driver geometrici (perimetro pezzo → ore EDM; area piastre → ore meccaniche). I valori restano in DB ma il cost engine non li legge più.
+          </p>
+        </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {num('cost_bend_simple', 'Piega semplice')}
           {num('cost_bend_medium', 'Piega media')}
@@ -128,15 +140,31 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">4. Costo base per piastra</CardTitle></CardHeader>
+      <Card className="opacity-70">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            4. Costo base per piastra
+            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
+          </CardTitle>
+          <p className="text-xs text-gray-500">
+            Sostituito dalle ore meccaniche per piastra (setup + h/dm² × n_facce) dalla card 12.
+          </p>
+        </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {num('cost_per_plate_base', 'Costo base × n. piastre (€)')}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">6. Moltiplicatori difficoltà</CardTitle></CardHeader>
+      <Card className="opacity-70">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            6. Moltiplicatori difficoltà
+            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
+          </CardTitle>
+          <p className="text-xs text-gray-500">
+            La difficoltà ora agisce sulle ore di progettazione (card 7), non come moltiplicatore globale.
+          </p>
+        </CardHeader>
         <CardContent className="grid grid-cols-3 gap-3">
           {num('diff_mult_base', 'Base')}
           {num('diff_mult_medium', 'Media')}
@@ -145,7 +173,13 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">7. Progettazione (ore × tariffa)</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">7. Progettazione (ore × tariffa)</CardTitle>
+          <p className="text-xs text-gray-500">
+            Ore totali = ore[difficoltà] + 0.4 × n. pieghe + 0.3 × n. punzoni.
+            Più feature ⇒ più CAD/programmazione, indipendentemente dalla difficoltà globale.
+          </p>
+        </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {num('design_hours_base', 'Ore base')}
           {num('design_hours_medium', 'Ore media')}
@@ -169,6 +203,48 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
           {num('default_margin_percent', 'Margine default (%)')}
           {num('default_castle_offset_x_mm', 'Offset castello X (mm)')}
           {num('default_castle_offset_y_mm', 'Offset castello Y (mm)')}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">11. Driver EDM filo piastre stampo</CardTitle>
+          <p className="text-xs text-gray-500">
+            Lunghezza EDM per piastra = perimetro pezzo × n. stazioni × moltiplicatore (1.0 matrice, factor estrattore per porta-punzoni).
+            Velocità di taglio prese dalla tabella Wire EDM esistente.
+          </p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <Field label="Ciclo EDM default">
+            <select
+              disabled={!canWrite}
+              value={s.wire_edm_cycle_id ?? ''}
+              onChange={e => update({ wire_edm_cycle_id: e.target.value ? parseInt(e.target.value, 10) : null })}
+              className="w-full h-9 px-2 border rounded text-sm"
+            >
+              <option value="">— primo ciclo attivo —</option>
+              {cycles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          {num('edm_extractor_factor', 'Factor estrattore (porta-punzoni)')}
+          {num('edm_punch_factor', 'Factor punzoni sagomati')}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">12. Produttività officina piastre stampo</CardTitle>
+          <p className="text-xs text-gray-500">
+            Ore per dm² di superficie lavorata, per operazione. Sono parametri della MIA officina
+            (cambiando macchina cambia il numero). Formula: ore_piastra = setup + Σ (area × h/dm² × n_facce) + station_bonus.
+          </p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {num('milling_h_per_dm2', 'Fresatura (h/dm²)')}
+          {num('grinding_h_per_dm2', 'Rettifica (h/dm²)')}
+          {num('drilling_h_per_dm2', 'Foratura (h/dm²)')}
+          {num('large_plate_threshold_dm2', 'Soglia piastra grande (dm²)')}
+          {num('large_plate_factor', 'Moltiplicatore piastre grandi')}
         </CardContent>
       </Card>
 
@@ -228,10 +304,19 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
   }
 
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-base">Fasce dimensionali castello</CardTitle></CardHeader>
+    <Card className="opacity-80">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          Fasce dimensionali castello
+          <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
+        </CardTitle>
+      </CardHeader>
       <CardContent>
-        <p className="text-xs text-gray-500 mb-3">Area castello in dm². Lookup: area_min ≤ area &lt; area_max. Ultima fascia: area_max vuota (= infinito).</p>
+        <p className="text-xs text-gray-500 mb-3">
+          La dipendenza dalla dimensione del castello ora vive direttamente nei driver
+          geometrici (perimetro pezzo → ore EDM, area piastre × h/dm² → ore meccaniche).
+          Le fasce restano configurabili come storico, ma il cost engine non le usa.
+        </p>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-gray-500 border-b">
@@ -301,11 +386,11 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
 // spessori 25/30/25/30/30 mm — stesso default del seed `_seed_die_templates`
 // in `backend/app/main.py`. Riusato per i nuovi template creati dall'utente.
 const STANDARD_PLATES: DieTemplatePlate[] = [
-  { id: 0, plate_role: 'cappello',      default_thickness_mm: 25, default_material_id: null, default_treatment_id: null, sort_order: 1 },
-  { id: 0, plate_role: 'porta_punzoni', default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 2 },
-  { id: 0, plate_role: 'premilamiera',  default_thickness_mm: 25, default_material_id: null, default_treatment_id: null, sort_order: 3 },
-  { id: 0, plate_role: 'matrice',       default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 4 },
-  { id: 0, plate_role: 'base',          default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 5 },
+  { id: 0, plate_role: 'cappello',      default_thickness_mm: 25, default_material_id: null, default_treatment_id: null, sort_order: 1, setup_hours_fixed: 0.3, n_milled_faces: 1, n_ground_faces: 0, n_drilled_faces: 1, station_bonus_hours: 0.0 },
+  { id: 0, plate_role: 'porta_punzoni', default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 2, setup_hours_fixed: 0.5, n_milled_faces: 2, n_ground_faces: 1, n_drilled_faces: 2, station_bonus_hours: 0.4 },
+  { id: 0, plate_role: 'premilamiera',  default_thickness_mm: 25, default_material_id: null, default_treatment_id: null, sort_order: 3, setup_hours_fixed: 0.4, n_milled_faces: 2, n_ground_faces: 1, n_drilled_faces: 1, station_bonus_hours: 0.0 },
+  { id: 0, plate_role: 'matrice',       default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 4, setup_hours_fixed: 0.5, n_milled_faces: 2, n_ground_faces: 2, n_drilled_faces: 2, station_bonus_hours: 0.5 },
+  { id: 0, plate_role: 'base',          default_thickness_mm: 30, default_material_id: null, default_treatment_id: null, sort_order: 5, setup_hours_fixed: 0.3, n_milled_faces: 1, n_ground_faces: 0, n_drilled_faces: 1, station_bonus_hours: 0.0 },
 ]
 
 function TemplatesTab({ canWrite }: { canWrite: boolean }) {
@@ -313,6 +398,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [materials, setMaterials] = useState<Material[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
+  const [normSuppliers, setNormSuppliers] = useState<NormalizedSupplier[]>([])
   const [editingTpl, setEditingTpl] = useState<DieTemplate | null>(null)
   // `editingTpl.id === 0` → modalità create (POST); altrimenti edit (PUT).
   const [deleteId, setDeleteId] = useState<number | null>(null)
@@ -322,6 +408,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
     load()
     api.get('/materials').then(r => setMaterials(r.data))
     api.get('/treatments').then(r => setTreatments(r.data))
+    api.get('/normalized-suppliers').then(r => setNormSuppliers(r.data)).catch(() => {})
   }, [])
 
   const newTemplate = () => {
@@ -342,6 +429,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
       active: true,
       created_at: '',
       plates: STANDARD_PLATES.map(p => ({ ...p })),
+      normalized_items: [],
     })
   }
 
@@ -384,6 +472,20 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
           default_material_id: p.default_material_id,
           default_treatment_id: p.default_treatment_id,
           sort_order: p.sort_order,
+          // Sprint B — costanti produttività per ruolo
+          setup_hours_fixed: p.setup_hours_fixed,
+          n_milled_faces: p.n_milled_faces,
+          n_ground_faces: p.n_ground_faces,
+          n_drilled_faces: p.n_drilled_faces,
+          station_bonus_hours: p.station_bonus_hours,
+        })),
+        // Sprint C — BoM normalizzati scalabile
+        normalized_items: (editingTpl.normalized_items || []).map(n => ({
+          description: n.description,
+          normalized_supplier_id: n.normalized_supplier_id,
+          quantity_formula: n.quantity_formula,
+          unit_price_default: n.unit_price_default,
+          sort_order: n.sort_order,
         })),
       }
       if (editingTpl.id === 0) {
@@ -415,6 +517,8 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
         id: 0, plate_role: 'custom', default_thickness_mm: 25,
         default_material_id: null, default_treatment_id: null,
         sort_order: editingTpl.plates.length + 1,
+        setup_hours_fixed: 0.4, n_milled_faces: 2, n_ground_faces: 0,
+        n_drilled_faces: 1, station_bonus_hours: 0.0,
       }],
     })
   }
@@ -422,6 +526,32 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
   const removePlate = (idx: number) => {
     if (!editingTpl) return
     setEditingTpl({ ...editingTpl, plates: editingTpl.plates.filter((_, i) => i !== idx) })
+  }
+
+  // Sprint C — Normalized items handlers
+  const updateTplNorm = (idx: number, patch: Partial<DieTemplateNormalized>) => {
+    if (!editingTpl) return
+    const items = [...(editingTpl.normalized_items || [])]
+    items[idx] = { ...items[idx], ...patch }
+    setEditingTpl({ ...editingTpl, normalized_items: items })
+  }
+  const addNorm = () => {
+    if (!editingTpl) return
+    const items = editingTpl.normalized_items || []
+    setEditingTpl({
+      ...editingTpl,
+      normalized_items: [...items, {
+        id: 0, description: 'Nuovo componente', normalized_supplier_id: null,
+        quantity_formula: '1', unit_price_default: 0, sort_order: items.length + 1,
+      }],
+    })
+  }
+  const removeNorm = (idx: number) => {
+    if (!editingTpl) return
+    setEditingTpl({
+      ...editingTpl,
+      normalized_items: (editingTpl.normalized_items || []).filter((_, i) => i !== idx),
+    })
   }
 
   return (
@@ -450,7 +580,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
               </div>
               {canWrite && (
                 <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                  <Button size="sm" variant="outline" onClick={() => setEditingTpl(JSON.parse(JSON.stringify(t)))}>Modifica</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingTpl(structuredClone(t))}>Modifica</Button>
                   <Button size="sm" variant="outline" className="text-red-500 border-red-200 hover:bg-red-50" onClick={() => setDeleteId(t.id)}><X className="w-3.5 h-3.5" /></Button>
                 </div>
               )}
@@ -549,34 +679,118 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                     </thead>
                     <tbody>
                       {editingTpl.plates.map((p, idx) => (
+                        <React.Fragment key={idx}>
+                          <tr className="border-b">
+                            <td className="py-1"><Input className="h-8" value={p.plate_role} onChange={e => updateTplPlate(idx, { plate_role: e.target.value })} /></td>
+                            <td className="py-1"><Input className="h-8 text-right" type="number" value={p.default_thickness_mm}
+                              onChange={e => updateTplPlate(idx, { default_thickness_mm: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className="py-1 pl-2">
+                              <select className="text-xs h-8 w-full" value={p.default_material_id || ''}
+                                onChange={e => updateTplPlate(idx, { default_material_id: e.target.value ? Number(e.target.value) : null })}>
+                                <option value="">—</option>
+                                {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                              </select>
+                            </td>
+                            <td className="py-1 pl-2">
+                              <select className="text-xs h-8 w-full" value={p.default_treatment_id || ''}
+                                onChange={e => updateTplPlate(idx, { default_treatment_id: e.target.value ? Number(e.target.value) : null })}>
+                                <option value="">—</option>
+                                {treatments.map(tr => <option key={tr.id} value={tr.id}>{tr.name}</option>)}
+                              </select>
+                            </td>
+                            <td className="py-1"><Input className="h-8 text-right w-14" type="number" value={p.sort_order}
+                              onChange={e => updateTplPlate(idx, { sort_order: parseInt(e.target.value, 10) || 0 })} /></td>
+                            <td className="text-right py-1">
+                              <button onClick={() => removePlate(idx)} className="text-gray-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                            </td>
+                          </tr>
+                          <tr className="border-b bg-gray-50/50">
+                            <td colSpan={6} className="py-1 px-2">
+                              <div className="grid grid-cols-5 gap-2 items-center">
+                                <label className="text-[10px] text-gray-500">Setup (h)
+                                  <Input className="h-7 text-xs" type="number" step="0.1" value={p.setup_hours_fixed}
+                                    onChange={e => updateTplPlate(idx, { setup_hours_fixed: parseFloat(e.target.value) || 0 })} />
+                                </label>
+                                <label className="text-[10px] text-gray-500">Facce fresate
+                                  <Input className="h-7 text-xs" type="number" value={p.n_milled_faces}
+                                    onChange={e => updateTplPlate(idx, { n_milled_faces: parseInt(e.target.value, 10) || 0 })} />
+                                </label>
+                                <label className="text-[10px] text-gray-500">Facce rettificate
+                                  <Input className="h-7 text-xs" type="number" value={p.n_ground_faces}
+                                    onChange={e => updateTplPlate(idx, { n_ground_faces: parseInt(e.target.value, 10) || 0 })} />
+                                </label>
+                                <label className="text-[10px] text-gray-500">Facce forate
+                                  <Input className="h-7 text-xs" type="number" value={p.n_drilled_faces}
+                                    onChange={e => updateTplPlate(idx, { n_drilled_faces: parseInt(e.target.value, 10) || 0 })} />
+                                </label>
+                                <label className="text-[10px] text-gray-500">Bonus/stazione (h)
+                                  <Input className="h-7 text-xs" type="number" step="0.1" value={p.station_bonus_hours}
+                                    onChange={e => updateTplPlate(idx, { station_bonus_hours: parseFloat(e.target.value) || 0 })} />
+                                </label>
+                              </div>
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Sprint C — Sezione BoM normalizzati di default */}
+                <div className="border rounded p-3 mt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <strong className="text-sm">Normalizzati di default (BoM scalabile)</strong>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        Auto-popolati al momento della creazione del preventivo. La quantità è una mini-formula sulle variabili:
+                        <code className="ml-1">n_stations</code>, <code>n_bends_total</code>, <code>n_punches_total</code>,
+                        <code>area_castello_dm2</code>, <code>castle_x_mm</code>, <code>castle_y_mm</code>, <code>bbox_x_mm</code>, <code>bbox_y_mm</code>.
+                        Esempi: <code>4</code>, <code>n_stations * 2 + 4</code>, <code>4 if area_castello_dm2 &lt; 30 else 6</code>.
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={addNorm}><Plus className="w-3.5 h-3.5 mr-1" />Aggiungi normalizzato</Button>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-500 border-b">
+                        <th className="text-left py-1">Descrizione</th>
+                        <th className="text-left py-1 pl-2">Fornitore</th>
+                        <th className="text-left py-1 pl-2">Quantità (formula)</th>
+                        <th className="text-right py-1">€/u default</th>
+                        <th className="text-right py-1">Ord.</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(editingTpl.normalized_items || []).length === 0 && (
+                        <tr><td colSpan={6} className="py-2 text-gray-400 italic">Nessun normalizzato di default.</td></tr>
+                      )}
+                      {(editingTpl.normalized_items || []).map((n, idx) => (
                         <tr key={idx} className="border-b">
-                          <td className="py-1"><Input className="h-8" value={p.plate_role} onChange={e => updateTplPlate(idx, { plate_role: e.target.value })} /></td>
-                          <td className="py-1"><Input className="h-8 text-right" type="number" value={p.default_thickness_mm}
-                            onChange={e => updateTplPlate(idx, { default_thickness_mm: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className="py-1"><Input className="h-8" value={n.description}
+                            onChange={e => updateTplNorm(idx, { description: e.target.value })} /></td>
                           <td className="py-1 pl-2">
-                            <select className="text-xs h-8 w-full" value={p.default_material_id || ''}
-                              onChange={e => updateTplPlate(idx, { default_material_id: e.target.value ? Number(e.target.value) : null })}>
+                            <select className="text-xs h-8 w-full" value={n.normalized_supplier_id || ''}
+                              onChange={e => updateTplNorm(idx, { normalized_supplier_id: e.target.value ? Number(e.target.value) : null })}>
                               <option value="">—</option>
-                              {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                              {normSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
                           </td>
-                          <td className="py-1 pl-2">
-                            <select className="text-xs h-8 w-full" value={p.default_treatment_id || ''}
-                              onChange={e => updateTplPlate(idx, { default_treatment_id: e.target.value ? Number(e.target.value) : null })}>
-                              <option value="">—</option>
-                              {treatments.map(tr => <option key={tr.id} value={tr.id}>{tr.name}</option>)}
-                            </select>
-                          </td>
-                          <td className="py-1"><Input className="h-8 text-right w-14" type="number" value={p.sort_order}
-                            onChange={e => updateTplPlate(idx, { sort_order: parseInt(e.target.value, 10) || 0 })} /></td>
+                          <td className="py-1 pl-2"><Input className="h-8 font-mono text-xs" value={n.quantity_formula}
+                            onChange={e => updateTplNorm(idx, { quantity_formula: e.target.value })} /></td>
+                          <td className="py-1"><Input className="h-8 text-right" type="number" step="0.01" value={n.unit_price_default}
+                            onChange={e => updateTplNorm(idx, { unit_price_default: parseFloat(e.target.value) || 0 })} /></td>
+                          <td className="py-1"><Input className="h-8 text-right w-14" type="number" value={n.sort_order}
+                            onChange={e => updateTplNorm(idx, { sort_order: parseInt(e.target.value, 10) || 0 })} /></td>
                           <td className="text-right py-1">
-                            <button onClick={() => removePlate(idx)} className="text-gray-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                            <button onClick={() => removeNorm(idx)} className="text-gray-400 hover:text-red-600"><X className="w-4 h-4" /></button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
                 <div className="flex justify-end gap-2 pt-3">
                   <Button variant="outline" onClick={() => setEditingTpl(null)}>Annulla</Button>
                   <PrimaryCtaButton color="rose" onClick={saveTpl}>

@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, model_validator, Field
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -1136,6 +1136,8 @@ class DieSpecBase(BaseModel):
     bbox_x_mm: Optional[float] = Field(default=0.0, ge=0)
     bbox_y_mm: Optional[float] = Field(default=0.0, ge=0)
     sheet_thickness_mm: Optional[float] = Field(default=0.0, ge=0)
+    perimeter_pezzo_mm: Optional[float] = Field(default=None, ge=0)
+    complexity_factor: Optional[float] = Field(default=1.2, ge=0.5, le=3.0)
     n_stations: Optional[int] = Field(default=None, ge=1)
     pitch_mm: Optional[float] = Field(default=None, ge=0)
     strip_offset_y_mm: Optional[float] = Field(default=0.0, ge=0)
@@ -1162,7 +1164,25 @@ class DieSpecBase(BaseModel):
 
 
 class DieSpecCreate(DieSpecBase):
-    pass
+    """Sprint E — vincoli condizionali per tipologia:
+      - die_subtype='passo'  → n_stations ≥ 1 e pitch_mm > 0 obbligatori.
+      - die_subtype='blocco' → n_operations ≥ 1 obbligatorio.
+      - bbox_x_mm > 0 e bbox_y_mm > 0 sempre obbligatori (la geometria è
+        il driver primario del cost engine).
+    """
+    @model_validator(mode='after')
+    def _validate_subtype_constraints(self) -> 'DieSpecCreate':
+        if (self.bbox_x_mm or 0) <= 0 or (self.bbox_y_mm or 0) <= 0:
+            raise ValueError("Dimensioni pezzo (bbox_x_mm, bbox_y_mm) obbligatorie")
+        if self.die_subtype == 'passo':
+            if not self.n_stations or self.n_stations < 1:
+                raise ValueError("Per stampi a passo, n_stations è obbligatorio (≥ 1)")
+            if not self.pitch_mm or self.pitch_mm <= 0:
+                raise ValueError("Per stampi a passo, pitch_mm è obbligatorio (> 0)")
+        elif self.die_subtype == 'blocco':
+            if not self.n_operations or self.n_operations < 1:
+                raise ValueError("Per stampi a blocco, n_operations è obbligatorio (≥ 1)")
+        return self
 
 
 class DieSpecUpdate(DieSpecBase):
@@ -1176,6 +1196,8 @@ class DieSpecOut(DieSpecBase):
     cost_material: float
     cost_normalized: float
     cost_machining: float
+    cost_machining_edm: float = 0.0
+    cost_machining_mech: float = 0.0
     cost_accessories: float
     cost_industrial: float
 
@@ -1234,6 +1256,16 @@ class DieSettingsBase(BaseModel):
     default_margin_percent: float = Field(default=30.0, ge=0)
     default_castle_offset_x_mm: float = Field(default=80.0, ge=0)
     default_castle_offset_y_mm: float = Field(default=80.0, ge=0)
+    # Sprint A — driver EDM filo
+    wire_edm_cycle_id: Optional[int] = Field(default=None, ge=1)
+    edm_extractor_factor: float = Field(default=0.6, ge=0, le=2.0)
+    edm_punch_factor: float = Field(default=0.3, ge=0, le=2.0)
+    # Sprint B — produttività macchine officina (h/dm² per operazione)
+    milling_h_per_dm2: float = Field(default=0.15, ge=0, le=5.0)
+    grinding_h_per_dm2: float = Field(default=0.10, ge=0, le=5.0)
+    drilling_h_per_dm2: float = Field(default=0.20, ge=0, le=5.0)
+    large_plate_threshold_dm2: float = Field(default=80.0, ge=0)
+    large_plate_factor: float = Field(default=1.25, ge=1.0, le=3.0)
 
 
 class DieSettingsUpdate(DieSettingsBase):
@@ -1289,6 +1321,31 @@ class DieTemplatePlateOut(DieTemplatePlateBase):
         from_attributes = True
 
 
+# ─── Sprint C — DieTemplateNormalized (BoM scalabile) ──────────────────────
+class DieTemplateNormalizedBase(BaseModel):
+    description: str = Field(min_length=1, max_length=200)
+    normalized_supplier_id: Optional[int] = Field(default=None, ge=1)
+    quantity_formula: str = Field(default="1", max_length=100)
+    unit_price_default: float = Field(default=0.0, ge=0)
+    sort_order: int = Field(default=0, ge=0)
+
+
+class DieTemplateNormalizedCreate(DieTemplateNormalizedBase):
+    pass
+
+
+class DieTemplateNormalizedUpdate(DieTemplateNormalizedBase):
+    description: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    quantity_formula: Optional[str] = Field(default=None, max_length=100)
+
+
+class DieTemplateNormalizedOut(DieTemplateNormalizedBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 class DieTemplateBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: Optional[str] = None
@@ -1307,17 +1364,20 @@ class DieTemplateBase(BaseModel):
 
 class DieTemplateCreate(DieTemplateBase):
     plates: List[DieTemplatePlateCreate] = []
+    normalized_items: List[DieTemplateNormalizedCreate] = []
 
 
 class DieTemplateUpdate(DieTemplateBase):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     plates: Optional[List[DieTemplatePlateCreate]] = None
+    normalized_items: Optional[List[DieTemplateNormalizedCreate]] = None
 
 
 class DieTemplateOut(DieTemplateBase):
     id: int
     created_at: datetime
     plates: List[DieTemplatePlateOut] = []
+    normalized_items: List[DieTemplateNormalizedOut] = []
 
     class Config:
         from_attributes = True

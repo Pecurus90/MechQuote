@@ -13,7 +13,7 @@ Tre modalità target, tutte convergenti su `Quote → Parts → ManufacturingPha
 | **Manuale** | Nessun file | ✅ Completo |
 | **2D** | DXF (Wire EDM) | ✅ Completo per Wire EDM (parser + wizard + auto-calc tempi) |
 | **3D** | STEP | 🔜 Modello dati pronto, parser non implementato |
-| **Stampi/trance** | — | 🔜 Schema da progettare |
+| **Stampi lamiera** | Geometria pezzo (manuale o DXF) | ✅ Completo (Fase 1, 2026-05-17): cost engine 7 livelli, wizard 2-step, editor con override matita, settings (tariffe/fasce/template CRUD), PDF dedicato, clone con revisioni, find-similar |
 
 ---
 
@@ -42,6 +42,20 @@ Tre modalità target, tutte convergenti su `Quote → Parts → ManufacturingPha
 - **Modalità foratura**: pre-fori (genera fase Foratura aggiuntiva con tempo da `DrillingTime[famiglia, Ø, h]`) o pierce diretto in EDM
 - **Settings EDM**: 4 pagine (Velocità di taglio, Cicli di taglio, Tempi foratura, Parametri globali) — sotto-sezione sidebar dedicata
 - **PhaseEditor**: blocco evidenziato con i 4 campi extra (lunghezza/altezza/ciclo/n_pierce) quando `phase_type=='wire_edm'`. `cycle_hours_per_part` read-only quando l'auto-calc è attivo + bottone "Modifica manualmente"
+
+### Preventivazione Stampi lamiera — Fase 1 (2026-05-17)
+- **Modelli**: `DieSpec` (1:1 Quote, 20 input + 5 snapshot + 4 override matita), `DieNormalizedItem` (N:1 Quote + FK NormalizedSupplier), `DieSettings` (singleton id=1, 23 campi), `DieDimensionBracket` (lookup S/M/L/XL), `DieTemplate` + `DieTemplatePlate`
+- **Cost engine 7 livelli** (`calculation.py:_recalculate_die_levels`): L1 piastre da Part.total_cost, L2 normalizzati + shipping aggregato per fornitore, L3 lavorazioni = featureCost × coeff_dim × coeff_diff + base × n_plates, L4 accessori (progettazione + montaggio + extras), L5 industriale con override matita null-coalesce, L6/L7 markup+sconto lato UI
+- **Wizard** `NewDieQuotePage`: 2 step (codice/tipologia → geometria + template + feature), DXF auto-bbox, render live `DieTopView` (plant) + `DieSideView` (sezione piastre)
+- **Editor** `DieQuoteEditor`: form + tabella costi L1-L7 con override matita inline, CRUD normalizzati, clone con suffix `_rev2/_rev3` (porta dietro anche i blob DXF)
+- **Settings** `DiesSettingsPage`: 3 tab (Tariffe & costi 27 campi, Fasce dimensionali, Template CRUD con piastre)
+- **PDF dedicato** `pdf.py:_render_die_quote()` con tabella L1-L7
+- **Riuso anagrafica**: FK a Material, Treatment, NormalizedSupplier (zero duplicazione)
+- **Permessi**: `dies.create`, `dies.archive`, `dies.pdf`, `dies.settings` — gating dinamico
+- **Backup**: tabelle die_* incluse in `EXPORT_ORDER` (fix CR-1, 2026-05-17)
+- **DRY frontend↔backend**: `_compute_castle_dimensions` ↔ `computeDieGeometry`, `_bracket_coefficient` ↔ `bracketCoefficient`, L3/L4 preview ↔ `computeDiePreviewCosts`
+- **find-similar**: filtri subtype + area castello ±30% + pieghe ±2 + punzoni ±2 (top-5)
+- **Unit test**: 5 test in `tests/unit/test_die_calculation.py` (L2/L3/L4 + override + trattamento per dm³)
 
 ### Workflow stati interno (3 stati)
 - `bozza → inviato → completato`
@@ -106,8 +120,12 @@ Wizard 2D oggi popola raw_x/y/z da bbox globale DXF + altezza utente. Refinement
 - Modalità tondo (Ø grezzo + lunghezza barra) come alternativa
 - Suggerire automaticamente la modalità in base alla geometria (rapporto Y/X)
 
-### Preventivazione stampi e trance lamiera
-Modulo dedicato — schema da progettare. Possibilmente come `quote_type` aggiuntivo con campi specifici.
+### Preventivazione Stampi — refinement Fase 2 (opzionali)
+La Fase 1 è in produzione (vedi sezione "Fatto"). Possibili affinamenti su richiesta:
+- **Modalità Rapida** della spec originaria (peso castello × €/kg + % accessori): colonne `mode`/`rapid_*` esistono dormienti sul modello; cost engine implementa solo Dettagliata. Riattivabile se serve range €min-€max per quotazioni veloci.
+- **Render isometrico SVG** del castello al posto delle due viste 2D (top+side) attuali.
+- **Coeff difficoltà per fascia feature** (oggi globale): coeff matriciale `[piega/punzone][semplice/medio/complesso]` invece di un coeff unico.
+- **Tracciatura template applicato**: aggiungere `Quote.applied_die_template_id` per cronologia (oggi il template è applicato clean-slate, l'origine si perde).
 
 ---
 
@@ -137,6 +155,7 @@ Lo stato post-audit (chiuso 2026-05-09, aggiornamento consolidamento 2026-05-15)
 | 7 | BUG-1, BUG-2, BUG-3, BUG-4, OSS-1 | Fix critici post test E2E: `Quote.quote_date` default Python (era latente), guard distruttivo in `backup.import_data` (causò incidente data loss), `min_length=1` su `quote_number` e `cutting_cycle.name`, documentato "last write wins" in CLAUDE.md §4 |
 | 8 | Theme cleanup | Rimosso tema scuro completo (richiesta utente: cambiava al tramonto via auto-switch macOS). 3 commit: drop ThemeProvider/toggle/CSS palette → fix `darkMode: 'class'` per bloccare default `'media'` di Tailwind che leggeva `prefers-color-scheme` automaticamente → cleanup 372 classi `dark:*` residue in 32 TSX. CSS bundle -3 kB. |
 | 9 | Consolidamento 2026-05-15 | ACL `list_quotes`/`quotes_archive` per ruolo (nuovo permesso `quotes.view_all` ad admin+amministrazione, altri ruoli vedono solo i propri), `block_if_in_use` sui 4 DELETE catalog mancanti, 7 unit test backend (cost engine + dxf parser), CI minimal su GitHub Actions, toast su `.catch` silenziosi (sessione scaduta + EDM lookup DEV-only), `savePhase` triggera `onReload` per fasi treatment (batch sibling refresh), `confirmDxf` aborta la PUT se l'attach DXF fallisce (no orphan profile_ids), estrazioni mirate: `Dxf2dWizard` (NewQuote2DPage 682→99 righe), `PartsSidebar` + `QuoteBottomBar` (QuoteEditor 645→569). `PhaseEditor` (699) NON splittato: estrarre `PhaseRow` richiederebbe 20+ props (CLAUDE.md §5: 8+ props = responsabilità nel padre, no extract). File resta coeso, drag&drop + state intrecciati. Decisione documentata. |
+| 10 | Audit Stampi 2026-05-17 | Fix post-audit modulo Preventivatore Stampi: **backup** `EXPORT_ORDER` esteso a 6 tabelle die_* + NormalizedSupplier (CR-1 critico, era omesso); **N+1** `_load_quote` aggiunge joinedload su `die_spec` e `die_normalized_items.supplier` (CR-2); **block_if_in_use** su DELETE brackets (count DieSpec con area castello nel range) + soft delete su DELETE templates con `active=False` (CR-3); **dies.archive** cablato in `quotes_archive.py` via `require_any_permission('quotes.archive', 'dies.archive')` + filtro forzato a `quote_type='die'` per chi ha solo l'archive stampi (M-1); **auto-fill X/Y piastre** usa `is None` invece di falsy check (M-2); **find-similar** aggiunge filtri pieghe ±2 e punzoni ±2 (M-3); **template seed** lookup materiali "C45"/"1.2311" e trattamento "tempra" per default piastre, idempotente anche sui template già seedati (M-4); **clone preventivo** copia anche i blob DXF dei PartFile (M-6); CLAUDE.md + ROADMAP aggiornati con modulo Stampi (M-5). UI: `m-4` ApiError type guard, `m-5` Promise.allSettled, `m-6` structuredClone, `m-10` warning brackets vuoti. |
 
 ---
 

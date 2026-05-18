@@ -3,13 +3,13 @@ import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Pencil, X, Send, FileText, Save, AlertCircle } from 'lucide-react'
 
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import { computeDiePreviewCosts } from '@/lib/dieCalc'
+import { computeDiePreviewCosts, estimateDiePlateHours } from '@/lib/dieCalc'
 import type {
   Quote, DieSpec, DieNormalizedItem, NormalizedSupplier, Material, Treatment,
   DieDifficulty, Part, DieSettings, DieDimensionBracket,
@@ -97,9 +97,9 @@ export default function DieQuoteEditor() {
       setDirtyQuote(null)
       setDirtyParts(new Map())
       setDirtyItems(new Map())
-    } catch (e: any) {
+    } catch (e) {
       console.error('DieQuoteEditor.load failed:', e)
-      toast.error(e?.response?.data?.detail || 'Errore caricamento preventivo')
+      toast.error(getApiErrorDetail(e, 'Errore caricamento preventivo'))
     } finally {
       setLoading(false)
     }
@@ -107,19 +107,22 @@ export default function DieQuoteEditor() {
 
   useEffect(() => { load() }, [id])
 
+  // Sprint D — `DieDimensionBracket` (fasce castello) non è più usato dal
+  // cost engine: la dipendenza dimensionale ora vive nei driver geometrici
+  // di Sprint A/B. Lo stato `brackets` resta caricato come legacy per
+  // eventuali UI di sola lettura, ma non genera più warning all'utente.
+
   // Rules of Hooks: TUTTI gli hooks devono essere chiamati nello stesso
   // ordine ad ogni render. Il useMemo del preview va dichiarato PRIMA
   // dell'early return per "Caricamento…": gestisce internamente il caso
   // spec=null restituendo null, così non aggiunge condizioni.
+  // Sprint D — preview live solo per L4 (design + montaggio + extras + bonus
+  // feature). L3 (mech + EDM) richiede lookup tabelle EDM lato backend:
+  // resta snapshot, si refresha al save+reload.
   const preview = useMemo(() => {
-    if (!spec || !dieSettings || brackets.length === 0) return null
-    return computeDiePreviewCosts({
-      spec,
-      settings: dieSettings,
-      brackets,
-      nPlates: parts.filter(p => p.plate_role).length || parts.length,
-    })
-  }, [spec, dieSettings, brackets, parts])
+    if (!spec || !dieSettings) return null
+    return computeDiePreviewCosts({ spec, settings: dieSettings })
+  }, [spec, dieSettings])
 
   if (loading || !quote || !spec) {
     return <div className="p-8 text-sm text-gray-500">Caricamento…</div>
@@ -172,8 +175,8 @@ export default function DieQuoteEditor() {
         unit_price: 0,
       })
       await load()
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore aggiunta normalizzato')
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore aggiunta normalizzato'))
     }
   }
 
@@ -181,8 +184,8 @@ export default function DieQuoteEditor() {
     try {
       await api.delete(`/dies/${id}/normalized-items/${itemId}`)
       await load()
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore eliminazione normalizzato')
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore eliminazione normalizzato'))
     }
   }
 
@@ -213,8 +216,8 @@ export default function DieQuoteEditor() {
       await load()  // reset dirty + fresh state
       toast.success('Modifiche salvate')
       return true
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore salvataggio')
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore salvataggio'))
       return false
     } finally {
       setSaving(false)
@@ -233,8 +236,8 @@ export default function DieQuoteEditor() {
       await api.patch(`/quotes/${id}/status`, { status: 'inviato' })
       toast.success('Preventivo inviato per revisione')
       await load()
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore invio')
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore invio'))
     } finally {
       setSaving(false)
     }
@@ -258,8 +261,8 @@ export default function DieQuoteEditor() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Errore download PDF')
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore download PDF'))
     }
   }
 
@@ -269,7 +272,9 @@ export default function DieQuoteEditor() {
   // L1 e L2 restano snapshot (dipendono da Part.total_cost e aggregati
   // che ricalcola il backend dopo save). Vedi `lib/dieCalc.ts`.
   // useMemo dichiarato sopra (prima dell'early return loading).
-  const previewMachining = preview?.cost_machining ?? spec.cost_machining
+  // L3 (lavorazione stampo): snapshot dal backend — i driver geometrici
+  // sono troppo costosi da replicare lato client (lookup EdmCutSpeed).
+  const previewMachining = spec.cost_machining
   const previewAccessories = preview?.cost_accessories ?? spec.cost_accessories
 
   // Calcolo industrial usando override matita quando presenti, e i
@@ -366,6 +371,35 @@ export default function DieQuoteEditor() {
         </div>
       </div>
 
+      {/* Sprint E — banner warning soft per situazioni sospette nell'input */}
+      {(() => {
+        const castleX = (spec.bbox_x_mm || 0) + 2 * (spec.castle_offset_x_mm || 0)
+          + (spec.die_subtype === 'passo'
+              ? (spec.pitch_mm || spec.bbox_x_mm || 0) * ((spec.n_stations || 1) - 1)
+              : (spec.block_strip_offset_mm || 0))
+        const castleY = (spec.bbox_y_mm || 0) + 2 * (spec.castle_offset_y_mm || 0)
+          + (spec.die_subtype === 'passo'
+              ? (spec.strip_offset_y_mm || 0)
+              : (spec.block_strip_offset_mm || 0))
+        const areaCastDm2 = (castleX * castleY) / 10_000
+        const nFeat = (spec.n_bends_simple || 0) + (spec.n_bends_medium || 0) + (spec.n_bends_complex || 0)
+          + (spec.n_punches_simple || 0) + (spec.n_punches_medium || 0) + (spec.n_punches_complex || 0)
+        const warnings: string[] = []
+        if (areaCastDm2 > 200) warnings.push(`Castello molto grande: ${areaCastDm2.toFixed(0)} dm² (oltre soglia 200). Verifica le dimensioni.`)
+        if (spec.difficulty === 'hard' && nFeat === 0) warnings.push('Difficoltà "alta" senza pieghe né punzoni: controlla i dati.')
+        if (!warnings.length) return null
+        return (
+          <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div className="space-y-0.5">
+                {warnings.map((w, i) => <div key={i}>{w}</div>)}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* COLONNA SX — Dati spec + Piastre + Normalizzati */}
         <div className="space-y-4">
@@ -419,6 +453,35 @@ export default function DieQuoteEditor() {
                   />
                 </div>
               </div>
+              {/* Sprint A — perimetro pezzo + complessità (driver EDM) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Perimetro pezzo (mm)</Label>
+                  <Input type="number" disabled={!editable || !canWrite}
+                    value={spec.perimeter_pezzo_mm ?? ''}
+                    placeholder={`~${Math.round(2 * ((spec.bbox_x_mm || 0) + (spec.bbox_y_mm || 0)) * (spec.complexity_factor || 1.2))}`}
+                    onChange={e => setSpecLocal({ perimeter_pezzo_mm: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <Label>Complessità profilo</Label>
+                  <select
+                    disabled={!editable || !canWrite || !!spec.perimeter_pezzo_mm}
+                    value={spec.complexity_factor ?? 1.2}
+                    onChange={e => setSpecLocal({ complexity_factor: parseFloat(e.target.value) })}
+                    className="w-full h-9 px-2 border rounded text-sm"
+                  >
+                    <option value="1.0">Rettangolare (1.0)</option>
+                    <option value="1.2">Quasi rettangolare (1.2)</option>
+                    <option value="1.3">Sagoma media (1.3)</option>
+                    <option value="1.6">Sagoma complessa (1.6)</option>
+                    <option value="1.9">Molto articolato (1.9)</option>
+                  </select>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-500 -mt-1">
+                Driver per la stima ore EDM filo. Se vuoto: stimato come 2×(X+Y)×complessità.
+              </p>
               <div className="grid grid-cols-6 gap-2">
                 <div>
                   <Label>P semp</Label>
@@ -480,11 +543,14 @@ export default function DieQuoteEditor() {
                       <th className="text-left py-1">Ruolo</th>
                       <th className="text-right py-1">X×Y×Z</th>
                       <th className="text-left py-1 pl-2">Materiale</th>
+                      <th className="text-right py-1">Ore mecc.</th>
                       <th className="text-right py-1">Costo</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {parts.map(p => (
+                    {parts.map(p => {
+                      const ore = dieSettings ? estimateDiePlateHours(p, spec, dieSettings) : 0
+                      return (
                       <tr key={p.id} className="border-b">
                         <td className="py-1">{p.plate_role ? (PLATE_ROLE_LABELS[p.plate_role] || p.plate_role) : '—'}</td>
                         <td className="text-right py-1 text-xs">{(p.raw_x_mm || 0).toFixed(0)}×{(p.raw_y_mm || 0).toFixed(0)}×
@@ -507,9 +573,11 @@ export default function DieQuoteEditor() {
                             {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                           </select>
                         </td>
+                        <td className="text-right py-1 text-xs text-gray-700">{ore > 0 ? `${ore.toFixed(1)} h` : '—'}</td>
                         <td className="text-right py-1">€ {(p.total_cost || 0).toFixed(2)}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
@@ -608,9 +676,21 @@ export default function DieQuoteEditor() {
                     <td className="py-2 text-right">{renderOverrideCell('normalized', spec.cost_normalized, spec.override_normalized)}</td>
                   </tr>
                   <tr className="border-b">
-                    <td className="py-2">L3 Lavorazioni (feature × coeff)</td>
+                    <td className="py-2">L3 Lavorazioni stampo</td>
                     <td className="py-2 text-right">{renderOverrideCell('machining', previewMachining, spec.override_machining)}</td>
                   </tr>
+                  {spec.cost_machining_mech > 0 && (
+                    <tr className="border-b text-xs text-gray-600">
+                      <td className="py-1 pl-4">↳ di cui lavorazione meccanica piastre</td>
+                      <td className="py-1 text-right">€ {spec.cost_machining_mech.toFixed(2)}</td>
+                    </tr>
+                  )}
+                  {spec.cost_machining_edm > 0 && (
+                    <tr className="border-b text-xs text-gray-600">
+                      <td className="py-1 pl-4">↳ di cui EDM filo (matrice + estrattore)</td>
+                      <td className="py-1 text-right">€ {spec.cost_machining_edm.toFixed(2)}</td>
+                    </tr>
+                  )}
                   <tr className="border-b">
                     <td className="py-2">L4 Accessori (design + montaggio + extras)</td>
                     <td className="py-2 text-right">{renderOverrideCell('accessories', previewAccessories, spec.override_accessories)}</td>

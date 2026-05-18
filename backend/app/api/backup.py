@@ -3,9 +3,11 @@
 Cosa entra nel backup:
 - Anagrafica/catalogo: User, Role, RolePermission, QuoteCategory,
   MaterialSupplier, Material, Supplier, Machine, Treatment, Operation,
-  StepColorRule, CompanySettings, Customer.
+  StepColorRule, CompanySettings, Customer, NormalizedSupplier.
 - Workflow: WorkflowTemplate, WorkflowTemplateStep.
 - Wire EDM: EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime.
+- Stampi: DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
+  DieTemplateNormalized, DieSpec, DieNormalizedItem.
 - Operativo: Quote, Part, ManufacturingPhase, PartFile.
 
 Cosa NON entra (volutamente):
@@ -36,8 +38,10 @@ from app.models import (
     User, Role, RolePermission, QuoteCategory,
     MaterialSupplier, Material, Supplier, Machine, Treatment,
     Operation, WorkflowTemplate, WorkflowTemplateStep,
-    StepColorRule, CompanySettings, Customer,
+    StepColorRule, CompanySettings, Customer, NormalizedSupplier,
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
+    DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
+    DieTemplateNormalized, DieSpec, DieNormalizedItem,
     Quote, Part, ManufacturingPhase, PartFile,
 )
 
@@ -60,6 +64,7 @@ MAX_ROWS_PER_TABLE = 500_000
 EXPORT_ORDER: List[Type] = [
     # Configurazione globale (nessuna FK)
     CompanySettings,
+    DieSettings,            # Singleton id=1, nessuna FK
     # Ruoli e utenti
     Role,
     User,                   # FK soft a roles.name (non FK reale)
@@ -75,6 +80,12 @@ EXPORT_ORDER: List[Type] = [
     WorkflowTemplate,
     WorkflowTemplateStep,   # FK WorkflowTemplate, Machine, Operation
     StepColorRule,
+    NormalizedSupplier,     # nessuna FK
+    # Stampi (catalogo)
+    DieDimensionBracket,    # nessuna FK
+    DieTemplate,            # nessuna FK
+    DieTemplatePlate,       # FK DieTemplate, Material, Treatment
+    DieTemplateNormalized,  # FK DieTemplate, NormalizedSupplier
     # Wire EDM
     EdmConfig,
     CuttingCycle,
@@ -85,6 +96,8 @@ EXPORT_ORDER: List[Type] = [
     Customer,
     # Operativo
     Quote,                  # FK Customer, User
+    DieSpec,                # 1:1 Quote (PK = quote_id)
+    DieNormalizedItem,      # FK Quote, NormalizedSupplier
     Part,                   # FK Quote, Material
     ManufacturingPhase,     # FK Part, Machine, Supplier, Treatment, CuttingCycle
     PartFile,               # FK Part

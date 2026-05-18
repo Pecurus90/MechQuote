@@ -545,6 +545,80 @@ def _run_migrations():
         # 1.2 NormalizedSupplier: shipping_cost
         "ALTER TABLE normalized_suppliers ADD COLUMN shipping_cost FLOAT DEFAULT 0",
 
+        # Sprint A — driver EDM filo per piastre stampo:
+        # DieSpec.perimeter_pezzo_mm (NULL = fallback bbox×factor)
+        # DieSpec.complexity_factor (default 1.2)
+        "ALTER TABLE die_specs ADD COLUMN perimeter_pezzo_mm FLOAT",
+        "ALTER TABLE die_specs ADD COLUMN complexity_factor FLOAT DEFAULT 1.2",
+        "UPDATE die_specs SET complexity_factor = 1.2 WHERE complexity_factor IS NULL",
+        "ALTER TABLE die_specs ADD COLUMN cost_machining_edm FLOAT DEFAULT 0",
+        "ALTER TABLE die_specs ADD COLUMN cost_machining_mech FLOAT DEFAULT 0",
+        # DieSettings.wire_edm_cycle_id (FK opz a CuttingCycle, default NULL → primo attivo)
+        # DieSettings.edm_extractor_factor (default 0.6)
+        # DieSettings.edm_punch_factor (default 0.3)
+        "ALTER TABLE die_settings ADD COLUMN wire_edm_cycle_id INTEGER",
+        "ALTER TABLE die_settings ADD COLUMN edm_extractor_factor FLOAT DEFAULT 0.6",
+        "ALTER TABLE die_settings ADD COLUMN edm_punch_factor FLOAT DEFAULT 0.3",
+
+        # Sprint B — produttività MACCHINE officina (h/dm² per operazione) + scala
+        # piastre extra-large. Valori pensati per fresa/rettifica/foratura tipiche
+        # di un'officina stampi (calibrabili dall'UI).
+        "ALTER TABLE die_settings ADD COLUMN milling_h_per_dm2 FLOAT DEFAULT 0.15",
+        "ALTER TABLE die_settings ADD COLUMN grinding_h_per_dm2 FLOAT DEFAULT 0.10",
+        "ALTER TABLE die_settings ADD COLUMN drilling_h_per_dm2 FLOAT DEFAULT 0.20",
+        "ALTER TABLE die_settings ADD COLUMN large_plate_threshold_dm2 FLOAT DEFAULT 80.0",
+        "ALTER TABLE die_settings ADD COLUMN large_plate_factor FLOAT DEFAULT 1.25",
+
+        # Sprint B — costanti "tipiche per ruolo" su DieTemplatePlate.
+        "ALTER TABLE die_template_plates ADD COLUMN setup_hours_fixed FLOAT DEFAULT 0.4",
+        "ALTER TABLE die_template_plates ADD COLUMN n_milled_faces INTEGER DEFAULT 2",
+        "ALTER TABLE die_template_plates ADD COLUMN n_ground_faces INTEGER DEFAULT 0",
+        "ALTER TABLE die_template_plates ADD COLUMN n_drilled_faces INTEGER DEFAULT 1",
+        "ALTER TABLE die_template_plates ADD COLUMN station_bonus_hours FLOAT DEFAULT 0.0",
+
+        # Sprint B — snapshot su Part (NULL = fallback default per ruolo nel cost engine).
+        "ALTER TABLE parts ADD COLUMN die_setup_h FLOAT",
+        "ALTER TABLE parts ADD COLUMN die_n_milled_faces INTEGER",
+        "ALTER TABLE parts ADD COLUMN die_n_ground_faces INTEGER",
+        "ALTER TABLE parts ADD COLUMN die_n_drilled_faces INTEGER",
+        "ALTER TABLE parts ADD COLUMN die_station_bonus_h FLOAT",
+
+        # Sprint C — BoM normalizzati scalabile sul DieTemplate.
+        # create_all() crea la tabella su DB freschi; questo IF NOT EXISTS
+        # copre i DB legacy + è no-op idempotente.
+        ("CREATE TABLE IF NOT EXISTS die_template_normalized ("
+         "id INTEGER PRIMARY KEY, "
+         "template_id INTEGER NOT NULL REFERENCES die_templates(id) ON DELETE CASCADE, "
+         "description VARCHAR(200) NOT NULL, "
+         "normalized_supplier_id INTEGER REFERENCES normalized_suppliers(id), "
+         "quantity_formula VARCHAR(100) DEFAULT '1', "
+         "unit_price_default FLOAT DEFAULT 0.0, "
+         "sort_order INTEGER DEFAULT 0"
+         ")"),
+
+        # Backfill default per ruolo su template_plates già seedati (idempotente).
+        # Cappello/base hanno carico più leggero; matrice/porta_punzoni più pesante.
+        ("UPDATE die_template_plates SET "
+         "setup_hours_fixed = 0.3, n_milled_faces = 1, n_ground_faces = 0, "
+         "n_drilled_faces = 1, station_bonus_hours = 0.0 "
+         "WHERE plate_role = 'cappello' AND setup_hours_fixed IS NULL"),
+        ("UPDATE die_template_plates SET "
+         "setup_hours_fixed = 0.5, n_milled_faces = 2, n_ground_faces = 1, "
+         "n_drilled_faces = 2, station_bonus_hours = 0.4 "
+         "WHERE plate_role = 'porta_punzoni' AND setup_hours_fixed IS NULL"),
+        ("UPDATE die_template_plates SET "
+         "setup_hours_fixed = 0.4, n_milled_faces = 2, n_ground_faces = 1, "
+         "n_drilled_faces = 1, station_bonus_hours = 0.0 "
+         "WHERE plate_role = 'premilamiera' AND setup_hours_fixed IS NULL"),
+        ("UPDATE die_template_plates SET "
+         "setup_hours_fixed = 0.5, n_milled_faces = 2, n_ground_faces = 2, "
+         "n_drilled_faces = 2, station_bonus_hours = 0.5 "
+         "WHERE plate_role = 'matrice' AND setup_hours_fixed IS NULL"),
+        ("UPDATE die_template_plates SET "
+         "setup_hours_fixed = 0.3, n_milled_faces = 1, n_ground_faces = 0, "
+         "n_drilled_faces = 1, station_bonus_hours = 0.0 "
+         "WHERE plate_role = 'base' AND setup_hours_fixed IS NULL"),
+
         # Singleton DieSettings + seed default operativi (SQLAlchemy create_all
         # non applica DEFAULT SQL — COALESCE ricopre il caso DB legacy).
         "INSERT OR IGNORE INTO die_settings (id) VALUES (1)",
@@ -572,7 +646,14 @@ def _run_migrations():
          "assembly_forfeit_hard = COALESCE(assembly_forfeit_hard, 1200), "
          "default_margin_percent = COALESCE(default_margin_percent, 30), "
          "default_castle_offset_x_mm = COALESCE(default_castle_offset_x_mm, 80), "
-         "default_castle_offset_y_mm = COALESCE(default_castle_offset_y_mm, 80) "
+         "default_castle_offset_y_mm = COALESCE(default_castle_offset_y_mm, 80), "
+         "edm_extractor_factor = COALESCE(edm_extractor_factor, 0.6), "
+         "edm_punch_factor = COALESCE(edm_punch_factor, 0.3), "
+         "milling_h_per_dm2 = COALESCE(milling_h_per_dm2, 0.15), "
+         "grinding_h_per_dm2 = COALESCE(grinding_h_per_dm2, 0.10), "
+         "drilling_h_per_dm2 = COALESCE(drilling_h_per_dm2, 0.20), "
+         "large_plate_threshold_dm2 = COALESCE(large_plate_threshold_dm2, 80.0), "
+         "large_plate_factor = COALESCE(large_plate_factor, 1.25) "
          "WHERE id = 1"),
         # Modalità Rapida rimossa: le colonne rapid_* restano in DB (SQLite
         # no DROP COLUMN) ma non più popolate/lette. Vedi 16_legacy_columns.md.
@@ -732,18 +813,65 @@ def _seed_die_templates():
     """Seed dei 5 template stampo della spec utente (idempotente: skip se
     la tabella ha già righe). Ogni template ha 5 piastre standard
     (cappello/porta_punzoni/premilamiera/matrice/base) con spessori 25/30/25/30/30 mm.
-    Materiale + trattamento sono NULL: l'utente li assegna dall'editor o
-    dall'Impostazioni Stampi tab Template."""
+    Material/treatment default: lookup per nome comune ('C45', '1.2311',
+    'tempra'). Se i nomi non esistono nel catalogo dell'istanza, le piastre
+    restano NULL e l'utente assegna manualmente."""
     from sqlalchemy.orm import Session
-    from app.models import DieTemplate, DieTemplatePlate
+    from app.models import DieTemplate, DieTemplatePlate, DieTemplateNormalized, Material, Treatment
 
+    # (role, thickness, sort_order, material_lookup_name, treatment_lookup_name,
+    #  setup_h, n_milled, n_ground, n_drilled, station_bonus_h)
+    # I "lookup name" sono best-guess sul catalogo dell'officina: se non
+    # trovati, default_material_id/treatment_id restano NULL.
+    # Le costanti Sprint B alimentano `_estimate_die_plate_hours` per il
+    # calcolo delle ore meccaniche di ciascuna piastra.
     STANDARD_PLATES = [
-        ('cappello', 25.0, 1),
-        ('porta_punzoni', 30.0, 2),
-        ('premilamiera', 25.0, 3),
-        ('matrice', 30.0, 4),
-        ('base', 30.0, 5),
+        ('cappello',      25.0, 1, 'C45',    None,     0.3, 1, 0, 1, 0.0),
+        ('porta_punzoni', 30.0, 2, '1.2311', 'tempra', 0.5, 2, 1, 2, 0.4),
+        ('premilamiera',  25.0, 3, 'C45',    None,     0.4, 2, 1, 1, 0.0),
+        ('matrice',       30.0, 4, '1.2311', 'tempra', 0.5, 2, 2, 2, 0.5),
+        ('base',          30.0, 5, 'C45',    None,     0.3, 1, 0, 1, 0.0),
     ]
+
+    # Sprint C — BoM normalizzati di default per nome template. Tutte le
+    # formule sono valutate via `core.expression_eval.evaluate_quantity_formula`
+    # con variabili {n_stations, n_bends_total, n_punches_total,
+    # area_castello_dm2, castle_x_mm, castle_y_mm, bbox_x_mm, bbox_y_mm}.
+    # Prezzi unitari sono best-guess: l'utente raffina dall'editor template.
+    # (description, formula, unit_price_default, sort_order)
+    NORMALIZED_BY_TEMPLATE = {
+        'Tranciatura semplice a blocco': [
+            ('Colonna guidata Ø25', '4',  35.0, 1),
+            ('Boccola Ø25',          '4',  12.0, 2),
+            ('Molla gialla',         '2',  10.0, 3),
+            ('Kit viti+spine M8',    '1',  50.0, 4),
+        ],
+        'Tranciatura + piega a blocco': [
+            ('Colonna guidata Ø25', '4',  35.0, 1),
+            ('Boccola Ø25',          '4',  12.0, 2),
+            ('Molla gialla',         '4',  10.0, 3),
+            ('Kit viti+spine M8',    '1',  50.0, 4),
+        ],
+        'Progressivo 3-4 stazioni': [
+            ('Colonna guidata Ø32',  '4',                 45.0, 1),
+            ('Boccola Ø32',          '4',                 15.0, 2),
+            ('Molla gialla',         'n_stations * 2 + 4', 10.0, 3),
+            ('Kit viti+spine M8',    '1',                  80.0, 4),
+        ],
+        'Progressivo complesso 5+ stazioni': [
+            ('Colonna guidata Ø40',  '4',                 65.0, 1),
+            ('Boccola Ø40',          '4',                 22.0, 2),
+            ('Molla gialla',         'n_stations * 3 + 4', 10.0, 3),
+            ('Tendispinotti',        '2',                 35.0, 4),
+            ('Kit viti+spine M10',   '1',                 110.0, 5),
+        ],
+        'Tranciatura fine (precisione)': [
+            ('Colonna guidata Ø32',  '4',  45.0, 1),
+            ('Boccola Ø32',          '4',  15.0, 2),
+            ('Molla precisione',     '4',  20.0, 3),
+            ('Kit viti+spine M8',    '1',  60.0, 4),
+        ],
+    }
 
     TEMPLATES = [
         # name, description, die_subtype, suggested_stations, suggested_pitch_mm,
@@ -766,8 +894,56 @@ def _seed_die_templates():
     ]
 
     with Session(engine) as db:
+        # Lookup catalog by name (case-sensitive sul nome esatto). Eseguito
+        # una volta sola, riutilizzato per tutte le piastre.
+        def _material_id(name):
+            m = db.query(Material).filter(Material.name == name).first()
+            return m.id if m else None
+
+        def _treatment_id(name):
+            if name is None:
+                return None
+            t = db.query(Treatment).filter(Treatment.name == name).first()
+            return t.id if t else None
+
         if db.query(DieTemplate).count() > 0:
-            return  # già seedato
+            # Già seedato: applica solo i default material/treatment alle
+            # piastre che ne sono ancora prive (idempotente, no-op se
+            # l'utente ha già configurato a mano). Per Sprint B, le costanti
+            # di produttività (setup_h, n_*_faces, station_bonus) hanno già
+            # i default DB da migration → niente UPDATE qui.
+            for role, _t, _o, mat_name, treat_name, *_b in STANDARD_PLATES:
+                mid = _material_id(mat_name)
+                tid = _treatment_id(treat_name)
+                if mid is not None:
+                    db.query(DieTemplatePlate).filter(
+                        DieTemplatePlate.plate_role == role,
+                        DieTemplatePlate.default_material_id.is_(None),
+                    ).update({"default_material_id": mid}, synchronize_session=False)
+                if tid is not None:
+                    db.query(DieTemplatePlate).filter(
+                        DieTemplatePlate.plate_role == role,
+                        DieTemplatePlate.default_treatment_id.is_(None),
+                    ).update({"default_treatment_id": tid}, synchronize_session=False)
+            # Sprint C — backfill BoM normalizzati su template già seedati.
+            # Idempotente: si auto-popola solo se il template non ne ha già
+            # (rispetta eventuali personalizzazioni dell'utente).
+            for tpl in db.query(DieTemplate).all():
+                existing = db.query(DieTemplateNormalized).filter(
+                    DieTemplateNormalized.template_id == tpl.id
+                ).count()
+                if existing > 0:
+                    continue
+                for description, formula, price, order in NORMALIZED_BY_TEMPLATE.get(tpl.name, []):
+                    db.add(DieTemplateNormalized(
+                        template_id=tpl.id,
+                        description=description,
+                        quantity_formula=formula,
+                        unit_price_default=price,
+                        sort_order=order,
+                    ))
+            db.commit()
+            return
 
         for (name, desc, subtype, stations, pitch,
              nbs, nbm, nbc, nps, npm, npc, diff) in TEMPLATES:
@@ -780,11 +956,28 @@ def _seed_die_templates():
             )
             db.add(tpl)
             db.flush()
-            for role, thickness, order in STANDARD_PLATES:
+            for (role, thickness, order, mat_name, treat_name,
+                 setup_h, n_milled, n_ground, n_drilled, station_bonus) in STANDARD_PLATES:
                 db.add(DieTemplatePlate(
                     template_id=tpl.id,
                     plate_role=role,
                     default_thickness_mm=thickness,
+                    default_material_id=_material_id(mat_name),
+                    default_treatment_id=_treatment_id(treat_name),
+                    sort_order=order,
+                    setup_hours_fixed=setup_h,
+                    n_milled_faces=n_milled,
+                    n_ground_faces=n_ground,
+                    n_drilled_faces=n_drilled,
+                    station_bonus_hours=station_bonus,
+                ))
+            # Sprint C — BoM normalizzati di default per questo template.
+            for description, formula, price, order in NORMALIZED_BY_TEMPLATE.get(name, []):
+                db.add(DieTemplateNormalized(
+                    template_id=tpl.id,
+                    description=description,
+                    quantity_formula=formula,
+                    unit_price_default=price,
                     sort_order=order,
                 ))
         db.commit()

@@ -8,7 +8,7 @@ from typing import List
 
 from app.core.database import get_db, utc_now
 from app.core.security import require_permission, get_current_user
-from app.models import Quote, Part, ManufacturingPhase, User, CompanySettings
+from app.models import Quote, Part, ManufacturingPhase, User, CompanySettings, DieNormalizedItem
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
 from app.services.calculation import recalculate_part
 from app.services.notifications import create_notification
@@ -30,6 +30,8 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
         joinedload(Quote.customer),
         joinedload(Quote.submitted_by),
         joinedload(Quote.completed_by),
+        joinedload(Quote.die_spec),
+        joinedload(Quote.die_normalized_items).joinedload(DieNormalizedItem.supplier),
     ).filter(Quote.id == quote_id).first()
 
 

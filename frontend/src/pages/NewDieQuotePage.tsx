@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type {
   Customer, Category, DieTemplate, DieSettings, DieSubtype, DieDifficulty,
-  DxfAnalysis,
+  DxfAnalysis, DieSpec,
 } from '@/types'
 import DieTopView from '@/components/quotes/die/DieTopView'
 import DieSideView from '@/components/quotes/die/DieSideView'
@@ -111,6 +111,9 @@ export default function NewDieQuotePage() {
 
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Sprint G — stampi simili pre-creazione (live nel wizard step 2)
+  const [similarItems, setSimilarItems] = useState<Array<{ id: number; quote_number: string; customer_name: string; die_spec: DieSpec | null }>>([])
+  const [similarStats, setSimilarStats] = useState<{ n_with_sold_price: number; avg_sold_to_quoted_ratio: number | null } | null>(null)
 
   // ─── Load anagrafiche ─────────────────────────────────────────────────────
   // allSettled invece di all: se una singola call fallisce (es. die-settings
@@ -198,6 +201,34 @@ export default function NewDieQuotePage() {
     castleOffsetX: parseFloat(castleOffsetX) || 0,
     castleOffsetY: parseFloat(castleOffsetY) || 0,
   }), [subtype, bboxX, bboxY, nStations, pitchMm, stripOffsetY, blockOffset, castleOffsetX, castleOffsetY])
+
+  // Sprint G — find-similar live: debounce 500ms, query solo se la geometria
+  // ha senso (castello > 0, subtype scelto). Cerca stampi precedenti con
+  // parametri simili per orientare l'utente sui prezzi storici.
+  useEffect(() => {
+    if (!subtype || geom.castleX <= 0 || geom.castleY <= 0) {
+      setSimilarItems([])
+      setSimilarStats(null)
+      return
+    }
+    const nB = (parseInt(nBendsS, 10) || 0) + (parseInt(nBendsM, 10) || 0) + (parseInt(nBendsC, 10) || 0)
+    const nP = (parseInt(nPunchesS, 10) || 0) + (parseInt(nPunchesM, 10) || 0) + (parseInt(nPunchesC, 10) || 0)
+    const handle = setTimeout(() => {
+      api.get('/dies/find-similar-by-params', {
+        params: {
+          die_subtype: subtype,
+          castle_x_mm: geom.castleX,
+          castle_y_mm: geom.castleY,
+          n_bends_total: nB,
+          n_punches_total: nP,
+        },
+      }).then(r => {
+        setSimilarItems(r.data?.similar || [])
+        setSimilarStats(r.data?.stats || null)
+      }).catch(() => { /* niente toast: secondario */ })
+    }, 500)
+    return () => clearTimeout(handle)
+  }, [subtype, geom.castleX, geom.castleY, nBendsS, nBendsM, nBendsC, nPunchesS, nPunchesM, nPunchesC])
 
   // Auto-fill del passo: appena bboxX viene compilato (DXF o manuale), se il
   // pitch è ancora vuoto e siamo in modalità passo, pre-popola con bboxX
@@ -768,6 +799,37 @@ export default function NewDieQuotePage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Sprint G — stampi simili pre-creazione: orientamento sui prezzi storici */}
+            {similarItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Stampi simili ({similarItems.length})</CardTitle>
+                  {similarStats && similarStats.n_with_sold_price > 0 && similarStats.avg_sold_to_quoted_ratio != null && (
+                    <p className="text-xs text-gray-500">
+                      Stampi simili venduti in media a <strong>{similarStats.avg_sold_to_quoted_ratio.toFixed(2)}×</strong> il preventivo
+                      ({similarStats.n_with_sold_price} con prezzo finale tracciato)
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {similarItems.map(it => {
+                    const cost = it.die_spec?.cost_industrial || 0
+                    return (
+                      <div key={it.id} className="flex items-center justify-between text-xs border-b pb-1">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono truncate">{it.quote_number}</div>
+                          <div className="text-gray-500 truncate">{it.customer_name}</div>
+                        </div>
+                        <div className="text-right ml-2">
+                          <div className="font-medium">€ {cost.toFixed(0)}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Submit "evidente" — sticky insieme ai due render, sempre visibile
                 senza dover scorrere in alto. */}

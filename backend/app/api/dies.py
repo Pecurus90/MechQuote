@@ -17,6 +17,7 @@ import logging
 import os
 import shutil
 from datetime import date as date_type
+from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -395,66 +396,52 @@ def apply_template(
     return _load_quote(quote_id, db)
 
 
-@router.get("/{quote_id}/find-similar", response_model=list[QuoteOut])
-def find_similar(
-    quote_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Top-5 preventivi stampo simili. Criterio:
+def _find_similar_quotes(
+    target_subtype: str,
+    target_area_dm2: float,
+    target_bends: int,
+    target_punches: int,
+    exclude_quote_id: Optional[int],
+    db: Session,
+) -> Tuple[List[Quote], dict]:
+    """Helper riusabile: ritorna top-5 stampi simili + stats ratio.
+    Criteri matching:
       - stesso die_subtype
       - area castello entro ±30%
       - n. pieghe totali entro ±2
       - n. punzoni totali entro ±2
-      - escluso il quote corrente
-    Ordinato per data di creazione discendente."""
-    spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
-    if not spec:
-        raise HTTPException(status_code=404, detail="Spec stampo non trovata")
-
-    castle_x, castle_y = _compute_castle_dimensions(spec)
-    area = (castle_x * castle_y) / 10_000.0  # dm²
-    bends_target = (
-        (spec.n_bends_simple or 0)
-        + (spec.n_bends_medium or 0)
-        + (spec.n_bends_complex or 0)
-    )
-    punches_target = (
-        (spec.n_punches_simple or 0)
-        + (spec.n_punches_medium or 0)
-        + (spec.n_punches_complex or 0)
-    )
-
-    others = db.query(Quote).options(
-        joinedload(Quote.die_spec),
-    ).filter(
+    Stats calcolate sui matches che hanno popolato `sold_price`/`actual_cost`.
+    """
+    others_query = db.query(Quote).options(joinedload(Quote.die_spec)).filter(
         Quote.quote_type == 'die',
-        Quote.id != quote_id,
-    ).all()
+    )
+    if exclude_quote_id is not None:
+        others_query = others_query.filter(Quote.id != exclude_quote_id)
+    others = others_query.all()
 
     def _matches(q: Quote) -> bool:
-        if not q.die_spec or q.die_spec.die_subtype != spec.die_subtype:
+        if not q.die_spec or q.die_spec.die_subtype != target_subtype:
             return False
         cx, cy = _compute_castle_dimensions(q.die_spec)
         a = (cx * cy) / 10_000.0
-        if area == 0:
+        if target_area_dm2 == 0:
             if a != 0:
                 return False
-        elif not (0.7 <= (a / area) <= 1.3):
+        elif not (0.7 <= (a / target_area_dm2) <= 1.3):
             return False
         bends = (
             (q.die_spec.n_bends_simple or 0)
             + (q.die_spec.n_bends_medium or 0)
             + (q.die_spec.n_bends_complex or 0)
         )
-        if abs(bends - bends_target) > 2:
+        if abs(bends - target_bends) > 2:
             return False
         punches = (
             (q.die_spec.n_punches_simple or 0)
             + (q.die_spec.n_punches_medium or 0)
             + (q.die_spec.n_punches_complex or 0)
         )
-        if abs(punches - punches_target) > 2:
+        if abs(punches - target_punches) > 2:
             return False
         return True
 
@@ -463,4 +450,85 @@ def find_similar(
         key=lambda q: q.created_at,
         reverse=True,
     )[:5]
-    return [_load_quote(q.id, db) for q in matches]
+
+    # Sprint G — stats ratio sui matches con dati di chiusura commessa.
+    sold_ratios = [
+        q.sold_price / q.die_spec.cost_industrial
+        for q in matches
+        if q.sold_price and q.die_spec and q.die_spec.cost_industrial
+    ]
+    cost_ratios = [
+        q.actual_cost / q.die_spec.cost_industrial
+        for q in matches
+        if q.actual_cost and q.die_spec and q.die_spec.cost_industrial
+    ]
+    stats = {
+        'n_with_sold_price': len(sold_ratios),
+        'avg_sold_to_quoted_ratio': round(sum(sold_ratios) / len(sold_ratios), 3) if sold_ratios else None,
+        'n_with_actual_cost': len(cost_ratios),
+        'avg_cost_to_quoted_ratio': round(sum(cost_ratios) / len(cost_ratios), 3) if cost_ratios else None,
+    }
+    return matches, stats
+
+
+@router.get("/{quote_id}/find-similar")
+def find_similar(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Top-5 preventivi stampo simili al `quote_id` (per area castello ±30%,
+    pieghe ±2, punzoni ±2, stesso subtype) + stats ratio venduto/consuntivo
+    sui simili che hanno dati di chiusura commessa popolati.
+
+    Risposta: `{ similar: List[QuoteOut], stats: {...} }`.
+    """
+    spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
+    if not spec:
+        raise HTTPException(status_code=404, detail="Spec stampo non trovata")
+
+    castle_x, castle_y = _compute_castle_dimensions(spec)
+    area = (castle_x * castle_y) / 10_000.0
+    bends_target = (
+        (spec.n_bends_simple or 0) + (spec.n_bends_medium or 0) + (spec.n_bends_complex or 0)
+    )
+    punches_target = (
+        (spec.n_punches_simple or 0) + (spec.n_punches_medium or 0) + (spec.n_punches_complex or 0)
+    )
+
+    matches, stats = _find_similar_quotes(
+        spec.die_subtype, area, bends_target, punches_target, quote_id, db,
+    )
+    return {
+        'similar': [_load_quote(q.id, db) for q in matches],
+        'stats': stats,
+    }
+
+
+@router.get("/find-similar-by-params")
+def find_similar_by_params(
+    die_subtype: str,
+    castle_x_mm: float,
+    castle_y_mm: float,
+    n_bends_total: int = 0,
+    n_punches_total: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sprint G — find-similar usato dal wizard step 2 PRIMA della creazione
+    del preventivo (no quote_id). Accetta i parametri spec correnti via query
+    string e ritorna gli stessi top-5 simili + stats.
+
+    Tipicamente chiamato live dal wizard quando l'utente compila dimensioni
+    e feature, per suggerire stampi storici a cui ispirarsi.
+    """
+    if die_subtype not in ('passo', 'blocco'):
+        raise HTTPException(status_code=400, detail="die_subtype deve essere 'passo' o 'blocco'")
+    area = (castle_x_mm * castle_y_mm) / 10_000.0
+    matches, stats = _find_similar_quotes(
+        die_subtype, area, n_bends_total, n_punches_total, None, db,
+    )
+    return {
+        'similar': [_load_quote(q.id, db) for q in matches],
+        'stats': stats,
+    }

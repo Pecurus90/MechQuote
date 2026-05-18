@@ -360,6 +360,10 @@ def _run_migrations():
         # storico degli ordini fatti (con quotes inclusi via join m2m).
         "ALTER TABLE quotes ADD COLUMN material_ordered_at DATETIME",
         "ALTER TABLE quotes ADD COLUMN material_ordered_by_user_id INTEGER REFERENCES users(id)",
+
+        # Sprint G — tracking storico: prezzo finale di vendita + consuntivo.
+        "ALTER TABLE quotes ADD COLUMN sold_price FLOAT",
+        "ALTER TABLE quotes ADD COLUMN actual_cost FLOAT",
         ("CREATE TABLE IF NOT EXISTS material_orders ("
          "id INTEGER PRIMARY KEY, "
          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
@@ -569,6 +573,17 @@ def _run_migrations():
         "ALTER TABLE die_settings ADD COLUMN large_plate_threshold_dm2 FLOAT DEFAULT 80.0",
         "ALTER TABLE die_settings ADD COLUMN large_plate_factor FLOAT DEFAULT 1.25",
 
+        # Sprint F — aggancio Machine alle 4 tariffe per operazione (FK opz).
+        # NULL = fallback alle hourly_rate_* esplicite (retro-compat).
+        "ALTER TABLE die_settings ADD COLUMN milling_machine_id INTEGER",
+        "ALTER TABLE die_settings ADD COLUMN grinding_machine_id INTEGER",
+        "ALTER TABLE die_settings ADD COLUMN drilling_machine_id INTEGER",
+        "ALTER TABLE die_settings ADD COLUMN edm_wire_machine_id INTEGER",
+
+        # Sprint F — bonus design configurabile (era hardcoded in calculation.py).
+        "ALTER TABLE die_settings ADD COLUMN design_h_per_bend FLOAT DEFAULT 0.4",
+        "ALTER TABLE die_settings ADD COLUMN design_h_per_punch FLOAT DEFAULT 0.3",
+
         # Sprint B — costanti "tipiche per ruolo" su DieTemplatePlate.
         "ALTER TABLE die_template_plates ADD COLUMN setup_hours_fixed FLOAT DEFAULT 0.4",
         "ALTER TABLE die_template_plates ADD COLUMN n_milled_faces INTEGER DEFAULT 2",
@@ -653,20 +668,26 @@ def _run_migrations():
          "grinding_h_per_dm2 = COALESCE(grinding_h_per_dm2, 0.10), "
          "drilling_h_per_dm2 = COALESCE(drilling_h_per_dm2, 0.20), "
          "large_plate_threshold_dm2 = COALESCE(large_plate_threshold_dm2, 80.0), "
-         "large_plate_factor = COALESCE(large_plate_factor, 1.25) "
+         "large_plate_factor = COALESCE(large_plate_factor, 1.25), "
+         "design_h_per_bend = COALESCE(design_h_per_bend, 0.4), "
+         "design_h_per_punch = COALESCE(design_h_per_punch, 0.3) "
          "WHERE id = 1"),
         # Modalità Rapida rimossa: le colonne rapid_* restano in DB (SQLite
         # no DROP COLUMN) ma non più popolate/lette. Vedi 16_legacy_columns.md.
 
-        # Seed 4 fasce dimensionali castello S/M/L/XL (idempotente).
+        # Seed 4 fasce piastra (Sprint F re-purpose: era castello, ora piastra).
+        # Idempotente: skippa se già seedato. Per officine con tagli max ~1300×600mm
+        # (=78 dm²) i coefficienti sono modesti: 1.00 → 1.30 invece di 1.0 → 2.0.
+        # I record già esistenti dalla Sprint A NON vengono toccati (l'utente
+        # potrebbe aver calibrato a mano).
         ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
-         "SELECT 'S', 0, 20, 1.0, 1 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='S')"),
+         "SELECT 'S', 0, 15, 1.0, 1 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='S')"),
         ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
-         "SELECT 'M', 20, 50, 1.3, 2 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='M')"),
+         "SELECT 'M', 15, 40, 1.05, 2 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='M')"),
         ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
-         "SELECT 'L', 50, 100, 1.6, 3 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='L')"),
+         "SELECT 'L', 40, 65, 1.15, 3 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='L')"),
         ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
-         "SELECT 'XL', 100, NULL, 2.0, 4 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='XL')"),
+         "SELECT 'XL', 65, NULL, 1.30, 4 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='XL')"),
 
         # Permessi dies.* — admin + ufficio_tecnico (create/archive/pdf) + amministrazione (archive/pdf), admin (settings).
         "DELETE FROM role_permissions WHERE permission_key IN ('dies.create','dies.archive','dies.pdf','dies.settings')",

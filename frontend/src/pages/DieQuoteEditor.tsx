@@ -13,6 +13,7 @@ import { computeDiePreviewCosts, estimateDiePlateHours } from '@/lib/dieCalc'
 import type {
   Quote, DieSpec, DieNormalizedItem, NormalizedSupplier, Material, Treatment,
   DieDifficulty, Part, DieSettings, DieDimensionBracket,
+  EdmConfig, EdmCutSpeed, CuttingCycle, Machine,
 } from '@/types'
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -43,6 +44,11 @@ export default function DieQuoteEditor() {
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [dieSettings, setDieSettings] = useState<DieSettings | null>(null)
   const [brackets, setBrackets] = useState<DieDimensionBracket[]>([])
+  // Sprint G — pre-fetch tabelle EDM + macchine per live preview L3
+  const [edmCfg, setEdmCfg] = useState<EdmConfig | null>(null)
+  const [edmSpeeds, setEdmSpeeds] = useState<EdmCutSpeed[]>([])
+  const [cycles, setCycles] = useState<CuttingCycle[]>([])
+  const [machines, setMachines] = useState<Machine[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editingOverride, setEditingOverride] = useState<null | 'material' | 'normalized' | 'machining' | 'accessories'>(null)
@@ -58,6 +64,15 @@ export default function DieQuoteEditor() {
   const [dirtyParts, setDirtyParts] = useState<Map<number, Partial<Part>>>(new Map())
   const [dirtyItems, setDirtyItems] = useState<Map<number, Partial<DieNormalizedItem>>>(new Map())
   const [confirmSubmit, setConfirmSubmit] = useState(false)
+  // Sprint H — tab attiva nell'editor (geometria / piastre / normalizzati / costi)
+  const [activeTab, setActiveTab] = useState<'geometria' | 'piastre' | 'normalizzati' | 'costi'>('geometria')
+  // Sprint G — stats find-similar per display ratio venduto/preventivato
+  const [similarStats, setSimilarStats] = useState<{
+    n_with_sold_price: number
+    avg_sold_to_quoted_ratio: number | null
+    n_with_actual_cost: number
+    avg_cost_to_quoted_ratio: number | null
+  } | null>(null)
 
   const isDirty = !!dirtySpec || !!dirtyQuote || dirtyParts.size > 0 || dirtyItems.size > 0
 
@@ -74,13 +89,18 @@ export default function DieQuoteEditor() {
       // Endpoint secondari (Promise.allSettled): se uno fallisce, l'editor
       // si carica lo stesso usando i dati che ha. Es: senza die-settings i
       // preview L3/L4 cadono sui snapshot DB.
-      const [ni, mats, treats, sups, ds, bs] = await Promise.allSettled([
+      const [ni, mats, treats, sups, ds, bs, sim, ecfg, esp, cyc, mch] = await Promise.allSettled([
         api.get(`/dies/${id}/normalized-items`),
         api.get('/materials'),
         api.get('/treatments'),
         api.get('/normalized-suppliers'),
         api.get('/die-settings'),
         api.get('/die-settings/brackets'),
+        api.get(`/dies/${id}/find-similar`),
+        api.get('/edm-config'),
+        api.get('/edm-cut-speeds'),
+        api.get('/cutting-cycles'),
+        api.get('/machines'),
       ])
       if (ni.status === 'fulfilled') setNormalizedItems(ni.value.data)
       if (mats.status === 'fulfilled') setMaterials(mats.value.data)
@@ -88,6 +108,11 @@ export default function DieQuoteEditor() {
       if (sups.status === 'fulfilled') setSuppliers(sups.value.data)
       if (ds.status === 'fulfilled') setDieSettings(ds.value.data)
       if (bs.status === 'fulfilled') setBrackets(bs.value.data)
+      if (sim.status === 'fulfilled') setSimilarStats(sim.value.data?.stats || null)
+      if (ecfg.status === 'fulfilled') setEdmCfg(ecfg.value.data)
+      if (esp.status === 'fulfilled') setEdmSpeeds(esp.value.data)
+      if (cyc.status === 'fulfilled') setCycles(cyc.value.data)
+      if (mch.status === 'fulfilled') setMachines(mch.value.data)
       // Log delle eventuali failure (no toast, è secondario)
       for (const r of [ni, mats, treats, sups, ds, bs]) {
         if (r.status === 'rejected') console.warn('Endpoint secondario fallito:', r.reason)
@@ -116,13 +141,29 @@ export default function DieQuoteEditor() {
   // ordine ad ogni render. Il useMemo del preview va dichiarato PRIMA
   // dell'early return per "Caricamento…": gestisce internamente il caso
   // spec=null restituendo null, così non aggiunge condizioni.
-  // Sprint D — preview live solo per L4 (design + montaggio + extras + bonus
-  // feature). L3 (mech + EDM) richiede lookup tabelle EDM lato backend:
-  // resta snapshot, si refresha al save+reload.
+  // Sprint G — preview live anche per L3 (mech + EDM): pre-fetch tabelle
+  // EDM + macchine, gemello TS di `_recalculate_die_levels`.
   const preview = useMemo(() => {
     if (!spec || !dieSettings) return null
-    return computeDiePreviewCosts({ spec, settings: dieSettings })
-  }, [spec, dieSettings])
+    // Sprint F — risolvi tariffe da macchine agganciate, fallback alle hourly_rate_*
+    const rateFor = (machineId: number | null | undefined, fallback: number): number => {
+      if (machineId) {
+        const m = machines.find(x => x.id === machineId)
+        if (m && m.hourly_rate) return m.hourly_rate
+      }
+      return fallback || 0
+    }
+    const machineRates = {
+      mill:  rateFor(dieSettings.milling_machine_id,  dieSettings.hourly_rate_milling),
+      grind: rateFor(dieSettings.grinding_machine_id, dieSettings.hourly_rate_grinding),
+      drill: rateFor(dieSettings.drilling_machine_id, dieSettings.hourly_rate_milling),
+      edm:   rateFor(dieSettings.edm_wire_machine_id, dieSettings.hourly_rate_edm_die),
+    }
+    return computeDiePreviewCosts({
+      spec, settings: dieSettings, plates: parts, materials, brackets,
+      edmCfg, edmSpeeds, cycles, machineRates,
+    })
+  }, [spec, dieSettings, parts, materials, brackets, edmCfg, edmSpeeds, cycles, machines])
 
   if (loading || !quote || !spec) {
     return <div className="p-8 text-sm text-gray-500">Caricamento…</div>
@@ -199,10 +240,11 @@ export default function DieQuoteEditor() {
     setSaving(true)
     try {
       if (dirtyQuote && quote) {
-        await api.put(`/quotes/${id}`, {
-          ...dirtyQuote,
-          quote_type: quote.quote_type,  // immutabilità rispetta dal BE
-        })
+        // NB: NON passiamo quote_type — l'immutabilità è garantita BE-side
+        // dal check su `payload['quote_type'] != quote.quote_type`, ma
+        // includerlo nel payload romperebbe il "closeout_only path" Sprint G
+        // (PUT di sold_price/actual_cost su preventivi completati).
+        await api.put(`/quotes/${id}`, dirtyQuote)
       }
       if (dirtySpec) {
         await api.put(`/dies/${id}/spec`, dirtySpec)
@@ -272,9 +314,11 @@ export default function DieQuoteEditor() {
   // L1 e L2 restano snapshot (dipendono da Part.total_cost e aggregati
   // che ricalcola il backend dopo save). Vedi `lib/dieCalc.ts`.
   // useMemo dichiarato sopra (prima dell'early return loading).
-  // L3 (lavorazione stampo): snapshot dal backend — i driver geometrici
-  // sono troppo costosi da replicare lato client (lookup EdmCutSpeed).
-  const previewMachining = spec.cost_machining
+  // Sprint G — preview live L3 (mech+EDM) e L4. Snapshot DB come fallback
+  // se la preview non è ancora pronta (es. settings non caricate).
+  const previewMachining = preview?.cost_machining ?? spec.cost_machining
+  const previewMachiningMech = preview?.cost_machining_mech ?? spec.cost_machining_mech
+  const previewMachiningEdm = preview?.cost_machining_edm ?? spec.cost_machining_edm
   const previewAccessories = preview?.cost_accessories ?? spec.cost_accessories
 
   // Calcolo industrial usando override matita quando presenti, e i
@@ -400,9 +444,30 @@ export default function DieQuoteEditor() {
         )
       })()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* COLONNA SX — Dati spec + Piastre + Normalizzati */}
-        <div className="space-y-4">
+      {/* Sprint H — tabs: 4 sezioni invece di 2 colonne single-page densi */}
+      <div className="flex border-b mb-3">
+        {([
+          ['geometria',    'Geometria'],
+          ['piastre',      `Piastre (${parts.length})`],
+          ['normalizzati', `Normalizzati (${normalizedItems.length})`],
+          ['costi',        'Costi'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === key
+                ? 'border-rose-600 text-rose-700'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-4">
+        {activeTab === 'geometria' && (
           <Card>
             <CardHeader><CardTitle className="text-base">Dati stampo</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -529,8 +594,10 @@ export default function DieQuoteEditor() {
               <p className="text-[10px] text-gray-500">P = pieghe, Pz = punzoni</p>
             </CardContent>
           </Card>
+        )}
 
-          {/* Piastre */}
+        {/* Piastre */}
+        {activeTab === 'piastre' && (
           <Card>
             <CardHeader><CardTitle className="text-base">Piastre castello ({parts.length})</CardTitle></CardHeader>
             <CardContent>
@@ -549,7 +616,7 @@ export default function DieQuoteEditor() {
                   </thead>
                   <tbody>
                     {parts.map(p => {
-                      const ore = dieSettings ? estimateDiePlateHours(p, spec, dieSettings) : 0
+                      const ore = dieSettings ? estimateDiePlateHours(p, spec, dieSettings, brackets) : 0
                       return (
                       <tr key={p.id} className="border-b">
                         <td className="py-1">{p.plate_role ? (PLATE_ROLE_LABELS[p.plate_role] || p.plate_role) : '—'}</td>
@@ -583,8 +650,10 @@ export default function DieQuoteEditor() {
               )}
             </CardContent>
           </Card>
+        )}
 
-          {/* Normalizzati */}
+        {/* Normalizzati */}
+        {activeTab === 'normalizzati' && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -658,10 +727,11 @@ export default function DieQuoteEditor() {
               )}
             </CardContent>
           </Card>
-        </div>
+        )}
 
-        {/* COLONNA DX — Cost table (L1-L7) + prezzo finale */}
-        <div className="space-y-4">
+        {/* Sprint H — Tab Costi: breakdown + margine + (su completato) chiusura commessa */}
+        {activeTab === 'costi' && (
+        <>
           <Card>
             <CardHeader><CardTitle className="text-base">Riepilogo costi</CardTitle></CardHeader>
             <CardContent>
@@ -679,16 +749,16 @@ export default function DieQuoteEditor() {
                     <td className="py-2">L3 Lavorazioni stampo</td>
                     <td className="py-2 text-right">{renderOverrideCell('machining', previewMachining, spec.override_machining)}</td>
                   </tr>
-                  {spec.cost_machining_mech > 0 && (
+                  {previewMachiningMech > 0 && (
                     <tr className="border-b text-xs text-gray-600">
                       <td className="py-1 pl-4">↳ di cui lavorazione meccanica piastre</td>
-                      <td className="py-1 text-right">€ {spec.cost_machining_mech.toFixed(2)}</td>
+                      <td className="py-1 text-right">€ {previewMachiningMech.toFixed(2)}</td>
                     </tr>
                   )}
-                  {spec.cost_machining_edm > 0 && (
+                  {previewMachiningEdm > 0 && (
                     <tr className="border-b text-xs text-gray-600">
                       <td className="py-1 pl-4">↳ di cui EDM filo (matrice + estrattore)</td>
-                      <td className="py-1 text-right">€ {spec.cost_machining_edm.toFixed(2)}</td>
+                      <td className="py-1 text-right">€ {previewMachiningEdm.toFixed(2)}</td>
                     </tr>
                   )}
                   <tr className="border-b">
@@ -715,6 +785,23 @@ export default function DieQuoteEditor() {
                   <span className="text-2xl font-bold text-green-700">€ {finalPrice.toFixed(2)}</span>
                 </div>
               </div>
+
+              {/* Sprint G — calibrazione storica via find-similar stats */}
+              {similarStats && (similarStats.n_with_sold_price > 0 || similarStats.n_with_actual_cost > 0) && (
+                <div className="mt-3 pt-3 border-t border-dashed border-gray-300 text-xs text-gray-600 space-y-0.5">
+                  {similarStats.n_with_sold_price > 0 && similarStats.avg_sold_to_quoted_ratio != null && (
+                    <div>
+                      <strong>{similarStats.n_with_sold_price}</strong> stampi simili venduti in media a <strong>{similarStats.avg_sold_to_quoted_ratio.toFixed(2)}×</strong> il preventivo
+                      <span className="text-gray-400"> (suggerimento prezzo finale: € {(industrial * similarStats.avg_sold_to_quoted_ratio).toFixed(0)})</span>
+                    </div>
+                  )}
+                  {similarStats.n_with_actual_cost > 0 && similarStats.avg_cost_to_quoted_ratio != null && (
+                    <div>
+                      <strong>{similarStats.n_with_actual_cost}</strong> stampi simili sono costati in media <strong>{similarStats.avg_cost_to_quoted_ratio.toFixed(2)}×</strong> il preventivo
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -738,7 +825,40 @@ export default function DieQuoteEditor() {
               </div>
             </CardContent>
           </Card>
-        </div>
+
+          {/* Sprint G — chiusura commessa: venduto + consuntivo, solo su completato */}
+          {quote.status === 'completato' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Chiusura commessa</CardTitle>
+                <p className="text-xs text-gray-500">
+                  Compila quando lo stampo è stato venduto e/o consegnato.
+                  Questi numeri alimentano la calibrazione automatica (find-similar
+                  mostra i ratio agli stampi futuri simili).
+                </p>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Prezzo venduto (€)</Label>
+                  <Input type="number" disabled={!canWrite}
+                    value={quote.sold_price ?? ''}
+                    placeholder={`preventivato: € ${finalPrice.toFixed(0)}`}
+                    onChange={e => setQuoteLocal({ sold_price: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <Label>Costo consuntivo (€)</Label>
+                  <Input type="number" disabled={!canWrite}
+                    value={quote.actual_cost ?? ''}
+                    placeholder={`preventivato: € ${industrial.toFixed(0)}`}
+                    onChange={e => setQuoteLocal({ actual_cost: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+        )}
       </div>
 
       <ConfirmDialog

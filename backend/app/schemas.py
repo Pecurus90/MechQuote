@@ -367,6 +367,9 @@ class QuoteBase(BaseModel):
     notes_customer: Optional[str] = None
     notes_internal: Optional[str] = None
     status: Optional[str] = "bozza"
+    # Sprint G — tracking storico (compilabili solo da PUT su status=completato).
+    sold_price: Optional[float] = Field(default=None, ge=0)
+    actual_cost: Optional[float] = Field(default=None, ge=0)
 
 
 class QuoteCreate(QuoteBase):
@@ -1264,8 +1267,19 @@ class DieSettingsBase(BaseModel):
     milling_h_per_dm2: float = Field(default=0.15, ge=0, le=5.0)
     grinding_h_per_dm2: float = Field(default=0.10, ge=0, le=5.0)
     drilling_h_per_dm2: float = Field(default=0.20, ge=0, le=5.0)
+    # Dormienti dopo Sprint F (scala piastre ora via DieDimensionBracket lookup).
+    # Mantenuti come opzionali per retro-compat: i client vecchi possono
+    # ancora leggere/inviare i campi senza errore.
     large_plate_threshold_dm2: float = Field(default=80.0, ge=0)
     large_plate_factor: float = Field(default=1.25, ge=1.0, le=3.0)
+    # Sprint F — aggancio Machine FK alle 4 tariffe (NULL = fallback hourly_rate_*)
+    milling_machine_id: Optional[int] = Field(default=None, ge=1)
+    grinding_machine_id: Optional[int] = Field(default=None, ge=1)
+    drilling_machine_id: Optional[int] = Field(default=None, ge=1)
+    edm_wire_machine_id: Optional[int] = Field(default=None, ge=1)
+    # Sprint F — bonus design configurabile (era hardcoded)
+    design_h_per_bend: float = Field(default=0.4, ge=0, le=10.0)
+    design_h_per_punch: float = Field(default=0.3, ge=0, le=10.0)
 
 
 class DieSettingsUpdate(DieSettingsBase):

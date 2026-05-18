@@ -181,6 +181,9 @@ export interface Quote {
   material_ordered_at?: string | null
   material_ordered_by_user_id?: number | null
   material_ordered_by?: UserMinimal | null
+  // Sprint G — tracking storico (popolabili solo su status='completato')
+  sold_price?: number | null
+  actual_cost?: number | null
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
@@ -741,8 +744,19 @@ export interface DieSettings {
   milling_h_per_dm2: number
   grinding_h_per_dm2: number
   drilling_h_per_dm2: number
+  // Sprint F: dormienti (la scala piastra ora usa DieDimensionBracket lookup).
+  // Lasciati nel type per retro-compat (qualche record DB potrebbe ancora avere
+  // valori). Non usati dal cost engine.
   large_plate_threshold_dm2: number
   large_plate_factor: number
+  // Sprint F — aggancio Machine FK (NULL = usa hourly_rate_* esplicita)
+  milling_machine_id?: number | null
+  grinding_machine_id?: number | null
+  drilling_machine_id?: number | null
+  edm_wire_machine_id?: number | null
+  // Sprint F — bonus design configurabile
+  design_h_per_bend: number
+  design_h_per_punch: number
 }
 
 export interface DieDimensionBracket {

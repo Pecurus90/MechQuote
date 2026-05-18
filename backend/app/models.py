@@ -90,6 +90,13 @@ class Quote(Base):
     # quote (vedi api/orders.py). Indipendente dal workflow stato.
     material_ordered_at = Column(DateTime, nullable=True)
     material_ordered_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Sprint G — tracking storico per calibrazione (post-completamento):
+    # prezzo finale di vendita (post-trattativa col cliente) e consuntivo
+    # reale a fine commessa. Compilabili solo su status='completato'.
+    # Usati da find-similar per mostrare ratio venduto/preventivato e
+    # cost-to-quoted, calibrazione passiva del cost engine.
+    sold_price = Column(Float, nullable=True)
+    actual_cost = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -987,10 +994,27 @@ class DieSettings(Base):
     milling_h_per_dm2 = Column(Float, default=0.15)
     grinding_h_per_dm2 = Column(Float, default=0.10)
     drilling_h_per_dm2 = Column(Float, default=0.20)
-    # Sopra questa area si applica un coefficiente per gestire la manipolazione
-    # extra (gru, posizionamento, macchine speciali) di piastre molto grandi.
+    # Sprint B → Sprint F (re-purposed): large_plate_threshold/factor sono
+    # dormienti — la scala piastre ora usa la tabella DieDimensionBracket
+    # come lookup di fasce sull'area piastra. Colonne lasciate in DB per
+    # retro-compatibilità (SQLite no DROP).
     large_plate_threshold_dm2 = Column(Float, default=80.0)
     large_plate_factor = Column(Float, default=1.25)
+
+    # Sprint F — aggancio a Machine: se FK popolata, il cost engine usa
+    # machine.hourly_rate al posto di hourly_rate_* sopra. Così aggiornare
+    # la tariffa della macchina in Settings → Macchine propaga subito anche
+    # ai preventivi stampo. FK NULL = fallback alle tariffe esplicite di
+    # questo singleton (retro-compat).
+    milling_machine_id = Column(Integer, ForeignKey("machines.id"))
+    grinding_machine_id = Column(Integer, ForeignKey("machines.id"))
+    drilling_machine_id = Column(Integer, ForeignKey("machines.id"))
+    edm_wire_machine_id = Column(Integer, ForeignKey("machines.id"))
+
+    # Sprint F — bonus design configurabile (era hardcoded 0.4 / 0.3).
+    # Ore CAD extra per ogni piega / punzone, sommate alle design_hours[diff].
+    design_h_per_bend = Column(Float, default=0.4)
+    design_h_per_punch = Column(Float, default=0.3)
 
     # 5 colonne `rapid_*` esistono in DB ma sono dormienti (modalità Rapida
     # rimossa dal cost engine). Vedi docs/specs/16_legacy_columns.md.

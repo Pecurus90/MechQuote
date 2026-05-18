@@ -39,7 +39,8 @@ def _seed_die_settings(db):
         default_margin_percent=30,
         default_castle_offset_x_mm=80, default_castle_offset_y_mm=80,
         # Tariffe macchine a 0 → cost_machining_mech e cost_machining_edm = 0
-        hourly_rate_milling=0.0, hourly_rate_edm_die=0.0,
+        # Sprint F separa le tariffe per operazione: anche grinding va azzerato.
+        hourly_rate_milling=0.0, hourly_rate_grinding=0.0, hourly_rate_edm_die=0.0,
     )
     db.add(s)
     return s
@@ -309,19 +310,22 @@ def test_die_plate_hours_estimation(db_session):
     """Sprint B — stima ore meccaniche piastra (setup + h/dm² × n_facce + station_bonus)
     via snapshot Part. Matrice 400×300×30 con default matrice (setup 0.5, milled 2,
     ground 2, drilled 2, station_bonus 0.5) e produttività default
-    (0.15/0.10/0.20). n_stazioni = 3.
+    (0.15/0.10/0.20). n_stazioni = 3. Tariffe Sprint F separate:
+    milling=45, grinding=50.
 
     Atteso:
       area = 12 dm²
-      ore = 0.5 + 12×(2×0.15 + 2×0.10 + 2×0.20) + 3×0.5
-          = 0.5 + 12×0.90 + 1.5 = 12.8 h
-      costo = 12.8 × 45 €/h = 576 €
+      ore_setup   = 0.5    × 45 = 22.5
+      ore_mill    = 12×2×0.15 = 3.6  × 45 = 162
+      ore_grind   = 12×2×0.10 = 2.4  × 50 = 120
+      ore_drill   = 12×2×0.20 = 4.8  × 45 = 216
+      ore_station = 3×0.5    = 1.5  × 45 = 67.5
+      totale = 22.5 + 162 + 120 + 216 + 67.5 = 588 €
     """
     s = DieSettings(
         id=1,
-        hourly_rate_milling=45.0,
+        hourly_rate_milling=45.0, hourly_rate_grinding=50.0,
         milling_h_per_dm2=0.15, grinding_h_per_dm2=0.10, drilling_h_per_dm2=0.20,
-        large_plate_threshold_dm2=80.0, large_plate_factor=1.25,
     )
     db_session.add(s)
     q = Quote(quote_number='DIE-MECH', quote_type='die', global_margin_percent=30.0)
@@ -347,8 +351,8 @@ def test_die_plate_hours_estimation(db_session):
     recalculate_die_quote(q.id, db_session)
     db_session.refresh(spec)
 
-    # 12.8 h × 45 €/h = 576.0
-    assert spec.cost_machining_mech == pytest.approx(576.0, rel=1e-3)
+    # Sprint F: tariffe separate per op → 588 €
+    assert spec.cost_machining_mech == pytest.approx(588.0, rel=1e-3)
 
 
 def test_die_plate_hours_setup_amortization(db_session):
@@ -403,16 +407,22 @@ def test_die_plate_hours_setup_amortization(db_session):
     assert ore_b / ore_a > 5.0
 
 
-def test_die_plate_hours_large_plate_factor(db_session):
-    """Sprint B — piastre extra-large (area > threshold) ricevono il
-    large_plate_factor moltiplicativo (gestione gru/manipolazione)."""
+def test_die_plate_hours_with_scale_tier(db_session):
+    """Sprint F — la scala piastra ora viene dalle fasce `DieDimensionBracket`
+    (re-purpose Sprint D). Con una fascia 50-∞ → coeff 1.5 e piastra 60 dm²,
+    ore totali = base × 1.5.
+    """
     s = DieSettings(
         id=1,
         hourly_rate_milling=45.0,
         milling_h_per_dm2=0.15, grinding_h_per_dm2=0.10, drilling_h_per_dm2=0.20,
-        large_plate_threshold_dm2=50.0, large_plate_factor=1.5,  # soglia bassa per il test
     )
     db_session.add(s)
+    # Bracket: piastre >50 dm² → coeff 1.5
+    db_session.add_all([
+        DieDimensionBracket(label='S', area_min_dm2=0,  area_max_dm2=50,   coefficient=1.0, sort_order=1),
+        DieDimensionBracket(label='L', area_min_dm2=50, area_max_dm2=None, coefficient=1.5, sort_order=2),
+    ])
     q = Quote(quote_number='DIE-LARGE', quote_type='die', global_margin_percent=30.0)
     db_session.add(q)
     db_session.flush()
@@ -424,7 +434,7 @@ def test_die_plate_hours_large_plate_factor(db_session):
         difficulty='base',
     )
     db_session.add(spec)
-    # Piastra 1000×600 = 60 dm² > soglia 50 → factor 1.5
+    # Piastra 1000×600 = 60 dm² → fascia L coeff 1.5
     plate = Part(
         quote_id=q.id, part_code='XL', plate_role='matrice', quantity=1,
         raw_x_mm=1000, raw_y_mm=600, raw_z_mm=30,
@@ -436,10 +446,49 @@ def test_die_plate_hours_large_plate_factor(db_session):
 
     from app.services.calculation import _estimate_die_plate_hours
     db_session.refresh(plate)
-    ore = _estimate_die_plate_hours(plate, spec, s)
-    # base: 0.5 + 60*0.9 + 1*0.5 = 55.0 h
-    # con factor 1.5: 82.5 h
+    brackets = db_session.query(DieDimensionBracket).order_by(DieDimensionBracket.sort_order).all()
+    ore = _estimate_die_plate_hours(plate, spec, s, brackets)
+    # base: 0.5 + 60×0.9 + 1×0.5 = 55.0 h × 1.5 (coeff fascia L) = 82.5 h
     assert ore == pytest.approx(82.5, rel=1e-3)
+
+
+def test_find_similar_stats_ratios(db_session):
+    """Sprint G — find-similar restituisce stats con ratio venduto/preventivato
+    e cost-to-quoted, calcolati sui simili che hanno popolato i campi.
+    """
+    from app.api.dies import _find_similar_quotes
+
+    # 3 stampi simili: 2 con sold_price/actual_cost popolati, 1 senza.
+    # Tutti con stesso subtype/area/feature → matches.
+    for i, sold, cost in [(1, 1200.0, 1100.0), (2, 1500.0, None), (3, None, None)]:
+        q = Quote(quote_number=f'DIE-SIM-{i}', quote_type='die', global_margin_percent=30.0,
+                  sold_price=sold, actual_cost=cost)
+        db_session.add(q)
+        db_session.flush()
+        db_session.add(DieSpec(
+            quote_id=q.id, die_subtype='blocco',
+            bbox_x_mm=100, bbox_y_mm=80, sheet_thickness_mm=2.0,
+            block_strip_offset_mm=50, castle_offset_x_mm=80, castle_offset_y_mm=80,
+            difficulty='base', cost_industrial=1000.0,
+        ))
+    db_session.commit()
+
+    matches, stats = _find_similar_quotes(
+        target_subtype='blocco',
+        target_area_dm2=10.0,
+        target_bends=0,
+        target_punches=0,
+        exclude_quote_id=None,
+        db=db_session,
+    )
+    # area castello = (100+50+160) × (80+50+160) = 310 × 290 = 8.99 dm² → simile
+    assert len(matches) == 3
+    # 2 con sold_price: ratio medi = (1.2 + 1.5) / 2 = 1.35
+    assert stats['n_with_sold_price'] == 2
+    assert stats['avg_sold_to_quoted_ratio'] == pytest.approx(1.35, rel=1e-3)
+    # 1 con actual_cost: ratio = 1.1 / 1.0 = 1.1
+    assert stats['n_with_actual_cost'] == 1
+    assert stats['avg_cost_to_quoted_ratio'] == pytest.approx(1.1, rel=1e-3)
 
 
 def test_die_spec_validator_passo_requires_stations_and_pitch():

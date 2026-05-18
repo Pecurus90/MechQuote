@@ -249,8 +249,23 @@ def update_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
-    ensure_editable(quote, current_user)
     payload = data.model_dump(exclude_unset=True)
+
+    # Sprint G — `sold_price` e `actual_cost` sono dati di chiusura commessa
+    # (post-completamento): possono essere settati anche su preventivi non
+    # editabili (status != bozza) purché lo stato sia `completato`. Devono
+    # essere richiesti CON status=completato.
+    closeout_fields = {'sold_price', 'actual_cost'}
+    closeout_only = payload and set(payload.keys()).issubset(closeout_fields)
+    has_closeout = any(k in payload for k in closeout_fields)
+    if has_closeout and quote.status != 'completato':
+        raise HTTPException(
+            status_code=400,
+            detail="sold_price / actual_cost compilabili solo su preventivi completati",
+        )
+    if not closeout_only:
+        ensure_editable(quote, current_user)
+
     # quote_type immutabile post-create: cambiare il tipo dopo la creazione
     # corromperebbe le tabelle satellite (DieSpec orphan se die → single,
     # o spec mancante se single → die). Rifiuta esplicitamente.

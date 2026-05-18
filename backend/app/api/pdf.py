@@ -854,7 +854,7 @@ def _render_die_quote(quote: Quote, spec: DieSpec, parts, items, cur: str) -> st
     rows = [
         ('L1 Materiale piastre',   eff_material,   spec.override_material),
         ('L2 Normalizzati + spedizione', eff_normalized, spec.override_normalized),
-        ('L3 Lavorazioni (feature × coeff)', eff_machining, spec.override_machining),
+        ('L3 Lavorazione stampo', eff_machining, spec.override_machining),
         ('L4 Accessori (design + montaggio + extras)', eff_accessories, spec.override_accessories),
     ]
     for label, value, override in rows:
@@ -864,6 +864,24 @@ def _render_die_quote(quote: Quote, spec: DieSpec, parts, items, cur: str) -> st
             f'<td style="padding:6px 8px;text-align:right;">{_fmt_eur(value)} {cur}</td>'
             f'</tr>'
         )
+        # Sprint F4 — sotto la riga L3, breakdown mech/EDM se presenti.
+        if label == 'L3 Lavorazione stampo' and override is None:
+            mech = spec.cost_machining_mech or 0.0
+            edm = spec.cost_machining_edm or 0.0
+            if mech > 0:
+                parts_html.append(
+                    f'<tr style="border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:11px;">'
+                    f'<td style="padding:3px 8px 3px 24px;">↳ Lavorazione meccanica piastre</td>'
+                    f'<td style="padding:3px 8px;text-align:right;">{_fmt_eur(mech)} {cur}</td>'
+                    f'</tr>'
+                )
+            if edm > 0:
+                parts_html.append(
+                    f'<tr style="border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:11px;">'
+                    f'<td style="padding:3px 8px 3px 24px;">↳ EDM filo (matrice + estrattore)</td>'
+                    f'<td style="padding:3px 8px;text-align:right;">{_fmt_eur(edm)} {cur}</td>'
+                    f'</tr>'
+                )
     parts_html.append(
         f'<tr style="background:#f3f4f6;font-weight:600;">'
         f'<td style="padding:7px 8px;">L5 Costo industriale</td>'

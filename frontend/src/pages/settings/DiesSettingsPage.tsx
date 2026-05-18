@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth'
 import type {
   DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
   DieTemplateNormalized, NormalizedSupplier,
-  Material, Treatment, DieSubtype, DieDifficulty,
+  Material, Treatment, Machine, DieSubtype, DieDifficulty,
 } from '@/types'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -40,7 +40,7 @@ export default function DiesSettingsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold">Impostazioni Stampi</h1>
-          <p className="text-xs text-gray-500">Tariffe, fasce dimensionali e template per il modulo Preventivatore Stampi</p>
+          <p className="text-xs text-gray-500">Tariffe, fasce piastra e template per il modulo Preventivatore Stampi</p>
         </div>
       </div>
 
@@ -54,7 +54,7 @@ export default function DiesSettingsPage() {
             }`}
           >
             {t === 'tariffe' && 'Tariffe & costi'}
-            {t === 'fasce' && 'Fasce dimensionali'}
+            {t === 'fasce' && 'Fasce piastra'}
             {t === 'template' && 'Template stampi'}
           </button>
         ))}
@@ -73,12 +73,42 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
   const [s, setS] = useState<DieSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [cycles, setCycles] = useState<{ id: number; name: string }[]>([])
+  const [machines, setMachines] = useState<Machine[]>([])
 
   useEffect(() => {
     api.get('/die-settings').then(r => setS(r.data)).catch(() => toast.error('Errore caricamento'))
     // Cicli EDM per dropdown wire_edm_cycle_id
     api.get('/cutting-cycles').then(r => setCycles(r.data)).catch(() => { /* lista vuota: cycle_id resta editabile come number */ })
+    // Macchine officina per dropdown FK Sprint F (filtrate per machine_type).
+    api.get('/machines').then(r => setMachines(r.data)).catch(() => {})
   }, [])
+
+  // Sprint F — dropdown Machine. Per wire_edm filtriamo per tipo noto;
+  // per fresa/rettifica/foratura `machine_type` non è standardizzato in DB,
+  // quindi mostriamo tutte (l'utente sceglie).
+  const machineSelect = (key: keyof DieSettings, label: string, typeFilter?: string) => {
+    const pool = typeFilter
+      ? (() => {
+          const filtered = machines.filter(m => m.machine_type === typeFilter)
+          return filtered.length > 0 ? filtered : machines
+        })()
+      : machines
+    return (
+      <Field label={label}>
+        <select
+          disabled={!canWrite}
+          value={(s?.[key] as number | null) ?? ''}
+          onChange={e => update({ [key]: e.target.value ? parseInt(e.target.value, 10) : null } as Partial<DieSettings>)}
+          className="w-full h-9 px-2 border rounded text-sm"
+        >
+          <option value="">— usa tariffa esplicita —</option>
+          {pool.map(m => (
+            <option key={m.id} value={m.id}>{m.name} ({m.hourly_rate ?? 0} €/h)</option>
+          ))}
+        </select>
+      </Field>
+    )
+  }
 
   const update = (patch: Partial<DieSettings>) => setS(prev => prev ? { ...prev, ...patch } : prev)
 
@@ -111,64 +141,32 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base">1. Tariffe orarie officina (€/h)</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {num('hourly_rate_milling', 'Fresatura')}
-          {num('hourly_rate_grinding', 'Rettifica')}
-          {num('hourly_rate_edm_wire', 'EDM filo')}
-          {num('hourly_rate_edm_die', 'EDM tuffo')}
-        </CardContent>
-      </Card>
-
-      <Card className="opacity-70">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            2+3. Costi feature (€/unità)
-            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
-          </CardTitle>
+          <CardTitle className="text-base">1. Tariffe orarie officina (€/h)</CardTitle>
           <p className="text-xs text-gray-500">
-            Sostituiti dai driver geometrici (perimetro pezzo → ore EDM; area piastre → ore meccaniche). I valori restano in DB ma il cost engine non li legge più.
+            Aggancia una macchina del catalogo per propagare automaticamente la sua tariffa
+            (Settings → Macchine). Altrimenti usa la tariffa esplicita inserita qui.
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {num('cost_bend_simple', 'Piega semplice')}
-          {num('cost_bend_medium', 'Piega media')}
-          {num('cost_bend_complex', 'Piega complessa')}
-          {num('cost_punch_simple', 'Punzone semplice')}
-          {num('cost_punch_medium', 'Punzone medio')}
-          {num('cost_punch_complex', 'Punzone complesso')}
-        </CardContent>
-      </Card>
-
-      <Card className="opacity-70">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            4. Costo base per piastra
-            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
-          </CardTitle>
-          <p className="text-xs text-gray-500">
-            Sostituito dalle ore meccaniche per piastra (setup + h/dm² × n_facce) dalla card 12.
-          </p>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {num('cost_per_plate_base', 'Costo base × n. piastre (€)')}
-        </CardContent>
-      </Card>
-
-      <Card className="opacity-70">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            6. Moltiplicatori difficoltà
-            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
-          </CardTitle>
-          <p className="text-xs text-gray-500">
-            La difficoltà ora agisce sulle ore di progettazione (card 7), non come moltiplicatore globale.
-          </p>
-        </CardHeader>
-        <CardContent className="grid grid-cols-3 gap-3">
-          {num('diff_mult_base', 'Base')}
-          {num('diff_mult_medium', 'Media')}
-          {num('diff_mult_hard', 'Alta')}
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              {num('hourly_rate_milling', 'Fresatura (€/h fallback)')}
+              {machineSelect('milling_machine_id', 'Macchina fresa (override)')}
+            </div>
+            <div className="space-y-2">
+              {num('hourly_rate_grinding', 'Rettifica (€/h fallback)')}
+              {machineSelect('grinding_machine_id', 'Macchina rettifica (override)')}
+            </div>
+            <div className="space-y-2">
+              {num('hourly_rate_edm_die', 'EDM filo per piastre (€/h fallback)')}
+              {machineSelect('edm_wire_machine_id', 'Macchina EDM filo (override)', 'wire_edm')}
+            </div>
+            <div className="space-y-2">
+              {num('hourly_rate_edm_wire', 'EDM secondaria (€/h)')}
+              {machineSelect('drilling_machine_id', 'Macchina foratura (override)')}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -176,15 +174,21 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
         <CardHeader>
           <CardTitle className="text-base">7. Progettazione (ore × tariffa)</CardTitle>
           <p className="text-xs text-gray-500">
-            Ore totali = ore[difficoltà] + 0.4 × n. pieghe + 0.3 × n. punzoni.
+            Ore totali = ore[difficoltà] + bonus piega × n. pieghe + bonus punzone × n. punzoni.
             Più feature ⇒ più CAD/programmazione, indipendentemente dalla difficoltà globale.
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {num('design_hours_base', 'Ore base')}
-          {num('design_hours_medium', 'Ore media')}
-          {num('design_hours_hard', 'Ore alta')}
-          {num('design_hourly_rate', 'Tariffa €/h')}
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {num('design_hours_base', 'Ore base')}
+            {num('design_hours_medium', 'Ore media')}
+            {num('design_hours_hard', 'Ore alta')}
+            {num('design_hourly_rate', 'Tariffa €/h')}
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+            {num('design_h_per_bend', 'Bonus h per piega')}
+            {num('design_h_per_punch', 'Bonus h per punzone')}
+          </div>
         </CardContent>
       </Card>
 
@@ -237,14 +241,13 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
           <p className="text-xs text-gray-500">
             Ore per dm² di superficie lavorata, per operazione. Sono parametri della MIA officina
             (cambiando macchina cambia il numero). Formula: ore_piastra = setup + Σ (area × h/dm² × n_facce) + station_bonus.
+            La scala "piastra grande" è gestita dalla tab <strong>Fasce piastra</strong> a fianco.
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <CardContent className="grid grid-cols-3 gap-3">
           {num('milling_h_per_dm2', 'Fresatura (h/dm²)')}
           {num('grinding_h_per_dm2', 'Rettifica (h/dm²)')}
           {num('drilling_h_per_dm2', 'Foratura (h/dm²)')}
-          {num('large_plate_threshold_dm2', 'Soglia piastra grande (dm²)')}
-          {num('large_plate_factor', 'Moltiplicatore piastre grandi')}
         </CardContent>
       </Card>
 
@@ -304,18 +307,16 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
   }
 
   return (
-    <Card className="opacity-80">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          Fasce dimensionali castello
-          <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Legacy — non applicato</span>
-        </CardTitle>
+        <CardTitle className="text-base">Fasce piastra</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-gray-500 mb-3">
-          La dipendenza dalla dimensione del castello ora vive direttamente nei driver
-          geometrici (perimetro pezzo → ore EDM, area piastre × h/dm² → ore meccaniche).
-          Le fasce restano configurabili come storico, ma il cost engine non le usa.
+          Moltiplicatore ore meccaniche per area della singola piastra (gestione gru,
+          manipolazione, set-up per piastre grandi). Lookup: area_min ≤ area &lt; area_max
+          (ultima fascia: area_max vuoto = ∞). Esempio: area piastra 50 dm² → coeff fascia
+          L (1.15) → ore meccaniche stimate × 1.15.
         </p>
         <table className="w-full text-sm">
           <thead>

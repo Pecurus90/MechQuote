@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
 from app.models import (
-    Part, ManufacturingPhase, Quote, Material,
+    Part, ManufacturingPhase, Quote, Material, Machine,
     EdmConfig, EdmCutSpeed, CuttingCycle, Treatment, MaterialSupplier, Supplier,
     CompanySettings,
     DieSpec, DieNormalizedItem, DieSettings, DieDimensionBracket,
@@ -545,19 +545,25 @@ _PLATE_ROLE_DEFAULTS = {
 }
 
 
-def _estimate_die_plate_hours(plate, spec, settings) -> float:
-    """Stima ore meccaniche di una piastra: setup_fisso + Σ(area × h/dm² × n_facce)
-    + station_bonus × n_stazioni. Sopra `large_plate_threshold_dm2` applica
-    `large_plate_factor` (gestione gru/manipolazione piastre extra-large).
+def _estimate_die_plate_breakdown(plate, spec, settings, brackets) -> Dict[str, float]:
+    """Sprint F — stima ore meccaniche piastra in breakdown per operazione.
+
+    Ritorna dict con ore separate per fase ({setup, mill, grind, drill, station})
+    + scale_factor da fascia piastra + total_h. Il chiamante applica le tariffe
+    distinte per operazione (Sprint F1).
 
     Usa lo snapshot su Part se presente; altrimenti default-per-ruolo da
     `_PLATE_ROLE_DEFAULTS` (cover legacy + piastre senza template).
+    Scala piastra: lookup `DieDimensionBracket` per `area_dm²` (Sprint F3,
+    re-purpose della tabella ex-fasce castello).
     """
+    empty = {'setup': 0.0, 'mill': 0.0, 'grind': 0.0, 'drill': 0.0,
+             'station': 0.0, 'scale_factor': 1.0, 'total_h': 0.0}
     if not plate.plate_role:
-        return 0.0
+        return empty
     area_dm2 = ((plate.raw_x_mm or 0.0) * (plate.raw_y_mm or 0.0)) / 10_000.0
     if area_dm2 <= 0:
-        return 0.0
+        return empty
 
     # Snapshot Part → priorità; fallback default per ruolo.
     defaults = _PLATE_ROLE_DEFAULTS.get(plate.plate_role, (0.4, 2, 0, 1, 0.0))
@@ -571,18 +577,44 @@ def _estimate_die_plate_hours(plate, spec, settings) -> float:
     grinding_h = settings.grinding_h_per_dm2 if settings.grinding_h_per_dm2 is not None else 0.10
     drilling_h = settings.drilling_h_per_dm2 if settings.drilling_h_per_dm2 is not None else 0.20
 
-    ore = (
-        setup_h
-        + area_dm2 * n_milled  * milling_h
-        + area_dm2 * n_ground  * grinding_h
-        + area_dm2 * n_drilled * drilling_h
-        + (spec.n_stations or 1) * station_bon
-    )
-    threshold = settings.large_plate_threshold_dm2 or 80.0
-    factor = settings.large_plate_factor or 1.0
-    if area_dm2 > threshold and factor > 1.0:
-        ore *= factor
-    return round(ore, 4)
+    ore_setup   = setup_h
+    ore_mill    = area_dm2 * n_milled  * milling_h
+    ore_grind   = area_dm2 * n_ground  * grinding_h
+    ore_drill   = area_dm2 * n_drilled * drilling_h
+    ore_station = (spec.n_stations or 1) * station_bon
+
+    # Sprint F3 — scala piastra da fascia configurabile (lookup DieDimensionBracket).
+    scale = _bracket_coefficient(area_dm2, brackets) if brackets else 1.0
+
+    total = (ore_setup + ore_mill + ore_grind + ore_drill + ore_station) * scale
+    return {
+        'setup': round(ore_setup, 4),
+        'mill': round(ore_mill, 4),
+        'grind': round(ore_grind, 4),
+        'drill': round(ore_drill, 4),
+        'station': round(ore_station, 4),
+        'scale_factor': scale,
+        'total_h': round(total, 4),
+    }
+
+
+def _estimate_die_plate_hours(plate, spec, settings, brackets=None) -> float:
+    """Retro-compat wrapper: ritorna le ore totali (per UI display).
+    Sprint F: ora applica anche scale_factor da fascia piastra; brackets è
+    opzionale per non rompere call site test che non passano la lista.
+    """
+    return _estimate_die_plate_breakdown(plate, spec, settings, brackets or []).get('total_h', 0.0)
+
+
+def _rate_for_machine(machine_id, fallback_rate, db: Session) -> float:
+    """Sprint F — risolve tariffa €/h: se machine_id è popolato e la macchina
+    ha hourly_rate, usa quello; altrimenti fallback al valore esplicito.
+    """
+    if machine_id:
+        m = db.query(Machine).filter(Machine.id == machine_id).first()
+        if m and m.hourly_rate:
+            return float(m.hourly_rate)
+    return float(fallback_rate or 0.0)
 
 
 def _estimate_die_perimeter(spec) -> float:
@@ -717,6 +749,13 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
     # ── L3 Lavorazioni: feature × coeff_dim × coeff_diff + base × n_plates.
     diff = spec.difficulty or 'base'
 
+    # Sprint F — risolvi le 4 tariffe (FK Machine → machine.hourly_rate;
+    # fallback al campo hourly_rate_* del singleton).
+    rate_mill  = _rate_for_machine(settings.milling_machine_id,  settings.hourly_rate_milling,  db)
+    rate_grind = _rate_for_machine(settings.grinding_machine_id, settings.hourly_rate_grinding, db)
+    rate_drill = _rate_for_machine(settings.drilling_machine_id, settings.hourly_rate_milling,  db)
+    rate_edm   = _rate_for_machine(settings.edm_wire_machine_id, settings.hourly_rate_edm_die,  db)
+
     # ── L3 — lavorazione stampo: EDM filo + ore meccaniche piastre (Sprint A/B).
     # La dipendenza da feature/dimensioni è già contenuta nei driver:
     #  - matrice/porta_punzoni: ore EDM ∝ perimetro pezzo × n_stazioni
@@ -724,12 +763,26 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
     #  - punzoni medium/complex aggiungono metri EDM (edm_punch_factor)
     edm_hours_map = _estimate_die_edm_hours(spec, parts, settings, db)
     total_edm_hours = sum(edm_hours_map.values())
-    cost_machining_edm = total_edm_hours * (settings.hourly_rate_edm_die or 0.0)
+    cost_machining_edm = total_edm_hours * rate_edm
 
-    total_mech_hours = sum(
-        _estimate_die_plate_hours(p, spec, settings) for p in parts if p.plate_role
-    )
-    cost_machining_mech = total_mech_hours * (settings.hourly_rate_milling or 0.0)
+    # Sprint F — fasce scala piastra (re-purpose DieDimensionBracket: era
+    # legacy castello, ora moltiplicatore ore meccaniche per area piastra).
+    brackets = db.query(DieDimensionBracket).order_by(DieDimensionBracket.sort_order).all()
+
+    # Sprint F — tariffe distinte per operazione: ogni voce ore × tariffa propria.
+    cost_machining_mech = 0.0
+    for p in parts:
+        if not p.plate_role:
+            continue
+        bd = _estimate_die_plate_breakdown(p, spec, settings, brackets)
+        scale = bd['scale_factor']
+        cost_machining_mech += scale * (
+            bd['setup']   * rate_mill
+            + bd['mill']  * rate_mill
+            + bd['grind'] * rate_grind
+            + bd['drill'] * rate_drill
+            + bd['station'] * rate_mill
+        )
 
     cost_machining_total = cost_machining_edm + cost_machining_mech
 
@@ -752,7 +805,10 @@ def _recalculate_die_levels(quote: Quote, parts, db: Session) -> None:
         + (spec.n_punches_medium or 0)
         + (spec.n_punches_complex or 0)
     )
-    design_hours = base_design_hours + n_bends_total * 0.4 + n_punches_total * 0.3
+    # Sprint F — bonus design ore CAD per feature, configurabile da DieSettings.
+    bonus_bend = settings.design_h_per_bend if settings.design_h_per_bend is not None else 0.4
+    bonus_punch = settings.design_h_per_punch if settings.design_h_per_punch is not None else 0.3
+    design_hours = base_design_hours + n_bends_total * bonus_bend + n_punches_total * bonus_punch
     assembly = {
         'base':   settings.assembly_forfeit_base,
         'medium': settings.assembly_forfeit_medium,

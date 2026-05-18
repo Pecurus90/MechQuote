@@ -219,21 +219,26 @@ export default function QuoteEditor() {
     if (!quote?.id) return
     setSaving(true)
     try {
-      await api.put(`/quotes/${quote.id}`, {
-        customer_name: quote.customer_name,
-        customer_id: quote.customer_id,
-        customer_reference: quote.customer_reference,
-        global_margin_percent: quote.global_margin_percent,
-        global_discount_percent: quote.global_discount_percent,
-        transport_cost: quote.transport_cost,
-        packaging_cost: quote.packaging_cost,
-        validity_days: quote.validity_days,
-        delivery_text: quote.delivery_text,
-        quote_date: quote.quote_date,
-        notes_customer: quote.notes_customer,
-        notes_internal: quote.notes_internal,
-        status: quote.status,
-      })
+      // Sprint G — su preventivi completati, solo i campi di chiusura
+      // (sold_price/actual_cost) sono modificabili. Gli altri sono locked.
+      const payload = quote.status === 'completato'
+        ? { sold_price: quote.sold_price ?? null, actual_cost: quote.actual_cost ?? null }
+        : {
+            customer_name: quote.customer_name,
+            customer_id: quote.customer_id,
+            customer_reference: quote.customer_reference,
+            global_margin_percent: quote.global_margin_percent,
+            global_discount_percent: quote.global_discount_percent,
+            transport_cost: quote.transport_cost,
+            packaging_cost: quote.packaging_cost,
+            validity_days: quote.validity_days,
+            delivery_text: quote.delivery_text,
+            quote_date: quote.quote_date,
+            notes_customer: quote.notes_customer,
+            notes_internal: quote.notes_internal,
+            status: quote.status,
+          }
+      await api.put(`/quotes/${quote.id}`, payload)
       toast.success('Preventivo salvato')
     } catch (e) {toast.error('Errore nel salvataggio') }
     finally { setSaving(false) }
@@ -523,6 +528,41 @@ export default function QuoteEditor() {
           )}
         </div>
       </div>
+
+      {/* Sprint G — chiusura commessa: prezzo venduto + costo consuntivo,
+          solo su status='completato'. Calibrazione storica passiva. */}
+      {quote.status === 'completato' && (
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Chiusura commessa</CardTitle>
+            <p className="text-xs text-gray-500">
+              Compila a vendita / consegna avvenuta. Questi numeri alimentano la
+              calibrazione automatica dei preventivi futuri.
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-2 pb-3">
+            <div>
+              <label className="text-xs text-gray-600">Prezzo venduto (€)</label>
+              <input
+                type="number"
+                className="flex h-9 w-full rounded-md border px-2 text-sm"
+                value={quote.sold_price ?? ''}
+                placeholder={`preventivato: € ${total.toFixed(0)}`}
+                onChange={e => setQuote(q => q ? { ...q, sold_price: e.target.value ? parseFloat(e.target.value) : null } : q)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-600">Costo consuntivo (€)</label>
+              <input
+                type="number"
+                className="flex h-9 w-full rounded-md border px-2 text-sm"
+                value={quote.actual_cost ?? ''}
+                onChange={e => setQuote(q => q ? { ...q, actual_cost: e.target.value ? parseFloat(e.target.value) : null } : q)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <QuoteBottomBar
         quote={quote}

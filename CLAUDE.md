@@ -10,7 +10,24 @@ Strumento di preventivazione tecnica per officina meccanica di precisione (Frate
 
 ---
 
-## 0. Filosofia
+## 0. Documenti di progetto — leggili insieme a questo file
+
+Oltre a questo `CLAUDE.md`, il progetto ha due documenti di riferimento. Non
+vengono letti in automatico: vanno aperti su richiesta, ma sono parte
+integrante del quadro.
+
+- **`MECHQUOTE_RIFERIMENTO.md`** — la "carta d'identità" del progetto: cos'è,
+  com'è fatto, decisioni prese, cosa è verificato e cosa solo riferito.
+- **`MECHQUOTE_LISTA_LAVORI.md`** — il piano di lavoro: tutti gli interventi
+  da fare, filtrati e ordinati per priorità, divisi da "due linee".
+
+**Prima di iniziare un lavoro:** controlla se è nella lista lavori e a quale
+blocco appartiene. Non iniziare lavori del Blocco B o C se i lavori del
+Blocco A non sono completati, salvo richiesta esplicita dell'utente.
+
+---
+
+## 0-bis. Filosofia
 
 Tre principi sopra tutto. Se sono in contrasto, vincono in quest'ordine:
 
@@ -24,6 +41,55 @@ Quando arriva un task, prima di scrivere codice ragiona in quest'ordine:
 3. Qual è il fix minimo che risolve il problema senza creare debito nuovo?
 4. Quali altri layer devo toccare per restare coerente (modello → migration → schema → API → tipo TS → componente)?
 5. Come verifico che non ho rotto niente?
+
+---
+
+## 0-ter. Metodo di lavoro (disciplina, non negoziabile)
+
+Queste regole valgono per ogni sessione e ogni task. Sono il "metodo di
+lavoro serio": non una gerarchia di ruoli inventata, ma disciplina concreta.
+
+1. **Un lavoro alla volta.** Affronta un solo intervento per volta. Portalo a
+   termine, verificalo, poi fermati. Non incatenare più lavori in una sola
+   sessione senza che l'utente lo chieda.
+2. **Attieniti al compito assegnato.** Se durante un lavoro noti altro da
+   fare, **non eseguirlo**: segnalalo all'utente come proposta, in fondo alla
+   risposta, e attendi una decisione. Allargare il compito di propria
+   iniziativa è vietato — è la causa più comune di debito e di regressioni.
+3. **Capisci prima di toccare.** Prima di modificare codice, spiega in poche
+   righe cosa stai per cambiare e perché. Se il task tocca una "zona fragile"
+   (vedi §0-quater), fermati ed esponi il piano prima di agire.
+4. **Verifica sempre.** Nessun commit senza la verifica obbligatoria della §7.
+   Dopo una modifica, prova anche il flusso utente concreto, non solo che il
+   codice "compili".
+5. **Niente supposizioni.** Se un'informazione non è verificabile dal codice
+   o dal contesto, non inventarla: chiedi all'utente. Vale soprattutto per
+   decisioni di prodotto e per i prezzi.
+6. **In caso di dubbio, fai meno.** Se non è chiaro se un intervento sia
+   sicuro, l'opzione corretta è fermarsi e chiedere, non procedere.
+
+---
+
+## 0-quater. Zone fragili — maneggiare con cautela
+
+Le ricognizioni del progetto hanno individuato le parti più delicate. **Non
+sono rotte** — funzionano — ma una modifica qui rischia facilmente un effetto
+domino. Prima di toccarle, fermati e spiega all'utente cosa stai per fare.
+
+- **`backend/app/services/calculation.py` — `recalculate_quote()`**
+  È il motore di calcolo prezzi: ~300 righe con branching intrecciato
+  (materiale fornito dal cliente / da magazzino / normale; fasi a €/kg e
+  €/dm³; aggregazioni cross-parti). È il punto più delicato dell'intero
+  progetto. Ogni modifica qui va spiegata prima e verificata con cura.
+- **`backend/app/main.py` — `_run_migrations()`**
+  ~187 migrazioni inline, l'ordine conta (dipendenze tra loro). Una nuova
+  migrazione va aggiunta sapendo cosa viene prima e dopo.
+- **La formula del costo fase esiste in TRE copie** che devono restare
+  identiche: `calculation.py` (backend), `PhaseEditor.tsx` `calcPhase()` e
+  `PartCard.tsx` (parte setup). Modificarne una senza le altre crea
+  divergenze di prezzo tra anteprima e valore salvato.
+- **Cost engine backend ↔ frontend** in generale: ogni "gemello DRY" va
+  modificato su entrambi i lati nello stesso commit (vedi §4).
 
 ---
 
@@ -42,7 +108,7 @@ npm install
 npm run dev   # http://localhost:5173
 ```
 
-Vite proxy `/api/*` → `localhost:8000/api/*`.  
+Vite proxy `/api/*` → `localhost:8000/api/*`.
 DB: SQLite in `backend/mechquote.db` — **mai committare**.
 
 ---
@@ -100,10 +166,26 @@ Endpoint distruttivi:
 - Qualsiasi `db.query(Model).delete()` da script ad-hoc
 - Suite pytest `tests/integration/*` (ricreano user/role e fanno DELETE+INSERT su quotes per testare isolamento)
 
-Workflow obbligatorio:
-1. **Snapshot DB**: `cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)` — un secondo, costo zero.
+**Workflow obbligatorio — backup corretto WAL-aware:**
+
+SQLite di MechQuote gira in modalità WAL: le ultime scritture vivono nel file
+`mechquote.db-wal`, non ancora in `mechquote.db`. Una copia semplice del solo
+`.db` (`cp mechquote.db ...`) produce un backup **incompleto**. Usare sempre
+il comando di backup nativo di SQLite, che è atomico e WAL-aware:
+
+```bash
+cd backend
+sqlite3 mechquote.db ".backup 'mechquote.db.bak-$(date +%Y%m%d-%H%M%S)'"
+```
+
+In alternativa, forzare il merge del WAL prima di copiare:
+`sqlite3 mechquote.db "PRAGMA wal_checkpoint(TRUNCATE);"` e poi copiare.
+
+Workflow:
+1. **Snapshot DB** col comando `.backup` qui sopra — un secondo, costo zero.
 2. Esegui il test/smoke.
-3. Se è andato bene puoi lasciare il `.bak`; se è andato male `cp .bak mechquote.db` ti riporta indietro istantaneo.
+3. Se è andato bene puoi lasciare il `.bak`; se è andato male, ripristina il
+   `.bak` (a servizio fermo) e riparti.
 
 **Perché è critico**: SQLite non enforce le foreign key di default (`PRAGMA foreign_keys` è OFF). Un payload "test" con FK violate viene accettato e committato → DELETE+INSERT genera DB inconsistente o vuoto, **senza recovery automatico**. Episodio reale: 2026-05-10, smoke test backup ha cancellato customers/materials/preventivi/CompanySettings perché il payload corrotto è passato il check FK (silenzioso) e il commit è stato persistito.
 
@@ -130,24 +212,29 @@ Chiavi attuali (`PERMISSION_KEYS`):
 - `officina.write` (Officina — upload + modifica)
 - `dies.create` · `dies.archive` · `dies.pdf` · `dies.settings` (modulo Preventivatore Stampi)
 
-### Regole di gating
-
-| Layer | Pattern |
-|---|---|
-| Backend endpoint write | `dependencies=[require_permission('chiave')]` o `_=require_permission('chiave')` come parametro |
-| Backend endpoint read | dipendenze di base `_auth = [Depends(get_current_user)]` registrate sul router |
-| Frontend route | `<ProtectedRoute permission="chiave">` |
-| Frontend UI | `hasPermission('chiave')` da `useAuth()` |
+### Regola di gating
 
 **Mai usare `roles=['admin']` per gating se esiste un permesso equivalente.** Il sistema è dinamico: l'admin può ridefinire chi accede a cosa senza redeploy.
 
 ### Anti-lockout
-
 Se il ruolo dell'utente non esiste in `roles` ma è `admin` (slug), `get_current_user` gli assegna comunque tutti i `PERMISSION_KEYS`. Garantisce di non chiudersi fuori.
 
 ### Bootstrap primo admin
 
-Non esiste registrazione pubblica. Il primo admin si crea (o si reimposta dopo un disastro) in DB con questo upsert idempotente:
+Non esiste registrazione pubblica. Il primo admin si crea (o si reimposta dopo un disastro) in DB con uno script di upsert idempotente.
+
+> ⚠️ **AVVISO DI SICUREZZA — leggere prima di usare lo script.**
+> Lo script di bootstrap imposta una password **provvisoria e debole**
+> (`admin`). Va bene **solo** sul PC di sviluppo.
+> **Sul server di produzione, una password di default è una falla grave:**
+> chiunque conosca "admin/admin" entra come amministratore e vede tutti i
+> dati aziendali. Tutta la sicurezza di MechQuote (bcrypt, permessi) è
+> annullata da questo.
+> Regola: sul server, **subito dopo** il bootstrap, l'utente admin deve
+> cambiare la password con una forte. Questo è un punto della lista lavori
+> (Blocco A). Non considerare il server "a posto" finché non è fatto.
+
+Script (upsert idempotente — lanciato N volte produce lo stesso stato):
 
 ```bash
 cd backend
@@ -170,11 +257,14 @@ db.commit()
 "
 ```
 
-Lo snippet è idempotente: lanciato N volte produce lo stesso stato (admin attivo, password = `admin`, role = `admin`).
-
 ### File upload
 
 Limite hardcoded a **50 MB** in `parts.py upload_file` (stream a chunk). Niente file mai accettati senza autenticazione + permesso scrittura.
+
+> Nota dalle ricognizioni: la validazione dei file è oggi basata
+> sull'estensione del nome, non sul contenuto reale; inoltre la cartella
+> `uploads/` è servita come statica senza autenticazione. Entrambi sono in
+> lista lavori (Blocco B). Tienilo presente quando tocchi gli upload.
 
 ### SECRET_KEY
 
@@ -189,7 +279,6 @@ Limite hardcoded a **50 MB** in `parts.py upload_file` (stream a chunk). Niente 
 > **Fonte autoritativa**: `backend/app/models.py`. Qui sotto solo overview a domini per orientamento — non un diagramma esaustivo (che andrebbe in drift a ogni feature).
 
 Il modello SQLAlchemy è organizzato in 8 domini logici:
-
 - **Auth**: `User`, `Role`, `RolePermission` — utenti, ruoli dinamici, mapping permessi.
 - **Quotes / Costing**: `Quote → Part [N] → ManufacturingPhase [N] → PartFile [N]` — preventivo, parti, fasi di lavorazione con file allegati. `Quote.created_by/submitted_by/completed_by/material_ordered_by` puntano a `User`. `QuoteCategory` lettera codice A-G.
 - **Catalog materiali**: `Material → MaterialSupplier`, `NormalizedSupplier` (viti/bulloni/cuscinetti). Material ha scheda PDF opzionale (`datasheet_path`).
@@ -220,7 +309,13 @@ I due modelli hanno ~80% dei campi sovrapposti (`name`, `address`, `shipping_cos
 
 ### Concorrenza — last write wins
 
-Niente `version_id_col` sui modelli: update concorrenti producono lost update silente. Scelta esplicita per scope MVP a 1 utente — quando diventerà multi-utente sullo stesso preventivo, valutare optimistic locking via `updated_at` come `If-Match`.
+Niente `version_id_col` sui modelli: update concorrenti producono **lost update silente** (due utenti sullo stesso preventivo: l'ultimo che salva sovrascrive l'altro senza avviso).
+
+> Stato: è una scelta storica fatta per uno scope a 1 utente. MechQuote però
+> nasce per essere multi-utente. L'introduzione di una protezione (optimistic
+> locking via `updated_at` come `If-Match`, con avviso all'utente) è un
+> lavoro pianificato — vedi `MECHQUOTE_LISTA_LAVORI.md`, Blocco B. Finché non
+> è fatto, l'uso in contemporanea sullo stesso preventivo non è sicuro.
 
 ### Workflow stati preventivo (interno, 3 stati)
 
@@ -238,7 +333,7 @@ Regole:
 
 ### Cost engine (DRY hard rule)
 
-**Una sola formula, due copie identiche**:
+**Una sola formula, copie da tenere identiche su backend e frontend**:
 - Backend: `backend/app/services/calculation.py` `recalculate_part(part_id, db)` — autoritativo
 - Frontend: `frontend/src/components/quotes/PhaseEditor.tsx` `calcPhase()` + `frontend/src/lib/quoteCalc.ts` `calcPartTotals()` — preview live
 
@@ -247,11 +342,11 @@ Regole:
 - Frontend: `frontend/src/lib/quoteCalc.ts` `calcMaterialCost(part, material)`
 Backend ricalcola al `recalculate_part` se `part.material_id` + dimensioni grezzo presenti.
 
-**Formula calculated_cost (per pezzo)** — Sprint 12: rate split setup vs lavoro:
+**Formula calculated_cost (per pezzo)** — rate split setup vs lavoro:
 ```
 work_rate  = phase.hourly_rate_override ?? machine.hourly_rate ?? 0
 setup_rate = machine.setup_hourly_rate ?? work_rate    # NULL → fallback a work_rate
-divisor    = quantity × (n_parts if phase.is_shared else 1)
+divisor    = quantity                                  # qty della singola parte
 
 calculated_cost =
     (setup_hours × setup_rate)         / divisor   # setup amortizzato, rate dedicato
@@ -262,10 +357,17 @@ calculated_cost =
 
 Nota: `hourly_rate_override` su `ManufacturingPhase` agisce **solo sul ciclo**
 (work_rate). L'attrezzaggio resta legato alla macchina perché è semanticamente
-un costo dell'operatore, non della specifica fase. Nuova colonna
+un costo dell'operatore, non della specifica fase. Colonna
 `Machine.setup_hourly_rate` opzionale (NULL = retro-compatibile).
 
-Se `is_shared=true` (es. trattamento batch), setup e fixed sono amortizzati su tutte le parti del preventivo, non solo sulla quantity di una.
+> ⚠️ **CORREZIONE — `is_shared` è stato RIMOSSO.**
+> Versioni precedenti di questo file e vecchie spec descrivevano un
+> `divisor = quantity × (n_parts if phase.is_shared else 1)`, con `is_shared`
+> usato per amortizzare setup e costi fissi su tutte le parti del preventivo.
+> **Quel meccanismo non esiste più nel codice.** `is_shared` è stato rimosso
+> (era ambiguo); oggi `divisor = quantity` sempre, cioè la quantità della
+> singola parte. Non cercare `is_shared` nel cost engine, non basarci alcun
+> ragionamento. La fonte di verità è `calculation.py`.
 
 **Formula totali parte**:
 ```
@@ -275,6 +377,13 @@ total_price  = unit_price × quantity
 ```
 
 Margine: `part.margin_percent ?? quote.global_margin_percent`.
+
+> Nota dalle ricognizioni: oggi `margin_percent` e `global_discount_percent`
+> non hanno limiti — un margine fortemente negativo o uno sconto > 100%
+> produce prezzi negativi che arrivano al PDF. L'aggiunta dei vincoli è in
+> lista lavori, Blocco A. Inoltre `unit_price` viene arrotondato e poi
+> moltiplicato per `quantity`: per qty alte si accumula un errore di
+> centesimi (vedi lista lavori, Blocco C).
 
 **Default operativi** (popolati al `POST /quotes` da `CompanySettings`):
 - `default_margin_percent` → `Quote.global_margin_percent`
@@ -298,12 +407,18 @@ L6 Markup (UI/PDF)    = L5 × (1 + global_margin_percent / 100)
 L7 Sconto (UI/PDF)    = L6 × (1 - global_discount_percent / 100)
 ```
 
-- `featureCost` = Σ (n_bends_{simple,medium,complex} × cost_bend_{simple,medium,complex}) + Σ (n_punches_*  × cost_punch_*)
+- `featureCost` = Σ (n_bends_{simple,medium,complex} × cost_bend_{simple,medium,complex}) + Σ (n_punches_* × cost_punch_*)
 - `coeff_dim` = lookup `DieDimensionBracket` per `area_castello_dm² ∈ [area_min, area_max)`, fallback 1.0
 - `coeff_diff` = `DieSettings.diff_mult_{base,medium,hard}` su `spec.difficulty`
 - `cost_per_plate_base`, `design_hours_*`, `assembly_forfeit_*`, tariffe → `DieSettings` (singleton id=1)
 - **Override matita**: `DieSpec.override_{material,normalized,machining,accessories}` — null-coalesce; impostarli forza la riga corrispondente in L5 ignorando il calcolato.
 - **Auto-fill X/Y piastre**: in `recalculate_quote`, per Part con `plate_role != NULL`, se `raw_x_mm/raw_y_mm IS NULL` vengono popolati dal castello calcolato (override esplicito utente preservato, anche se 0).
+
+> Nota dalle ricognizioni: `L6/L7` (markup e sconto) sono applicati lato
+> UI/PDF e **non persistiti** nel DB — `DieSpec.cost_industrial` salvato è al
+> lordo. Report estratti direttamente dal DB non corrispondono ai PDF.
+> Inoltre il live preview frontend non gestisce i trattamenti a €/dm³ e in
+> alcuni casi il totale stampo somma solo le piastre: vedi lista lavori.
 
 Gemelli geometria/lookup (devono restare identici):
 - `_compute_castle_dimensions(spec)` ↔ `computeDieGeometry(input)`
@@ -314,7 +429,6 @@ Gemelli geometria/lookup (devono restare identici):
 ## 5. Standards di codice
 
 ### Backend (Python 3.9+)
-
 - `snake_case` ovunque
 - Type hints su ogni funzione public
 - Pydantic schemas in `schemas.py`, mai esporre modelli SQLAlchemy direttamente nelle response
@@ -326,7 +440,6 @@ Gemelli geometria/lookup (devono restare identici):
 - Endpoint **DELETE** su tabelle catalog (Material, Machine, Treatment, Supplier, Operation, ToolType, Customer, ecc.): SEMPRE chiamare `block_if_in_use()` (in `app.core.catalog_protect`) prima di `db.delete()`. Per cataloghi con riferimento via **stringa libera** (raro: oggi solo `ToolType.name`/`ToolBrand.name`/`ToolLocation.name` ↔ `Tool.tool_type`/`brand`/`location`), il PUT deve anche fare cascade rename via `UPDATE` manuale su tutte le tabelle child (pattern in `_mount_tool_attribute_crud` in `api/tools.py`). Senza `block_if_in_use` lasci orfani su SQLite (FK non enforced) o sollevi `IntegrityError` generici opachi.
 
 ### Frontend (TypeScript strict)
-
 - `PascalCase` per componenti, `camelCase` per variabili
 - Tipi condivisi in `frontend/src/types/index.ts`. **Mai** ridefinire un tipo già lì in modo locale (`interface Supplier {...}` dentro un componente: ❌)
 - Niente `any`. Se serve un escape hatch, usa `unknown` + narrowing
@@ -338,7 +451,6 @@ Gemelli geometria/lookup (devono restare identici):
 - Pagine catalogo (lista valori semplici, es. `ToolAttributesPage`): **niente colonna/toggle "Attivo"** nella UI. Le voci si gestiscono solo con create/edit/delete. Il campo `active` può restare nel modello come default `True` per compatibilità ma non va esposto. Motivo: aggiungeva attrito senza valore reale (chi non usa una voce la elimina, non la "disattiva")
 
 ### File "oversize"
-
 Quando estrarre un componente da un file:
 - Il file genitore supera ~300 righe **e** il componente ha stato/responsabilità distinta
 - Il componente è usato da più di una pagina (trigger più forte, indipendente dalle righe)
@@ -358,7 +470,6 @@ Dove mettere l'estratto:
 ## 6. Database & migrazioni
 
 ### Pattern manuale (no Alembic)
-
 Tutte le migrazioni vivono in `backend/app/main.py` `_run_migrations()`, eseguite a startup dentro `try/except` (pass-on-error per idempotenza):
 
 ```python
@@ -376,6 +487,7 @@ Regole:
 - SQLite non supporta `DROP COLUMN`. Progetta colonne con cura. Se una diventa obsoleta, lascia la colonna e smetti di leggerla — niente drop.
 - Migrazioni `INSERT/UPDATE/DELETE` devono essere **idempotenti** (eseguibili N volte senza danno). Pattern tipici: `WHERE NOT EXISTS`, `INSERT OR IGNORE`, `DELETE` prima di `INSERT` di seed.
 - Aggiungi sempre la colonna **anche** in `_run_migrations()` quando aggiungi un campo al modello, per non rompere DB esistenti.
+- L'ordine delle migrazioni conta (dipendenze tra loro). Una nuova migrazione va inserita sapendo cosa la precede. Vedi §0-quater.
 
 ---
 
@@ -388,10 +500,13 @@ cd frontend && npx tsc --noEmit
 # 2. Backend si avvia
 cd backend && venv/bin/python -c "from app.main import app; print('OK')"
 
-# 3. (opzionale ma consigliato) prova manuale del flusso toccato dal cambio
+# 3. Test automatici (se il cambio tocca calcoli, modelli o API)
+cd backend && venv/bin/python -m pytest tests/unit -x
+
+# 4. (sempre) prova manuale del flusso toccato dal cambio
 ```
 
-Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
+Se TS o startup o i test falliscono, **non committare**. Se commit, **non pushare**.
 
 ---
 
@@ -399,7 +514,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 
 - Conventional Commits in italiano: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`
 - Body: max 72 char per riga, focus sul **perché** del cambiamento, non solo sul cosa
-- Footer: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` quando è co-scritto con Claude
+- Footer: `Co-Authored-By: Claude <noreply@anthropic.com>` quando è co-scritto con Claude
 - Mai committare: `*.db`, `.env`, `node_modules`, `venv`, `dist`
 - Push solo dopo `tsc --noEmit` verde e backend startup OK
 - Mai amend su commit pushati. Mai `--no-verify`.
@@ -413,7 +528,7 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | `quote.date` invece di `quote.quote_date` | `AttributeError` al render PDF | Il campo è `quote_date`, sempre |
 | Query param `email: str` invece di body Pydantic | Frontend non riesce a inviare JSON | Usa `req: SchemaName` come body, mai query param per dati strutturati |
 | SQLAlchemy `Enum(name="x")` | `InvalidRequestError` startup | `String(N)` con valori documentati nel commento |
-| Nuovo campo nel modello senza riga in `_run_migrations` | DB esistente non ha la colonna, errore runtime | Modello + migration insieme, sempre. Verifica con `grep <nome_col> backend/app/main.py` prima di committare. NB: `create_all()` aggiunge le colonne sui DB freschi, ma i DB legacy hanno bisogno dell'ALTER esplicito in `_run_migrations` |
+| Nuovo campo nel modello senza riga in `_run_migrations` | DB esistente non ha la colonna, errore runtime | Modello + migration insieme, sempre. Verifica con `grep <nome_col> backend/app/main.py` prima di committare. |
 | `joinedload` mancante in GET detail | N+1, dati relazionali vuoti | `joinedload` per ogni relazione usata nella response |
 | `recalculate_part()` non chiamato dopo write | Totali disallineati DB ↔ UI | Dopo ogni POST/PUT/DELETE su Phase/Part |
 | Componente estratto porta con sé costanti del padre | `ReferenceError` runtime | Verifica costanti dopo ogni estrazione |
@@ -424,13 +539,11 @@ Se TS o startup falliscono, **non committare**. Se commit, **non pushare**.
 | `useState error` + JSX inline per messaggi | Stato extra, design inconsistente | `toast.error()`, niente JSX |
 | `roles=['admin']` invece di `permission='X'` | Gating hardcoded, sistema dinamico inutile | Sempre `permission=` salvo deroghe documentate |
 | `console.error(e); toast.error(...)` nudo | Rumore senza valore in prod | Solo `toast.error(...)`, oppure log con contesto utile |
-| useEffect deps incomplete + `eslint-disable` | Bug latente: l'effect non rifirà quando dovrebbe | Includi le deps che rappresentano gli input semantici dell'effect (es. quantity per ricalcoli legati alla qty) |
-| `DELETE` su catalog senza `block_if_in_use` | Orfani in tabelle child (SQLite FK non enforced) o `IntegrityError` opaco lato frontend | Helper `block_if_in_use` da `app.core.catalog_protect`, sempre. Messaggio italiano con conteggio child |
-| Smoke test su endpoint distruttivi senza backup DB | DB locale svuotato/corrotto, perdita dati irrecuperabile (SQLite no FK enforce) | Prima di chiamare `/api/backup/import`, DELETE batch o pytest integration: `cp backend/mechquote.db backend/mechquote.db.bak-$(date +%Y%m%d-%H%M%S)`. Vedi §2.E |
-| Rinominare attributo `Tool*` (Type/Brand/Location) senza cascade | Utensili con `tool_type/brand/location` orfano (FK su stringa libera) | Pattern in `_mount_tool_attribute_crud` di `api/tools.py`: PUT esegue UPDATE manuale su `tools` con whitelist `_ALLOWED_TOOL_COLUMNS`. Mai bypassare. |
-| Upload officina senza filtro MIME / size | File arbitrari in `uploads/officina/`, possibile DoS storage | Limiti in `api/officina.py` (MIME whitelist + 50 MB hard cap come `parts.py`). Gating `officina.write` obbligatorio. |
-| Modifica catalogo senza badge KPI ordini sincronizzato | Mini-dashboard ordini materiali/utensili mostra dati stantii | Endpoint POST/PATCH/DELETE su `Quote` (material_ordered_at) o `Tool` (quantity/minimum) deve aggiornare gli aggregati esposti da `orders.py` / `orders_tools.py` low-stock. |
-| Aggiunta tabella nuova senza riga in `EXPORT_ORDER` di `api/backup.py` | Backup non porta con sé la tabella → restore lascia il modulo monco. Episodio 2026-05-17: 6 tabelle die_* + NormalizedSupplier escluse. | Quando aggiungi un modello nuovo, registralo in `EXPORT_ORDER` in ordine FK-safe (parent prima dei child). Test rapido: grep nel JSON di `GET /api/backup/export` per il nome tabella. |
+| useEffect deps incomplete + `eslint-disable` | Bug latente: l'effect non rifirà quando dovrebbe | Includi le deps che rappresentano gli input semantici dell'effect |
+| `DELETE` su catalog senza `block_if_in_use` | Orfani in tabelle child (SQLite FK non enforced) o `IntegrityError` opaco | Helper `block_if_in_use` da `app.core.catalog_protect`, sempre |
+| Backup del DB con copia semplice del solo `.db` | Backup incompleto: le ultime scritture nel `.db-wal` vengono perse | Usare `sqlite3 .backup` (WAL-aware), mai `cp mechquote.db`. Vedi §2.E |
+| Password admin di default (`admin`) lasciata sul server | Falla di sicurezza grave: accesso amministratore a chiunque | Sul server, cambiare la password admin subito dopo il bootstrap. Vedi §3 |
+| Modificare una formula del cost engine in un solo layer | Anteprima e prezzo salvato divergono | I gemelli DRY backend↔frontend si modificano insieme, stesso commit. Vedi §0-quater e §4 |
 
 ---
 
@@ -494,7 +607,7 @@ frontend/src/
 |------|---------|
 | `backend/app/models.py` | Schema DB |
 | `backend/app/main.py` | Startup, migrations, seed, router register |
-| `backend/app/services/calculation.py` | Cost engine — sincrono col frontend |
+| `backend/app/services/calculation.py` | Cost engine — sincrono col frontend. ZONA FRAGILE (§0-quater) |
 | `backend/app/services/notifications.py` | `create_notification()` helper generico |
 | `backend/app/api/quotes.py` | CRUD preventivi, PATCH /status, ensure_editable, auto-mark completato |
 | `backend/app/api/operations.py` | CRUD catalogo Lavorazioni utente |
@@ -536,6 +649,10 @@ Le spec sono **target storici/documentati**, non sempre allineate al codice corr
 
 `docs/ROADMAP.md` è il diario di stato (cosa è fatto, cosa manca).
 
+> Nota: la cartella `PRV/` contiene il vecchio sito aziendale — un progetto
+> diverso, completamente estraneo a MechQuote. È isolata (esclusa da Git) e il
+> codice di MechQuote non la tocca. **Ignorala** per qualsiasi modifica.
+
 ---
 
 ## 13. Quando chiamare l'utente
@@ -544,6 +661,8 @@ Le spec sono **target storici/documentati**, non sempre allineate al codice corr
 - Trade-off non risolvibili dal contesto (es. due implementazioni equivalenti)
 - Refactor non triviale (chiedi prima di iniziare)
 - Operazioni distruttive su DB / git (drop, force-push, hard reset)
+- Prima di toccare una "zona fragile" (§0-quater)
+- Quando ti viene in mente un lavoro in più rispetto al task assegnato: proponilo, non eseguirlo (§0-ter, regola 2)
 - Quando un audit emerge debito: presentare la lista e farsi approvare gli sprint
 
 Quando NON chiamare l'utente:
@@ -558,7 +677,8 @@ Quando NON chiamare l'utente:
 
 Quando inizi una sessione nuova, in quest'ordine:
 1. Leggi `CLAUDE.md` (questo file).
-2. Leggi `~/.claude/projects/-Users-marco-Desktop-Github-dallavia/memory/MEMORY.md` per direttive di sessione attive (es. fase di consolidamento corrente, regole su push, decisioni di prodotto storiche).
-3. Leggi `docs/ROADMAP.md` per stato corrente.
+2. Leggi `docs/ROADMAP.md` per lo stato corrente.
+3. Per il quadro completo del progetto e il piano di lavoro, fai riferimento
+   a `MECHQUOTE_RIFERIMENTO.md` e `MECHQUOTE_LISTA_LAVORI.md` (§0).
 4. Se l'utente cita un dominio specifico, leggi la spec relativa in `docs/specs/`.
 5. **Solo poi** proponi/agisci.

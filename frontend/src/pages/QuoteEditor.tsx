@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
@@ -135,7 +135,7 @@ export default function QuoteEditor() {
       // possono modificare ANCHE le altre parti: ricarico l'intero quote
       // per riflettere lo stato del backend coerentemente.
       await reloadQuote()
-    } catch (e) {toast.error('Errore nel salvataggio della parte') }
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio della parte')) }
   }
 
   // reloadPart legacy: ricarica l'intero quote (le aggregazioni rendono
@@ -240,7 +240,7 @@ export default function QuoteEditor() {
           }
       await api.put(`/quotes/${quote.id}`, payload)
       toast.success('Preventivo salvato')
-    } catch (e) {toast.error('Errore nel salvataggio') }
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio')) }
     finally { setSaving(false) }
   }
 

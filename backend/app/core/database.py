@@ -18,6 +18,11 @@ def _sqlite_set_pragmas(dbapi_connection, _connection_record):
       transazione). Coerente con SQLAlchemy connection pool.
       WAL è persistente sul DB file, ma il PRAGMA va comunque emesso a ogni
       connect per evitare regressioni in caso di restore o copy del file.
+    - `busy_timeout=5000`: quando una scrittura trova il DB già lock-ato
+      da un'altra connessione, SQLite aspetta fino a 5 secondi che si
+      liberi invece di fallire immediatamente con "database is locked".
+      Default SQLite è 0 → con 2+ utenti che salvano insieme uno dei due
+      perde le modifiche. 5s copre il tempo di una transazione tipica.
     - Niente `foreign_keys=ON` qui: scelta posticipata (vedi audit DB).
       Attivarlo richiede prima verifica orfani sul DB di prod.
 
@@ -32,6 +37,7 @@ def _sqlite_set_pragmas(dbapi_connection, _connection_record):
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
     finally:
         cursor.close()
 

@@ -66,15 +66,15 @@ export function calcMaterialCost(part: Part, material: Material | undefined): nu
     const l = part.raw_z_mm || 0
     if (!r || !l) return part.material_cost || 0
     const volDm3 = (Math.PI * r * r * l) / 1_000_000
-    const kg = volDm3 * material.density_kg_dm3
-    return Math.round(kg * material.cost_per_kg * scrap * 100) / 100
+    const kg = volDm3 * (material.density_kg_dm3 || 0)
+    return Math.round(kg * (material.cost_per_kg || 0) * scrap * 100) / 100
   }
   // prismatico
   const x = part.raw_x_mm || 0, y = part.raw_y_mm || 0, z = part.raw_z_mm || 0
   if (!x || !y || !z) return part.material_cost || 0
   const volDm3 = (x * y * z) / 1_000_000
-  const kg = volDm3 * material.density_kg_dm3
-  return Math.round(kg * material.cost_per_kg * scrap * 100) / 100
+  const kg = volDm3 * (material.density_kg_dm3 || 0)
+  return Math.round(kg * (material.cost_per_kg || 0) * scrap * 100) / 100
 }
 
 export function calcPartTotals(

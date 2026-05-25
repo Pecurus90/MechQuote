@@ -34,9 +34,13 @@ export function calcTreatmentCost(
   const totalBatchCost = belowThreshold
     ? (t.minimum_cost || 0)
     : (t.cost_per_kg || 0) * totalBatchWeight
+  // batch_w=0 → tutte le parti del gruppo hanno peso 0: stato invalido
+  // temporaneo (treatment selezionato ma peso finito non compilato).
+  // PartCard mostra warning rosso sul campo peso (needsFinishedWeight).
+  // Costo a 0 in attesa che l'utente compili — gemello di calculation.py:425-432.
   const myShare = totalBatchWeight > 0
     ? totalBatchCost * myWeight / totalBatchWeight
-    : totalBatchCost / (1 + siblings.length)
+    : 0
   return myShare / Math.max(qty, 1)
 }
 

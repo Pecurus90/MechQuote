@@ -44,23 +44,6 @@ export function calcTreatmentCost(
   return myShare / Math.max(qty, 1)
 }
 
-/**
- * Quota di parte della spedizione (materiale o trattamento) condivisa
- * tra le parti che hanno lo stesso supplier. Distribuzione proporzionale
- * al peso. Edge case nessun peso → parti uguali nel gruppo.
- */
-export function calcShippingShare(
-  totalShipping: number,
-  myWeight: number,
-  siblingsWeight: number[] = [],
-): number {
-  const totalWeight = myWeight + siblingsWeight.reduce((s, w) => s + w, 0)
-  if (totalWeight <= 0) {
-    return totalShipping / (1 + siblingsWeight.length)
-  }
-  return totalShipping * myWeight / totalWeight
-}
-
 export function calcMaterialCost(part: Part, material: Material | undefined): number {
   if (!material) return part.material_cost || 0
   const scrap = 1 + (material.default_scrap_percent || 10) / 100
@@ -119,6 +102,21 @@ export function calcPartTotals(
 }
 
 export function calcQuoteTotal(quote: Quote): number {
+  // Modulo Stampi: formula gemella di backend/app/api/pdf.py _render_die_quote.
+  // Industriale = L1+L2+L3+L4 con override matita (null-coalesce sui calcolati);
+  // poi margine globale e sconto globale. NON include transport/packaging:
+  // il PDF stampo non li somma al prezzo finale industriale.
+  if (quote.quote_type === 'die' && quote.die_spec) {
+    const spec = quote.die_spec
+    const effMaterial    = spec.override_material    ?? spec.cost_material
+    const effNormalized  = spec.override_normalized  ?? spec.cost_normalized
+    const effMachining   = spec.override_machining   ?? spec.cost_machining
+    const effAccessories = spec.override_accessories ?? spec.cost_accessories
+    const industrial = effMaterial + effNormalized + effMachining + effAccessories
+    const withMargin = industrial * (1 + (quote.global_margin_percent || 0) / 100)
+    const finalPrice = withMargin * (1 - (quote.global_discount_percent || 0) / 100)
+    return Math.round(finalPrice * 100) / 100
+  }
   const sub = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const afterExtras = sub + (quote.transport_cost || 0) + (quote.packaging_cost || 0)
   const discount = afterExtras * ((quote.global_discount_percent || 0) / 100)

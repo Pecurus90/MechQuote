@@ -1,0 +1,465 @@
+{
+  "_meta": {
+    "description": "Casi d'oro del cost engine. Backend (pytest) e frontend (vitest) caricano questo file e verificano che la propria implementazione produca i valori 'expected'. Convenzione: gli 'expected' sono i valori CORRETTI dopo le correzioni della Fascia 1. I casi che intercettano un bug non ancora corretto sono marcati con 'expected_today' (valore prodotto oggi) e 'fails_until' (riferimento alla correzione).",
+    "tolerance_eur": 0.01,
+    "tolerance_hours": 0.001,
+    "shared_constants": {
+      "scrap_default_percent": 10,
+      "milling_h_per_dm2_default": 0.15,
+      "grinding_h_per_dm2_default": 0.10,
+      "drilling_h_per_dm2_default": 0.20,
+      "edm_extractor_factor_default": 0.6,
+      "edm_punch_factor_default": 0.3,
+      "design_h_per_bend_default": 0.4,
+      "design_h_per_punch_default": 0.3,
+      "complexity_factor_default": 1.2,
+      "plate_role_defaults": {
+        "cappello":      [0.3, 1, 0, 1, 0.0],
+        "porta_punzoni": [0.5, 2, 1, 2, 0.4],
+        "premilamiera":  [0.4, 2, 1, 1, 0.0],
+        "matrice":       [0.5, 2, 2, 2, 0.5],
+        "base":          [0.3, 1, 0, 1, 0.0]
+      }
+    }
+  },
+
+  "calc_phase": [
+    {
+      "id": "M1",
+      "name": "Sanity: setup 0.5h × 50€ amortizzato qty 10 + cycle 0.25h × 50€",
+      "input": {
+        "setup_hours": 0.5, "cycle_hours_per_part": 0.25,
+        "fixed_cost": 0, "variable_cost_per_part": 0,
+        "qty": 10, "work_rate": 50, "setup_rate": 50
+      },
+      "expected_calculated_cost": 15.0
+    },
+    {
+      "id": "M1b",
+      "name": "Phase con setup_rate distinto (Sprint 12 rate split)",
+      "input": {
+        "setup_hours": 1.0, "cycle_hours_per_part": 0.5,
+        "fixed_cost": 100, "variable_cost_per_part": 2,
+        "qty": 10, "work_rate": 60, "setup_rate": 40
+      },
+      "expected_calculated_cost": 46.0
+    }
+  ],
+
+  "calc_material_cost_prismatic": [
+    {
+      "id": "M3",
+      "name": "Pezzo prismatico 50×50×100mm, acciaio 7.85, 3 €/kg, scrap 10%",
+      "input": {
+        "raw_x_mm": 50, "raw_y_mm": 50, "raw_z_mm": 100,
+        "density_kg_dm3": 7.85, "cost_per_kg": 3.0, "scrap_percent": 10
+      },
+      "expected_material_cost": 6.48
+    },
+    {
+      "id": "M3b-fallback-zero",
+      "name": "Densità null → fallback 0 (B2-#3 chiuso)",
+      "input": {
+        "raw_x_mm": 50, "raw_y_mm": 50, "raw_z_mm": 100,
+        "density_kg_dm3": null, "cost_per_kg": 3.0, "scrap_percent": 10
+      },
+      "expected_material_cost": 0.0
+    }
+  ],
+
+  "calc_material_cost_round": [
+    {
+      "id": "M4",
+      "name": "Pezzo tondo Ø50 × 100mm, acciaio 7.85, 3 €/kg, scrap 10%",
+      "input": {
+        "raw_diameter_mm": 50, "raw_z_mm": 100,
+        "density_kg_dm3": 7.85, "cost_per_kg": 3.0, "scrap_percent": 10
+      },
+      "expected_material_cost": 5.09
+    }
+  ],
+
+  "calc_part_totals": [
+    {
+      "id": "M2",
+      "name": "DOPPIO ARROTONDAMENTO (C4): costo 0.985, qty 100, margine 0% → atteso 98.50€",
+      "input": {
+        "material_cost": 0.985, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 0, "quantity": 100, "margin_percent": 0, "minimum_price": 0
+      },
+      "expected_total_price": 98.50,
+      "expected_today": 98.00,
+      "fails_until": "C4"
+    },
+    {
+      "id": "M12",
+      "name": "Prezzo minimo vince su total_cost (M12)",
+      "input": {
+        "material_cost": 0, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 5.0, "quantity": 1, "margin_percent": 20, "minimum_price": 10.0
+      },
+      "expected_total_price": 12.00
+    },
+    {
+      "id": "M13a",
+      "name": "Margine 0% → unit_price = total_cost",
+      "input": {
+        "material_cost": 10, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 0, "quantity": 1, "margin_percent": 0, "minimum_price": 0
+      },
+      "expected_total_price": 10.00
+    },
+    {
+      "id": "M13b",
+      "name": "Margine 500% → unit_price = total_cost × 6",
+      "input": {
+        "material_cost": 10, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 0, "quantity": 1, "margin_percent": 500, "minimum_price": 0
+      },
+      "expected_total_price": 60.00
+    },
+    {
+      "id": "M11",
+      "name": "Conto lavoro (customer_supplied_material) → tutti i costi 0",
+      "input": {
+        "material_cost": 0, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 0, "quantity": 5, "margin_percent": 20, "minimum_price": 0
+      },
+      "expected_total_price": 0.0
+    }
+  ],
+
+  "calc_quote_total_standard": [
+    {
+      "id": "M14",
+      "name": "1 parte 100€ + trasporto 20 + imballaggio 10 - sconto 5%",
+      "input": {
+        "quote_type": "single",
+        "parts_total_price_sum": 100.0,
+        "transport_cost": 20, "packaging_cost": 10, "global_discount_percent": 5
+      },
+      "expected_quote_total": 123.50
+    }
+  ],
+
+  "calc_quote_total_die": [
+    {
+      "id": "S11",
+      "name": "Stampo: industrial 1560.50 × margine 25% × (1 - sconto 5%)",
+      "input": {
+        "cost_material": 360.0, "cost_normalized": 120.50,
+        "cost_machining": 391.75, "cost_accessories": 580.0,
+        "override_material": null, "override_normalized": null,
+        "override_machining": 500.0, "override_accessories": null,
+        "global_margin_percent": 25, "global_discount_percent": 5
+      },
+      "expected_quote_total": 1853.09
+    }
+  ],
+
+  "calc_treatment_cost_kg": [
+    {
+      "id": "M7",
+      "name": "€/kg sopra soglia: 0.5 kg × qty 100 = 50 kg batch, 2 €/kg, minimum 10kg/50€",
+      "input": {
+        "cost_unit": "kg",
+        "cost_per_kg": 2.0, "cost_per_dm3": 0,
+        "minimum_weight_kg": 10, "minimum_cost": 50,
+        "finished_weight_kg": 0.5, "qty": 100,
+        "part_volume_dm3": 0,
+        "siblings": []
+      },
+      "expected_variable_cost_per_part": 1.00
+    },
+    {
+      "id": "M8",
+      "name": "€/kg sotto soglia: 0.05 kg × qty 100 = 5 kg, minimum_cost 50€ spalmato",
+      "input": {
+        "cost_unit": "kg",
+        "cost_per_kg": 2.0, "cost_per_dm3": 0,
+        "minimum_weight_kg": 10, "minimum_cost": 50,
+        "finished_weight_kg": 0.05, "qty": 100,
+        "part_volume_dm3": 0,
+        "siblings": []
+      },
+      "expected_variable_cost_per_part": 0.50
+    },
+    {
+      "id": "R1",
+      "name": "REGRESSIVO B2-#2: peso=0 (treatment selezionato senza peso) → costo 0",
+      "input": {
+        "cost_unit": "kg",
+        "cost_per_kg": 2.0, "cost_per_dm3": 0,
+        "minimum_weight_kg": 10, "minimum_cost": 50,
+        "finished_weight_kg": 0, "qty": 100,
+        "part_volume_dm3": 0,
+        "siblings": []
+      },
+      "expected_variable_cost_per_part": 0.0
+    }
+  ],
+
+  "calc_treatment_cost_dm3": [
+    {
+      "id": "M9",
+      "name": "€/dm³ su pezzo prismatico 100×50×20mm × qty 100 = 10 dm³, 2 €/dm³",
+      "input": {
+        "cost_unit": "dm3",
+        "cost_per_kg": 0, "cost_per_dm3": 2.0,
+        "minimum_weight_kg": 50, "minimum_cost": 50,
+        "finished_weight_kg": 1.0, "qty": 100,
+        "part_volume_dm3": 0.1,
+        "siblings": []
+      },
+      "expected_variable_cost_per_part": 0.20,
+      "expected_today_frontend": 0.0,
+      "fails_until_frontend": "C2"
+    },
+    {
+      "id": "M10",
+      "name": "BUG C1: €/dm³ su pezzo TONDO Ø50 × 100mm × qty 100 → atteso ~0.39 €/pezzo",
+      "input": {
+        "cost_unit": "dm3",
+        "cost_per_kg": 0, "cost_per_dm3": 2.0,
+        "minimum_weight_kg": 50, "minimum_cost": 50,
+        "finished_weight_kg": 1.5, "qty": 100,
+        "raw_diameter_mm": 50, "raw_z_mm": 100,
+        "raw_x_mm": null, "raw_y_mm": null,
+        "siblings": []
+      },
+      "expected_variable_cost_per_part": 0.3927,
+      "expected_today": 0.0,
+      "fails_until": "C1"
+    }
+  ],
+
+  "die_l3_mech": [
+    {
+      "id": "S3",
+      "name": "1 piastra matrice 300×200×40mm, default ruolo, 4 stazioni, tariffe default",
+      "input": {
+        "plate_role": "matrice",
+        "raw_x_mm": 300, "raw_y_mm": 200, "raw_z_mm": 40,
+        "die_setup_h": null, "die_n_milled_faces": null, "die_n_ground_faces": null,
+        "die_n_drilled_faces": null, "die_station_bonus_h": null,
+        "n_stations": 4,
+        "milling_h_per_dm2": 0.15, "grinding_h_per_dm2": 0.10, "drilling_h_per_dm2": 0.20,
+        "rate_mill": 45, "rate_grind": 50, "rate_drill": 45,
+        "brackets": []
+      },
+      "expected_cost_machining_mech": 361.50
+    },
+    {
+      "id": "S4",
+      "name": "Stessa piastra ma snapshot popolato: setup=1, milled=3 (override default)",
+      "input": {
+        "plate_role": "matrice",
+        "raw_x_mm": 300, "raw_y_mm": 200, "raw_z_mm": 40,
+        "die_setup_h": 1.0, "die_n_milled_faces": 3, "die_n_ground_faces": null,
+        "die_n_drilled_faces": null, "die_station_bonus_h": null,
+        "n_stations": 4,
+        "milling_h_per_dm2": 0.15, "grinding_h_per_dm2": 0.10, "drilling_h_per_dm2": 0.20,
+        "rate_mill": 45, "rate_grind": 50, "rate_drill": 45,
+        "brackets": []
+      },
+      "expected_cost_machining_mech": 424.50
+    }
+  ],
+
+  "die_l3_edm": [
+    {
+      "id": "S5",
+      "name": "Perimetro esplicito 200mm, 1 stazione, 1 passata rough, no punzoni",
+      "input": {
+        "perimeter_pezzo_mm": 200,
+        "bbox_x_mm": 60, "bbox_y_mm": 40,
+        "complexity_factor": 1.0,
+        "n_stations": 1,
+        "n_punches_simple": 0, "n_punches_medium": 0, "n_punches_complex": 0,
+        "edm_extractor_factor": 0.6, "edm_punch_factor": 0.3,
+        "plate_matrice_raw_z": 30, "plate_porta_punzoni_raw_z": 30,
+        "material_family": "acciaio",
+        "speed_mm_per_min": 10, "pierce_time_s": 30,
+        "passes": [{ "pass_type": "rough", "factor": 1.0 }],
+        "rate_edm": 55
+      },
+      "expected_cost_machining_edm": 30.25
+    },
+    {
+      "id": "S6",
+      "name": "Perimetro fallback rettangolare 60×40 cf=1.2 → 240mm",
+      "input": {
+        "perimeter_pezzo_mm": null,
+        "bbox_x_mm": 60, "bbox_y_mm": 40,
+        "complexity_factor": 1.2,
+        "n_stations": 1,
+        "n_punches_simple": 0, "n_punches_medium": 0, "n_punches_complex": 0,
+        "edm_extractor_factor": 0.6, "edm_punch_factor": 0.3,
+        "plate_matrice_raw_z": 30, "plate_porta_punzoni_raw_z": 30,
+        "material_family": "acciaio",
+        "speed_mm_per_min": 10, "pierce_time_s": 30,
+        "passes": [{ "pass_type": "rough", "factor": 1.0 }],
+        "rate_edm": 55
+      },
+      "expected_cost_machining_edm": 36.11
+    },
+    {
+      "id": "S7",
+      "name": "BUG C7: SAGOMA TONDA Ø100mm con perimetro fallback. Atteso π×100 ≈ 314mm, oggi 480mm.",
+      "input": {
+        "perimeter_pezzo_mm": null,
+        "bbox_x_mm": 100, "bbox_y_mm": 100,
+        "shape_hint": "round",
+        "complexity_factor": 1.2,
+        "n_stations": 1,
+        "n_punches_simple": 0, "n_punches_medium": 0, "n_punches_complex": 0,
+        "edm_extractor_factor": 0.6, "edm_punch_factor": 0.3,
+        "plate_matrice_raw_z": 30, "plate_porta_punzoni_raw_z": 30,
+        "material_family": "acciaio",
+        "speed_mm_per_min": 10, "pierce_time_s": 30,
+        "passes": [{ "pass_type": "rough", "factor": 1.0 }],
+        "rate_edm": 55
+      },
+      "expected_cost_machining_edm": 46.99,
+      "expected_today": 71.31,
+      "fails_until": "C7"
+    }
+  ],
+
+  "die_l4_accessories": [
+    {
+      "id": "S8",
+      "name": "L4 base difficulty, no features, no extras",
+      "input": {
+        "difficulty": "base",
+        "design_hours_base": 8, "design_hours_medium": 16, "design_hours_hard": 32,
+        "n_bends_simple": 0, "n_bends_medium": 0, "n_bends_complex": 0,
+        "n_punches_simple": 0, "n_punches_medium": 0, "n_punches_complex": 0,
+        "design_h_per_bend": 0.4, "design_h_per_punch": 0.3,
+        "design_hourly_rate": 60,
+        "assembly_forfeit_base": 100, "assembly_forfeit_medium": 200, "assembly_forfeit_hard": 400,
+        "extras_amount": 0
+      },
+      "expected_cost_accessories": 580.0
+    },
+    {
+      "id": "S9",
+      "name": "L4 hard + 3 pieghe medium + 2 punzoni simple",
+      "input": {
+        "difficulty": "hard",
+        "design_hours_base": 8, "design_hours_medium": 16, "design_hours_hard": 32,
+        "n_bends_simple": 0, "n_bends_medium": 3, "n_bends_complex": 0,
+        "n_punches_simple": 2, "n_punches_medium": 0, "n_punches_complex": 0,
+        "design_h_per_bend": 0.4, "design_h_per_punch": 0.3,
+        "design_hourly_rate": 60,
+        "assembly_forfeit_base": 100, "assembly_forfeit_medium": 200, "assembly_forfeit_hard": 400,
+        "extras_amount": 0
+      },
+      "expected_cost_accessories": 2428.0
+    }
+  ],
+
+  "shipping_stock_share": [
+    {
+      "id": "M6",
+      "name": "BUG C3: 2 parti from_stock, stock_ship 20€, qty A=10 B=5. Backend corretto: A=1€/pz, B=2€/pz",
+      "input": {
+        "stock_shipping_cost": 20,
+        "n_from_stock": 2,
+        "qty_A": 10, "qty_B": 5
+      },
+      "expected_delivery_per_piece_A": 1.00,
+      "expected_delivery_per_piece_B": 2.00,
+      "expected_today_frontend_A": 2.00,
+      "expected_today_frontend_B": 4.00,
+      "fails_until_frontend": "C3"
+    }
+  ],
+
+  "shipping_material_share": [
+    {
+      "id": "M5",
+      "name": "2 parti commessa, fornitore comune ship 100€, pesi grezzi diversi",
+      "input": {
+        "shipping_cost": 100,
+        "raw_w_A": 39.25,
+        "raw_w_B": 9.8125
+      },
+      "expected_share_A": 80.00,
+      "expected_share_B": 20.00
+    }
+  ],
+
+  "dxf_parser": [
+    {
+      "id": "D1",
+      "name": "DXF semplice in mm: cerchio Ø50 + rettangolo 60×40",
+      "input": { "file": "simple_mm.dxf" },
+      "expected_units": "mm",
+      "expected_n_closed": 2,
+      "expected_total_length_mm": 357.086,
+      "tolerance_mm": 0.5
+    },
+    {
+      "id": "D2",
+      "name": "BUG C5: stesso DXF in pollici → atteso × 25.4 dopo conversione",
+      "input": { "file": "simple_inch.dxf" },
+      "expected_units": "mm",
+      "expected_n_closed": 2,
+      "expected_total_length_mm": 9070.0,
+      "expected_today_total_length_mm": 357.086,
+      "tolerance_mm": 2.0,
+      "fails_until": "C5"
+    },
+    {
+      "id": "D3",
+      "name": "DXF complesso: ARC + ELLIPSE + 2 linee, sanity flattening",
+      "input": { "file": "complex_mm.dxf" },
+      "expected_units": "mm",
+      "expected_total_length_mm": 323.88,
+      "tolerance_mm": 5.0
+    }
+  ],
+
+  "scale_canary": {
+    "id": "CAN1",
+    "name": "Preventivo commessa 50 parti × 5 fasi: deve finire < 2 secondi, totale coerente",
+    "n_parts": 50, "n_phases_per_part": 5,
+    "qty_each": 10, "phase_setup_h": 0.1, "phase_cycle_h": 0.05,
+    "machine_rate": 50, "margin_percent": 20,
+    "max_seconds": 2.0,
+    "expected_total_price_per_part": 180.00
+  },
+
+  "regression_already_fixed": [
+    {
+      "id": "R2",
+      "name": "REGRESSIVO B2-#3: material con density=null → 0 (non NaN)",
+      "input": {
+        "raw_x_mm": 100, "raw_y_mm": 100, "raw_z_mm": 100,
+        "density_kg_dm3": null, "cost_per_kg": 3.0, "scrap_percent": 10
+      },
+      "expected_material_cost": 0.0
+    },
+    {
+      "id": "R2b",
+      "name": "REGRESSIVO B2-#3: material con cost_per_kg=null → 0",
+      "input": {
+        "raw_x_mm": 100, "raw_y_mm": 100, "raw_z_mm": 100,
+        "density_kg_dm3": 7.85, "cost_per_kg": null, "scrap_percent": 10
+      },
+      "expected_material_cost": 0.0
+    },
+    {
+      "id": "R3",
+      "name": "REGRESSIVO B2-#6: calcQuoteTotal su preventivo stampo include L2+L3+L4",
+      "input": {
+        "quote_type": "die",
+        "cost_material": 100, "cost_normalized": 50,
+        "cost_machining": 200, "cost_accessories": 300,
+        "global_margin_percent": 20, "global_discount_percent": 0
+      },
+      "expected_quote_total": 780.0
+    }
+  ]
+}

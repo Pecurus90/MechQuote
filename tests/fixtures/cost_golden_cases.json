@@ -217,7 +217,7 @@
     },
     {
       "id": "M10",
-      "name": "BUG C1: €/dm³ su pezzo TONDO Ø50 × 100mm × qty 100 → atteso ~0.39 €/pezzo",
+      "name": "C1 RISOLTO: €/dm³ su pezzo TONDO Ø50 × 100mm × qty 100 → 0.3927 €/pezzo",
       "input": {
         "cost_unit": "dm3",
         "cost_per_kg": 0, "cost_per_dm3": 2.0,
@@ -228,8 +228,7 @@
         "siblings": []
       },
       "expected_variable_cost_per_part": 0.3927,
-      "expected_today": 0.0,
-      "fails_until": "C1"
+      "fails_until_frontend": "C2"
     }
   ],
 

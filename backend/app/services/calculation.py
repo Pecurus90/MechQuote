@@ -54,6 +54,27 @@ def _raw_weight_kg(part: Part) -> float:
     return vol_dm3 * density
 
 
+def _raw_volume_dm3(part: Part) -> float:
+    """Volume del grezzo (dm³) di una singola unità della parte.
+
+    Cilindro se `raw_diameter_mm` è valorizzato (formula π × r² × L),
+    prismatico altrimenti (raw_x × raw_y × raw_z). 0 se dati insufficienti.
+    Usato dai trattamenti con `cost_unit='dm3'` per il volume del batch.
+    """
+    if part.raw_diameter_mm:
+        r = part.raw_diameter_mm / 2
+        l = part.raw_z_mm or 0
+        if not r or not l:
+            return 0.0
+        return (math.pi * r * r * l) / 1_000_000
+    x = part.raw_x_mm or 0
+    y = part.raw_y_mm or 0
+    z = part.raw_z_mm or 0
+    if not x or not y or not z:
+        return 0.0
+    return (x * y * z) / 1_000_000
+
+
 def _compute_material_cost(part: Part, material: Optional[Material]) -> Optional[float]:
     """Costo materiale grezzo per pezzo (€) calcolato da volume × densità × €/kg × scrap.
 
@@ -300,10 +321,9 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         if p.material_from_stock and not p.customer_supplied_material:
             n_from_stock += 1
         # Volume parte (dm³) × qty — usato da trattamenti con cost_unit='dm3'.
-        part_vol_dm3 = (
-            (p.raw_x_mm or 0.0) * (p.raw_y_mm or 0.0) * (p.raw_z_mm or 0.0)
-            / 1_000_000.0 * qty_p
-        )
+        # C1: per i pezzi tondi (raw_diameter_mm) si usa la formula del cilindro,
+        # altrimenti raw_x × raw_y × raw_z. Vedi _raw_volume_dm3.
+        part_vol_dm3 = _raw_volume_dm3(p) * qty_p
         for ph in p.phases:
             if ph.treatment_id and ph.treatment:
                 # Chiave batch (treatment_id, material_id): stesso trattamento
@@ -409,10 +429,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                         (t.minimum_cost or 0.0) if below_threshold
                         else (t.cost_per_dm3 or 0.0) * batch_v
                     )
-                    part_vol = (
-                        (part.raw_x_mm or 0.0) * (part.raw_y_mm or 0.0)
-                        * (part.raw_z_mm or 0.0) / 1_000_000.0 * qty
-                    )
+                    part_vol = _raw_volume_dm3(part) * qty
                     if batch_v > 0:
                         part_share = total_batch_cost * part_vol / batch_v
                     else:

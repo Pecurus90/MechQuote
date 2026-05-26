@@ -27,6 +27,7 @@ from app.services.calculation import (
     recalculate_quote,
     _compute_material_cost,
     _compute_edm_hours_pure,
+    _raw_volume_dm3,
 )
 
 
@@ -190,23 +191,29 @@ def test_treatment_cost_kg(case):
 
 @pytest.mark.parametrize("case", CASES['calc_treatment_cost_dm3'], ids=lambda c: c['id'])
 def test_treatment_cost_dm3(case):
-    """Replica la formula €/dm³ del backend (calculation.py:406-419).
+    """Verifica la formula €/dm³ del backend (calculation.py).
 
-    Per M10 (pezzo tondo) il backend OGGI calcola part_vol con la formula
-    prismatica raw_x*raw_y*raw_z=0 → costo=0. Il test usa quella stessa
-    formula e si aspetta il valore CORRETTO (post-C1) → xfail oggi.
+    Il volume del pezzo è ottenuto chiamando direttamente l'helper
+    `_raw_volume_dm3` del backend (post-C1 gestisce sia prismatici che
+    cilindri). Il test esercita quindi il codice reale, non lo riproduce.
+    Il resto della formula (batch, soglia, quota) è replicato qui per
+    permettere la verifica isolata sul JSON dei casi.
     """
     _xfail_if_known_bug(case)
     inp = case['input']
-    # Formula BACKEND ATTUALE: raw_x × raw_y × raw_z (prismatica, no cilindro)
-    raw_x = inp.get('raw_x_mm') or 0
-    raw_y = inp.get('raw_y_mm') or 0
-    raw_z = inp.get('raw_z_mm') or 0
-    # part_volume_dm3 direttamente specificato per i casi M9 (prismatico noto)
+    # Volume di una unità: chiama l'helper del backend con un Part fittizio.
+    # Per i casi con part_volume_dm3 esplicito (M9, prismatico noto) lo si usa
+    # direttamente per leggibilità.
     if 'part_volume_dm3' in inp and inp['part_volume_dm3']:
         part_vol_single = inp['part_volume_dm3']
     else:
-        part_vol_single = (raw_x * raw_y * raw_z) / 1_000_000
+        fake_part = Part(
+            quote_id=1, part_code="TST",
+            raw_x_mm=inp.get('raw_x_mm'), raw_y_mm=inp.get('raw_y_mm'),
+            raw_z_mm=inp.get('raw_z_mm'),
+            raw_diameter_mm=inp.get('raw_diameter_mm'),
+        )
+        part_vol_single = _raw_volume_dm3(fake_part)
     part_vol_qty = part_vol_single * inp['qty']
     batch_v = part_vol_qty  # no siblings
     # Soglia: peso del batch

@@ -45,9 +45,13 @@ interface Props {
    *  altezza ancora vuota — niente sovrascrittura se già impostata. */
   partRawZmm?: number
   /** Dimensioni X/Y del grezzo della parte. Passate al viewer DXF per
-   *  disegnare il rettangolo grezzo attorno ai profili. */
+   *  disegnare il rettangolo grezzo attorno ai profili. Servono anche al
+   *  preview live dei trattamenti €/dm³ (volume = X×Y×Z). */
   partRawXmm?: number
   partRawYmm?: number
+  /** Diametro del grezzo (per pezzi tondi). Serve al preview live dei
+   *  trattamenti €/dm³ — volume cilindro π × r² × Z. */
+  partRawDiameterMm?: number
   /** ID del PartFile DXF allegato alla parte (primo file_type='dxf'): abilita
    *  il bottone "Modifica selezione DXF" nella fase EDM. */
   partDxfFileId?: number
@@ -80,16 +84,28 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
   return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
 }
 
-export default function PhaseEditor({ partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partRawXmm, partRawYmm, partDxfFileId, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
+export default function PhaseEditor({ partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partRawXmm, partRawYmm, partRawDiameterMm, partDxfFileId, partHasRawStock, onReload, readOnly = false, onChange }: Props) {
   // Siblings filtrati per (treatment_id, material_id): batch separati per
   // materiale anche con stesso trattamento (caratteristiche fisiche
   // diverse). Gemello dell'aggregazione backend calculation.py:188-198.
+  // Le dim del grezzo sono incluse: servono ai trattamenti €/dm³ (volume).
   const siblingsByTreatmentAndMaterial = (treatmentId: number) =>
     siblings.flatMap(p =>
       p.material_id === partMaterialId && p.phases.some(ph => ph.treatment_id === treatmentId)
-        ? [{ finishedWeightKg: p.finished_weight_kg, qty: p.quantity || 1 }]
+        ? [{
+            finishedWeightKg: p.finished_weight_kg,
+            qty: p.quantity || 1,
+            raw_x_mm: p.raw_x_mm, raw_y_mm: p.raw_y_mm,
+            raw_z_mm: p.raw_z_mm, raw_diameter_mm: p.raw_diameter_mm,
+          }]
         : []
     )
+  // Dimensioni del grezzo della parte corrente — usate dal preview live dei
+  // trattamenti €/dm³. Identico al `Part` lato backend per la formula del volume.
+  const partDims = {
+    raw_x_mm: partRawXmm, raw_y_mm: partRawYmm,
+    raw_z_mm: partRawZmm, raw_diameter_mm: partRawDiameterMm,
+  }
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [advancedIdx, setAdvancedIdx] = useState<Set<number>>(new Set())
   const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
@@ -123,7 +139,7 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
       if (ph.treatment_id) {
         const t = treatments.find(t => t.id === ph.treatment_id)
         if (t) {
-          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, siblingsByTreatmentAndMaterial(t.id))
+          const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, siblingsByTreatmentAndMaterial(t.id), partDims)
           next = { ...ph, variable_cost_per_part: varCost }
         }
       }
@@ -272,7 +288,7 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
     }
     const t = treatments.find(t => t.id === treatmentId)
     if (!t) return
-    const varCost = calcTreatmentCost(t, finishedWeightKg, quantity)
+    const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, [], partDims)
     const shippingCost = t.supplier?.shipping_cost || 0
     updateMany(idx, {
       treatment_id: treatmentId,

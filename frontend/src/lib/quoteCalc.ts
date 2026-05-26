@@ -1,19 +1,49 @@
 import type { Part, Quote, Material, Treatment, CompanySettings } from '@/types'
 
-/** Sibling part contribution (peso fisico × qty) per le aggregazioni di
- *  costi tra parti del preventivo commessa. */
+/** Sibling part contribution per le aggregazioni di costi tra parti del
+ *  preventivo commessa. Le dim del grezzo servono solo al ramo €/dm³. */
 export interface SiblingWeight {
   finishedWeightKg?: number | null
   qty: number
+  raw_x_mm?: number | null
+  raw_y_mm?: number | null
+  raw_z_mm?: number | null
+  raw_diameter_mm?: number | null
+}
+
+/** Dimensioni del grezzo per il calcolo del volume (trattamenti €/dm³). */
+export interface RawDims {
+  raw_x_mm?: number | null
+  raw_y_mm?: number | null
+  raw_z_mm?: number | null
+  raw_diameter_mm?: number | null
+}
+
+/** Volume del grezzo (dm³) per una singola unità. Gemello byte-per-byte di
+ *  `_raw_volume_dm3` in backend/app/services/calculation.py: cilindro se
+ *  `raw_diameter_mm`, prismatico altrimenti, 0 se dati insufficienti. */
+function rawVolumeDm3(dims: RawDims | undefined): number {
+  if (!dims) return 0
+  if (dims.raw_diameter_mm) {
+    const r = dims.raw_diameter_mm / 2
+    const l = dims.raw_z_mm || 0
+    if (!r || !l) return 0
+    return (Math.PI * r * r * l) / 1_000_000
+  }
+  const x = dims.raw_x_mm || 0
+  const y = dims.raw_y_mm || 0
+  const z = dims.raw_z_mm || 0
+  if (!x || !y || !z) return 0
+  return (x * y * z) / 1_000_000
 }
 
 /**
  * Costo trattamento per pezzo.
  *
  * Gemello DRY del backend `services/calculation.recalculate_quote` —
- * stessa formula. Aggrega i pesi delle parti del preventivo che condividono
- * lo stesso trattamento (`siblings`): la soglia viene applicata sul peso
- * totale del batch, e il costo distribuito proporzionale al peso.
+ * stessa formula. Aggrega le parti del preventivo che condividono lo stesso
+ * trattamento (`siblings`); la soglia è sempre sul peso (capacità del
+ * forno), il costo è distribuito sul peso (€/kg) o sul volume (€/dm³).
  *
  * Per single quote / chiamata senza `siblings` ([] di default), il
  * comportamento è identico al pre-refactor (1 sola parte = 1 sola batch).
@@ -23,6 +53,7 @@ export function calcTreatmentCost(
   finishedWeightKg: number | undefined,
   qty: number,
   siblings: SiblingWeight[] = [],
+  partDims?: RawDims,
 ): number {
   const myWeight = (finishedWeightKg || 0) * Math.max(qty, 1)
   const siblingsWeight = siblings.reduce(
@@ -31,6 +62,24 @@ export function calcTreatmentCost(
   )
   const totalBatchWeight = myWeight + siblingsWeight
   const belowThreshold = t.minimum_weight_kg != null && t.minimum_weight_kg > 0 && totalBatchWeight < t.minimum_weight_kg
+
+  // Ramo €/dm³ (C2): trattamenti volumetrici tipo nitrurazione. Soglia
+  // comunque sul peso (capacità forno) come nel backend.
+  if ((t.cost_unit || 'kg') === 'dm3') {
+    const myVol = rawVolumeDm3(partDims) * Math.max(qty, 1)
+    const sibVol = siblings.reduce(
+      (s, x) => s + rawVolumeDm3(x) * Math.max(x.qty, 1),
+      0,
+    )
+    const batchV = myVol + sibVol
+    const totalBatchCost = belowThreshold
+      ? (t.minimum_cost || 0)
+      : (t.cost_per_dm3 || 0) * batchV
+    const partShare = batchV > 0 ? totalBatchCost * myVol / batchV : 0
+    return partShare / Math.max(qty, 1)
+  }
+
+  // Ramo €/kg (default): invariato.
   const totalBatchCost = belowThreshold
     ? (t.minimum_cost || 0)
     : (t.cost_per_kg || 0) * totalBatchWeight

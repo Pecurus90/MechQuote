@@ -145,7 +145,10 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
         }
         return
       }
-      const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1)
+      const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1, [], {
+        raw_x_mm: part.raw_x_mm, raw_y_mm: part.raw_y_mm,
+        raw_z_mm: part.raw_z_mm, raw_diameter_mm: part.raw_diameter_mm,
+      })
       const payload = {
         phase_type: '',  // legacy column NOT NULL — la fase trattamento è identificata da treatment_id
         description: t.name,
@@ -441,6 +444,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
             partRawZmm={part.raw_z_mm}
             partRawXmm={part.raw_x_mm ?? undefined}
             partRawYmm={part.raw_y_mm ?? undefined}
+            partRawDiameterMm={part.raw_diameter_mm ?? undefined}
             partDxfFileId={part.files?.find(f => f.file_type === 'dxf')?.id}
             partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
             onReload={onReload}

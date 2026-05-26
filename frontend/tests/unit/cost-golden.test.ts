@@ -172,7 +172,7 @@ describe('calcTreatmentCost €/kg', () => {
   }
 })
 
-// ─── calc_treatment_cost €/dm³ — divergenza #1 (C2 frontend) ─────────────
+// ─── calc_treatment_cost €/dm³ — C2 risolto ──────────────────────────────
 
 describe('calcTreatmentCost €/dm³', () => {
   for (const c of CASES.calc_treatment_cost_dm3) {
@@ -186,9 +186,18 @@ describe('calcTreatmentCost €/dm³', () => {
         minimum_weight_kg: c.input.minimum_weight_kg,
         minimum_cost: c.input.minimum_cost,
       } as any
-      // Il frontend ATTUALE non riceve part_volume_dm3 e ignora cost_unit:
-      // produce sempre 0 per €/dm³.
-      const result = calcTreatmentCost(t, c.input.finished_weight_kg, c.input.qty, c.input.siblings)
+      // Dimensioni del grezzo della parte: dal JSON. Il frontend calcola
+      // il volume del pezzo internamente (cilindro o prismatico) — stessa
+      // formula del backend.
+      const partDims = {
+        raw_x_mm: c.input.raw_x_mm ?? null,
+        raw_y_mm: c.input.raw_y_mm ?? null,
+        raw_z_mm: c.input.raw_z_mm ?? null,
+        raw_diameter_mm: c.input.raw_diameter_mm ?? null,
+      }
+      const result = calcTreatmentCost(
+        t, c.input.finished_weight_kg, c.input.qty, c.input.siblings, partDims,
+      )
       expect(Math.abs(result - c.expected_variable_cost_per_part)).toBeLessThan(EUR)
     })
   }

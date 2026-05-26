@@ -209,11 +209,11 @@
         "minimum_weight_kg": 50, "minimum_cost": 50,
         "finished_weight_kg": 1.0, "qty": 100,
         "part_volume_dm3": 0.1,
+        "raw_x_mm": 100, "raw_y_mm": 50, "raw_z_mm": 20,
+        "raw_diameter_mm": null,
         "siblings": []
       },
-      "expected_variable_cost_per_part": 0.20,
-      "expected_today_frontend": 0.0,
-      "fails_until_frontend": "C2"
+      "expected_variable_cost_per_part": 0.20
     },
     {
       "id": "M10",
@@ -227,8 +227,7 @@
         "raw_x_mm": null, "raw_y_mm": null,
         "siblings": []
       },
-      "expected_variable_cost_per_part": 0.3927,
-      "fails_until_frontend": "C2"
+      "expected_variable_cost_per_part": 0.3927
     }
   ],
 

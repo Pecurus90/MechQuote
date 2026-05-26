@@ -360,17 +360,14 @@
   "shipping_stock_share": [
     {
       "id": "M6",
-      "name": "BUG C3: 2 parti from_stock, stock_ship 20€, qty A=10 B=5. Backend corretto: A=1€/pz, B=2€/pz",
+      "name": "C3 RISOLTO: 2 parti from_stock, stock_ship 20€, qty A=10 B=5 → A=1€/pz, B=2€/pz",
       "input": {
         "stock_shipping_cost": 20,
         "n_from_stock": 2,
         "qty_A": 10, "qty_B": 5
       },
       "expected_delivery_per_piece_A": 1.00,
-      "expected_delivery_per_piece_B": 2.00,
-      "expected_today_frontend_A": 2.00,
-      "expected_today_frontend_B": 4.00,
-      "fails_until_frontend": "C3"
+      "expected_delivery_per_piece_B": 2.00
     }
   ],
 

@@ -87,8 +87,12 @@ export default function QuoteEditor() {
     setQuote(q => {
       if (!q) return q
       const nParts = q.parts.length || 1
-      const parts = q.parts.map((p, i) =>
-        i === idx ? calcPartTotals({ ...p, ...updates }, q.global_margin_percent, nParts) : p
+      // C3: spedizione magazzino spalmata sulle parti from_stock del preventivo
+      // (stessa condizione del backend: material_from_stock && !customer_supplied).
+      const merged = q.parts.map((p, i) => i === idx ? { ...p, ...updates } : p)
+      const nFromStock = merged.filter(p => p.material_from_stock && !p.customer_supplied_material).length
+      const parts = merged.map((p, i) =>
+        i === idx ? calcPartTotals(p, q.global_margin_percent, nParts, companySettings, nFromStock) : p
       )
       return { ...q, parts }
     })

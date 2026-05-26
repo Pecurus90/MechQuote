@@ -119,7 +119,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
   if (part.customer_supplied_material) {
     deliveryPerPiece = 0; cuttingPerPiece = 0; materialTotal = 0
   } else if (part.material_from_stock && companySettings) {
-    deliveryPerPiece = (companySettings.stock_shipping_cost || 0) / (part.quantity || 1)
+    // C3: stock_shipping spalmato su tutte le parti from_stock del preventivo.
+    // siblings non include self → conto self + siblings (stessa condizione del
+    // backend: material_from_stock && !customer_supplied_material).
+    const fromStockCount = 1 + siblings.filter(
+      s => s.material_from_stock && !s.customer_supplied_material
+    ).length
+    deliveryPerPiece = (companySettings.stock_shipping_cost || 0)
+      / Math.max(fromStockCount, 1) / (part.quantity || 1)
     cuttingPerPiece = companySettings.stock_cutting_cost_per_part || 0
     materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
   } else {

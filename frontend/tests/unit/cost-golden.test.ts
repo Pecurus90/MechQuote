@@ -21,7 +21,7 @@ import {
   calcPartTotals,
   calcQuoteTotal,
 } from '../../src/lib/quoteCalc'
-import type { Material, Treatment, Part, Quote } from '../../src/types'
+import type { Material, Treatment, Part, Quote, CompanySettings } from '../../src/types'
 
 // ─── Caricamento JSON ──────────────────────────────────────────────────────
 
@@ -203,20 +203,37 @@ describe('calcTreatmentCost €/dm³', () => {
   }
 })
 
-// ─── shipping_stock_share — divergenza C3 ────────────────────────────────
+// ─── shipping_stock_share — C3 risolto ───────────────────────────────────
 
-describe('shipping from stock — C3 frontend', () => {
+describe('shipping from stock — calcPartTotals', () => {
   for (const c of CASES.shipping_stock_share) {
     const failsUntil = c.fails_until_frontend
     const fn = failsUntil ? it.fails : it
     fn(`${c.id}: ${c.name}${failsUntil ? ` [xfail ${failsUntil}]` : ''}`, () => {
-      // Replica formula frontend ATTUALE (quoteCalc.ts:84): divide solo per qty
-      // Backend invece divide per n_from_stock × qty.
-      const deliveryFrontendA = (c.input.stock_shipping_cost || 0) / (c.input.qty_A || 1)
-      const deliveryFrontendB = (c.input.stock_shipping_cost || 0) / (c.input.qty_B || 1)
-      // I valori attesi sono quelli CORRETTI (backend): test fallisce oggi.
-      expect(Math.abs(deliveryFrontendA - c.expected_delivery_per_piece_A)).toBeLessThan(EUR)
-      expect(Math.abs(deliveryFrontendB - c.expected_delivery_per_piece_B)).toBeLessThan(EUR)
+      // Chiama il codice reale: due parti from_stock minimali, no margin,
+      // no minimum, no phases, no material_cost, no stock_cutting → il
+      // unit_price coincide col deliveryPerPiece (1 unità).
+      const cs: CompanySettings = {
+        stock_shipping_cost: c.input.stock_shipping_cost,
+        stock_cutting_cost_per_part: 0,
+      } as any
+      const partA: Part = {
+        quantity: c.input.qty_A, material_from_stock: true,
+        customer_supplied_material: false, material_cost: 0,
+        margin_percent: 0, minimum_price: 0, phases: [],
+      } as any
+      const partB: Part = {
+        quantity: c.input.qty_B, material_from_stock: true,
+        customer_supplied_material: false, material_cost: 0,
+        margin_percent: 0, minimum_price: 0, phases: [],
+      } as any
+      const nParts = 2
+      const nFromStock = c.input.n_from_stock
+      const resA = calcPartTotals(partA, 0, nParts, cs, nFromStock)
+      const resB = calcPartTotals(partB, 0, nParts, cs, nFromStock)
+      // Con tutti gli altri costi a 0 e margin 0, unit_price = deliveryPerPiece.
+      expect(Math.abs((resA.unit_price ?? 0) - c.expected_delivery_per_piece_A)).toBeLessThan(EUR)
+      expect(Math.abs((resB.unit_price ?? 0) - c.expected_delivery_per_piece_B)).toBeLessThan(EUR)
     })
   }
 })

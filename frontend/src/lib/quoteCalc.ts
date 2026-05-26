@@ -118,6 +118,7 @@ export function calcPartTotals(
   globalMargin: number,
   nParts = 1,
   companySettings?: CompanySettings | null,
+  nFromStock = 1,
 ): Part {
   void nParts // reserved for future shared-phase recalc; kept for API parity with backend
   const phaseTotal = part.phases.reduce((s, p) => s + (p.calculated_cost || 0), 0)
@@ -130,7 +131,11 @@ export function calcPartTotals(
     materialCost = 0; deliveryPerPiece = 0; cuttingPerPiece = 0
   } else if (part.material_from_stock && companySettings) {
     materialCost = part.material_cost || 0
-    deliveryPerPiece = (companySettings.stock_shipping_cost || 0) / (part.quantity || 1)
+    // C3: lo stock_shipping_cost è 1 prelievo dal magazzino, distribuito
+    // tra le parti from_stock del preventivo (Math.max(nFromStock,1) per
+    // restare neutri sul caso single quote / 1 sola parte).
+    deliveryPerPiece = (companySettings.stock_shipping_cost || 0)
+      / Math.max(nFromStock, 1) / (part.quantity || 1)
     cuttingPerPiece = companySettings.stock_cutting_cost_per_part || 0
   } else {
     materialCost = part.material_cost || 0

@@ -396,14 +396,12 @@
     },
     {
       "id": "D2",
-      "name": "BUG C5: stesso DXF in pollici → atteso × 25.4 dopo conversione",
+      "name": "C5 RISOLTO: stesso DXF in pollici → coordinate × 25.4 in mm",
       "input": { "file": "simple_inch.dxf" },
       "expected_units": "mm",
       "expected_n_closed": 2,
       "expected_total_length_mm": 9070.0,
-      "expected_today_total_length_mm": 357.086,
-      "tolerance_mm": 2.0,
-      "fails_until": "C5"
+      "tolerance_mm": 2.0
     },
     {
       "id": "D3",

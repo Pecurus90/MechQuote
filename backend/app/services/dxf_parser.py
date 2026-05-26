@@ -14,7 +14,7 @@ import math
 import logging
 
 from ezdxf import recover
-from ezdxf.math import Vec3
+from ezdxf.math import Vec3, Matrix44
 from ezdxf.path import make_path, Path
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,34 @@ LENGTH_FLATTEN_TOL = 0.01
 # parsing fallisce esplicitamente. Valore alto rispetto a un disegno tecnico
 # normale (un complesso layout non supera ~5000 entità).
 MAX_ENTITIES = 50_000
+
+# Conversione $INSUNITS → (fattore × → mm, nome unità).
+# Fattori derivati da definizioni standard:
+#  - sistema metrico decimale (cm/dm/m)
+#  - pollice ISO 1959: 1 in = 25.4 mm esatti
+#  - piede = 12 in; mil = 10⁻³ in; microinch = 10⁻⁶ in
+# Solo le unità realistiche per un disegno meccanico. Le altre (miglia,
+# anni luce, US Survey, ...) → fattore 1.0 + warning "non supportata".
+_INSUNITS_TO_MM = {
+    0: (1.0,    'unitless'),     # nessuna unità dichiarata → assumi mm
+    1: (25.4,   'in'),           # pollici
+    2: (304.8,  'ft'),           # piedi (12 in)
+    4: (1.0,    'mm'),           # millimetri (no-op)
+    5: (10.0,   'cm'),           # centimetri
+    6: (1000.0, 'm'),            # metri
+    8: (2.54e-5, 'microinch'),   # 10⁻⁶ in
+    9: (0.0254, 'mil'),          # 10⁻³ in
+    14: (100.0, 'dm'),           # decimetri
+}
+
+
+def _unit_scale_factor(insunits: int) -> Tuple[float, str]:
+    """Ritorna (fattore × → mm, nome unità sorgente).
+    Codice non in tabella → (1.0, 'unsupported'): il parser lascia le
+    coordinate nelle unità del file e segnala warning. Cfr. tabella
+    _INSUNITS_TO_MM sopra per la lista delle unità riconosciute.
+    """
+    return _INSUNITS_TO_MM.get(insunits, (1.0, 'unsupported'))
 
 
 # ─── helper geometrici ──────────────────────────────────────────────────────
@@ -235,6 +263,27 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
         skipped_summary = ', '.join(f'{k}×{v}' for k, v in skipped.items())
         warnings.append(f"Entità ignorate: {skipped_summary}")
 
+    # C5 — Conversione unità DXF → mm (una sola volta, in ingresso al pipeline).
+    # Dopo questo punto tutto il pipeline (stitching, length, bbox, svg) lavora
+    # su Path in mm. La tolleranza di stitching (DEFAULT_TOLERANCE=0.01 mm) è
+    # già nelle unità giuste.
+    insunits = doc.header.get('$INSUNITS', 0)
+    factor, source_units = _unit_scale_factor(insunits)
+    if factor != 1.0:
+        m = Matrix44.scale(factor)
+        paths = [p.transform(m) for p in paths]
+        warnings.append(
+            f"Disegno DXF in '{source_units}': coordinate convertite × {factor:g} in mm."
+        )
+    elif source_units == 'unitless':
+        warnings.append(
+            "DXF senza unità dichiarate ($INSUNITS=0): assunti millimetri. Verificare scala."
+        )
+    elif source_units == 'unsupported':
+        warnings.append(
+            f"Unità DXF ($INSUNITS={insunits}) non supportata: coordinate non convertite. Verificare scala."
+        )
+
     profiles = _stitch(paths, tolerance)
 
     # bbox globale unione
@@ -251,12 +300,10 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     n_closed = sum(1 for p in profiles if p['closed'])
     total_length = round(sum(p['length_mm'] for p in profiles), 3)
 
-    # Unità DXF — header $INSUNITS: 0=unitless, 1=inch, 4=mm, ...
-    insunits = doc.header.get('$INSUNITS', 0)
-    units_map = {0: 'unitless', 1: 'in', 4: 'mm', 5: 'cm', 6: 'm'}
-    units = units_map.get(insunits, f'code-{insunits}')
-    if units not in ('mm', 'unitless'):
-        warnings.append(f"Unità DXF: {units}. I valori NON sono convertiti in mm — verifica scala.")
+    # `units` riflette le unità in cui sono le coordinate restituite (post-C5,
+    # sempre 'mm' tranne che per codici $INSUNITS non supportati, dove i valori
+    # restano nelle unità del file e il warning sopra lo segnala).
+    units = 'mm' if source_units != 'unsupported' else f'code-{insunits}'
 
     return {
         'profiles': profiles,

@@ -110,6 +110,99 @@ L'anteprima a schermo e il calcolo vero del server divergono in più punti
 cambia. Vanno corretti i punti di divergenza perché l'anteprima sia
 affidabile. *Stima: media.*
 
+**Stato avanzamento (B2)**:
+- ✅ **#2** — Costo trattamento a 0 quando manca il peso (fatto).
+- ✅ **#3** — Fallback densità e costo/kg mancanti → 0 invece di "NaN €" (fatto).
+- ✅ **#6** — `calcQuoteTotal` ora gestisce anche i preventivi stampo +
+  rimossa funzione morta `calcShippingShare` (fatto).
+- ⏳ **#1** — Trattamenti calcolati a volume (€/dm³): l'anteprima non li
+  gestisce ancora — **in corso**.
+- ⏸ **#4** — Anteprima spedizione "stantia" tra una modifica e la
+  successiva in preventivi commessa con stesso fornitore (da fare; richiede
+  decisione di prodotto sulla strategia: replicare logica frontend, accettare
+  stantitezza con avviso, o endpoint preview server-side).
+- ⏸ **#5** — Arrotondamento "banker's" del backend vs "half-away" del
+  frontend: differenze massime di 1 centesimo (da fare; richiede decisione
+  contabile dell'azienda).
+- ⏸ **#7** — **Materiale da magazzino in commessa**: la spedizione da
+  magazzino è divisa diversamente tra backend e frontend (il backend
+  divide per il numero di parti da magazzino, il frontend no). In un
+  preventivo commessa con più parti da magazzino l'anteprima mostra la
+  spedizione **raddoppiata** (o moltiplicata per il numero di parti).
+  Trovata nella ricognizione del motore manuale. Da allineare il frontend
+  al backend.
+- ⏸ **#8** — **Doppio arrotondamento di `total_price`**: `unit_price`
+  viene arrotondato a 2 decimali e poi rimoltiplicato per la quantità.
+  Su preventivi con quantità alte accumula uno scarto fino a qualche euro
+  sul prezzo finale. **Presente in modo identico in backend e frontend**:
+  non è una divergenza ma un errore di calcolo da correggere in entrambi
+  (formula corretta: arrotondare `total_price` direttamente dal
+  `base × (1+margine) × qty`, senza passare per `unit_price` già
+  arrotondato).
+
+**Nota collegata (fuori da B2, da correggere nel backend)**:
+**Pezzi tondi + trattamento a volume (€/dm³)** — confermato dalla
+ricognizione: il backend calcola il volume come `raw_x × raw_y × raw_z`
+anche per i pezzi cilindrici, producendo 0 (perché raw_x/raw_y sono NULL
+sui tondi). I tondi vengono prezzati a 0 € sul trattamento. Già tracciato
+nella sezione "Decisioni di prodotto → P1" come parte della discussione
+sulla modellazione trattamenti/rivestimenti. Da correggere nel backend
+indipendentemente da P1: la formula del cilindro esiste già in
+`_raw_weight_kg` e `_compute_material_cost`, va replicata nei due punti
+del ramo trattamento €/dm³ (`calculation.py:302-306` e `:412-415`).
+
+**Voci emerse dalla ricognizione del wizard 2D (creazione preventivi
+DXF)**: il 2D dopo la creazione passa per lo stesso motore del manuale,
+quindi eredita tutti i bug B2-#1..#8 sopra. In più ha 2 problemi propri:
+
+- ⏸ **#9** — **Unità DXF non convertite**: se un disegno DXF è in pollici
+  (o altra unità diversa dai mm), MechQuote non se ne accorge e tratta
+  le misure come millimetri → il prezzo del taglio risulta **circa 25
+  volte sbagliato** (fattore di conversione pollici→mm = 25,4). Il file
+  DXF contiene già il dato dell'unità (`$INSUNITS`) e il parser lo legge
+  (`backend/app/services/dxf_parser.py:254-259`), ma oggi emette solo un
+  *warning testuale* senza convertire. La correzione è far convertire
+  automaticamente le misure leggendo `$INSUNITS`, **non** aggiungere un
+  controllo manuale.
+
+- ⏸ **#10** — **Forma del pezzo nel wizard 2D**: il wizard modella sempre
+  il grezzo come rettangolo (`raw_x × raw_y × raw_z`). Per i pezzi
+  tagliati al filo questo è corretto **solo quando** il materiale di
+  partenza si compra a piastra rettangolare; ma non è sempre così (a
+  volte il grezzo è tondo). Quando il materiale di partenza è tondo, il
+  costo materiale risulta sovrastimato (su un disco Ø 100 × 20 mm la
+  sovrastima è ~27%). Da rendere selezionabile la forma del grezzo nel
+  wizard 2D, come già avviene nel preventivatore manuale (campo
+  `raw_diameter_mm` esiste sul modello `Part` ma il wizard 2D non lo
+  popola — `Dxf2dWizard.tsx:312-319`).
+
+**Minori collegati al wizard 2D** (gravità media/bassa, registrati per
+non essere dimenticati):
+
+- **Tempo foratura del 2D mai ricalcolato dal backend dopo la creazione**:
+  `cycle_hours_per_part` della fase Foratura è calcolato solo lato
+  frontend al submit (`Dxf2dWizard.tsx:368`) e salvato. Se l'utente
+  cambia in seguito l'altezza pezzo o se la tabella `DrillingTime`
+  viene aggiornata, le ore restano congelate. Asimmetria col modulo
+  stampi, che invece le ricalcola.
+
+- **Autocalc EDM che restituisce 0 in silenzio**: se in `EdmCutSpeed`
+  manca la riga per (famiglia, spessore) richiesto,
+  `_compute_edm_hours_pure` ritorna `None` → `cycle_hours_per_part`
+  resta 0 → la fase EDM costa 0 €. Il wizard 2D mostra un toast
+  warning (`Dxf2dWizard.tsx:351-354`) ma il preventivo viene salvato
+  comunque. Stessa cosa per la fase Foratura: se la tabella è incompleta
+  la fase non viene proprio creata (`Dxf2dWizard.tsx:357-374`) — toast
+  warning ma nessun blocco. Da rendere bloccante o almeno più visibile.
+
+- **Validazione mancante: grezzo più piccolo del disegno**: nel wizard 2D
+  i campi `raw_x_mm` e `raw_y_mm` sono editabili e non c'è check di
+  coerenza con il bbox dei profili selezionati. Il viewer mostra un
+  overlay rosso visivo ma il submit non lo blocca: un grezzo dichiarato
+  più piccolo del taglio richiesto sottostima il costo materiale e
+  passa al salvataggio senza errore (`Dxf2dWizard.tsx:245-282`,
+  `validate()`).
+
 ### B3 — Test automatici sui punti che fanno male
 Esiste già una base di 48 test che passano. Mancano in due punti precisi:
 **login/permessi** (la parte sicurezza non ha rete di sicurezza) e un **test
@@ -192,11 +285,51 @@ del Blocco B:
 
 ---
 
+## ░░░ DECISIONI DI PRODOTTO ░░░
+
+Cose che **non sono bug** del codice, ma rappresentazioni del dominio che
+vanno discusse e potenzialmente riviste con l'officina. Sono "P" (prodotto),
+distinte dalle "D" (domande operative all'azienda) e dalle voci A/B/C
+(lavori di codice). Da affrontare **dopo il Blocco B**: prima si chiude
+la messa in sicurezza, poi si rivedono le modellazioni.
+
+### P1 — Separare Trattamenti e Rivestimenti
+Nell'officina sono due famiglie distinte: **trattamenti termici** pagati a
+**peso** (kg) e **rivestimenti** pagati a **volume** (dm³), con fornitori
+diversi. MechQuote oggi li tiene in un'unica categoria "Trattamenti", con
+un flag `cost_unit = 'kg' | 'dm3'` che switcha la formula del costo.
+
+Non è un bug — il calcolo funziona — ma è una rappresentazione poco fedele:
+**due famiglie con dinamiche e fornitori diversi sono fuse in una sola
+voce di catalogo**. L'UX risulta meno chiara per chi compila il preventivo,
+i report aggregati per "trattamento" mescolano cose diverse, e il campo
+`cost_per_dm3` su un "trattamento" può essere fuorviante per chi pensa
+all'asportazione truciolo (concetto **non** presente nel codice).
+
+**Da verificare prima con l'officina**: i rivestimenti vanno **davvero a
+dm³** o vanno a **superficie** (dm²)? Nel database SQLite esiste una colonna
+**legacy** `cost_per_surface_area` sul modello `Treatment` — mappata in
+passato, mai più letta dal cost engine — che suggerisce un modello "per
+superficie" considerato e poi accantonato. Se i rivestimenti reali vanno a
+superficie, l'attuale `cost_per_dm3` è una semplificazione che approssima
+ma non rappresenta il prezzo vero del fornitore.
+
+**Esito atteso**: una decisione su come modellare in MechQuote i due mondi
+(due tabelle separate? una sola con tipologia? formula a superficie per i
+rivestimenti?). Decisione di prodotto da affrontare **dopo il Blocco B**.
+
+---
+
 ## ░░░ IDEE PER IL FUTURO (non pianificate) ░░░
 
 - IVA opzionale attivabile dalle impostazioni (oggi i preventivi sono al netto;
   questa funzione andrebbe costruita da zero).
 - Spostare la cartella `PRV/` (vecchio sito) fuori dal progetto.
+- **Interruttore manuale mm/pollici nel wizard 2D** come rete di sicurezza
+  per i rari disegni che non dichiarano l'unità di misura (`$INSUNITS = 0`
+  "unitless"). Complementare alla conversione automatica di B2-#9: quando
+  l'unità è dichiarata MechQuote la converte da sola; quando non lo è,
+  l'utente deve poter scegliere a mano prima del calcolo.
 - Audit UX — dopo qualche settimana di uso reale.
 - Aggiornare esbuild/vite (rischio solo sul PC di sviluppo, costo alto: per ora
   non conviene).

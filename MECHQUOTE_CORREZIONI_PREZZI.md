@@ -1,0 +1,289 @@
+# MechQuote — Correzioni Prezzi
+
+> Lista ordinata di tutto quanto emerso dalle tre ricognizioni sui
+> preventivatori (manuale, 2D da DXF, stampi). Tre fasce di priorità.
+>
+> **Metodo di lavoro**: si parte da **T0** (costruire la rete di test sul
+> calcolo prezzi). Poi si affrontano le voci della **Fascia 1** una alla
+> volta, con verifica numerica e commit separato per ognuna. La Fascia 2
+> dopo la Fascia 1, una alla volta. La Fascia 3 contiene voci che
+> richiedono prima una decisione dell'azienda o che hanno impatto minore.
+>
+> I numeri di riga indicati nei file sono approssimativi (`~`) perché
+> tendono a slittare dopo ogni modifica. Il riferimento autoritativo
+> resta il nome della funzione + il significato semantico.
+
+---
+
+## T0 — Rete di test sul calcolo prezzi (PREREQUISITO)
+
+Prima di toccare le 7 voci della Fascia 1: costruire una **suite di test
+"a casi d'oro"** che verifichi i risultati attesi del cost engine per il
+preventivatore manuale e per gli stampi, **più un test di parità** che
+confronti backend e frontend sugli stessi input.
+
+Scopo: ogni correzione successiva si verifica facendo girare la suite, e
+se qualcosa si rompe inavvertitamente la suite se ne accorge.
+
+Dettaglio: vedi piano operativo concordato a parte (non ancora scritto in
+questo documento; documenteremo qui il risultato finale dopo l'esecuzione).
+
+---
+
+## ░░░ FASCIA 1 — Errori di prezzo veri (priorità alta) ░░░
+
+Sette voci. Sono gli errori che oggi producono **un prezzo sbagliato sul
+PDF cliente** o sull'anteprima visibile. Ognuno si affronta da solo, con
+verifica T0 prima e dopo, e commit dedicato.
+
+### C1 — Trattamento a volume sui pezzi tondi
+
+**Problema**: il server calcola il volume del pezzo per i trattamenti
+`€/dm³` come `raw_x × raw_y × raw_z`. Per i pezzi cilindrici
+(`raw_diameter_mm` valorizzato, raw_x e raw_y NULL), il volume risulta
+**0** → il trattamento costa **0 €** in entrambi i preventivatori. Se nel
+batch ci sono pezzi misti (tondi + prismatici), i tondi viaggiano gratis
+e i prismatici si beccano tutto il costo.
+
+**Dove sta**: `backend/app/services/calculation.py:302-306`
+(pre-aggregazione del batch volume) e `~412-415` (volume del pezzo per la
+quota). La formula del cilindro esiste già altrove (`_raw_weight_kg`,
+`_compute_material_cost`): va replicata nei due punti del ramo
+trattamento €/dm³.
+
+**Esempio numerico**: tondo Ø 50 × 100 mm, trattamento nitrurazione
+2 €/dm³, qty 100.
+- Volume reale: π × 25² × 100 / 1.000.000 × 100 = 19,6 dm³ → 39,20 €.
+- Volume oggi: 0 × 0 × 100 / 1.000.000 × 100 = 0 dm³ → **0 €**.
+
+**Rischio**: per chi lavora tondi con rivestimento/nitrurazione, l'intera
+voce trattamento è azzerata in silenzio.
+
+---
+
+### C2 — Trattamento a volume ignorato dall'anteprima
+
+**Problema**: l'anteprima `calcTreatmentCost` del frontend ignora del
+tutto `cost_unit='dm3'` e usa sempre `cost_per_kg`. Per un trattamento a
+volume mostra **0 €** a video; il prezzo vero appare solo dopo il
+salvataggio.
+
+**Dove sta**: `frontend/src/lib/quoteCalc.ts` (`calcTreatmentCost`).
+
+**Da fare DOPO C1**: ha senso allineare l'anteprima solo quando il
+backend è già corretto sui pezzi tondi; altrimenti l'anteprima
+replicherebbe il bug del backend.
+
+**Rischio**: l'anteprima diverge dal prezzo finale ogni volta che c'è un
+trattamento a volume.
+
+---
+
+### C3 — Materiale da magazzino in commessa: spedizione raddoppiata in anteprima
+
+**Problema**: nel calcolo della spedizione "da magazzino" il backend
+divide per il numero di parti from-stock **e** per la quantità; il
+frontend divide solo per la quantità. In un preventivo commessa con più
+parti da magazzino, l'anteprima mostra la spedizione moltiplicata per il
+numero di parti.
+
+**Dove sta**: `backend/app/services/calculation.py:~346-348` vs
+`frontend/src/lib/quoteCalc.ts:~84`.
+
+**Esempio numerico**: 2 parti da magazzino, `stock_shipping_cost = 20 €`,
+qty A=10, qty B=5.
+- Backend: A riceve 1 €/pezzo, B 2 €/pezzo.
+- Frontend (oggi): A vede 2 €/pezzo, B 4 €/pezzo (×2 il giusto).
+
+**Rischio**: in preventivi commessa con materiale a magazzino l'anteprima
+inganna; al salvataggio il prezzo scende e l'utente non sa quale fidare.
+
+---
+
+### C4 — Doppio arrotondamento del prezzo totale
+
+**Problema**: `total_price = round(unit_price × qty, 2)` su un
+`unit_price` già arrotondato a 2 decimali. Su quantità alte accumula uno
+scarto fino a **qualche euro** sul prezzo finale. Presente in modo
+identico in backend e frontend — non è una divergenza ma un errore
+allineato in entrambi.
+
+**Dove sta**: `backend/app/services/calculation.py:~483-484` e
+`frontend/src/lib/quoteCalc.ts` (in `calcPartTotals`).
+
+**Esempio numerico**: costo 0,985 €, margine 0%, qty 100.
+- Matematicamente: 0,985 × 100 = **98,50 €**.
+- Oggi: round(0,985, 2) = 0,98 → 0,98 × 100 = **98,00 €**.
+- Scarto: 0,50 € per 100 pezzi → si moltiplica con quantità maggiori.
+
+**Correzione**: arrotondare `total_price` direttamente da
+`max(cost, min) × (1 + margine/100) × qty`, senza passare per
+`unit_price` già arrotondato.
+
+**Rischio**: su preventivi a quantità alta (1000+ pezzi) il prezzo
+finale può discostarsi di qualche euro dal calcolo corretto.
+
+---
+
+### C5 — Unità DXF non convertite
+
+**Problema**: il parser DXF legge `$INSUNITS` (codice di unità nel file
+DXF) e **emette un warning testuale** se è diverso da mm, ma **non
+converte** le coordinate. Un disegno in pollici (codice 1) viene trattato
+come mm → prezzo del taglio EDM **circa 25 volte sbagliato**
+(fattore 25,4).
+
+**Dove sta**: `backend/app/services/dxf_parser.py:~254-259`. La
+correzione corretta è far **convertire automaticamente** le coordinate
+leggendo `$INSUNITS`, non aggiungere un controllo manuale. Come rete di
+sicurezza per i rari file `unitless` (codice 0) si valuta poi un
+interruttore mm/pollici nel wizard (idea futura).
+
+**Rischio**: prezzi catastroficamente sbagliati su qualsiasi disegno non
+nativo in mm (file americani, file di certi CAD, file generati con
+unità diverse).
+
+---
+
+### C6 — Tariffa foratura stampi usa la tariffa fresatura
+
+**Problema**: la tariffa "foratura piastre" nel modulo stampi ha come
+fallback `hourly_rate_milling` (tariffa fresatura) invece di una
+`hourly_rate_drilling`. La colonna `hourly_rate_drilling` **non esiste
+proprio** sul modello `DieSettings`. Identico errore in backend e
+frontend (allineato).
+
+**Dove sta**: `backend/app/services/calculation.py:~756`,
+`frontend/src/pages/DieQuoteEditor.tsx:~159`,
+`backend/app/models.py:~940-943`.
+
+**Workaround attuale**: l'utente DEVE agganciare una
+`drilling_machine_id` esplicita per usare una tariffa di foratura
+distinta. Se lascia il campo NULL → la foratura piastre costa come la
+fresatura piastre.
+
+**Esempio numerico**: officina con tariffa fresatura 45 €/h e foratura
+30 €/h. Senza machine aggancio, la foratura nei calcoli stampo costa
+45 €/h. Su 5 ore di foratura per piastra: +75 € rispetto al corretto.
+
+**Correzione**: aggiungere la colonna `hourly_rate_drilling` (es. default
+40 €/h) a `DieSettings` con la sua migration, e correggere il fallback
+in entrambi i lati.
+
+**Rischio**: prezzo lavorazione piastre stampo sovrastimato (se
+fresatura > foratura) o sottostimato (se fresatura < foratura), in
+proporzione alla differenza fra le due tariffe.
+
+---
+
+### C7 — Perimetro sagome tonde stampi sovrastimato del ~53%
+
+**Problema**: se l'utente non valorizza `perimeter_pezzo_mm` (campo
+opzionale), il fallback è `2*(bbox_x + bbox_y) × complexity_factor`. Per
+una sagoma tonda (es. disco Ø 100 mm: bbox = 100×100):
+- Perimetro reale = π × 100 ≈ 314 mm.
+- Fallback oggi = 2 × 200 × 1,2 = **480 mm** → sovrastima del **53%**.
+
+Tutto il calcolo ore EDM e i "metri extra punzoni" dipendono da questo
+perimetro, quindi il costo EDM stampo è sovrastimato del 53%.
+
+**Dove sta**: `backend/app/services/calculation.py:~620-628`
+(`_estimate_die_perimeter`).
+
+**Correzione**: introdurre un selettore di "forma sagoma" (rettangolare /
+tonda / personalizzata) e applicare la formula adatta, oppure invitare
+l'utente a compilare sempre `perimeter_pezzo_mm` con valore reale.
+
+**Rischio**: stampi per pezzi tondi/circolari (dischi, rondelle,
+flange) quotati molto più cari del dovuto.
+
+---
+
+## ░░░ FASCIA 2 — Fragilità medie ░░░
+
+Voci che producono comportamenti opachi, anteprime stantie o calcoli
+silenziosamente zero. Non causano un errore di prezzo "ogni volta", ma
+in scenari specifici sì.
+
+- **Anteprime stantie su spedizione materiale e trattamento**: il
+  frontend usa i valori salvati nel DB, non ricalcola live. Tra una
+  modifica e l'altra l'anteprima è "vecchia"; si allinea al primo
+  salvataggio. (B2-#4 e affini.)
+- **Calcoli che mettono 0 in silenzio quando manca un dato**:
+  - Autocalc EDM (manuale + 2D): se manca la riga `EdmCutSpeed` per
+    (famiglia, spessore), `cycle_hours_per_part = 0` senza warning
+    bloccante.
+  - Lookup tempo foratura nel wizard 2D: se manca la riga
+    `DrillingTime`, la fase Foratura non viene proprio creata.
+  - L3 EDM stampi: piastre senza family o senza cycle vengono
+    silenziosamente saltate (`hours_by_plate[plate.id]` non popolato).
+  - L4 accessori stampi: se `difficulty` non è valido o
+    `design_hourly_rate` è NULL, intere voci vanno a 0 senza warning.
+  - L1 piastre stampi: Part senza `plate_role` valorizzato non vengono
+    sommate, ma restano visibili nell'editor.
+- **Forma del pezzo non selezionabile nel wizard 2D**: il grezzo è
+  sempre modellato come parallelepipedo, anche per pezzi nati da barre
+  tonde. Sovrastima costo materiale ~27% sui dischi (vedi B2-#10 in
+  lista lavori).
+- **Tempo foratura 2D non ricalcolato dal server**: una volta creato
+  il preventivo, modifiche all'altezza pezzo o alla tabella
+  `DrillingTime` non aggiornano il tempo foratura. Resta "congelato".
+- **Validazione grezzo mancante nel wizard 2D**: si può salvare un
+  grezzo più piccolo del bbox profili senza che nulla blocchi.
+- **Arrotondamento costo materiale troppo presto**: `_compute_material_cost`
+  arrotonda a 2 decimali prima che il valore entri in `total_cost` (a
+  4 decimali). Perde precisione, marginale.
+- **Default silenziosi negli stampi**: `_PLATE_ROLE_DEFAULTS`
+  (`calculation.py:~539-545`) sostituisce snapshot Part NULL con valori
+  hardcoded senza segnalarlo all'utente.
+- **Backend riscrive override manuali su fasi trattamento**: ogni
+  `recalculate_quote` sovrascrive `variable_cost_per_part` e
+  `fixed_cost` delle fasi con trattamento. Se l'utente cerca di
+  forzarli a mano, perde la modifica.
+
+---
+
+## ░░░ FASCIA 3 — Domande all'azienda e minori ░░░
+
+Voci che richiedono una **decisione di prodotto** prima dell'intervento
+tecnico, o che hanno impatto basso.
+
+**Da chiarire con l'azienda**:
+- **Sconto sotto il prezzo minimo**: oggi lo sconto a livello preventivo
+  può portare il totale sotto la somma dei "prezzi minimi" delle parti.
+  Il prezzo minimo è invalicabile o un punto di partenza? (Domanda D1
+  nella lista lavori.)
+- **Sconto su trasporto/imballaggio**: oggi lo sconto si applica anche a
+  queste voci. Va corretto a "trasporto vivo, non scontabile"? (D2.)
+- **Arrotondamento contabile**: oggi backend usa "banker's rounding"
+  (0,005 → 0,00), frontend usa "half-away-from-zero" (0,005 → 0,01).
+  Differenze massime di 1 centesimo. Decisione dell'amministrazione su
+  quale convenzione adottare ovunque. (B2-#5.)
+
+**Minori**:
+- **Tariffa "station bonus" stampi**: usa la tariffa fresatura. Da
+  verificare con l'officina se è semanticamente corretto.
+- **Limiti mancanti su `n_bends_*` / `n_punches_*`**: nessun massimo
+  Pydantic. Errore di battitura ("100 pieghe" invece di "10") porta L4
+  a sovrastimare. Da aggiungere `le=...` ragionevole.
+- **Override matita negativi**: nessun vincolo Pydantic verificato sui 4
+  `override_*` di DieSpec. Da verificare e bloccare se necessario.
+- **L2 spedizione "tutto o niente"**: anche un item con `quantity = 0`
+  ma `supplier_id` valorizzato aggiunge l'intera spedizione. Voluto?
+- **L6 margine moltiplica gli override matita "alti"**: l'override
+  matita "tutela rischio" viene poi moltiplicato dal margine
+  percentuale. Comunicare meglio nell'UI.
+- **Fallback cycle_id "primo attivo"**: ordine potenzialmente diverso
+  tra backend (`order by id`) e frontend (`find` su array in ordine
+  arbitrario). Caso edge.
+- **`cost_industrial` salvato al netto di margine/sconto**: report SQL
+  diretti sul DB non corrispondono ai PDF clienti. Da gestire a livello
+  di dashboard/export, non di cost engine.
+
+---
+
+## Storico delle correzioni applicate
+
+Vuoto al momento. Si compilerà man mano che le voci della Fascia 1
+verranno completate, ognuna con: data, commit hash, esito test T0
+prima/dopo.

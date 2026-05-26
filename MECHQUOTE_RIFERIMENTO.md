@@ -156,6 +156,18 @@ fatti restano "congelati" come erano. È un comportamento corretto e voluto.
 3. Un valore del modulo stampi è salvato nel database "al lordo" di margine e
    sconto: report estratti dal database non corrisponderebbero ai PDF.
 
+### Trattamenti e rivestimenti — modellazione da rivedere (rimando a P1)
+
+Nell'officina **trattamenti termici** (pagati a peso, kg) e **rivestimenti**
+(pagati a volume, dm³) sono due famiglie distinte, con fornitori diversi.
+MechQuote oggi li tiene in **un'unica categoria** "Trattamenti" con un flag
+`cost_unit = 'kg' | 'dm3'`. **[verificato nel codice]** Il calcolo funziona,
+ma la rappresentazione mescola due mondi: catalogo, UX e report aggregati ne
+risentono. Inoltre va verificato con l'officina se i rivestimenti vadano
+davvero a dm³ o a **superficie** (una colonna legacy `cost_per_surface_area`
+nel modello DB lo suggerisce). Vedi **lista lavori → Decisioni di prodotto
+→ P1** — non è un lavoro di codice immediato, da affrontare dopo il Blocco B.
+
 ### Le due "calcolatrici" — fragilità nota
 
 MechQuote calcola i prezzi in **due punti**: il *server* (calcolo vero, quello

@@ -120,9 +120,11 @@ def test_material_cost_round(case, db_session):
 
 @pytest.mark.parametrize("case", CASES['calc_part_totals'], ids=lambda c: c['id'])
 def test_part_totals(case):
-    """Replica la formula di `recalculate_quote` per total_cost / unit_price /
-    total_price, in modo isolato (senza ORM). Verifica che il valore atteso
-    corrisponda alla formula 'corretta' (post-C4 per il caso M2)."""
+    """Verifica la formula di `recalculate_quote` per total_cost / unit_price /
+    total_price (post-C4). base a piena precisione, unit_price a 4 decimali,
+    total_price arrotondato a 2 dal valore esatto (NON da unit_price già
+    arrotondato).
+    """
     _xfail_if_known_bug(case)
     inp = case['input']
     total_cost = round(
@@ -130,15 +132,14 @@ def test_part_totals(case):
         + (inp['cutting_per_piece'] or 0) + (inp['phase_total'] or 0),
         4,
     )
-    base = max(total_cost, inp['minimum_price'] or 0)
-    # Formula CORRETTA post-C4: round diretto da base × (1+margin) × qty
-    # OGGI: prima arrotonda unit_price, poi rimoltiplica per qty (bug C4).
     qty = inp['quantity']
     margin = inp['margin_percent']
-    # Implementazione attuale del backend (riproduce il bug C4):
-    unit_price_today = round(base * (1 + margin / 100), 2)
-    total_price_today = round(unit_price_today * qty, 2)
-    assert abs(total_price_today - case['expected_total_price']) < EUR
+    base = max(total_cost, inp['minimum_price'] or 0) * (1 + margin / 100)
+    unit_price = round(base, 4)
+    total_price = round(base * qty, 2)
+    assert abs(total_price - case['expected_total_price']) < EUR
+    if 'expected_unit_price' in case:
+        assert abs(unit_price - case['expected_unit_price']) < EUR
 
 
 # ─── calc_quote_total ───────────────────────────────────────────────────────

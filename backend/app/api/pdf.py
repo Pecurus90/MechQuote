@@ -77,6 +77,19 @@ def _fmt_eur(value: float, decimals: int = 2) -> str:
     return s.replace(",", "§").replace(".", ",").replace("§", ".")
 
 
+def _fmt_eur_unit(value: float) -> str:
+    """Formatta un prezzo unitario: minimo 2 decimali, fino a 4, taglia gli
+    zeri finali oltre il 2° decimale. Stile IT (virgola decimale).
+    Gemello DRY di `fmtUnitPrice` (frontend/src/lib/utils.ts).
+    """
+    if value is None:
+        value = 0.0
+    s = f"{value:,.4f}"
+    import re
+    s = re.sub(r"(\.\d{2})(\d*?)0+$", r"\1\2", s)
+    return s.replace(",", "§").replace(".", ",").replace("§", ".")
+
+
 def _fmt_date_it(d) -> str:
     """Formatta date come '08 mag 2026'. None → '—'."""
     if not d:
@@ -651,7 +664,7 @@ def _render_part_pricing(part: Part, quote: Quote, cur: str) -> str:
   <div class="pricing-box">
     <div class="pricing-row"><span>Costo/pz</span><span class="val">{_fmt_eur(part.total_cost or 0)} {cur}</span></div>
     <div class="pricing-row"><span>Margine</span><span class="val">{margin:.0f}%</span></div>
-    <div class="pricing-row"><span>Prezzo unitario</span><span class="val">{_fmt_eur(part.unit_price or 0)} {cur}</span></div>
+    <div class="pricing-row"><span>Prezzo unitario</span><span class="val">{_fmt_eur_unit(part.unit_price or 0)} {cur}</span></div>
     <div class="pricing-sep"></div>
     <div class="pricing-final">
       <span class="lbl">Totale × {qty} pz</span>

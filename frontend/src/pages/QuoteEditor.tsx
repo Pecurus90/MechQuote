@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
+import { fmtUnitPrice } from '@/lib/utils'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import api, { getApiErrorDetail } from '@/lib/api'
@@ -409,7 +410,7 @@ export default function QuoteEditor() {
                         <td className="p-3 text-gray-600 truncate max-w-48">{part.description || '—'}</td>
                         <td className="p-3 text-right">{part.quantity}</td>
                         <td className="p-3 text-right text-gray-500">{(part.total_cost ?? 0).toFixed(2)} €</td>
-                        <td className="p-3 text-right text-gray-500">{(part.unit_price ?? 0).toFixed(2)} €</td>
+                        <td className="p-3 text-right text-gray-500">{fmtUnitPrice(part.unit_price ?? 0)} €</td>
                         <td className="p-3 text-right font-semibold">{(part.total_price ?? 0).toFixed(2)} €</td>
                       </tr>
                     ))}

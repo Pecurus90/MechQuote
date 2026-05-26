@@ -80,7 +80,7 @@ describe('calcMaterialCost tondo', () => {
   }
 })
 
-// ─── calc_part_totals (C4 doppio arrotondamento) ──────────────────────────
+// ─── calc_part_totals — C4 risolto ────────────────────────────────────────
 
 describe('calcPartTotals', () => {
   for (const c of CASES.calc_part_totals) {
@@ -102,6 +102,9 @@ describe('calcPartTotals', () => {
       // Disabilita "cutting" passando un material_supplier vuoto
       const result = calcPartTotals(part, 0, 1, null)
       expect(Math.abs((result.total_price ?? 0) - c.expected_total_price)).toBeLessThan(EUR)
+      if (c.expected_unit_price != null) {
+        expect(Math.abs((result.unit_price ?? 0) - c.expected_unit_price)).toBeLessThan(EUR)
+      }
     })
   }
 })

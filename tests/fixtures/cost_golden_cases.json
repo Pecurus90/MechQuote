@@ -82,14 +82,13 @@
   "calc_part_totals": [
     {
       "id": "M2",
-      "name": "DOPPIO ARROTONDAMENTO (C4): costo 0.985, qty 100, margine 0% → atteso 98.50€",
+      "name": "C4 RISOLTO: costo 0.985, qty 100, margine 0% → 98.50€ (niente doppio round)",
       "input": {
         "material_cost": 0.985, "delivery_per_piece": 0, "cutting_per_piece": 0,
         "phase_total": 0, "quantity": 100, "margin_percent": 0, "minimum_price": 0
       },
       "expected_total_price": 98.50,
-      "expected_today": 98.00,
-      "fails_until": "C4"
+      "expected_unit_price": 0.985
     },
     {
       "id": "M12",

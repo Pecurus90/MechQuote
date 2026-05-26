@@ -142,16 +142,17 @@ export function calcPartTotals(
     deliveryPerPiece = (part.material_delivery_cost || 0) / (part.quantity || 1)
     cuttingPerPiece = part.material?.material_supplier?.cutting_cost_per_part || 0
   }
-  // total_cost accumula intermedi a 4 decimali (gemello backend calculation.py:290-292).
-  // Solo unit_price e total_price finali arrotondano a 2 (mostrati all'utente).
+  // total_cost accumula intermedi a 4 decimali (gemello backend calculation.py).
   const totalCost = Math.round(
     (materialCost + deliveryPerPiece + cuttingPerPiece + phaseTotal) * 10000
   ) / 10000
   const margin = part.margin_percent ?? globalMargin
   const minimum = part.minimum_price ?? 0
-  const base = Math.max(totalCost, minimum)
-  const unitPrice = Math.round(base * (1 + margin / 100) * 100) / 100
-  const totalPrice = Math.round(unitPrice * (part.quantity || 1) * 100) / 100
+  // C4: niente doppio arrotondamento. base a piena precisione, unit_price a 4
+  // decimali per visualizzazione, total_price arrotondato a 2 dal valore esatto.
+  const base = Math.max(totalCost, minimum) * (1 + margin / 100)
+  const unitPrice = Math.round(base * 10000) / 10000
+  const totalPrice = Math.round(base * (part.quantity || 1) * 100) / 100
   return { ...part, total_cost: totalCost, unit_price: unitPrice, total_price: totalPrice }
 }
 

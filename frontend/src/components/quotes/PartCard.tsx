@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { X } from 'lucide-react'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
+import { fmtUnitPrice } from '@/lib/utils'
 import { parseDecimal } from '@/lib/decimalInput'
 import api from '@/lib/api'
 import type { Part, Material, Machine, Treatment, Supplier, CompanySettings } from '@/types'
@@ -544,7 +545,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-1">
                   <div className="flex justify-between text-gray-600">
                     <span>Prezzo/pz</span>
-                    <span>{part.unit_price.toFixed(2)} €</span>
+                    <span>{fmtUnitPrice(part.unit_price)} €</span>
                   </div>
                   <div className="flex justify-between font-bold text-blue-700 text-base pt-0.5">
                     <span>× {part.quantity}</span>

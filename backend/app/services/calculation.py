@@ -497,8 +497,12 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         )
 
         minimum = part.minimum_price or 0.0
-        part.unit_price = round(max(part.total_cost, minimum) * (1 + margin / 100), 2)
-        part.total_price = round(part.unit_price * qty, 2)
+        # C4: niente doppio arrotondamento. base a piena precisione,
+        # unit_price a 4 decimali (per visualizzazione), total_price
+        # arrotondato a 2 dal valore esatto (NON da unit_price già arrotondato).
+        base = max(part.total_cost, minimum) * (1 + margin / 100)
+        part.unit_price = round(base, 4)
+        part.total_price = round(base * qty, 2)
 
     # Modulo Stampi: dopo aver ricalcolato L1 (materiali piastre per Part),
     # aggrega L2-L5 nello snapshot DieSpec. La commit finale è sotto.

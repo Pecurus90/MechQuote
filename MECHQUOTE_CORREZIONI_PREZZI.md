@@ -12,6 +12,21 @@
 > I numeri di riga indicati nei file sono approssimativi (`~`) perché
 > tendono a slittare dopo ogni modifica. Il riferimento autoritativo
 > resta il nome della funzione + il significato semantico.
+>
+> **Stato Fascia 1 (al 2026-05-27): CHIUSA per le correzioni di codice
+> pure — 6 su 7 fatte.**
+>
+> - ✅ C1 trattamento volume tondi (backend)
+> - ✅ C2 trattamento volume anteprima frontend
+> - ✅ C3 spedizione magazzino spalmata su tutte le parti from_stock
+> - ✅ C4 doppio arrotondamento total_price
+> - ✅ C5 unità DXF convertite automaticamente in mm
+> - ⏸ **C6** tariffa foratura piastre stampo — da fare (correzione di codice
+>   pura, lavoro a parte)
+> - ➡ **C7 spostata** in "Decisioni di prodotto" (cantiere stampi): non è
+>   una correzione di codice come le altre, richiede aggiungere al modello
+>   `DieSpec` un campo "forma del pezzo" (rettangolare/tondo). Vedi
+>   `MECHQUOTE_LISTA_LAVORI.md` → Decisioni di prodotto → **P2**.
 
 ---
 
@@ -176,26 +191,12 @@ proporzione alla differenza fra le due tariffe.
 
 ---
 
-### C7 — Perimetro sagome tonde stampi sovrastimato del ~53%
-
-**Problema**: se l'utente non valorizza `perimeter_pezzo_mm` (campo
-opzionale), il fallback è `2*(bbox_x + bbox_y) × complexity_factor`. Per
-una sagoma tonda (es. disco Ø 100 mm: bbox = 100×100):
-- Perimetro reale = π × 100 ≈ 314 mm.
-- Fallback oggi = 2 × 200 × 1,2 = **480 mm** → sovrastima del **53%**.
-
-Tutto il calcolo ore EDM e i "metri extra punzoni" dipendono da questo
-perimetro, quindi il costo EDM stampo è sovrastimato del 53%.
-
-**Dove sta**: `backend/app/services/calculation.py:~620-628`
-(`_estimate_die_perimeter`).
-
-**Correzione**: introdurre un selettore di "forma sagoma" (rettangolare /
-tonda / personalizzata) e applicare la formula adatta, oppure invitare
-l'utente a compilare sempre `perimeter_pezzo_mm` con valore reale.
-
-**Rischio**: stampi per pezzi tondi/circolari (dischi, rondelle,
-flange) quotati molto più cari del dovuto.
+> **Nota.** Originariamente la Fascia 1 conteneva 7 voci. La 7ª — C7
+> "perimetro sagome tonde stampi sovrastimato del ~53%" — è stata
+> riconosciuta come modifica di prodotto (richiede un campo nuovo in
+> `DieSpec`) e spostata sotto **P2** in `MECHQUOTE_LISTA_LAVORI.md`
+> (Decisioni di prodotto / cantiere stampi). Il caso d'oro S7 resta
+> nella suite con `fails_until: P_die_shape` come promemoria.
 
 ---
 
@@ -284,6 +285,16 @@ tecnico, o che hanno impatto basso.
 
 ## Storico delle correzioni applicate
 
-Vuoto al momento. Si compilerà man mano che le voci della Fascia 1
-verranno completate, ognuna con: data, commit hash, esito test T0
-prima/dopo.
+| Data | Voce | Commit | Test T0 |
+|---|---|---|---|
+| 2026-05-25 | T0 — rete di test (casi d'oro backend+frontend, parità, regressivi, canarino) | `2f9f2fc` | suite costruita, esito iniziale: 29+15 verdi, 4+4 xfail |
+| 2026-05-26 | C1 — trattamento volume tondi (backend cilindro) | `ee28831` | M10 backend → verde (0,3927 €/pz) |
+| 2026-05-26 | C2 — anteprima frontend trattamenti a volume | `7c7421c` | M9 e M10 frontend → verdi (0,20 e 0,3927 €/pz) |
+| 2026-05-26 | C3 — spedizione magazzino spalmata su parti from_stock (frontend) | `70ffef5` | M6 frontend → verde (A=1,00 €/pz, B=2,00 €/pz) |
+| 2026-05-26 | C4 — niente doppio arrotondamento; unit_price a 4 dec con zeri tagliati | `fa4594d` | M2 backend+frontend → verdi (98,50 €) |
+| 2026-05-26 | C5 — coordinate DXF convertite in mm in base a `$INSUNITS` | `8de2732` | D2 backend → verde (9070 mm) |
+| 2026-05-27 | C7 — **rinviata** al cantiere stampi (P2): richiede campo `shape` su DieSpec, non è correzione di codice come le altre | — | S7 resta xfail con motivo `P_die_shape` come promemoria |
+
+**Stato finale Fascia 1**: 6 correzioni di codice applicate, 1 rinviata
+(modifica di prodotto). C6 resta da fare come correzione di codice pura
+(tariffa foratura piastre stampo).

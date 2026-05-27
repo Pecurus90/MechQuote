@@ -302,7 +302,7 @@
     },
     {
       "id": "S7",
-      "name": "BUG C7: SAGOMA TONDA Ø100mm con perimetro fallback. Atteso π×100 ≈ 314mm, oggi 480mm.",
+      "name": "PROMEMORIA P2: SAGOMA TONDA Ø100mm con perimetro fallback. Atteso π×100 ≈ 314mm; oggi 480mm perché DieSpec non distingue tondo/rettangolare.",
       "input": {
         "perimeter_pezzo_mm": null,
         "bbox_x_mm": 100, "bbox_y_mm": 100,
@@ -318,8 +318,7 @@
         "rate_edm": 55
       },
       "expected_cost_machining_edm": 46.99,
-      "expected_today": 71.31,
-      "fails_until": "C7"
+      "fails_until": "P_die_shape"
     }
   ],
 

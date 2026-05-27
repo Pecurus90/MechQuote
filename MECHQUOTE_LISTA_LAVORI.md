@@ -318,6 +318,37 @@ ma non rappresenta il prezzo vero del fornitore.
 (due tabelle separate? una sola con tipologia? formula a superficie per i
 rivestimenti?). Decisione di prodotto da affrontare **dopo il Blocco B**.
 
+### P2 — Forma del pezzo negli stampi (rettangolare / tondo)
+Il calcolo del perimetro pezzo a fallback (in `_estimate_die_perimeter`,
+backend `services/calculation.py:~641-649` + gemello frontend
+`lib/dieCalc.ts:~167-171`) usa oggi la formula rettangolare
+`2 × (bbox_x + bbox_y) × complexity_factor` **per qualunque pezzo**, anche
+quelli di sagoma tonda. Per un disco Ø 100 mm la sovrastima è di circa il
+**53%** (perimetro vero π × 100 ≈ 314 mm; fallback 480 mm) → ore EDM filo
+gonfiate, prezzo dello stampo sovrastimato. Conseguenza pratica: stampi
+per pezzi tondi (dischi, rondelle, flange) quotati molto più cari del
+dovuto.
+
+Per correggerla servirebbe la formula del cerchio (`π × diametro`) nel
+ramo "tondo", ma per scegliere il ramo il codice deve sapere **che forma
+ha il pezzo**: oggi il modello `DieSpec` non lo dice. Le uniche
+dimensioni del pezzo sono `bbox_x_mm`, `bbox_y_mm`, `perimeter_pezzo_mm`
+(opzionale) e `complexity_factor` — niente campo `shape`, `forma`, o
+`raw_diameter`. Dal punto di vista del codice un disco Ø 100 e un
+quadrato 100×100 sono indistinguibili.
+
+Originariamente questa voce era in Fascia 1 come "C7" nelle correzioni
+prezzo. Spostata qui in Decisioni di prodotto perché non è una correzione
+di codice come le altre (C1-C6): è una **modifica di modello + UX** che
+deve essere parte naturale del ripensamento del calcolo stampi.
+
+**Esito atteso**: decidere come dichiarare la forma del pezzo (campo
+`shape` enum su `DieSpec` con radio nel wizard? altra rappresentazione?),
+applicare la formula del cerchio nel ramo "tondo" sia nel backend che nel
+gemello frontend, attivare il caso d'oro S7 (oggi xfail con
+`fails_until: P_die_shape`). Da affrontare **dopo il Blocco B**, come
+parte del cantiere stampi.
+
 ---
 
 ## ░░░ IDEE PER IL FUTURO (non pianificate) ░░░

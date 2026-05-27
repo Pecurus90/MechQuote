@@ -349,6 +349,53 @@ gemello frontend, attivare il caso d'oro S7 (oggi xfail con
 `fails_until: P_die_shape`). Da affrontare **dopo il Blocco B**, come
 parte del cantiere stampi.
 
+### P3 — Ripensare il calcolo lavorazioni piastre stampo
+La voce "foratura piastre" del cost engine stampi (in
+`_estimate_die_plate_breakdown`, backend `services/calculation.py:~569-619`
++ gemello frontend `lib/dieCalc.ts:~34`) ha **tre problemi che si tengono
+insieme** e che non si possono affrontare separatamente:
+
+1. **Tariffa foratura inesistente come campo dedicato.** In
+   `_recalculate_die_levels` (~`calculation.py:777`) il fallback di
+   `rate_drill` è `settings.hourly_rate_milling` (tariffa fresatura). La
+   colonna `hourly_rate_drilling` **non esiste** nel modello `DieSettings`.
+   Se l'utente non aggancia esplicitamente una `drilling_machine_id`, la
+   foratura piastre costa quanto la fresatura. Era originariamente la
+   "C6" in Fascia 1.
+
+2. **Doppio conteggio foratura + EDM filo su matrice e porta_punzoni.**
+   Ogni piastra (compresa la matrice) riceve la voce "ore foratura" come
+   stima generica `area × n_facce × ore/dm²` con `n_drilled ≥ 1` di
+   default per tutti e cinque i ruoli (cappello, porta_punzoni,
+   premilamiera, matrice, base). Le matrici e i porta_punzoni ricevono
+   in più la voce EDM filo, calcolata separatamente. Risultato: una
+   matrice viene pagata sia per la foratura che per il filo, mentre in
+   officina (a quanto dice l'esperto interpellato) le matrici temprate
+   si fanno tutte al filo e la foratura non c'è.
+
+3. **Ruoli piastra disallineati dalla realtà di officina.** Il codice
+   conosce solo 5 ruoli (`cappello`, `porta_punzoni`, `premilamiera`,
+   `matrice`, `base`); termini come "montante" o "accompagnatrice" che
+   in officina sono distinti non esistono. In più, nel codice la
+   premilamiera **non** va al filo (`continue` esplicito in
+   `_estimate_die_edm_hours:701` per `cappello/premilamiera/base`),
+   mentre l'esperto di officina dice che la premilamiera va al filo
+   come matrice e accompagnatrice. C'è uno scarto da chiarire fra
+   modello e officina.
+
+Correggere solo il punto 1 (rinominare/aggiungere `hourly_rate_drilling`)
+risolverebbe un sintomo lasciando i punti 2 e 3 intatti: la foratura
+sarebbe pagata alla tariffa giusta, ma continuerebbe a essere addebitata
+su piastre che non la fanno. Ha più senso ripensare insieme: ruoli
+piastra ↔ lavorazioni applicabili ↔ tariffe.
+
+**Esito atteso**: una conversazione con l'officina per chiarire ruoli
+reali e lavorazioni per ciascuno, poi rivedere `_PLATE_ROLE_DEFAULTS` e
+la branca EDM filo, e in coda aggiungere `hourly_rate_drilling` a
+`DieSettings` con la sua migration. Da affrontare **dopo il Blocco B**
+insieme a P2 (forma del pezzo): sono entrambi pezzi dello stesso
+cantiere stampi.
+
 ---
 
 ## ░░░ IDEE PER IL FUTURO (non pianificate) ░░░

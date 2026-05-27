@@ -14,19 +14,26 @@
 > resta il nome della funzione + il significato semantico.
 >
 > **Stato Fascia 1 (al 2026-05-27): CHIUSA per le correzioni di codice
-> pure — 6 su 7 fatte.**
+> pure — 5 su 7 fatte. Le altre 2 (C6 e C7) sono state riconosciute come
+> modifiche di prodotto e spostate al cantiere stampi.**
 >
 > - ✅ C1 trattamento volume tondi (backend)
 > - ✅ C2 trattamento volume anteprima frontend
 > - ✅ C3 spedizione magazzino spalmata su tutte le parti from_stock
 > - ✅ C4 doppio arrotondamento total_price
 > - ✅ C5 unità DXF convertite automaticamente in mm
-> - ⏸ **C6** tariffa foratura piastre stampo — da fare (correzione di codice
->   pura, lavoro a parte)
-> - ➡ **C7 spostata** in "Decisioni di prodotto" (cantiere stampi): non è
->   una correzione di codice come le altre, richiede aggiungere al modello
->   `DieSpec` un campo "forma del pezzo" (rettangolare/tondo). Vedi
->   `MECHQUOTE_LISTA_LAVORI.md` → Decisioni di prodotto → **P2**.
+> - ➡ **C6 spostata** al cantiere stampi (P3 in `MECHQUOTE_LISTA_LAVORI.md`):
+>   non è una correzione di tariffa isolata. La "foratura piastre" è oggi
+>   modellata in modo intrecciato con altri nodi del calcolo stampi
+>   (doppio conteggio foratura + EDM filo su matrici e porta_punzoni;
+>   ruoli piastra che non coincidono con la realtà dell'officina;
+>   "premilamiera" che nel codice non va al filo ma per l'officina sì).
+>   Correggere la sola tariffa risolverebbe metà del problema e lascerebbe
+>   tutto il resto rotto.
+> - ➡ **C7 spostata** al cantiere stampi (P2 in `MECHQUOTE_LISTA_LAVORI.md`):
+>   richiede aggiungere al modello `DieSpec` un campo "forma del pezzo"
+>   (rettangolare/tondo) — è modifica di modello + UX, non correzione
+>   di codice.
 
 ---
 
@@ -160,43 +167,23 @@ unità diverse).
 
 ---
 
-### C6 — Tariffa foratura stampi usa la tariffa fresatura
-
-**Problema**: la tariffa "foratura piastre" nel modulo stampi ha come
-fallback `hourly_rate_milling` (tariffa fresatura) invece di una
-`hourly_rate_drilling`. La colonna `hourly_rate_drilling` **non esiste
-proprio** sul modello `DieSettings`. Identico errore in backend e
-frontend (allineato).
-
-**Dove sta**: `backend/app/services/calculation.py:~756`,
-`frontend/src/pages/DieQuoteEditor.tsx:~159`,
-`backend/app/models.py:~940-943`.
-
-**Workaround attuale**: l'utente DEVE agganciare una
-`drilling_machine_id` esplicita per usare una tariffa di foratura
-distinta. Se lascia il campo NULL → la foratura piastre costa come la
-fresatura piastre.
-
-**Esempio numerico**: officina con tariffa fresatura 45 €/h e foratura
-30 €/h. Senza machine aggancio, la foratura nei calcoli stampo costa
-45 €/h. Su 5 ore di foratura per piastra: +75 € rispetto al corretto.
-
-**Correzione**: aggiungere la colonna `hourly_rate_drilling` (es. default
-40 €/h) a `DieSettings` con la sua migration, e correggere il fallback
-in entrambi i lati.
-
-**Rischio**: prezzo lavorazione piastre stampo sovrastimato (se
-fresatura > foratura) o sottostimato (se fresatura < foratura), in
-proporzione alla differenza fra le due tariffe.
-
----
-
-> **Nota.** Originariamente la Fascia 1 conteneva 7 voci. La 7ª — C7
-> "perimetro sagome tonde stampi sovrastimato del ~53%" — è stata
-> riconosciuta come modifica di prodotto (richiede un campo nuovo in
-> `DieSpec`) e spostata sotto **P2** in `MECHQUOTE_LISTA_LAVORI.md`
-> (Decisioni di prodotto / cantiere stampi). Il caso d'oro S7 resta
-> nella suite con `fails_until: P_die_shape` come promemoria.
+> **Nota.** Originariamente la Fascia 1 conteneva 7 voci. Due sono state
+> riconosciute come modifiche di prodotto (cantiere stampi) e spostate
+> in `MECHQUOTE_LISTA_LAVORI.md` (sezione Decisioni di prodotto):
+>
+> - **C6** "tariffa foratura piastre stampo usa la tariffa fresatura" →
+>   **P3**. Il bug della tariffa è reale (in `_recalculate_die_levels`
+>   il fallback di `rate_drill` è `hourly_rate_milling` e non esiste
+>   `hourly_rate_drilling` nel modello), ma fissarlo isolatamente avrebbe
+>   poco senso: la "foratura piastre" oggi è una stima ore generica
+>   `area × n_facce × ore/dm²` applicata a tutte le piastre, anche a
+>   quelle che vanno al filo (matrice, porta_punzoni). Si paga foratura
+>   e EDM in parallelo. C6 fa parte del ripensamento più ampio.
+>
+> - **C7** "perimetro sagome tonde stampi sovrastimato del ~53%" →
+>   **P2**. Richiede un campo "forma del pezzo" su `DieSpec` (non
+>   esiste). Il caso d'oro S7 resta nella suite con
+>   `fails_until: P_die_shape` come promemoria.
 
 ---
 
@@ -294,7 +281,10 @@ tecnico, o che hanno impatto basso.
 | 2026-05-26 | C4 — niente doppio arrotondamento; unit_price a 4 dec con zeri tagliati | `fa4594d` | M2 backend+frontend → verdi (98,50 €) |
 | 2026-05-26 | C5 — coordinate DXF convertite in mm in base a `$INSUNITS` | `8de2732` | D2 backend → verde (9070 mm) |
 | 2026-05-27 | C7 — **rinviata** al cantiere stampi (P2): richiede campo `shape` su DieSpec, non è correzione di codice come le altre | — | S7 resta xfail con motivo `P_die_shape` come promemoria |
+| 2026-05-27 | C6 — **rinviata** al cantiere stampi (P3): la tariffa foratura è un sintomo, il calcolo lavorazioni piastre stampo va ripensato (doppio conteggio drill+EDM, ruoli piastra, "premilamiera" al filo) | — | nessun caso d'oro dedicato a C6 (la suite non lo copriva: era un fallback di tariffa, non un calcolo specifico) |
 
-**Stato finale Fascia 1**: 6 correzioni di codice applicate, 1 rinviata
-(modifica di prodotto). C6 resta da fare come correzione di codice pura
-(tariffa foratura piastre stampo).
+**Stato finale Fascia 1**: 5 correzioni di codice applicate, 2 rinviate
+al cantiere stampi (C6→P3, C7→P2). La Fascia 1 è chiusa per le
+correzioni di codice pure: i bug isolati e ben circoscritti sono stati
+risolti; quelli intrecciati con la modellazione degli stampi vanno
+affrontati nel cantiere dedicato.

@@ -62,7 +62,7 @@ from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
-    normalized_suppliers,
+    normalized_suppliers, normalized_items,
     dies, die_normalized_items, die_settings,
 )
 app.include_router(auth.router)
@@ -94,6 +94,7 @@ app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
 app.include_router(officina.router, dependencies=_auth)
 app.include_router(normalized_suppliers.router, dependencies=_auth)
+app.include_router(normalized_items.router, dependencies=_auth)
 # Modulo Stampi — 3 router con prefix dedicato.
 app.include_router(dies.router, dependencies=_auth)
 app.include_router(die_normalized_items.router, dependencies=_auth)

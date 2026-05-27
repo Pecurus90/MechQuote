@@ -17,6 +17,36 @@
 
 ---
 
+## ░░░ CANTIERI APERTI (lavori in corso oltre i blocchi) ░░░
+
+### Cantiere Catalogo Normalizzati 🚧 IN CORSO (aperto 2026-05-27)
+Nuovo modulo: catalogo globale dei pezzi normalizzati (viti, cuscinetti,
+molle, colonne, boccole, ecc.). Oggi i normalizzati esistono solo dentro
+template stampo (`DieTemplateNormalized`) e dentro singoli preventivi
+stampo (`DieNormalizedItem`) — niente catalogo centrale da cui pescarli.
+Risultato: un componente ricorrente viene digitato a mano N volte, con
+prezzi che divergono e zero memoria storica.
+
+Cantiere in 6 step incrementali, commit separato per ogni step. Opzione di
+aggancio scelta: **Opzione A — snapshot**: i template/preventivi avranno
+una FK opzionale al catalogo; al collegamento i valori vengono copiati;
+preventivi storici restano congelati ai loro numeri.
+
+**Stato avanzamento**:
+- ✅ **Step 1** — modello `NormalizedItem` + migration (`ca738ab`, 27/05)
+- ⏳ **Step 2** — endpoint CRUD (~½ giornata)
+- ⏸ **Step 3** — pagina UI catalogo (~1 giornata)
+- ⏸ **Step 4** — aggancio `DieTemplateNormalized` (FK + autocomplete) (~1 giornata)
+- ⏸ **Step 5** — aggancio `DieNormalizedItem` (FK + autocomplete) (~1 giornata)
+- ⏸ **Step 6** — import CSV + modello scaricabile (~½ giornata)
+- ⏸ **Step 7** (opzionale) — estrazione automatica voci da template esistenti (~½ giornata)
+
+**Stima totale**: ~5-6 giornate di lavoro effettivo. Cantiere a sé,
+indipendente da altri lavori in corso. Si procede 1 step alla volta,
+ogni step richiede ok esplicito prima di partire.
+
+---
+
 ## ░░░ BLOCCO A — PRIMA DI INSERIRE DATI REALI SUL SERVER ░░░
 
 *Questi sono il minimo indispensabile. Finché non sono fatti, MechQuote non
@@ -85,6 +115,36 @@ anche che eventuali altri utenti già creati non abbiano password banali.
 **Perché qui:** è una porta aperta. Va chiusa prima di mettere dati veri.
 *Stima: pochi minuti.*
 
+### A8 — Bug server: PDF preventivi dà errore 500 🔴 (scoperto 2026-05-27)
+Sul server, generare il PDF di un preventivo restituisce **HTTP 500
+Internal Server Error**. Sul PC di sviluppo funziona. Sintomi tipici per
+questa classe di errore: Chromium di Playwright non installato (la
+generazione PDF dipende da un browser headless che pesa ~150 MB e va
+installato a parte rispetto a Python/Node), oppure permessi sulla cartella
+temporanea, oppure cartella di avvio del servizio sbagliata.
+**Cosa fare:** aprire `C:\MechQuote\logs\uvicorn.log` sul server al momento
+del tentativo PDF, identificare l'eccezione. La causa più probabile è
+Chromium mancante. Stesso check incrociato con A2 (crash stampi): se è
+Chromium, A2 e A8 hanno la stessa radice e si risolvono insieme con
+`playwright install chromium` nel venv del server.
+*Stima diagnosi: ~5 min. Stima correzione: ~10 min se è Chromium.*
+
+### A9 — Bug server: sezione stampi crasha, errore 404 su `/api/dashboard/alerts` 🔴 (scoperto 2026-05-27)
+Sul server, aprire la sezione Stampi causa un errore in console del browser:
+**GET `/api/dashboard/alerts` → 404 Not Found**. L'endpoint esiste nel
+codice (`backend/app/api/dashboard.py:553`), quindi il 404 viene da Apache
+che non sta inoltrando la richiesta al backend, **non** da FastAPI che la
+riceve e risponde 404. Cause tipiche: configurazione `ProxyPass` di Apache
+incompleta (la regola `/api/` non inoltra tutte le sotto-route), oppure
+backend non in esecuzione, oppure servizio backend partito dalla cartella
+sbagliata e quindi non risponde su `:8000`. Affine ad A2 (stesso ambiente
+server, stesse cause possibili).
+**Cosa fare:** verificare `nssm status MechQuoteBackend` (servizio acceso?),
+`curl http://localhost:8000/api/dashboard/alerts` dal server (risponde il
+backend?), poi `C:\Apache24\conf\extra\httpd-vhosts.conf` per controllare la
+regola di proxy.
+*Stima diagnosi: ~10 min.*
+
 ---
 
 ## ═══ LINEA 1 — qui si possono inserire i primi dati reali ═══
@@ -109,6 +169,18 @@ L'anteprima a schermo e il calcolo vero del server divergono in più punti
 "NaN €" che a volte appare). L'utente vede un prezzo, salva, e il numero
 cambia. Vanno corretti i punti di divergenza perché l'anteprima sia
 affidabile. *Stima: media.*
+
+> **Aggiornamento 2026-05-27 — Fascia 1 calcolo prezzi CHIUSA.** Le 7 voci
+> originali di B2 (e altre voci di Fascia 1 dei tre preventivatori) sono
+> state riorganizzate in `MECHQUOTE_CORREZIONI_PREZZI.md` come C1-C7.
+> Stato finale: 5 voci di codice fatte (C1 trattamento volume tondi, C2
+> anteprima trattamenti €/dm³, C3 spedizione magazzino, C4 doppio
+> arrotondamento, C5 unità DXF). Le 2 voci rimaste (C6 tariffa foratura
+> stampi, C7 perimetro sagome tonde) sono state riconosciute come
+> modifiche di prodotto e spostate al cantiere stampi → vedi **P3** e
+> **P2** in fondo a questo documento, sezione Decisioni di prodotto.
+> Restano in B2 le voci "minori" di anteprima (#minori del wizard 2D)
+> ancora da affrontare.
 
 **Stato avanzamento (B2)**:
 - ✅ **#2** — Costo trattamento a 0 quando manca il peso (fatto).
@@ -396,6 +468,95 @@ la branca EDM filo, e in coda aggiungere `hourly_rate_drilling` a
 insieme a P2 (forma del pezzo): sono entrambi pezzi dello stesso
 cantiere stampi.
 
+### Visione utente registrata per P2 + P3 (2026-05-27)
+Durante la sessione del 27 maggio è emersa una **visione di prodotto**
+condivisa con cui affrontare insieme P2 e P3 quando si aprirà il
+cantiere stampi:
+
+> **Template stampo configurabili con lavorazioni abilitabili per piastra.**
+> L'utente (anziché vincolare le piastre ai 5 ruoli fissi attuali con i
+> default hardcoded `_PLATE_ROLE_DEFAULTS`) definisce **un proprio
+> template di stampo dove per ogni piastra dichiara quali lavorazioni si
+> applicano**: fresatura sì/no, rettifica sì/no, foratura sì/no, EDM
+> filo sì/no, station_bonus sì/no — con i propri parametri (n. facce,
+> ore di setup, ecc.).
+>
+> Questo risolve in un colpo solo:
+> - **P3.2** doppio conteggio foratura + EDM filo su matrice/porta_punzoni
+>   → se la matrice non fa la foratura, l'utente la disabilita nel template
+> - **P3.3** ruoli officina disallineati (montante, accompagnatrice, ecc.)
+>   → l'utente dichiara i ruoli che gli servono, non c'è più una lista
+>   fissa di 5
+> - **P2** forma del pezzo → diventa una proprietà del template (o del
+>   preventivo), formula del perimetro decisa lì
+> - **P3.1** tariffa foratura → resta come è (tariffa per lavorazione),
+>   ma ora la lavorazione è opzionale per piastra, quindi se non c'è la
+>   tariffa non viene applicata
+>
+> È una **decisione di prodotto futura**, non un piano operativo. Vale
+> come orientamento quando si entrerà nel cantiere stampi (dopo il
+> Blocco B).
+
+---
+
+## ░░░ IDEE DA BRAINSTORMING DEL 27 MAGGIO 2026 ░░░
+
+Idee di prodotto emerse durante la sessione del 27 maggio, registrate qui
+come "candidate" — non ancora pianificate, da valutare a freddo per
+priorità e impatto.
+
+- **Import CSV per più cataloghi** (materiali, utensili, normalizzati) +
+  pulsante **"scarica modello CSV"** in ognuna delle pagine catalogo
+  (template scaricabile con intestazioni e 1-2 righe di esempio). Pattern
+  già esistente per i clienti (`/customers/import-csv`), da estendere.
+  L'import normalizzati naturalmente diventa il **Step 6** del cantiere
+  catalogo normalizzati (vedi sezione "Cantieri aperti").
+
+- **Descrizione completa dei trattamenti nella selezione** (oltre al
+  nome). Oggi quando l'utente sceglie un trattamento da una `<select>`
+  vede solo il nome, non se è €/kg o €/dm³, non il fornitore. Sarebbe
+  utile vedere subito il dettaglio per evitare ambiguità (es. "Tempra
+  HRC60 — Haerta — 2,00 €/kg, minimo 50 kg / 50 €").
+
+- **Pulsante "duplica riga" nelle anagrafiche**. Per voci di catalogo
+  simili a una esistente, ora bisogna ricompilare tutto a mano. Un
+  bottone "duplica" che cloni la riga con nome "(copia)" velocizza
+  l'inserimento.
+
+- **Allargare la finestra delle pagine impostazioni per leggibilità**.
+  Le tabelle delle pagine settings (catalog, materiali, utensili...)
+  oggi hanno larghezza ridotta e su molti monitor sprecano spazio ai
+  bordi. Da valutare un layout fluid con larghezza piena.
+
+- **Pulizia file del progetto**. Ricognizione sistematica di file non
+  più utilizzati nel repo (componenti orfani, pagine deprecate, asset
+  vecchi). Pulizia da fare a freddo, una sola passata.
+
+---
+
+## ░░░ STRUMENTI DI LAVORO ░░░
+
+### `update.bat` — script di aggiornamento manuale del server (creato 2026-05-27)
+Sta in radice del repo (`C:\MechQuote\update.bat` sul server). Va lanciato
+**a mano** da CMD aperto **come amministratore**:
+
+```
+cd C:\MechQuote
+update.bat
+```
+
+Cosa fa (in ordine, fail-fast): backup DB WAL-aware → verifica
+prerequisiti (git, npm, venv, servizio NSSM, branch == main, working
+tree pulito) → `git fetch` + `git pull --ff-only` → `pip install` e
+`npm install` solo se le dipendenze sono cambiate → `npm run build` →
+`nssm restart MechQuoteBackend` → health check via curl → riepilogo +
+comando di rollback stampato (non eseguito).
+
+Niente automatismi a tempo (no Task Scheduler), niente `git reset
+--hard` cieco, niente push automatici. Lo script è rilanciabile in
+sicurezza dopo un fallimento parziale (tutti i passi idempotenti). Commit
+`261883e`.
+
 ---
 
 ## ░░░ IDEE PER IL FUTURO (non pianificate) ░░░
@@ -405,7 +566,7 @@ cantiere stampi.
 - Spostare la cartella `PRV/` (vecchio sito) fuori dal progetto.
 - **Interruttore manuale mm/pollici nel wizard 2D** come rete di sicurezza
   per i rari disegni che non dichiarano l'unità di misura (`$INSUNITS = 0`
-  "unitless"). Complementare alla conversione automatica di B2-#9: quando
+  "unitless"). Complementare alla conversione automatica di B2-#9 / C5: quando
   l'unità è dichiarata MechQuote la converte da sola; quando non lo è,
   l'utente deve poter scegliere a mano prima del calcolo.
 - Audit UX — dopo qualche settimana di uso reale.

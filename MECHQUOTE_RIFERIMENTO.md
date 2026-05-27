@@ -12,6 +12,27 @@
 
 ---
 
+## 0. Sintesi rapida (aggiornata al 2026-05-27)
+
+Per non doverlo desumere ogni volta, lo stato del progetto in due righe:
+
+- **Blocco A (messa in sicurezza)**: A1, A4, A5, A6, A7 fatti sul PC di
+  sviluppo. **A2, A3** restano da fare sul server in azienda. **A8, A9**:
+  due nuovi bug scoperti sul server il 2026-05-27 (PDF preventivi → 500,
+  sezione stampi → 404 su `/api/dashboard/alerts`).
+- **Fascia 1 calcolo prezzi**: **CHIUSA**. 5 correzioni di codice
+  applicate (C1-C5). C6 e C7 spostate al cantiere stampi come modifiche
+  di prodotto (vedi P2/P3 in `MECHQUOTE_LISTA_LAVORI.md`). Storico
+  completo in `MECHQUOTE_CORREZIONI_PREZZI.md`.
+- **Rete di test T0**: in piedi, 32 passed + 1 xfailed (S7 promemoria
+  P_die_shape) backend, 19/19 frontend.
+- **Cantieri di prodotto aperti**: Catalogo Normalizzati (Step 1 fatto su
+  6, restano 5 step ~5-6 giornate).
+- **Strumenti di lavoro creati**: `update.bat` — script di aggiornamento
+  manuale del server, da lanciare a mano da CMD admin.
+
+---
+
 ## 1. Cos'è MechQuote
 
 MechQuote è un'applicazione **preventivatore** per un'azienda di lavorazioni
@@ -267,6 +288,46 @@ finire.
 
 ---
 
-*Documento basato sulle cinque ricognizioni condotte fino al 22 maggio 2026.
-Va aggiornato man mano che i lavori vengono completati e le domande aperte
-ricevono risposta.*
+## 10. Diario delle sessioni rilevanti
+
+### Sessione 2026-05-27 — Chiusura Fascia 1 + apertura cantiere normalizzati
+
+Cosa è stato fatto:
+
+- **Fascia 1 calcolo prezzi chiusa.** 5 correzioni di codice applicate
+  (C1 trattamento volume tondi, C2 anteprima trattamenti €/dm³, C3
+  spedizione magazzino su parti from_stock, C4 doppio arrotondamento +
+  unit_price a 4 decimali, C5 unità DXF convertite automaticamente).
+- **C6 e C7 spostate** al cantiere stampi come P3 e P2 (modifiche di
+  prodotto, non correzioni di codice come le altre).
+- **Script `update.bat`** creato per l'aggiornamento manuale del server
+  da Git. Backup DB WAL-aware come primo passo, fail-fast con messaggi
+  chiari, rollback stampato ma non automatico, nessun automatismo a
+  tempo.
+- **Cantiere "Catalogo Normalizzati" aperto.** Step 1 fatto (modello
+  `NormalizedItem` + migration). Restano Step 2-6 (~5-6 giornate).
+  Opzione A confermata per l'aggancio template/preventivi (snapshot).
+- **Bug nuovi sul server** registrati: PDF preventivi → 500, stampi →
+  404 su `/api/dashboard/alerts`. Vanno indagati in azienda insieme ad
+  A2 e A3.
+- **Brainstorming idee di prodotto** registrato in
+  `MECHQUOTE_LISTA_LAVORI.md` (import CSV cataloghi, descrizione
+  trattamenti completa, duplica riga anagrafiche, finestra impostazioni
+  più larga, pulizia file).
+- **Visione utente registrata per P2 + P3**: "template stampo
+  configurabili con lavorazioni abilitabili per piastra". Risolve in un
+  colpo solo doppio conteggio foratura/filo, ruoli officina disallineati,
+  e forma del pezzo.
+
+Cosa NON è stato toccato (esplicitamente fuori scope):
+
+- Server in azienda (tutti i lavori A2/A3/A8/A9 attendono il viaggio).
+- Fascia 2 calcolo prezzi (fragilità medie — programmata per dopo).
+- Cantiere stampi (P2/P3 — dopo il Blocco B).
+
+---
+
+*Documento basato sulle cinque ricognizioni condotte fino al 22 maggio
+2026. Aggiornato in corso d'opera man mano che i lavori vengono
+completati e le domande aperte ricevono risposta. Ultimo aggiornamento:
+2026-05-27.*

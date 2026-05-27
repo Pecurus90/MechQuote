@@ -247,6 +247,24 @@ export interface NormalizedSupplier {
   active?: boolean
 }
 
+/** Catalogo globale di voci normalizzate (viti, cuscinetti, molle, colonne,
+ *  boccole, spine). Step 2 cantiere catalogo normalizzati: API CRUD pronta;
+ *  Step 4-5 introdurranno FK opzionali su DieTemplateNormalized e
+ *  DieNormalizedItem con strategia snapshot (preventivi storici congelati).
+ */
+export interface NormalizedItem {
+  id: number
+  code: string
+  description: string
+  category?: string | null
+  supplier_id?: number | null
+  unit_price?: number
+  notes?: string | null
+  active?: boolean
+  supplier?: NormalizedSupplier | null
+  created_at?: string
+}
+
 export interface Tool {
   id: number
   code: string

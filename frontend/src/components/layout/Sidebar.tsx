@@ -219,6 +219,10 @@ export default function Sidebar() {
                       <Box className="w-3.5 h-3.5 shrink-0" />
                       <span>Materiali</span>
                     </NavLink>
+                    <NavLink to="/settings/normalized-items" className={({ isActive }) => navLinkClass(isActive, true)}>
+                      <Package className="w-3.5 h-3.5 shrink-0" />
+                      <span>Normalizzati</span>
+                    </NavLink>
                     <NavLink to="/settings/catalog" className={({ isActive }) => navLinkClass(isActive, true)}>
                       <Factory className="w-3.5 h-3.5 shrink-0" />
                       <span>Lavorazioni & Macchine</span>

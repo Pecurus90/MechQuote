@@ -11,6 +11,7 @@ import NewQuotePage from '@/pages/NewQuotePage'
 import NewQuote2DPage from '@/pages/NewQuote2DPage'
 import NewDieQuotePage from '@/pages/NewDieQuotePage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
+import NormalizedItemsPage from '@/pages/settings/NormalizedItemsPage'
 import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
 import CompanySettingsPage from '@/pages/settings/CompanySettingsPage'
 import CustomersPage from '@/pages/settings/CustomersPage'
@@ -73,6 +74,7 @@ function AppRoutes() {
 
         {/* Settings — pagine atomiche residue */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />
+        <Route path="settings/normalized-items" element={<ProtectedRoute permission="settings"><NormalizedItemsPage /></ProtectedRoute>} />
         <Route path="settings/tool-attributes" element={<ProtectedRoute permission="tools"><ToolAttributesPage /></ProtectedRoute>} />
         <Route path="settings/step-colors" element={<ProtectedRoute permission="settings"><StepColorRulesPage /></ProtectedRoute>} />
         <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />

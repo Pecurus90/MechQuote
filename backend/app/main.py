@@ -695,6 +695,23 @@ def _run_migrations():
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.archive' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.pdf' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.settings' FROM roles WHERE name = 'admin'",
+
+        # ═══ NormalizedItem — catalogo voci normalizzate (cantiere catalogo
+        # normalizzati, Step 1). Catalogo globale di viti/cuscinetti/molle/...
+        # con codice, descrizione, categoria, fornitore opzionale, prezzo.
+        # Gli agganci a DieTemplateNormalized e DieNormalizedItem arrivano
+        # negli Step 4-5 (FK opzionale, snapshot al collegamento).
+        ("CREATE TABLE IF NOT EXISTS normalized_items ("
+         "id INTEGER PRIMARY KEY, "
+         "code VARCHAR(50) UNIQUE NOT NULL, "
+         "description VARCHAR(200) NOT NULL, "
+         "category VARCHAR(50), "
+         "supplier_id INTEGER REFERENCES normalized_suppliers(id), "
+         "unit_price REAL DEFAULT 0, "
+         "notes TEXT, "
+         "active BOOLEAN DEFAULT 1, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        "CREATE INDEX IF NOT EXISTS idx_normalized_items_supplier ON normalized_items(supplier_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

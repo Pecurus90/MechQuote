@@ -661,6 +661,31 @@ class NormalizedSupplier(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class NormalizedItem(Base):
+    """Catalogo voci normalizzate (viti, cuscinetti, molle, colonne, boccole...).
+
+    Catalogo globale, indipendente da template/preventivi: una voce vive qui
+    una sola volta e viene "pescata" via autocomplete da `DieTemplateNormalized`
+    (BoM standard) e `DieNormalizedItem` (riga di preventivo stampo). La
+    relazione e' snapshot (Opzione A del cantiere): al momento del collegamento
+    description/supplier/unit_price vengono COPIATI nella riga, poi
+    indipendenti. Cambi al catalogo non retro-modificano preventivi storici.
+    """
+    __tablename__ = "normalized_items"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    description = Column(String(200), nullable=False)
+    category = Column(String(50), nullable=True)
+    supplier_id = Column(Integer, ForeignKey("normalized_suppliers.id"), nullable=True)
+    unit_price = Column(Float, default=0.0)
+    notes = Column(Text, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    supplier = relationship("NormalizedSupplier")
+
+
 class ToolType(Base):
     """Catalogo Tipi utensile (es. Cilindrica, Sferica, Conica).
     Gestito da Settings → Catalogo → Attributi utensili. `Tool.tool_type` è

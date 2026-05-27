@@ -983,6 +983,41 @@ class NormalizedSupplierOut(NormalizedSupplierBase):
         from_attributes = True
 
 
+# --- NormalizedItem (catalogo voci normalizzate: viti, cuscinetti, molle...) ---
+
+class NormalizedItemBase(BaseModel):
+    code: str = Field(min_length=1, max_length=50)
+    description: str = Field(min_length=1, max_length=200)
+    category: Optional[str] = Field(default=None, max_length=50)
+    supplier_id: Optional[int] = None
+    unit_price: float = Field(default=0.0, ge=0)
+    notes: Optional[str] = None
+    active: bool = True
+
+
+class NormalizedItemCreate(NormalizedItemBase):
+    pass
+
+
+class NormalizedItemUpdate(BaseModel):
+    code: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    description: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    category: Optional[str] = Field(default=None, max_length=50)
+    supplier_id: Optional[int] = None
+    unit_price: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class NormalizedItemOut(NormalizedItemBase):
+    id: int
+    supplier: Optional[NormalizedSupplierOut] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ToolBase(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     tool_type: Optional[str] = None

@@ -174,6 +174,7 @@ def list_tools(
     brand: Optional[str] = None,
     tool_supplier_id: Optional[int] = None,
     low_stock_only: bool = False,
+    active: Optional[bool] = None,
     q: Optional[str] = None,
     db: Session = Depends(get_db),
     _=_can_tools,
@@ -188,6 +189,8 @@ def list_tools(
         query = query.filter(Tool.tool_supplier_id == tool_supplier_id)
     if low_stock_only:
         query = query.filter(Tool.quantity < Tool.minimum_quantity, Tool.minimum_quantity > 0)
+    if active is not None:
+        query = query.filter(Tool.active == active)
     if q and q.strip():
         like = f"%{q.strip()}%"
         query = query.filter(or_(

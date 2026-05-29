@@ -18,9 +18,9 @@ const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', sh
 
 interface MatForm {
   id: number | null; name: string; family: string; density: string; cost: string
-  edm: string; cnc: string; scrap: string; supplier_id: string
+  edm: string; cnc: string; scrap: string; supplier_id: string; active: boolean
 }
-const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', supplier_id: '' })
+const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', supplier_id: '', active: true })
 
 export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
@@ -30,6 +30,10 @@ export default function MaterialsPage() {
   const [matForm, setMatForm] = useState<MatForm | null>(null)
   const [searchSup, setSearchSup] = useState('')
   const [searchMat, setSearchMat] = useState('')
+  // Filtri "Solo attivi" — uniformazione cataloghi 2026-05-28.
+  // La sezione "Fornitori materiali" qui dentro NON viene toccata (b3):
+  // l'utente gestisce i fornitori ritirati su MaterialSuppliersPage.
+  const [onlyActiveMat, setOnlyActiveMat] = useState(false)
   const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
   const [pendingDelMaterial, setPendingDelMaterial] = useState<number | null>(null)
   useEscapeKey(() => setSupForm(null), !!supForm)
@@ -72,6 +76,7 @@ export default function MaterialsPage() {
       edm_coefficient: Number(matForm.edm), cnc_machinability_coefficient: Number(matForm.cnc),
       default_scrap_percent: Number(matForm.scrap),
       supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
+      active: matForm.active,
     }
     try {
       if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
@@ -95,6 +100,7 @@ export default function MaterialsPage() {
     edm: String(m.edm_coefficient), cnc: String(m.cnc_machinability_coefficient),
     scrap: String(m.default_scrap_percent),
     supplier_id: m.supplier_id ? String(m.supplier_id) : '',
+    active: m.active ?? true,
   })
 
   const visibleSup = [...suppliers]
@@ -104,6 +110,7 @@ export default function MaterialsPage() {
   const visibleMat = [...materials]
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
     .filter(m => {
+      if (onlyActiveMat && !m.active) return false
       if (!searchMat) return true
       const q = searchMat.toLowerCase()
       return m.name.toLowerCase().includes(q)
@@ -210,6 +217,15 @@ export default function MaterialsPage() {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-gray-700">Materiali</h2>
           <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={onlyActiveMat}
+                onChange={e => setOnlyActiveMat(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Solo attivi
+            </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
@@ -224,18 +240,19 @@ export default function MaterialsPage() {
             <table className="table-fixed w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[14%] font-medium text-gray-600">Famiglia</th>
-                  <th className="text-right p-3 w-[13%] font-medium text-gray-600">Densità (kg/dm³)</th>
-                  <th className="text-right p-3 w-[12%] font-medium text-gray-600">Costo €/kg</th>
-                  <th className="text-left p-3 w-[17%] font-medium text-gray-600">Fornitore</th>
-                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Scheda PDF</th>
+                  <th className="text-left p-3 w-[18%] font-medium text-gray-600">Nome</th>
+                  <th className="text-left p-3 w-[13%] font-medium text-gray-600">Famiglia</th>
+                  <th className="text-right p-3 w-[12%] font-medium text-gray-600">Densità (kg/dm³)</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Costo €/kg</th>
+                  <th className="text-left p-3 w-[15%] font-medium text-gray-600">Fornitore</th>
+                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Scheda PDF</th>
+                  <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
                   <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleMat.length === 0 && (
-                  <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun materiale trovato.</td></tr>
+                  <tr><td colSpan={8} className="p-6 text-center text-gray-400">Nessun materiale trovato.</td></tr>
                 )}
                 {visibleMat.map(m => (
                   <tr key={m.id} className="border-b hover:bg-gray-50">
@@ -248,6 +265,11 @@ export default function MaterialsPage() {
                       {m.has_datasheet
                         ? <span className="inline-flex items-center gap-1 text-green-700"><FileText className="w-3.5 h-3.5" /> Allegata</span>
                         : <span className="text-gray-400 italic">—</span>}
+                    </td>
+                    <td className="p-3 text-center">
+                      {m.active === false
+                        ? <span className="text-gray-300 text-xs" title="Ritirato">●</span>
+                        : <span className="text-green-600 text-xs" title="Attivo">●</span>}
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
@@ -330,6 +352,15 @@ export default function MaterialsPage() {
                   </select>
                 </div>
               </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer mt-3">
+                <input
+                  type="checkbox"
+                  checked={matForm.active}
+                  onChange={e => setMatForm(f => f ? { ...f, active: e.target.checked } : f)}
+                  className="w-4 h-4"
+                />
+                Attivo
+              </label>
               <div className="flex gap-2 mt-6">
                 <PrimaryCtaButton color="blue" onClick={saveMaterial}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setMatForm(null)}>Annulla</Button>

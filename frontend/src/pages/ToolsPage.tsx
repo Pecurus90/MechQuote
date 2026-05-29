@@ -101,6 +101,7 @@ export default function ToolsPage() {
   const [filterBrand, setFilterBrand] = useState('')
   const [filterSupplier, setFilterSupplier] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(searchParams.get('low_stock') === '1')
+  const [onlyActive, setOnlyActive] = useState(false)
 
   // Sync URL ↔ lowStockOnly
   // searchParams/setSearchParams fuori dalle deps: scriverebbero la URL
@@ -124,6 +125,7 @@ export default function ToolsPage() {
     if (filterBrand) params.set('brand', filterBrand)
     if (filterSupplier) params.set('tool_supplier_id', filterSupplier)
     if (lowStockOnly) params.set('low_stock_only', 'true')
+    if (onlyActive) params.set('active', 'true')
     if (search.trim()) params.set('q', search.trim())
     setLoading(true)
     api.get(`/tools?${params}`)
@@ -132,7 +134,7 @@ export default function ToolsPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadTools() }, [filterType, filterBrand, filterSupplier, lowStockOnly])
+  useEffect(() => { loadTools() }, [filterType, filterBrand, filterSupplier, lowStockOnly, onlyActive])
   // Debounce ricerca: loadTools fuori dalle deps perché chiude su molte
   // variabili (filterType/Brand/Supplier/lowStock) — l'effect deve firare
   // SOLO sul cambio di `search`, gli altri filtri hanno il loro useEffect.
@@ -327,6 +329,11 @@ export default function ToolsPage() {
             Solo sotto minimo
           </span>
         </label>
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={onlyActive}
+            onChange={e => setOnlyActive(e.target.checked)} />
+          Solo attivi
+        </label>
       </div>
 
       <Card>
@@ -334,20 +341,21 @@ export default function ToolsPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-2 w-[20%] font-medium text-gray-600">Codice</th>
-                <th className="text-left p-2 w-[14%] font-medium text-gray-600">Tipo</th>
-                <th className="text-left p-2 w-[20%] font-medium text-gray-600">Marchio · Modello</th>
-                <th className="text-right p-2 w-[10%] font-medium text-gray-600">Ø (mm)</th>
-                <th className="text-right p-2 w-[10%] font-medium text-gray-600">Qtà / Min</th>
-                <th className="text-left p-2 w-[16%] font-medium text-gray-600">Fornitore</th>
+                <th className="text-left p-2 w-[18%] font-medium text-gray-600">Codice</th>
+                <th className="text-left p-2 w-[13%] font-medium text-gray-600">Tipo</th>
+                <th className="text-left p-2 w-[19%] font-medium text-gray-600">Marchio · Modello</th>
+                <th className="text-right p-2 w-[9%] font-medium text-gray-600">Ø (mm)</th>
+                <th className="text-right p-2 w-[9%] font-medium text-gray-600">Qtà / Min</th>
+                <th className="text-left p-2 w-[15%] font-medium text-gray-600">Fornitore</th>
+                <th className="text-center p-2 w-[7%] font-medium text-gray-600">Attivo</th>
                 <th className="text-center p-2 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-400">Caricamento...</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-gray-400">Caricamento...</td></tr>
               ) : tools.length === 0 ? (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun utensile trovato.</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-gray-400">Nessun utensile trovato.</td></tr>
               ) : tools.map(t => {
                 const isLow = t.quantity < t.minimum_quantity && t.minimum_quantity > 0
                 return (
@@ -364,6 +372,11 @@ export default function ToolsPage() {
                       <span className="text-gray-400"> / {t.minimum_quantity}</span>
                     </td>
                     <td className="p-2 truncate text-gray-600">{t.tool_supplier?.name ?? supplierName(t.tool_supplier_id)}</td>
+                    <td className="p-2 text-center">
+                      {t.active === false
+                        ? <span className="text-gray-300 text-xs" title="Ritirato">●</span>
+                        : <span className="text-green-600 text-xs" title="Attivo">●</span>}
+                    </td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1.5 justify-center">
                         <button onClick={() => startEdit(t)} className="p-1 hover:bg-gray-100 rounded">
@@ -445,6 +458,17 @@ export default function ToolsPage() {
                 <div className="col-span-2">
                   <label className="text-sm font-medium">Note</label>
                   <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
+                </div>
+                <div className="col-span-2">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.active}
+                      onChange={e => set('active', e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    Attivo
+                  </label>
                 </div>
               </div>
               <div className="flex gap-2 mt-5">

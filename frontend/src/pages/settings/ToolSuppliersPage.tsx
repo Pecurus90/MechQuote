@@ -29,7 +29,10 @@ export default function ToolSuppliersPage() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  const [onlyActive, setOnlyActive] = useState(false)
   useEscapeKey(() => setForm(null), !!form)
+
+  const visible = onlyActive ? suppliers.filter(s => s.active !== false) : suppliers
 
   const load = () => {
     api.get('/tools/suppliers')
@@ -94,9 +97,20 @@ export default function ToolSuppliersPage() {
         title="Fornitori utensili"
         subtitle="Elenco fornitori di utensili (separato dai fornitori di trattamenti)."
         action={
-          <PrimaryCtaButton color="violet" onClick={startNew}>
-            <Plus className="w-4 h-4" /> Nuovo
-          </PrimaryCtaButton>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={onlyActive}
+                onChange={e => setOnlyActive(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Solo attivi
+            </label>
+            <PrimaryCtaButton color="violet" onClick={startNew}>
+              <Plus className="w-4 h-4" /> Nuovo
+            </PrimaryCtaButton>
+          </div>
         }
       />
 
@@ -105,20 +119,26 @@ export default function ToolSuppliersPage() {
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left p-3 w-[30%] font-medium text-gray-600">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Nome</th>
                 <th className="text-left p-3 font-medium text-gray-600">Indirizzo</th>
-                <th className="text-left p-3 w-[18%] font-medium text-gray-600">Telefono</th>
+                <th className="text-left p-3 w-[16%] font-medium text-gray-600">Telefono</th>
+                <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
                 <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
-              {suppliers.length === 0 ? (
-                <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessun fornitore.</td></tr>
-              ) : suppliers.map(s => (
+              {visible.length === 0 ? (
+                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessun fornitore.</td></tr>
+              ) : visible.map(s => (
                 <tr key={s.id} className="border-b hover:bg-gray-50">
                   <td className="p-3 font-medium">{s.name}</td>
                   <td className="p-3 text-gray-500 truncate">{s.address || '—'}</td>
                   <td className="p-3 text-gray-500 font-mono text-xs">{s.phone || '—'}</td>
+                  <td className="p-3 text-center">
+                    {s.active === false
+                      ? <span className="text-gray-300 text-xs" title="Ritirato">●</span>
+                      : <span className="text-green-600 text-xs" title="Attivo">●</span>}
+                  </td>
                   <td className="p-3 text-center">
                     <div className="flex gap-1.5 justify-center">
                       <button onClick={() => startEdit(s)} className="p-1 hover:bg-gray-100 rounded">
@@ -166,6 +186,15 @@ export default function ToolSuppliersPage() {
                 <label className="text-sm font-medium">Note</label>
                 <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
               </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={e => set('active', e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Attivo
+              </label>
               <div className="flex gap-2 mt-4">
                 <PrimaryCtaButton color="violet" onClick={save}>Salva</PrimaryCtaButton>
                 <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>

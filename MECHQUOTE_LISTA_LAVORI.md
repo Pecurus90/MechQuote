@@ -468,6 +468,48 @@ la branca EDM filo, e in coda aggiungere `hourly_rate_drilling` a
 insieme a P2 (forma del pezzo): sono entrambi pezzi dello stesso
 cantiere stampi.
 
+### P4 — Dare significato pieno al campo "active" in tutto il progetto
+Oggi il campo `Tool.active` / `Material.active` / `Supplier.active` /
+`MaterialSupplier.active` / `ToolSupplier.active` / `NormalizedSupplier.active`
+/ `NormalizedItem.active` è presente in tutti i modelli catalogo e ha
+una checkbox nel form di edit, ma è consultato **solo** dalle 6 pagine
+catalogo (toggle "Solo attivi", introdotto il 2026-05-27 con il commit
+`669b2f9`). In tutti gli altri posti il campo è ignorato.
+
+**Risultato attuale**: "ritirare" una voce la nasconde nella sua pagina
+catalogo, ma **NON** la esclude da:
+- generazione ordini utensili (utensili inattivi sotto scorta vengono
+  comunque proposti per il riordino — `OrdersToolsPage` chiama
+  `/api/tools?low_stock_only=true` senza filtrare per `active`)
+- alert dashboard "sotto scorta" (`/api/tools/low-stock-count` conta
+  anche gli inattivi)
+- notifiche low-stock generate dallo scan barcode
+  (`tools.scan_tool` → `services/notifications.py`, nessun check su
+  `active`)
+- dropdown materiali nei preventivi (materiali ritirati comunque
+  selezionabili)
+- dropdown fornitori vari (`NormalizedSupplier`, `MaterialSupplier`,
+  `ToolSupplier`, `Supplier` trattamenti — nessuno filtra per `active`)
+- dropdown trattamenti nelle fasi di preventivo
+- dropdown macchine nelle fasi
+- dropdown lavorazioni (`Operation`) nelle fasi
+- (futuro) autocomplete `NormalizedItem` quando arriveranno gli
+  Step 4-5 del cantiere normalizzati — andrà deciso lì
+
+**Esito atteso**: voce di prodotto, da affrontare come cantiere a sé
+**dopo che MechQuote sarà in uso in azienda**. L'uso reale dirà quali
+di questi punti pesano davvero e in che ordine vanno sistemati (es. è
+plausibile che l'esclusione dagli ordini utensili sia la priorità #1,
+mentre il filtro sui dropdown materiali sia meno urgente: dipende da
+quanti articoli si ritirano e con che frequenza). Decisione di prodotto
+da rimandare al feedback dell'utenza reale, non da affrontare a freddo.
+
+**Scoperta**: emersa il 2026-05-29 come domanda dell'utente sugli
+ordini utensili. La fotografia completa dello stato attuale (quali
+endpoint filtrano `active`, quali no) è stata fatta lo stesso giorno
+e vive in questo documento — l'elenco dei "non filtra `active`" sopra
+è la fotografia, non un'ipotesi.
+
 ### Visione utente registrata per P2 + P3 (2026-05-27)
 Durante la sessione del 27 maggio è emersa una **visione di prodotto**
 condivisa con cui affrontare insieme P2 e P3 quando si aprirà il

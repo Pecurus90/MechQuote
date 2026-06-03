@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, X, Box } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Box, Upload, Download } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
@@ -33,6 +33,8 @@ export default function MaterialSuppliersPage() {
   const [form, setForm] = useState<FormState | null>(null)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
   const [onlyActive, setOnlyActive] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   useEscapeKey(() => setForm(null), !!form)
 
   const visible = onlyActive ? suppliers.filter(s => s.active !== false) : suppliers
@@ -79,6 +81,49 @@ export default function MaterialSuppliersPage() {
     }
   }
 
+  const handleImport = async (file: File) => {
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/material-suppliers/import-csv', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { created, skipped_existing, skipped_invalid, examples } = res.data as {
+        created: number; skipped_existing: number; skipped_invalid: number; examples: string[]
+      }
+      const parts = []
+      if (created) parts.push(`${created} aggiunti`)
+      if (skipped_existing) parts.push(`${skipped_existing} già presenti`)
+      if (skipped_invalid) parts.push(`${skipped_invalid} scartati`)
+      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
+      if (skipped_invalid && examples?.length) {
+        toast.warning(`Esempi scartati: ${examples.slice(0, 3).join(' · ')}`)
+      }
+      load()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const downloadTemplate = async () => {
+    try {
+      const res = await api.get('/material-suppliers/csv-template', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'fornitori_grezzi_modello.csv'
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Errore scaricamento modello')
+    }
+  }
+
   const del = (id: number) => setPendingDelete(id)
   const confirmDel = async () => {
     if (pendingDelete == null) return
@@ -113,6 +158,25 @@ export default function MaterialSuppliersPage() {
               />
               Solo attivi
             </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleImport(f)
+              }}
+            />
+            <Button size="sm" variant="outline" onClick={downloadTemplate}
+                    title="Scarica un modello CSV vuoto da compilare">
+              <Download className="w-4 h-4 mr-1" /> Modello
+            </Button>
+            <Button size="sm" variant="outline" disabled={importing}
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Importa un CSV di fornitori grezzi (separatore ;)">
+              <Upload className="w-4 h-4 mr-1" /> {importing ? 'Import...' : 'Importa CSV'}
+            </Button>
             <PrimaryCtaButton color="blue" onClick={startNew}>
               <Plus className="w-4 h-4" /> Nuovo
             </PrimaryCtaButton>

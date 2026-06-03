@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, FileText, Box } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, FileText, Box, Upload, Download } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
@@ -36,6 +36,8 @@ export default function MaterialsPage() {
   const [onlyActiveMat, setOnlyActiveMat] = useState(false)
   const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
   const [pendingDelMaterial, setPendingDelMaterial] = useState<number | null>(null)
+  const [importingMat, setImportingMat] = useState(false)
+  const matFileInputRef = useRef<HTMLInputElement>(null)
   useEscapeKey(() => setSupForm(null), !!supForm)
   useEscapeKey(() => setMatForm(null), !!matForm)
 
@@ -92,6 +94,49 @@ export default function MaterialsPage() {
     const id = pendingDelMaterial; setPendingDelMaterial(null)
     try { await api.delete(`/materials/${id}`); toast.success('Materiale eliminato'); loadData() }
     catch (e) { toast.error('Errore nell\'eliminazione') }
+  }
+
+  const handleImportMaterials = async (file: File) => {
+    setImportingMat(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/materials/import-csv', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { created, skipped_existing, skipped_invalid, examples } = res.data as {
+        created: number; skipped_existing: number; skipped_invalid: number; examples: string[]
+      }
+      const parts = []
+      if (created) parts.push(`${created} aggiunti`)
+      if (skipped_existing) parts.push(`${skipped_existing} già presenti`)
+      if (skipped_invalid) parts.push(`${skipped_invalid} scartati`)
+      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
+      if (skipped_invalid && examples?.length) {
+        toast.warning(`Esempi scartati: ${examples.slice(0, 3).join(' · ')}`)
+      }
+      loadData()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
+    } finally {
+      setImportingMat(false)
+      if (matFileInputRef.current) matFileInputRef.current.value = ''
+    }
+  }
+
+  const downloadMaterialsTemplate = async () => {
+    try {
+      const res = await api.get('/materials/csv-template', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'materiali_modello.csv'
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Errore scaricamento modello')
+    }
   }
 
   const startEditMat = (m: Material) => setMatForm({
@@ -230,6 +275,25 @@ export default function MaterialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
             </div>
+            <input
+              ref={matFileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleImportMaterials(f)
+              }}
+            />
+            <Button size="sm" variant="outline" onClick={downloadMaterialsTemplate}
+                    title="Scarica un modello CSV vuoto da compilare">
+              <Download className="w-4 h-4 mr-1" /> Modello
+            </Button>
+            <Button size="sm" variant="outline" disabled={importingMat}
+                    onClick={() => matFileInputRef.current?.click()}
+                    title="Importa un CSV di materiali (separatore ;). Aggancio fornitore via nome esatto.">
+              <Upload className="w-4 h-4 mr-1" /> {importingMat ? 'Import...' : 'Importa CSV'}
+            </Button>
             <PrimaryCtaButton color="blue" size="sm" onClick={() => setMatForm(emptyMat())}>
               <Plus className="w-4 h-4" /> Nuovo materiale
             </PrimaryCtaButton>

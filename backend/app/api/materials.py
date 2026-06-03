@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.catalog_protect import block_if_in_use
+from app.core.csv_import import (
+    CsvImportConfig, CsvRowSkip,
+    csv_template_response, import_catalog_csv, parse_decimal_it,
+)
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import Material, MaterialSupplier, Part
@@ -67,6 +71,71 @@ def delete_material_supplier(sid: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+# --- Import CSV Fornitori grezzi -------------------------------------------
+
+_MATERIAL_SUPPLIERS_CSV_COLUMNS = [
+    'Nome', 'Indirizzo', 'Spedizione (€)', 'Taglio (€/pz)',
+]
+
+
+def _material_supplier_mapper(row: dict):
+    name = (row.get('Nome') or '').strip()
+    if not name:
+        raise CsvRowSkip("Nome mancante")
+    return name, {
+        'name': name,
+        'address': (row.get('Indirizzo') or '').strip() or None,
+        'shipping_cost': parse_decimal_it(
+            row.get('Spedizione (€)'), 'Spedizione', required=False,
+        ) or 0.0,
+        'cutting_cost_per_part': parse_decimal_it(
+            row.get('Taglio (€/pz)'), 'Taglio', required=False,
+        ) or 0.0,
+        'active': True,
+    }
+
+
+_MATERIAL_SUPPLIERS_IMPORT_CONFIG = CsvImportConfig(
+    expected_columns=_MATERIAL_SUPPLIERS_CSV_COLUMNS,
+    model=MaterialSupplier,
+    db_key_attr='name',
+    mapper=_material_supplier_mapper,
+)
+
+
+@router.post("/material-suppliers/import-csv",
+             dependencies=[require_permission('settings')])
+async def import_material_suppliers_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Importa un CSV di fornitori grezzi. Match per `name` normalizzato:
+    le voci già presenti vengono saltate (mai update). Vedi
+    `app.core.csv_import` per la semantica completa."""
+    result = await import_catalog_csv(
+        file=file, db=db, config=_MATERIAL_SUPPLIERS_IMPORT_CONFIG,
+    )
+    logger.info(
+        "CSV fornitori grezzi importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/material-suppliers/csv-template",
+            dependencies=[require_permission('settings')])
+def download_material_suppliers_csv_template():
+    """Modello CSV per l'import fornitori grezzi (UTF-8 con BOM, ';')."""
+    return csv_template_response(
+        filename='fornitori_grezzi_modello.csv',
+        columns=_MATERIAL_SUPPLIERS_CSV_COLUMNS,
+        examples=[
+            ['Acciaierie Rossi SpA', 'Via Roma 12, Milano', '25.00', '0.50'],
+            ['MetalForniture Srl',   'Via Verdi 8, Torino',  '15.00', '0.00'],
+        ],
+    )
+
+
 # --- Materials ---
 @router.get("/materials", response_model=List[MaterialOut])
 def list_materials(db: Session = Depends(get_db)):
@@ -110,6 +179,105 @@ def delete_material(mid: int, db: Session = Depends(get_db)):
     db.delete(m)
     db.commit()
     return {"ok": True}
+
+
+# --- Import CSV Materiali --------------------------------------------------
+
+_MATERIALS_CSV_COLUMNS = [
+    'Nome', 'Famiglia', 'Densità (kg/dm³)', 'Costo/kg (€)',
+    'Scrap % default', 'Fornitore',
+]
+
+
+def _build_materials_mapper(supplier_by_name: dict):
+    """Crea il mapper per l'import materiali iniettando la mappa
+    `name_normalizzato -> supplier_id` precaricata dall'endpoint.
+
+    Niente creazione di fornitori al volo: se la cella `Fornitore` è
+    valorizzata ma il nome non è in mappa, la riga viene scartata con
+    un messaggio che dice all'utente di importare prima i fornitori.
+    """
+    def mapper(row: dict):
+        name = (row.get('Nome') or '').strip()
+        if not name:
+            raise CsvRowSkip("Nome mancante")
+
+        supplier_id = None
+        supplier_raw = (row.get('Fornitore') or '').strip()
+        if supplier_raw:
+            supplier_id = supplier_by_name.get(supplier_raw.lower())
+            if supplier_id is None:
+                raise CsvRowSkip(
+                    f"Fornitore '{supplier_raw}' non trovato: "
+                    "importa prima i fornitori grezzi"
+                )
+
+        return name, {
+            'name': name,
+            'family': (row.get('Famiglia') or '').strip() or None,
+            'density_kg_dm3': parse_decimal_it(
+                row.get('Densità (kg/dm³)'), 'Densità', required=True,
+            ),
+            'cost_per_kg': parse_decimal_it(
+                row.get('Costo/kg (€)'), 'Costo/kg', required=True,
+            ),
+            'default_scrap_percent': parse_decimal_it(
+                row.get('Scrap % default'), 'Scrap %', required=False,
+            ) or 10.0,
+            'supplier_id': supplier_id,
+            'edm_coefficient': 1.0,
+            'cnc_machinability_coefficient': 1.0,
+            'active': True,
+        }
+    return mapper
+
+
+@router.post("/materials/import-csv",
+             dependencies=[require_permission('settings')])
+async def import_materials_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Importa un CSV di materiali. Match per `name` normalizzato: le voci
+    già presenti vengono saltate. La colonna `Fornitore` viene risolta
+    via lookup su `MaterialSupplier.name` (normalizzato) precaricato:
+    nome vuoto -> nessun fornitore, nome non esistente -> riga scartata."""
+    # Precarica la mappa fornitori: una query, indice in memoria.
+    # Coerente con la normalizzazione dell'engine (strip + lower).
+    supplier_by_name = {
+        (s.name or '').strip().lower(): s.id
+        for s in db.query(MaterialSupplier).all()
+    }
+    config = CsvImportConfig(
+        expected_columns=_MATERIALS_CSV_COLUMNS,
+        model=Material,
+        db_key_attr='name',
+        mapper=_build_materials_mapper(supplier_by_name),
+    )
+    result = await import_catalog_csv(file=file, db=db, config=config)
+    logger.info(
+        "CSV materiali importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/materials/csv-template",
+            dependencies=[require_permission('settings')])
+def download_materials_csv_template():
+    """Modello CSV per l'import materiali (UTF-8 con BOM, ';').
+
+    La colonna `Fornitore` può essere vuota oppure deve corrispondere
+    esattamente al nome di un fornitore grezzo già presente nel catalogo.
+    """
+    return csv_template_response(
+        filename='materiali_modello.csv',
+        columns=_MATERIALS_CSV_COLUMNS,
+        examples=[
+            ['Acciaio C40',    'steel',     '7.85', '1.20', '10', 'Acciaierie Rossi SpA'],
+            ['Alluminio 6082', 'aluminum',  '2.70', '4.50', '15', ''],
+        ],
+    )
 
 
 # --- Datasheet PDF allegato al material -------------------------------------

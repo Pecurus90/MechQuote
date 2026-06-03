@@ -613,15 +613,20 @@ Tutti i dati di MechQuote stanno in un singolo file: `C:\MechQuote\backend\mechq
 Apri Blocco Note (non serve "come amministratore" qui) e incolla questo testo:
 
 ```powershell
+$py = "C:\MechQuote\backend\venv\Scripts\python.exe"
 $src = "C:\MechQuote\backend\mechquote.db"
 $backupDir = "C:\MechQuote\backups"
 
 # Crea la cartella backups se non esiste
 if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir | Out-Null }
 
-# Copia il DB con timestamp nel nome file (es. mechquote_20260517-2300.db)
+# Backup WAL-aware del DB con timestamp nel nome file (es. mechquote_20260517-230000.db).
+# Usa sqlite3.backup() del modulo standard Python (atomico, include le scritture
+# ancora nel file .db-wal). Stesso identico metodo di update.bat — un solo modo
+# di fare backup in tutto il progetto.
 $dst = Join-Path $backupDir ("mechquote_" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".db")
-Copy-Item $src $dst
+& $py -c "import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" $src $dst
+if ($LASTEXITCODE -ne 0) { throw "Backup FALLITO: sqlite3.backup() ha restituito errore." }
 
 # Conserva solo gli ultimi 30 backup
 Get-ChildItem "$backupDir\*.db" |
@@ -632,7 +637,7 @@ Get-ChildItem "$backupDir\*.db" |
 
 Salva con nome `backup.ps1` (attenzione all'estensione `.ps1`, non `.txt`) in `C:\MechQuote\`.
 
-> **COSA FA**: è uno script **PowerShell** (l'alternativa più moderna a CMD). Ogni volta che viene eseguito, copia il database in `C:\MechQuote\backups\` aggiungendo data+ora al nome, e tiene solo gli ultimi 30 backup.
+> **COSA FA**: è uno script **PowerShell** (l'alternativa più moderna a CMD). Ogni volta che viene eseguito fa un **backup WAL-aware** del database in `C:\MechQuote\backups\` aggiungendo data+ora al nome, e tiene solo gli ultimi 30 backup. "WAL-aware" significa che include anche le ultime scritture che vivono ancora nel file `mechquote.db-wal` e non sono ancora confluite nel `.db`: una copia semplice del solo `.db` (`copy` / `Copy-Item`) le perderebbe. Il backup viene fatto chiamando `sqlite3.backup()` del modulo standard Python tramite il Python del venv del backend — non serve installare `sqlite3.exe` sul server.
 
 ### 9.2 Schedulare l'esecuzione ogni notte
 
@@ -730,34 +735,24 @@ Risultato: ogni martedì alle 8:00, se ci sono utensili sotto la soglia, gli ute
 
 ## 10. Aggiornamenti futuri di MechQuote
 
-Quando esce una nuova versione su GitHub, per applicarla sul server:
+Quando esce una nuova versione su GitHub, per applicarla sul server usa lo script `update.bat` già presente nella radice del progetto. **Non eseguire i comandi a mano**: lo script li mette in ordine, si ferma al primo errore e fa il backup del DB col metodo giusto.
+
+Da CMD **come amministratore**:
 
 ```cmd
 cd C:\MechQuote
-
-REM PRIMA di tutto: backup manuale del database
-copy C:\MechQuote\backend\mechquote.db C:\MechQuote\backups\mechquote_PRIMA-AGGIORNAMENTO.db
-
-REM Scarica i nuovi file
-git pull
-
-REM Aggiorna le librerie del backend
-cd backend
-venv\Scripts\activate
-pip install -r requirements.txt
-cd ..
-
-REM Aggiorna le librerie del frontend e ricompila
-cd frontend
-npm install
-npm run build
-cd ..
-
-REM Riavvia il motore Python (per applicare eventuali migrazioni del DB)
-nssm restart MechQuoteBackend
+update.bat
 ```
 
-> **ATTENZIONE — backup prima di aggiornare**: il primo comando (`copy ...`) crea uno snapshot del DB con un nome riconoscibile. Se l'aggiornamento dovesse rompere qualcosa, puoi ripristinare quel file fermando il servizio (`nssm stop MechQuoteBackend`), copiandolo come `mechquote.db`, e riavviando.
+**COSA FA**, in ordine:
+
+1. **Backup WAL-aware del database** in `C:\MechQuote\backups\` (stesso identico metodo del backup notturno del §9.1 — niente copia semplice del `.db`).
+2. `git pull --ff-only` dal branch `main`: scarica i nuovi commit, ma rifiuta di procedere se la cronologia diverge (niente merge automatici).
+3. Reinstalla le dipendenze (`pip install` / `npm install`) **solo se** `requirements.txt` o `package.json`/`package-lock.json` sono cambiati.
+4. Ricostruisce il frontend (`npm run build`) e riavvia il servizio `MechQuoteBackend` via `nssm restart`.
+5. Health check su `http://localhost:8000/`: se il backend non risponde entro ~30s, lo script si ferma con un messaggio chiaro indicando dove leggere i log.
+
+Se un passo fallisce, lo script si ferma con `[STOP]` e un messaggio mirato: il sistema resta nello stato precedente (la build vecchia continua a girare), e `update.bat` è rilanciabile in sicurezza dopo il fix.
 
 Apache **NON** va riavviato: serve solo file statici dalla cartella `dist`, che `npm run build` aggiorna automaticamente.
 

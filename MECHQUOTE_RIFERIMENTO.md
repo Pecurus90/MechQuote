@@ -12,7 +12,7 @@
 
 ---
 
-## 0. Sintesi rapida (aggiornata al 2026-05-27)
+## 0. Sintesi rapida (aggiornata al 2026-06-03)
 
 Per non doverlo desumere ogni volta, lo stato del progetto in due righe:
 
@@ -26,8 +26,8 @@ Per non doverlo desumere ogni volta, lo stato del progetto in due righe:
   completo in `MECHQUOTE_CORREZIONI_PREZZI.md`.
 - **Rete di test T0**: in piedi, 32 passed + 1 xfailed (S7 promemoria
   P_die_shape) backend, 19/19 frontend.
-- **Cantieri di prodotto aperti**: Catalogo Normalizzati (Step 1 fatto su
-  6, restano 5 step ~5-6 giornate).
+- **Cantieri di prodotto aperti**: Catalogo Normalizzati (Step 1-3 fatti,
+  restano 4-6 + 7 opzionale, ~2½-3 giornate).
 - **Strumenti di lavoro creati**: `update.bat` — script di aggiornamento
   manuale del server, da lanciare a mano da CMD admin.
 
@@ -290,6 +290,18 @@ finire.
 
 ## 10. Diario delle sessioni rilevanti
 
+### Sessione 2026-06-03 — Bonifica documenti di progetto
+
+- Backup in INSTALLAZIONE.md reso WAL-aware (§9.1); §10 rimanda a `update.bat`
+  (commit `893a3ef`).
+- Rimossa nota obsoleta su CLAUDE.md dalla lista lavori (`7cc2e9c`).
+- B2 della lista lavori ridotto a rimando verso `MECHQUOTE_CORREZIONI_PREZZI.md`.
+- Stato cantiere normalizzati aggiornato: Step 2-3 fatti.
+- Fonte unica di stato adottata: RIFERIMENTO §0. `docs/ROADMAP.md` ridotto a
+  rimando; puntatori in `CLAUDE.md` aggiornati.
+- Registrata **C16** (consolidare il backup WAL-aware in
+  `backend/backup_db.py`).
+
 ### Sessione 2026-05-27 — Chiusura Fascia 1 + apertura cantiere normalizzati
 
 Cosa è stato fatto:
@@ -330,4 +342,4 @@ Cosa NON è stato toccato (esplicitamente fuori scope):
 *Documento basato sulle cinque ricognizioni condotte fino al 22 maggio
 2026. Aggiornato in corso d'opera man mano che i lavori vengono
 completati e le domande aperte ricevono risposta. Ultimo aggiornamento:
-2026-05-27.*
+2026-06-03.*

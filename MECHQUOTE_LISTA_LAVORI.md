@@ -34,16 +34,16 @@ preventivi storici restano congelati ai loro numeri.
 
 **Stato avanzamento**:
 - ✅ **Step 1** — modello `NormalizedItem` + migration (`ca738ab`, 27/05)
-- ⏳ **Step 2** — endpoint CRUD (~½ giornata)
-- ⏸ **Step 3** — pagina UI catalogo (~1 giornata)
+- ✅ **Step 2** — endpoint CRUD (`f430eb4`)
+- ✅ **Step 3** — pagina UI catalogo (`26e7ab8`)
 - ⏸ **Step 4** — aggancio `DieTemplateNormalized` (FK + autocomplete) (~1 giornata)
 - ⏸ **Step 5** — aggancio `DieNormalizedItem` (FK + autocomplete) (~1 giornata)
 - ⏸ **Step 6** — import CSV + modello scaricabile (~½ giornata)
 - ⏸ **Step 7** (opzionale) — estrazione automatica voci da template esistenti (~½ giornata)
 
-**Stima totale**: ~5-6 giornate di lavoro effettivo. Cantiere a sé,
-indipendente da altri lavori in corso. Si procede 1 step alla volta,
-ogni step richiede ok esplicito prima di partire.
+**Stima residua**: restano Step 4-5-6 (+7 opzionale), ~2½-3 giornate di
+lavoro effettivo. Cantiere a sé, indipendente da altri lavori in corso. Si
+procede 1 step alla volta, ogni step richiede ok esplicito prima di partire.
 
 ---
 
@@ -164,116 +164,14 @@ insieme, e quanto spesso capiterà che lavorino sullo stesso preventivo. La
 risposta determina quanto è urgente. *Stima: media.*
 
 ### B2 — Riallineare le due "calcolatrici" dei prezzi 🔴
-L'anteprima a schermo e il calcolo vero del server divergono in più punti
-(spedizione materiale, "peso a zero", trattamenti speciali degli stampi, il
-"NaN €" che a volte appare). L'utente vede un prezzo, salva, e il numero
-cambia. Vanno corretti i punti di divergenza perché l'anteprima sia
-affidabile. *Stima: media.*
-
-> **Aggiornamento 2026-05-27 — Fascia 1 calcolo prezzi CHIUSA.** Le 7 voci
-> originali di B2 (e altre voci di Fascia 1 dei tre preventivatori) sono
-> state riorganizzate in `MECHQUOTE_CORREZIONI_PREZZI.md` come C1-C7.
-> Stato finale: 5 voci di codice fatte (C1 trattamento volume tondi, C2
-> anteprima trattamenti €/dm³, C3 spedizione magazzino, C4 doppio
-> arrotondamento, C5 unità DXF). Le 2 voci rimaste (C6 tariffa foratura
-> stampi, C7 perimetro sagome tonde) sono state riconosciute come
-> modifiche di prodotto e spostate al cantiere stampi → vedi **P3** e
-> **P2** in fondo a questo documento, sezione Decisioni di prodotto.
-> Restano in B2 le voci "minori" di anteprima (#minori del wizard 2D)
-> ancora da affrontare.
-
-**Stato avanzamento (B2)**:
-- ✅ **#2** — Costo trattamento a 0 quando manca il peso (fatto).
-- ✅ **#3** — Fallback densità e costo/kg mancanti → 0 invece di "NaN €" (fatto).
-- ✅ **#6** — `calcQuoteTotal` ora gestisce anche i preventivi stampo +
-  rimossa funzione morta `calcShippingShare` (fatto).
-- ⏳ **#1** — Trattamenti calcolati a volume (€/dm³): l'anteprima non li
-  gestisce ancora — **in corso**.
-- ⏸ **#4** — Anteprima spedizione "stantia" tra una modifica e la
-  successiva in preventivi commessa con stesso fornitore (da fare; richiede
-  decisione di prodotto sulla strategia: replicare logica frontend, accettare
-  stantitezza con avviso, o endpoint preview server-side).
-- ⏸ **#5** — Arrotondamento "banker's" del backend vs "half-away" del
-  frontend: differenze massime di 1 centesimo (da fare; richiede decisione
-  contabile dell'azienda).
-- ⏸ **#7** — **Materiale da magazzino in commessa**: la spedizione da
-  magazzino è divisa diversamente tra backend e frontend (il backend
-  divide per il numero di parti da magazzino, il frontend no). In un
-  preventivo commessa con più parti da magazzino l'anteprima mostra la
-  spedizione **raddoppiata** (o moltiplicata per il numero di parti).
-  Trovata nella ricognizione del motore manuale. Da allineare il frontend
-  al backend.
-- ⏸ **#8** — **Doppio arrotondamento di `total_price`**: `unit_price`
-  viene arrotondato a 2 decimali e poi rimoltiplicato per la quantità.
-  Su preventivi con quantità alte accumula uno scarto fino a qualche euro
-  sul prezzo finale. **Presente in modo identico in backend e frontend**:
-  non è una divergenza ma un errore di calcolo da correggere in entrambi
-  (formula corretta: arrotondare `total_price` direttamente dal
-  `base × (1+margine) × qty`, senza passare per `unit_price` già
-  arrotondato).
-
-**Nota collegata (fuori da B2, da correggere nel backend)**:
-**Pezzi tondi + trattamento a volume (€/dm³)** — confermato dalla
-ricognizione: il backend calcola il volume come `raw_x × raw_y × raw_z`
-anche per i pezzi cilindrici, producendo 0 (perché raw_x/raw_y sono NULL
-sui tondi). I tondi vengono prezzati a 0 € sul trattamento. Già tracciato
-nella sezione "Decisioni di prodotto → P1" come parte della discussione
-sulla modellazione trattamenti/rivestimenti. Da correggere nel backend
-indipendentemente da P1: la formula del cilindro esiste già in
-`_raw_weight_kg` e `_compute_material_cost`, va replicata nei due punti
-del ramo trattamento €/dm³ (`calculation.py:302-306` e `:412-415`).
-
-**Voci emerse dalla ricognizione del wizard 2D (creazione preventivi
-DXF)**: il 2D dopo la creazione passa per lo stesso motore del manuale,
-quindi eredita tutti i bug B2-#1..#8 sopra. In più ha 2 problemi propri:
-
-- ⏸ **#9** — **Unità DXF non convertite**: se un disegno DXF è in pollici
-  (o altra unità diversa dai mm), MechQuote non se ne accorge e tratta
-  le misure come millimetri → il prezzo del taglio risulta **circa 25
-  volte sbagliato** (fattore di conversione pollici→mm = 25,4). Il file
-  DXF contiene già il dato dell'unità (`$INSUNITS`) e il parser lo legge
-  (`backend/app/services/dxf_parser.py:254-259`), ma oggi emette solo un
-  *warning testuale* senza convertire. La correzione è far convertire
-  automaticamente le misure leggendo `$INSUNITS`, **non** aggiungere un
-  controllo manuale.
-
-- ⏸ **#10** — **Forma del pezzo nel wizard 2D**: il wizard modella sempre
-  il grezzo come rettangolo (`raw_x × raw_y × raw_z`). Per i pezzi
-  tagliati al filo questo è corretto **solo quando** il materiale di
-  partenza si compra a piastra rettangolare; ma non è sempre così (a
-  volte il grezzo è tondo). Quando il materiale di partenza è tondo, il
-  costo materiale risulta sovrastimato (su un disco Ø 100 × 20 mm la
-  sovrastima è ~27%). Da rendere selezionabile la forma del grezzo nel
-  wizard 2D, come già avviene nel preventivatore manuale (campo
-  `raw_diameter_mm` esiste sul modello `Part` ma il wizard 2D non lo
-  popola — `Dxf2dWizard.tsx:312-319`).
-
-**Minori collegati al wizard 2D** (gravità media/bassa, registrati per
-non essere dimenticati):
-
-- **Tempo foratura del 2D mai ricalcolato dal backend dopo la creazione**:
-  `cycle_hours_per_part` della fase Foratura è calcolato solo lato
-  frontend al submit (`Dxf2dWizard.tsx:368`) e salvato. Se l'utente
-  cambia in seguito l'altezza pezzo o se la tabella `DrillingTime`
-  viene aggiornata, le ore restano congelate. Asimmetria col modulo
-  stampi, che invece le ricalcola.
-
-- **Autocalc EDM che restituisce 0 in silenzio**: se in `EdmCutSpeed`
-  manca la riga per (famiglia, spessore) richiesto,
-  `_compute_edm_hours_pure` ritorna `None` → `cycle_hours_per_part`
-  resta 0 → la fase EDM costa 0 €. Il wizard 2D mostra un toast
-  warning (`Dxf2dWizard.tsx:351-354`) ma il preventivo viene salvato
-  comunque. Stessa cosa per la fase Foratura: se la tabella è incompleta
-  la fase non viene proprio creata (`Dxf2dWizard.tsx:357-374`) — toast
-  warning ma nessun blocco. Da rendere bloccante o almeno più visibile.
-
-- **Validazione mancante: grezzo più piccolo del disegno**: nel wizard 2D
-  i campi `raw_x_mm` e `raw_y_mm` sono editabili e non c'è check di
-  coerenza con il bbox dei profili selezionati. Il viewer mostra un
-  overlay rosso visivo ma il submit non lo blocca: un grezzo dichiarato
-  più piccolo del taglio richiesto sottostima il costo materiale e
-  passa al salvataggio senza errore (`Dxf2dWizard.tsx:245-282`,
-  `validate()`).
+Anteprima a schermo e calcolo del server devono dare lo stesso numero; in
+piu' punti non lo fanno. **Stato e dettaglio completo in
+`MECHQUOTE_CORREZIONI_PREZZI.md`** (fonte unica sul calcolo prezzi).
+Sintesi: **Fascia 1 CHIUSA** (C1-C5 applicate; C6 -> P3, C7 -> P2, spostate
+al cantiere stampi). Restano la **Fascia 2** (fragilita' medie: anteprime
+stantie, calcoli che vanno a 0 in silenzio, forma pezzo nel wizard 2D,
+validazioni mancanti) e la **Fascia 3** (decisioni azienda: D1/D2,
+arrotondamento). Elenco puntuale in CORREZIONI_PREZZI.
 
 ### B3 — Test automatici sui punti che fanno male
 Esiste già una base di 48 test che passano. Mancano in due punti precisi:
@@ -339,6 +237,10 @@ rallenteranno. Poche righe. *Stima: ~10 min. Conviene farlo presto, costa poco.*
 - **C14** — Dati che restano "vecchi" se si cambia materiale e si cancellano
   le dimensioni.
 - **C15** — Riordino dei file più grandi (lavoro estetico, ultima priorità).
+- **C16** — Backup WAL-aware: la logica `sqlite3.backup()` e' oggi
+  duplicata inline in `update.bat` e in `backup.ps1` (§9.1 di
+  INSTALLAZIONE.md). Consolidarla in un unico `backend/backup_db.py`
+  richiamato da entrambi.
 
 ---
 

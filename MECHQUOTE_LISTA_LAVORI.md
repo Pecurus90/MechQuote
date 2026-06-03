@@ -617,19 +617,5 @@ sicurezza dopo un fallimento parziale (tutti i passi idempotenti). Commit
 
 ---
 
-## ░░░ NOTA A PARTE — il CLAUDE.md ░░░
-
-Il `CLAUDE.md` attuale del progetto contiene **una formula di prezzo superata**
-(descrive un meccanismo, `is_shared`, rimosso dal codice). Questo va corretto
-**presto e a parte**, perché Claude Code crede a quel documento: una formula
-sbagliata lì dentro disorienta ogni lavoro futuro sui prezzi.
-
-Prossimo passo dopo questa lista: correggere quell'errore e costruire un
-`CLAUDE.md` aggiornato, con le **note di cautela** sulle parti fragili
-(§7 del documento di riferimento) e una regola sul fatto che Claude Code deve
-attenersi al compito assegnato senza allargarlo.
-
----
-
 *Lista basata sulle cinque ricognizioni del 22 maggio 2026. Va aggiornata
 spuntando i lavori completati.*

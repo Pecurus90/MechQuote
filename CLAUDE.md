@@ -647,7 +647,7 @@ Le spec sono **target storici/documentati**, non sempre allineate al codice corr
 
 `16_legacy_columns.md` archeologia DB (campi deferred / colonne orfane / campi rimossi).
 
-`docs/ROADMAP.md` è il diario di stato (cosa è fatto, cosa manca).
+`docs/ROADMAP.md` è stato ritirato come diario di stato: lo stato vive in `MECHQUOTE_RIFERIMENTO.md` §0 e `MECHQUOTE_LISTA_LAVORI.md`.
 
 > Nota: la cartella `PRV/` contiene il vecchio sito aziendale — un progetto
 > diverso, completamente estraneo a MechQuote. È isolata (esclusa da Git) e il
@@ -677,7 +677,7 @@ Quando NON chiamare l'utente:
 
 Quando inizi una sessione nuova, in quest'ordine:
 1. Leggi `CLAUDE.md` (questo file).
-2. Leggi `docs/ROADMAP.md` per lo stato corrente.
+2. Leggi `MECHQUOTE_RIFERIMENTO.md` §0 per lo stato corrente (cosa e' fatto / da fare).
 3. Per il quadro completo del progetto e il piano di lavoro, fai riferimento
    a `MECHQUOTE_RIFERIMENTO.md` e `MECHQUOTE_LISTA_LAVORI.md` (§0).
 4. Se l'utente cita un dominio specifico, leggi la spec relativa in `docs/specs/`.

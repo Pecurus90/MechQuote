@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, Ruler } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Ruler, Upload, Download } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -40,6 +40,8 @@ export default function TreatmentsPage() {
   const [searchTreat, setSearchTreat] = useState('')
   const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
   const [pendingDelTreat, setPendingDelTreat] = useState<number | null>(null)
+  const [importingTreat, setImportingTreat] = useState(false)
+  const treatFileInputRef = useRef<HTMLInputElement>(null)
   useEscapeKey(() => setSupForm(null), !!supForm)
   useEscapeKey(() => setTreatForm(null), !!treatForm)
 
@@ -91,6 +93,49 @@ export default function TreatmentsPage() {
       toast.success('Trattamento salvato')
       setTreatForm(null); loadData()
     } catch (e) {toast.error('Errore nel salvataggio') }
+  }
+
+  const handleImportTreatments = async (file: File) => {
+    setImportingTreat(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/treatments/import-csv', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { created, skipped_existing, skipped_invalid, examples } = res.data as {
+        created: number; skipped_existing: number; skipped_invalid: number; examples: string[]
+      }
+      const parts = []
+      if (created) parts.push(`${created} aggiunti`)
+      if (skipped_existing) parts.push(`${skipped_existing} già presenti`)
+      if (skipped_invalid) parts.push(`${skipped_invalid} scartati`)
+      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
+      if (skipped_invalid && examples?.length) {
+        toast.warning(`Esempi scartati: ${examples.slice(0, 3).join(' · ')}`)
+      }
+      loadData()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
+    } finally {
+      setImportingTreat(false)
+      if (treatFileInputRef.current) treatFileInputRef.current.value = ''
+    }
+  }
+
+  const downloadTreatmentsTemplate = async () => {
+    try {
+      const res = await api.get('/treatments/csv-template', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'trattamenti_modello.csv'
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Errore scaricamento modello')
+    }
   }
 
   const deleteTreat = (id: number) => setPendingDelTreat(id)
@@ -217,6 +262,25 @@ export default function TreatmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchTreat} onChange={e => setSearchTreat(e.target.value)} className="pl-9 w-40" />
             </div>
+            <input
+              ref={treatFileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleImportTreatments(f)
+              }}
+            />
+            <Button size="sm" variant="outline" onClick={downloadTreatmentsTemplate}
+                    title="Scarica un modello CSV vuoto da compilare">
+              <Download className="w-4 h-4 mr-1" /> Modello
+            </Button>
+            <Button size="sm" variant="outline" disabled={importingTreat}
+                    onClick={() => treatFileInputRef.current?.click()}
+                    title="Importa un CSV di trattamenti (separatore ;). Tariffa coerente con l'unità obbligatoria; Fornitore via nome esatto.">
+              <Upload className="w-4 h-4 mr-1" /> {importingTreat ? 'Import...' : 'Importa CSV'}
+            </Button>
             <PrimaryCtaButton color="orange" size="sm" onClick={() => setTreatForm(emptyTreat())}>
               <Plus className="w-4 h-4" /> Nuovo trattamento
             </PrimaryCtaButton>

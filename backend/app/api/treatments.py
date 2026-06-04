@@ -163,3 +163,131 @@ def delete_treatment(tid: int, db: Session = Depends(get_db)):
     db.delete(t)
     db.commit()
     return {"ok": True}
+
+
+# --- Import CSV Trattamenti ------------------------------------------------
+#
+# Strict sulle tariffe: a seconda di `cost_unit` ('kg' default vs 'dm3') il
+# cost engine usa cost_per_kg × peso oppure cost_per_dm3 × volume. Una
+# tariffa mancante sul ramo attivo manda a zero il costo, quindi la
+# pretendiamo presente al momento dell'import. Le colonne legacy
+# `fixed_cost`/`cost_per_part`/`cost_per_surface_area`/`treatment_supplier_id`
+# esistono ancora come colonne SQLite (no DROP COLUMN) ma non sono mappate
+# dal model e quindi non vengono ne' importate ne' esposte.
+
+_TREATMENTS_CSV_COLUMNS = [
+    'Nome', 'Tipo', 'Unità', 'Costo/kg (€)', 'Costo/dm³ (€)',
+    'Costo minimo (€)', 'Peso minimo (kg)', 'Fornitore', 'Note',
+]
+
+
+def _build_treatment_mapper(supplier_by_name: dict):
+    """Closure mapper per l'import trattamenti. Riceve la mappa
+    `Supplier.name -> id` precaricata dall'endpoint."""
+
+    def mapper(row: dict):
+        name = (row.get('Nome') or '').strip()
+        if not name:
+            raise CsvRowSkip("Nome mancante")
+
+        unit_raw = (row.get('Unità') or '').strip().lower()
+        if not unit_raw:
+            unit = 'kg'  # default coerente col model
+        elif unit_raw in ('kg', 'dm3'):
+            unit = unit_raw
+        else:
+            raise CsvRowSkip(
+                f"Unità {unit_raw!r} non valida: usa kg o dm3"
+            )
+
+        # Strict sulla tariffa rilevante per l'unità scelta. L'altra resta
+        # opzionale (default 0) per coerenza col create CRUD manuale.
+        if unit == 'kg':
+            cost_per_kg = parse_decimal_it(
+                row.get('Costo/kg (€)'), 'Costo/kg', required=True,
+            )
+            cost_per_dm3 = parse_decimal_it(
+                row.get('Costo/dm³ (€)'), 'Costo/dm³', required=False,
+            ) or 0.0
+        else:
+            cost_per_kg = parse_decimal_it(
+                row.get('Costo/kg (€)'), 'Costo/kg', required=False,
+            ) or 0.0
+            cost_per_dm3 = parse_decimal_it(
+                row.get('Costo/dm³ (€)'), 'Costo/dm³', required=True,
+            )
+
+        supplier_id = None
+        supplier_raw = (row.get('Fornitore') or '').strip()
+        if supplier_raw:
+            supplier_id = supplier_by_name.get(supplier_raw.lower())
+            if supplier_id is None:
+                raise CsvRowSkip(
+                    f"Fornitore '{supplier_raw}' non trovato: "
+                    "importa prima i fornitori esterni"
+                )
+
+        return name, {
+            'name': name,
+            'treatment_type': (row.get('Tipo') or '').strip() or None,
+            'cost_unit': unit,
+            'cost_per_kg': cost_per_kg,
+            'cost_per_dm3': cost_per_dm3,
+            'minimum_cost': parse_decimal_it(
+                row.get('Costo minimo (€)'), 'Costo minimo', required=False,
+            ) or 0.0,
+            'minimum_weight_kg': parse_decimal_it(
+                row.get('Peso minimo (kg)'), 'Peso minimo', required=False,
+            ),
+            'supplier_id': supplier_id,
+            'notes': (row.get('Note') or '').strip() or None,
+            'active': True,
+        }
+    return mapper
+
+
+@router.post("/treatments/import-csv",
+             dependencies=[require_permission('settings')])
+async def import_treatments_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Importa un CSV di trattamenti. Match per `name` normalizzato:
+    le voci già presenti vengono saltate (mai update). Strict sulla
+    tariffa coerente con `cost_unit`. Aggancio fornitore esterno
+    (`Supplier`) via lookup per nome — niente creazione al volo."""
+    supplier_by_name = {
+        (s.name or '').strip().lower(): s.id
+        for s in db.query(Supplier).all()
+    }
+    config = CsvImportConfig(
+        expected_columns=_TREATMENTS_CSV_COLUMNS,
+        model=Treatment,
+        db_key_attr='name',
+        mapper=_build_treatment_mapper(supplier_by_name),
+    )
+    result = await import_catalog_csv(file=file, db=db, config=config)
+    logger.info(
+        "CSV trattamenti importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/treatments/csv-template",
+            dependencies=[require_permission('settings')])
+def download_treatments_csv_template():
+    """Modello CSV per l'import trattamenti (UTF-8 con BOM, ';').
+
+    `Unità` accetta `kg` o `dm3` (vuoto = `kg`). La tariffa corrispondente
+    è obbligatoria; l'altra resta opzionale. `Fornitore` lookup per nome
+    su `Supplier` (fornitori esterni/trattamenti): cella vuota ammessa.
+    """
+    return csv_template_response(
+        filename='trattamenti_modello.csv',
+        columns=_TREATMENTS_CSV_COLUMNS,
+        examples=[
+            ['Tempra TT430',   'termico',     'kg',  '3.50', '',     '120.00', '40', 'Trattamenti Bianchi Srl', ''],
+            ['Nitrurazione',   'superficiale', 'dm3', '',     '180.00', '250.00', '',  'Galvanica Verdi SpA',     'Tariffa volumica'],
+        ],
+    )

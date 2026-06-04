@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Pencil, X, Send, FileText, Save, AlertCircle } from 'lucide-react'
 
 import api, { getApiErrorDetail } from '@/lib/api'
+import { buildCatalogOptions } from '@/lib/catalogSelect'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,11 +90,16 @@ export default function DieQuoteEditor() {
       // Endpoint secondari (Promise.allSettled): se uno fallisce, l'editor
       // si carica lo stesso usando i dati che ha. Es: senza die-settings i
       // preview L3/L4 cadono sui snapshot DB.
+      // CAT-1 Fase 2 / stampi: filtro `?active=true` solo sui catalog di
+      // scelta utente (Materiale piastra + Fornitore normalizzato). /machines
+      // e /treatments NON sono filtrati: /machines è lookup automatico per le
+      // tariffe (stessa logica del 2D), /treatments è oggi stato non usato
+      // qui dentro (resta caricato per non rimuovere strato esistente).
       const [ni, mats, treats, sups, ds, bs, sim, ecfg, esp, cyc, mch] = await Promise.allSettled([
         api.get(`/dies/${id}/normalized-items`),
-        api.get('/materials'),
+        api.get('/materials?active=true'),
         api.get('/treatments'),
-        api.get('/normalized-suppliers'),
+        api.get('/normalized-suppliers?active=true'),
         api.get('/die-settings'),
         api.get('/die-settings/brackets'),
         api.get(`/dies/${id}/find-similar`),
@@ -637,7 +643,14 @@ export default function DieQuoteEditor() {
                             onChange={e => p.id && updatePartLocal(p.id, { material_id: e.target.value ? Number(e.target.value) : undefined })}
                           >
                             <option value="">—</option>
-                            {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            {buildCatalogOptions(
+                              materials,
+                              p.material_id,
+                              p.material,
+                              m => m.name,
+                            ).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
                           </select>
                         </td>
                         <td className="text-right py-1 text-xs text-gray-700">{ore > 0 ? `${ore.toFixed(1)} h` : '—'}</td>
@@ -695,7 +708,14 @@ export default function DieQuoteEditor() {
                             onChange={e => updateItemLocal(it.id, { normalized_supplier_id: e.target.value ? Number(e.target.value) : null })}
                           >
                             <option value="">—</option>
-                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            {buildCatalogOptions(
+                              suppliers,
+                              it.normalized_supplier_id,
+                              it.supplier,
+                              s => s.name,
+                            ).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
                           </select>
                         </td>
                         <td className="text-right py-1">

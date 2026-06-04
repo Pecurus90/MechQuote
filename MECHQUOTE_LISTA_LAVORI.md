@@ -55,18 +55,24 @@ procede 1 step alla volta, ogni step richiede ok esplicito prima di partire.
 *Questi sono il minimo indispensabile. Finché non sono fatti, MechQuote non
 va usato con clienti e preventivi veri.*
 
-### A1 — Sistemare il backup automatico 🔴 IL PIÙ IMPORTANTE
-Esiste già uno script di backup, ma è **difettoso**: copia solo il file
-principale del database e ignora il file `-wal`, dove vivono le ultime
-scritture. Risultato: il backup può essere **incompleto senza dare alcun
-errore** — un'illusione di sicurezza.
-**Cosa fare:** sostituire la copia semplice con il comando corretto
-(`sqlite3 .backup`, oppure un `wal_checkpoint` prima della copia). Inoltre: le
-copie devono finire su un **disco diverso** da quello del server, e va tenuto
-qualche giorno di storico (non solo l'ultima copia).
-**Perché prima di tutto:** è l'unico problema che fa *perdere il lavoro*, non
-perdere tempo. *Stima: ~30 min. Da fare con cura — il backup ha già causato
-incidenti (9-10 maggio).*
+> **Ricognizione 04/06/2026**: rispetto al testo originale, A5 e A6 sono
+> già chiuse nel codice; A1/A3/A4/A9 hanno la parte di codice già fatta e
+> resta solo l'aspetto server; A2/A7/A8 erano e restano azioni server. La
+> lista delle azioni server pendenti è consolidata in fondo al Blocco A
+> nella sezione "Checklist server — config una-tantum".
+
+### A1 — Backup off-disk (NAS / disco diverso dal server) 🔴
+
+**Codice / template** ✅ FATTO (04/06/2026):
+- script di backup notturno **WAL-aware** in `INSTALLAZIONE.md` §9.1 (template
+  `backup.ps1` che usa `sqlite3.backup()` via Python del venv);
+- rotazione automatica a 30 backup (`INSTALLAZIONE.md:634-635`);
+- backup WAL-aware pre-aggiornamento anche in `update.ps1:208`.
+
+**Resta** (server, non codice): le copie finiscono in `C:\MechQuote\backups\`,
+sullo stesso disco del server. Se quel disco muore, anche i backup spariscono.
+Va configurata una copia/sync periodica su **NAS aziendale o disco esterno**.
+Vedi "Checklist server" in fondo al blocco. *Stima azione server: ~30 min.*
 
 ### A2 — Diagnosticare il crash del modulo stampi sul server 🔴
 Aprire `C:\MechQuote\logs\uvicorn.log` sul server, cercare l'ultimo errore
@@ -77,34 +83,42 @@ create...). Solo *dopo* la diagnosi si decide la correzione.
 "Chromium mancante" o "cartella sbagliata", riguarda l'installazione del
 server, che va sistemata prima di usarlo. *Stima diagnosi: ~5 min.*
 
-### A3 — Configurazione sicura del server (file `.env`) 🔴
-Sul server va creato il file di configurazione `.env` con una **chiave
-segreta forte** (non quella di esempio). Chi conosce quella chiave può
-impersonare qualunque utente, admin compreso.
-*Stima: ~15 min.*
+### A3 — `SECRET_KEY` forte nel `.env` del server 🔴
 
-### A4 — Mettere i paletti su margine e sconto 🔴
-Oggi MechQuote accetta un margine fortemente negativo o uno sconto sopra il
-100%, e calcola tranquillamente un **prezzo negativo** che arriva fino al PDF
-del cliente. Basta un errore di battitura (`-220` invece di `20`).
-**Cosa fare:** aggiungere dei limiti (il margine non scende sotto una soglia,
-lo sconto non supera 100%).
-**Perché qui:** tantissimo rischio, pochissimo lavoro — e protegge la
-correttezza dei prezzi fin dal primo preventivo reale. *Stima: ~10 min.*
+**Codice** ✅ FATTO: `backend/app/core/config.py:50-65` ha un guard che
+rifiuta lo startup (`sys.exit(1)`) se `SECRET_KEY` è la default / troppo
+corta / placeholder *e* `ALLOWED_ORIGINS` suggerisce production (non
+localhost).
 
-### A5 — Aggiungere `busy_timeout` al database 🔴
-Manca un'impostazione (una riga) che dice al database di **aspettare** invece
-di fallire quando è occupato. Senza, due salvataggi contemporanei causano un
-errore tecnico e una perdita di modifiche.
-**Perché qui:** una riga di codice che evita perdite di dati quotidiane non
-appena MechQuote viene usato in più persone. *Stima: ~5 min.*
+**Resta** (server, non codice): generare la chiave forte e metterla nel
+`.env` del SERVER. Vedi "Checklist server" in fondo al blocco. *Stima
+azione server: ~5 min (`openssl rand -base64 32` + notepad).*
 
-### A6 — Aggiornare `python-jose` e le librerie del login 🔴
-La libreria che "timbra" i token di login ha un difetto noto che, in certe
-condizioni, permette di fabbricare token falsi. Si risolve aggiornandola
-(insieme ad altre librerie con difetti minori). Da riverificare il login dopo
-l'aggiornamento.
-*Stima: mezza giornata, incluso il ricontrollo del login.*
+### A4 — Soglia minima di margine 🟡
+
+**Sconto** ✅ FATTO: `global_discount_percent` è già vincolato
+`Field(ge=0, le=100)` in `backend/app/schemas.py:373`.
+
+**Resta** (codice, dopo decisione di prodotto): margine oggi a
+`Field(ge=-99, le=1000)` (`schemas.py:318, 372`). Il floor di -99% è
+troppo permissivo: si può ancora salvare un preventivo con margine
+fortemente negativo e arrivare a PDF con prezzo negativo. Richiede una
+**decisione di prodotto** (qual è la soglia minima sensata: 0%? -5%?
+0% sotto i preventivi commessa?), poi un cambio di una riga nel
+`Field(ge=...)`. Collegata in spirito a D1/D2 (decisioni su sconto e
+prezzo minimo). *Stima: ~5 min dopo decisione.*
+
+### A5 — `busy_timeout` SQLite ✅ FATTO
+
+Confermato 04/06/2026: `backend/app/core/database.py:40` →
+`PRAGMA busy_timeout=5000` impostato a ogni connessione (insieme a
+`PRAGMA journal_mode=WAL`). **Voce chiusa.**
+
+### A6 — `python-jose` aggiornato ✅ FATTO
+
+Confermato 04/06/2026: `backend/requirements.txt:7` →
+`python-jose[cryptography]==3.5.0` (versione corrente). Salvo verifica
+mirata con `pip audit` o test login post-deploy, **voce chiusa.**
 
 ### A7 — Verificare e cambiare la password dell'utente admin sul server 🔴
 Lo script di creazione del primo admin (descritto nel CLAUDE.md) imposta una
@@ -132,21 +146,58 @@ Chromium, A2 e A8 hanno la stessa radice e si risolvono insieme con
 `playwright install chromium` nel venv del server.
 *Stima diagnosi: ~5 min. Stima correzione: ~10 min se è Chromium.*
 
-### A9 — Bug server: sezione stampi crasha, errore 404 su `/api/dashboard/alerts` 🔴 (scoperto 2026-05-27)
-Sul server, aprire la sezione Stampi causa un errore in console del browser:
-**GET `/api/dashboard/alerts` → 404 Not Found**. L'endpoint esiste nel
-codice (`backend/app/api/dashboard.py:553`), quindi il 404 viene da Apache
-che non sta inoltrando la richiesta al backend, **non** da FastAPI che la
-riceve e risponde 404. Cause tipiche: configurazione `ProxyPass` di Apache
-incompleta (la regola `/api/` non inoltra tutte le sotto-route), oppure
-backend non in esecuzione, oppure servizio backend partito dalla cartella
-sbagliata e quindi non risponde su `:8000`. Affine ad A2 (stesso ambiente
-server, stesse cause possibili).
-**Cosa fare:** verificare `nssm status MechQuoteBackend` (servizio acceso?),
-`curl http://localhost:8000/api/dashboard/alerts` dal server (risponde il
-backend?), poi `C:\Apache24\conf\extra\httpd-vhosts.conf` per controllare la
-regola di proxy.
-*Stima diagnosi: ~10 min.*
+### A9 — Apache proxy route `/api/dashboard/alerts` 🔴 (scoperto 2026-05-27)
+
+**Codice** ✅ FATTO: endpoint esiste, `backend/app/api/dashboard.py:553`
+(`@router.get("/dashboard/alerts")`).
+
+**Resta** (server, non codice): sul server il browser riceve **GET
+`/api/dashboard/alerts` → 404**. Il 404 viene da Apache (la regola
+`ProxyPass /api ...` di `C:\Apache24\conf\extra\httpd-vhosts.conf` non
+inoltra questa sotto-route), non da FastAPI. Verifica:
+- `nssm status MechQuoteBackend` (servizio acceso?);
+- `curl http://localhost:8000/api/dashboard/alerts` dal server (risponde
+  il backend?);
+- regola di proxy in `httpd-vhosts.conf`.
+
+Vedi "Checklist server" in fondo al blocco. Affine ad A2 (stesso ambiente
+server, possibile stessa radice). *Stima diagnosi/fix server: ~15 min.*
+
+---
+
+### ░░░ Checklist server — config una-tantum ░░░
+
+Lavori che NON sono nel codice ma sul server. Da fare in azienda, una sola
+volta, poi tracciati come fatti. Tutti hanno il codice già pronto:
+l'intervento è solo di configurazione/operatività sul PC server.
+
+- [ ] **Collaudo `update.bat` / `update.ps1`** sul server. Lanciare,
+      leggere l'output, confermare che la versione si aggiorna e il
+      backend ripartisce. Prerequisito di tutto il resto.
+- [ ] **A8 — Chromium per i PDF**: nel venv del server lanciare
+      `playwright install chromium` (~150 MB). Causa più probabile del
+      PDF 500 e potenzialmente del crash stampi (A2).
+- [ ] **A3 — `SECRET_KEY` forte nel `.env`**: generare con
+      `openssl rand -base64 32`, scrivere in `C:\MechQuote\backend\.env`,
+      riavviare il servizio. Il guard nel codice
+      (`backend/app/core/config.py:50-65`) si attiva automaticamente.
+- [ ] **A7 — Password admin di default**: collegarsi al server,
+      verificare la password dell'utente `admin` nel DB. Se è ancora
+      `admin` o banale, sostituire con una forte. Stesso check su altri
+      utenti già creati.
+- [ ] **A2 — Diagnosi crash stampi**: aprire
+      `C:\MechQuote\logs\uvicorn.log` durante il crash, identificare
+      l'eccezione. Causa probabile: stessa di A8 (Chromium mancante).
+- [ ] **A9 — Apache proxy `/api/dashboard/alerts`**: verificare la regola
+      `ProxyPass /api ...` in `C:\Apache24\conf\extra\httpd-vhosts.conf`
+      (vedi `INSTALLAZIONE.md` §6.4); attualmente non inoltra la
+      sotto-route. Confermare con `curl http://localhost:8000/api/dashboard/alerts`
+      dal server (risposta del backend = 200/json).
+- [ ] **A1 — Backup off-disk**: il backup WAL-aware notturno
+      (`backup.ps1`, vedi `INSTALLAZIONE.md` §9.1) gira già, ma scrive
+      su `C:\MechQuote\backups\` (stesso disco del server). Configurare
+      una copia/sync periodica su NAS aziendale o disco esterno — se il
+      disco del server muore, anche i backup spariscono.
 
 ---
 

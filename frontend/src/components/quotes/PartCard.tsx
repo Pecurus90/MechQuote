@@ -7,6 +7,7 @@ import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
 import { fmtUnitPrice } from '@/lib/utils'
 import { parseDecimal } from '@/lib/decimalInput'
 import api from '@/lib/api'
+import { buildCatalogOptions } from '@/lib/catalogSelect'
 import type { Part, Material, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import { toast } from 'sonner'
 
@@ -227,8 +228,13 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 onBlur={() => onSave()}
               >
                 <option value="">Seleziona materiale...</option>
-                {materials.map(m => (
-                  <option key={m.id} value={m.id}>{m.name} ({m.family})</option>
+                {buildCatalogOptions(
+                  materials,
+                  part.material_id,
+                  part.material,
+                  m => `${m.name} (${m.family})`,
+                ).map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -406,8 +412,13 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                   onChange={e => handleTreatmentSelect(Number(e.target.value) || undefined)}
                 >
                   <option value="">Nessun trattamento</option>
-                  {[...treatments].sort((a, b) => a.name.localeCompare(b.name, 'it')).map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                  {buildCatalogOptions(
+                    [...treatments].sort((a, b) => a.name.localeCompare(b.name, 'it')),
+                    treatmentPhase?.treatment_id,
+                    treatmentPhase?.treatment,
+                    t => t.name,
+                  ).map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>

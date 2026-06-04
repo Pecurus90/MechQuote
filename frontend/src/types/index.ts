@@ -57,6 +57,13 @@ export interface Phase {
   cutting_cycle_id?: number | null
   n_pierce?: number | null
   dxf_profile_ids?: number[] | null
+  // CAT-1 Fase 2: voci di catalogo agganciate, esposte da PhaseOut per
+  // costruire l'option "ritirato" nelle dropdown del preventivatore
+  // quando il GET di lista è filtrato `?active=true`.
+  machine?: Machine | null
+  operation?: Operation | null
+  treatment?: Treatment | null
+  supplier?: Supplier | null
 }
 
 export interface Machine {

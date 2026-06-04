@@ -44,13 +44,17 @@ export default function QuoteEditor() {
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
 
   useEffect(() => {
+    // CAT-1 Fase 2: catalog con `?active=true` (solo voci attive nelle
+    // dropdown di nuova scelta). Le voci ritirate ancora agganciate a
+    // parti/fasi del preventivo restano visibili tramite il nested object
+    // del payload (vedi `lib/catalogSelect.buildCatalogOptions`).
     Promise.all([
-      api.get('/machines'),
-      api.get('/materials'),
+      api.get('/machines?active=true'),
+      api.get('/materials?active=true'),
       api.get('/quote-categories'),
       api.get('/customers'),
-      api.get('/suppliers'),
-      api.get('/treatments'),
+      api.get('/suppliers?active=true'),
+      api.get('/treatments?active=true'),
       api.get('/company-settings'),
     ]).then(([m, mat, cat, cust, sup, tr, cs]) => {
       setMachines(m.data)

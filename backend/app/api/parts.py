@@ -50,7 +50,16 @@ def add_part(
     db.refresh(part)
     recalculate_part(part.id, db)
     return db.query(Part).options(
-        joinedload(Part.phases),
+        joinedload(Part.phases).options(
+            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
+            # supplier per costruire l'option "ritirato" nelle dropdown
+            # del preventivatore. Joinedload mirato per evitare N+1 nella
+            # serializzazione (stesso pattern in `quotes._load_quote`).
+            joinedload(ManufacturingPhase.machine),
+            joinedload(ManufacturingPhase.operation),
+            joinedload(ManufacturingPhase.treatment),
+            joinedload(ManufacturingPhase.supplier),
+        ),
         joinedload(Part.material),
         joinedload(Part.files),
     ).filter(Part.id == part.id).first()
@@ -59,7 +68,16 @@ def add_part(
 @router.get("/parts/{part_id}", response_model=PartOut)
 def get_part(part_id: int, db: Session = Depends(get_db)):
     part = db.query(Part).options(
-        joinedload(Part.phases),
+        joinedload(Part.phases).options(
+            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
+            # supplier per costruire l'option "ritirato" nelle dropdown
+            # del preventivatore. Joinedload mirato per evitare N+1 nella
+            # serializzazione (stesso pattern in `quotes._load_quote`).
+            joinedload(ManufacturingPhase.machine),
+            joinedload(ManufacturingPhase.operation),
+            joinedload(ManufacturingPhase.treatment),
+            joinedload(ManufacturingPhase.supplier),
+        ),
         joinedload(Part.material),
         joinedload(Part.files),
     ).filter(Part.id == part_id).first()
@@ -85,7 +103,16 @@ def update_part(
     db.commit()
     recalculate_part(part_id, db)
     part = db.query(Part).options(
-        joinedload(Part.phases),
+        joinedload(Part.phases).options(
+            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
+            # supplier per costruire l'option "ritirato" nelle dropdown
+            # del preventivatore. Joinedload mirato per evitare N+1 nella
+            # serializzazione (stesso pattern in `quotes._load_quote`).
+            joinedload(ManufacturingPhase.machine),
+            joinedload(ManufacturingPhase.operation),
+            joinedload(ManufacturingPhase.treatment),
+            joinedload(ManufacturingPhase.supplier),
+        ),
         joinedload(Part.material),
         joinedload(Part.files),
     ).filter(Part.id == part_id).first()
@@ -185,7 +212,16 @@ def duplicate_part(
     recalculate_part(new_part.id, db)
 
     return db.query(Part).options(
-        joinedload(Part.phases),
+        joinedload(Part.phases).options(
+            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
+            # supplier per costruire l'option "ritirato" nelle dropdown
+            # del preventivatore. Joinedload mirato per evitare N+1 nella
+            # serializzazione (stesso pattern in `quotes._load_quote`).
+            joinedload(ManufacturingPhase.machine),
+            joinedload(ManufacturingPhase.operation),
+            joinedload(ManufacturingPhase.treatment),
+            joinedload(ManufacturingPhase.supplier),
+        ),
         joinedload(Part.material),
         joinedload(Part.files),
     ).filter(Part.id == new_part.id).first()

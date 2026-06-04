@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.database import get_db
@@ -23,6 +23,19 @@ def _quote_for_part(part_id: int, db: Session) -> Quote:
 router = APIRouter(prefix="/api", tags=["phases"])
 
 
+# CAT-1 Fase 2: serializzazione di PhaseOut espone machine/operation/
+# treatment/supplier (nested) per costruire l'option "ritirato" nelle
+# dropdown del preventivatore. Joinedload mirato sul ritorno di add/update
+# per evitare N+1 (stesso pattern in `quotes._load_quote`).
+def _load_phase_with_catalog(phase_id: int, db: Session) -> ManufacturingPhase:
+    return db.query(ManufacturingPhase).options(
+        joinedload(ManufacturingPhase.machine),
+        joinedload(ManufacturingPhase.operation),
+        joinedload(ManufacturingPhase.treatment),
+        joinedload(ManufacturingPhase.supplier),
+    ).filter(ManufacturingPhase.id == phase_id).first()
+
+
 @router.post("/parts/{part_id}/phases", response_model=PhaseOut)
 def add_phase(
     part_id: int,
@@ -37,8 +50,7 @@ def add_phase(
     db.commit()
     db.refresh(phase)
     recalculate_part(part_id, db)
-    db.refresh(phase)
-    return phase
+    return _load_phase_with_catalog(phase.id, db)
 
 
 @router.put("/phases/{phase_id}", response_model=PhaseOut)
@@ -57,8 +69,7 @@ def update_phase(
         setattr(phase, key, value)
     db.commit()
     recalculate_part(phase.part_id, db)
-    db.refresh(phase)
-    return phase
+    return _load_phase_with_catalog(phase_id, db)
 
 
 @router.delete("/phases/{phase_id}")

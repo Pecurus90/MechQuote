@@ -128,7 +128,15 @@ def apply_workflow_to_part(part_id: int, workflow_id: int, db: Session = Depends
 
     # Ritorna la parte fresh con phases caricate.
     fresh = db.query(Part).options(
-        joinedload(Part.phases),
+        joinedload(Part.phases).options(
+            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
+            # supplier nested per le dropdown del preventivatore (stesso
+            # pattern in `quotes._load_quote` e `parts.*`).
+            joinedload(ManufacturingPhase.machine),
+            joinedload(ManufacturingPhase.operation),
+            joinedload(ManufacturingPhase.treatment),
+            joinedload(ManufacturingPhase.supplier),
+        ),
         joinedload(Part.material),
         joinedload(Part.files),
     ).filter(Part.id == part_id).first()

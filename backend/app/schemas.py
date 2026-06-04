@@ -214,6 +214,15 @@ class PhaseUpdate(BaseModel):
 class PhaseOut(PhaseBase):
     id: int
     part_id: int
+    # Voce di catalogo già agganciata, esposta per costruire l'option
+    # "ritirato" nelle dropdown del preventivatore quando il GET di lista è
+    # filtrato `?active=true`. Lazy-load via from_attributes; il GET
+    # /quotes/{id} aggiunge un joinedload mirato per evitare N+1 (vedi
+    # `api/quotes.py:_load_quote`).
+    machine: Optional["MachineOut"] = None
+    operation: Optional["OperationOut"] = None
+    treatment: Optional["TreatmentOut"] = None
+    supplier: Optional["SupplierOut"] = None
 
     class Config:
         from_attributes = True
@@ -1446,5 +1455,9 @@ class DieQuoteCreate(BaseModel):
     spec: DieSpecCreate
 
 
-# Forward-ref resolution: QuoteOut referenzia DieSpecOut/DieNormalizedItemOut.
+# Forward-ref resolution:
+# - QuoteOut referenzia DieSpecOut/DieNormalizedItemOut;
+# - PhaseOut referenzia MachineOut/OperationOut/TreatmentOut/SupplierOut
+#   (definiti dopo PhaseOut nel file, vedi commento in PhaseOut).
+PhaseOut.model_rebuild()
 QuoteOut.model_rebuild()

@@ -6,6 +6,7 @@ import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, ChevronUp } from
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
+import { buildCatalogOptions } from '@/lib/catalogSelect'
 import { calcTreatmentCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
 import EdmPhaseFields from '@/components/quotes/EdmPhaseFields'
@@ -122,7 +123,8 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
     }
     api.get('/cutting-cycles').then(r => setCuttingCycles(r.data)).catch(devWarn('cutting-cycles'))
     api.get('/workflow-templates').then(r => setWorkflows(r.data)).catch(devWarn('workflow-templates'))
-    api.get('/operations').then(r => setOperations(r.data)).catch(devWarn('operations'))
+    // CAT-1 Fase 2: solo lavorazioni attive nelle dropdown.
+    api.get('/operations?active=true').then(r => setOperations(r.data)).catch(devWarn('operations'))
   }, [])
 
   // Quando cambia peso finito, quantità o nParts, ricalcola TUTTE le fasi:
@@ -493,8 +495,8 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
                           onBlur={() => savePhase(idx)}
                         >
                           <option value="">— Scegli lavorazione —</option>
-                          {operations.map(o => (
-                            <option key={o.id} value={o.id}>{o.name}</option>
+                          {buildCatalogOptions(operations, phase.operation_id, phase.operation, o => o.name).map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
                       </div>
@@ -509,8 +511,13 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
                             onBlur={() => savePhase(idx)}
                           >
                             <option value="">Nessuna</option>
-                            {machines.map(m => (
-                              <option key={m.id} value={m.id}>{m.name} ({m.hourly_rate.toFixed(0)} €/h)</option>
+                            {buildCatalogOptions(
+                              machines,
+                              phase.machine_id,
+                              phase.machine,
+                              m => `${m.name} (${m.hourly_rate.toFixed(0)} €/h)`,
+                            ).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
                         </div>
@@ -526,10 +533,13 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
                             onBlur={() => savePhase(idx)}
                           >
                             <option value="">Seleziona...</option>
-                            {treatments.map(t => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}{t.cost_per_kg ? ` — ${t.cost_per_kg} €/kg` : ''}
-                              </option>
+                            {buildCatalogOptions(
+                              treatments,
+                              phase.treatment_id,
+                              phase.treatment,
+                              t => `${t.name}${t.cost_per_kg ? ` — ${t.cost_per_kg} €/kg` : ''}`,
+                            ).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
                           {!finishedWeightKg && phase.treatment_id && (
@@ -569,8 +579,13 @@ export default function PhaseEditor({ partId, partMaterialId, phases, quantity, 
                             onBlur={() => savePhase(idx)}
                           >
                             <option value="">Nessuno</option>
-                            {suppliers.map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
+                            {buildCatalogOptions(
+                              suppliers,
+                              phase.supplier_id,
+                              phase.supplier,
+                              s => s.name,
+                            ).map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
                         </div>

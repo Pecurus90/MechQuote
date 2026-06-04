@@ -23,7 +23,17 @@ router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 def _load_quote(quote_id: int, db: Session) -> Quote:
     return db.query(Quote).options(
         joinedload(Quote.parts).options(
-            joinedload(Part.phases),
+            joinedload(Part.phases).options(
+                # CAT-1 Fase 2: PhaseOut espone le voci di catalogo agganciate
+                # (machine/operation/treatment/supplier) per costruire l'option
+                # "ritirato" nelle dropdown del preventivatore quando il GET
+                # di lista è filtrato `?active=true`. Joinedload mirato per
+                # evitare N+1 in serializzazione.
+                joinedload(ManufacturingPhase.machine),
+                joinedload(ManufacturingPhase.operation),
+                joinedload(ManufacturingPhase.treatment),
+                joinedload(ManufacturingPhase.supplier),
+            ),
             joinedload(Part.material),
             joinedload(Part.files),
         ),

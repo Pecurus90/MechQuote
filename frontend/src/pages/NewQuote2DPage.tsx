@@ -29,10 +29,17 @@ export default function NewQuote2DPage() {
   const [currentRaw, setCurrentRaw] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
+    // CAT-1 Fase 2: il wizard 2D ha UNA sola scelta utente di catalog
+    // (Materiale), quindi `?active=true` solo lì. /machines e /operations
+    // qui servono SOLO ai lookup automatici (wire_edm, EDM a filo,
+    // Foratura) che il wizard fa internamente per popolare le fasi:
+    // filtrarli rischierebbe di non trovare la macchina/operation
+    // attesa se l'utente l'ha ritirata, e si finirebbe per salvare un
+    // preventivo senza la fase corrispondente.
     Promise.all([
       api.get('/quote-categories'),
       api.get('/customers'),
-      api.get('/materials'),
+      api.get('/materials?active=true'),
       api.get('/cutting-cycles'),
       api.get('/drilling-times'),
       api.get('/edm-config'),

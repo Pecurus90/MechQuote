@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Zap, Drill, AlertTriangle, Box } from 'lucide-react'
 import api from '@/lib/api'
+import { buildCatalogOptions } from '@/lib/catalogSelect'
 import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import type {
@@ -487,7 +488,14 @@ export default function Dxf2dWizard({
                   value={form.material_id}
                   onChange={e => set('material_id', e.target.value)}>
                   <option value="">— scegli —</option>
-                  {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  {buildCatalogOptions(
+                    materials,
+                    form.material_id ? Number(form.material_id) : null,
+                    null,
+                    m => m.name,
+                  ).map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
               <div>

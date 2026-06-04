@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, Wrench, AlertTriangle, ArrowDown, ArrowUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Wrench, AlertTriangle, ArrowDown, ArrowUp, Upload, Download } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
@@ -87,6 +87,8 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FormState | null>(null)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  const [importing, setImporting] = useState(false)
+  const importFileRef = useRef<HTMLInputElement>(null)
 
   // Scan
   const [scanMode, setScanMode] = useState<ScanMode>('unload')
@@ -220,6 +222,49 @@ export default function ToolsPage() {
     }
   }
 
+  const handleImport = async (file: File) => {
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/tools/import-csv', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { created, skipped_existing, skipped_invalid, examples } = res.data as {
+        created: number; skipped_existing: number; skipped_invalid: number; examples: string[]
+      }
+      const parts = []
+      if (created) parts.push(`${created} aggiunti`)
+      if (skipped_existing) parts.push(`${skipped_existing} già presenti`)
+      if (skipped_invalid) parts.push(`${skipped_invalid} scartati`)
+      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
+      if (skipped_invalid && examples?.length) {
+        toast.warning(`Esempi scartati: ${examples.slice(0, 3).join(' · ')}`)
+      }
+      loadTools()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
+    } finally {
+      setImporting(false)
+      if (importFileRef.current) importFileRef.current.value = ''
+    }
+  }
+
+  const downloadTemplate = async () => {
+    try {
+      const res = await api.get('/tools/csv-template', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'utensili_modello.csv'
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Errore scaricamento modello')
+    }
+  }
+
   const handleDelete = (id: number) => setPendingDelete(id)
   const confirmDelete = async () => {
     if (pendingDelete == null) return
@@ -242,9 +287,30 @@ export default function ToolsPage() {
         title="Utensili"
         subtitle={`${tools.length} utensil${tools.length === 1 ? 'e' : 'i'} mostrati`}
         action={
-          <PrimaryCtaButton color="violet" size="sm" onClick={startNew}>
-            <Plus className="w-4 h-4" /> Nuovo utensile
-          </PrimaryCtaButton>
+          <div className="flex items-center gap-3">
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleImport(f)
+              }}
+            />
+            <Button size="sm" variant="outline" onClick={downloadTemplate}
+                    title="Scarica un modello CSV vuoto da compilare">
+              <Download className="w-4 h-4 mr-1" /> Modello
+            </Button>
+            <Button size="sm" variant="outline" disabled={importing}
+                    onClick={() => importFileRef.current?.click()}
+                    title="Importa un CSV di utensili (separatore ;). Tipo/Marca/Locazione e Fornitore devono già esistere nei cataloghi.">
+              <Upload className="w-4 h-4 mr-1" /> {importing ? 'Import...' : 'Importa CSV'}
+            </Button>
+            <PrimaryCtaButton color="violet" size="sm" onClick={startNew}>
+              <Plus className="w-4 h-4" /> Nuovo utensile
+            </PrimaryCtaButton>
+          </div>
         }
       />
 

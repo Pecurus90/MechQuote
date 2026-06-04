@@ -6,10 +6,14 @@ Ordini sidebar). Qui resta solo CRUD utensili + scan +/- + notifica.
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.csv_import import (
+    CsvImportConfig, CsvRowSkip,
+    csv_template_response, import_catalog_csv, parse_decimal_it,
+)
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
 from app.models import (
@@ -68,6 +72,66 @@ def delete_tool_supplier(sid: int, db: Session = Depends(get_db), _=_can_tools):
     db.delete(sup)
     db.commit()
     return {"ok": True}
+
+
+# ─── Import CSV Fornitori utensili ──────────────────────────────────────────
+
+_TOOL_SUPPLIERS_CSV_COLUMNS = [
+    'Nome', 'Indirizzo', 'Telefono', 'Email', 'Note',
+]
+
+
+def _tool_supplier_mapper(row: dict):
+    name = (row.get('Nome') or '').strip()
+    if not name:
+        raise CsvRowSkip("Nome mancante")
+    return name, {
+        'name': name,
+        'address': (row.get('Indirizzo') or '').strip() or None,
+        'phone': (row.get('Telefono') or '').strip() or None,
+        'email': (row.get('Email') or '').strip() or None,
+        'notes': (row.get('Note') or '').strip() or None,
+        'active': True,
+    }
+
+
+_TOOL_SUPPLIERS_IMPORT_CONFIG = CsvImportConfig(
+    expected_columns=_TOOL_SUPPLIERS_CSV_COLUMNS,
+    model=ToolSupplier,
+    db_key_attr='name',
+    mapper=_tool_supplier_mapper,
+)
+
+
+@router.post("/suppliers/import-csv")
+async def import_tool_suppliers_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _=_can_tools,
+):
+    """Importa un CSV di fornitori utensili. Match per `name` normalizzato:
+    le voci già presenti vengono saltate (mai update)."""
+    result = await import_catalog_csv(
+        file=file, db=db, config=_TOOL_SUPPLIERS_IMPORT_CONFIG,
+    )
+    logger.info(
+        "CSV fornitori utensili importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/suppliers/csv-template")
+def download_tool_suppliers_csv_template(_=_can_tools):
+    """Modello CSV per l'import fornitori utensili (UTF-8 con BOM, ';')."""
+    return csv_template_response(
+        filename='fornitori_utensili_modello.csv',
+        columns=_TOOL_SUPPLIERS_CSV_COLUMNS,
+        examples=[
+            ['Hypertools Srl', 'Via Industria 5, Padova', '049 1234567', 'info@hypertools.it', ''],
+            ['OSG Italia',     'Via Test 8, Milano',      '',            'vendite@osg.it',     'Punte HSS-Co'],
+        ],
+    )
 
 
 # ─── Attributi utensile (Tipo / Marchio / Posizione) ───────────────────────
@@ -232,6 +296,170 @@ def delete_tool(tool_id: int, db: Session = Depends(get_db), _=_can_tools):
     db.delete(tool)
     db.commit()
     return {"ok": True}
+
+
+# ─── Import CSV Utensili ────────────────────────────────────────────────────
+#
+# Strategia β (validazione stretta):
+# - Chiave anti-duplicato = `code` (UNIQUE, già check al create).
+# - Tipo/Marca/Locazione: stringhe libere sul model, MA al import devono
+#   esistere nei rispettivi lookup (ToolType/ToolBrand/ToolLocation). Niente
+#   auto-creazione: il typo nel CSV viene scartato con messaggio chiaro.
+# - Fornitore: lookup su ToolSupplier per nome -> FK id (come per i materiali).
+
+_TOOLS_CSV_COLUMNS = [
+    'Codice', 'Tipo', 'Marca', 'Modello',
+    'Diametro (mm)', 'Toroidale (mm)',
+    'Quantità', 'Quantità minima',
+    'Locazione', 'Fornitore', 'Note',
+]
+
+
+def _parse_int_or_zero(raw, label: str) -> int:
+    """Quantità intera tollerante: vuoto -> 0, altrimenti int strict.
+
+    Solleva CsvRowSkip se il valore non è interpretabile come intero
+    (es. "3,5" o "abc"): le quantità sono pezzi conteggiati a unità,
+    decimali non hanno senso.
+    """
+    text = (str(raw) if raw is not None else '').strip()
+    if not text:
+        return 0
+    try:
+        return int(text)
+    except ValueError:
+        raise CsvRowSkip(f"{label} non intera: {text!r}")
+
+
+def _build_tool_mapper(
+    type_names: set, brand_names: set, location_names: set,
+    supplier_by_name: dict,
+):
+    """Closure mapper per l'import utensili.
+
+    Riceve le mappe/insiemi pre-caricati dall'endpoint (una sola query
+    per ognuna) per evitare N query per riga. Tutti i nomi sono già
+    normalizzati con strip+lower al momento del pre-carico.
+    """
+    def mapper(row: dict):
+        code = (row.get('Codice') or '').strip()
+        if not code:
+            raise CsvRowSkip("Codice mancante")
+
+        def _lookup(raw_value: str, allowed: set, label: str, advice: str):
+            v = (raw_value or '').strip()
+            if not v:
+                return None
+            if v.lower() not in allowed:
+                raise CsvRowSkip(
+                    f"{label} {v!r} non in catalogo: aggiungilo da {advice}"
+                )
+            return v
+
+        tool_type = _lookup(
+            row.get('Tipo'), type_names,
+            'Tipo', 'Attributi utensili',
+        )
+        brand = _lookup(
+            row.get('Marca'), brand_names,
+            'Marca', 'Attributi utensili',
+        )
+        location = _lookup(
+            row.get('Locazione'), location_names,
+            'Locazione', 'Attributi utensili',
+        )
+
+        supplier_id = None
+        supplier_raw = (row.get('Fornitore') or '').strip()
+        if supplier_raw:
+            supplier_id = supplier_by_name.get(supplier_raw.lower())
+            if supplier_id is None:
+                raise CsvRowSkip(
+                    f"Fornitore '{supplier_raw}' non trovato: "
+                    "importa prima i fornitori utensili"
+                )
+
+        return code, {
+            'code': code,
+            'tool_type': tool_type,
+            'brand': brand,
+            'model': (row.get('Modello') or '').strip() or None,
+            'diameter_mm': parse_decimal_it(
+                row.get('Diametro (mm)'), 'Diametro', required=False,
+            ),
+            'toroidal_mm': parse_decimal_it(
+                row.get('Toroidale (mm)'), 'Toroidale', required=False,
+            ),
+            'quantity': _parse_int_or_zero(row.get('Quantità'), 'Quantità'),
+            'minimum_quantity': _parse_int_or_zero(
+                row.get('Quantità minima'), 'Quantità minima',
+            ),
+            'location': location,
+            'tool_supplier_id': supplier_id,
+            'notes': (row.get('Note') or '').strip() or None,
+            'active': True,
+        }
+    return mapper
+
+
+@router.post("/import-csv")
+async def import_tools_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _=_can_tools,
+):
+    """Importa un CSV di utensili. Match per `code` (univoco): le voci
+    già presenti vengono saltate (mai update). Tipo/Marca/Locazione e
+    Fornitore devono già esistere nei rispettivi cataloghi (validazione
+    stretta β: niente creazione al volo)."""
+    type_names = {
+        (t.name or '').strip().lower()
+        for t in db.query(ToolType).all()
+    }
+    brand_names = {
+        (b.name or '').strip().lower()
+        for b in db.query(ToolBrand).all()
+    }
+    location_names = {
+        (l.name or '').strip().lower()
+        for l in db.query(ToolLocation).all()
+    }
+    supplier_by_name = {
+        (s.name or '').strip().lower(): s.id
+        for s in db.query(ToolSupplier).all()
+    }
+    config = CsvImportConfig(
+        expected_columns=_TOOLS_CSV_COLUMNS,
+        model=Tool,
+        db_key_attr='code',
+        mapper=_build_tool_mapper(
+            type_names, brand_names, location_names, supplier_by_name,
+        ),
+    )
+    result = await import_catalog_csv(file=file, db=db, config=config)
+    logger.info(
+        "CSV utensili importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/csv-template")
+def download_tools_csv_template(_=_can_tools):
+    """Modello CSV per l'import utensili (UTF-8 con BOM, ';').
+
+    Validazione stretta: `Tipo`, `Marca`, `Locazione` e `Fornitore` devono
+    già esistere nei rispettivi cataloghi (Attributi utensili / Fornitori
+    utensili). Celle vuote ammesse e mappate a NULL.
+    """
+    return csv_template_response(
+        filename='utensili_modello.csv',
+        columns=_TOOLS_CSV_COLUMNS,
+        examples=[
+            ['UT-001', 'Fresa', 'Sandvik', 'R390-12T308', '12',  '0.8', '5', '2', 'Armadio A', 'Hypertools Srl', ''],
+            ['UT-002', 'Punta', 'OSG',     'HSS-Co Φ5',   '5',   '',    '0', '0', '',          '',                'In riordino'],
+        ],
+    )
 
 
 # ─── Scan barcode (workflow officina) ────────────────────────────────────────

@@ -6,7 +6,7 @@ normalizzato è una parte acquistata intera, non materiale grezzo né utensile.
 
 Linkato opzionalmente a OfficinaDocument per cataloghi (es. Bossard, Würth).
 """
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -25,8 +25,17 @@ _can_write = require_permission('settings')
 
 
 @router.get("", response_model=List[NormalizedSupplierOut])
-def list_normalized_suppliers(db: Session = Depends(get_db)):
-    return db.query(NormalizedSupplier).order_by(NormalizedSupplier.name).all()
+def list_normalized_suppliers(
+    active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """Elenco fornitori normalizzati. `active` opzionale: se True/False
+    filtra, se omesso restituisce tutto (default invariato). Pattern di
+    `normalized_items.list_items`."""
+    query = db.query(NormalizedSupplier)
+    if active is not None:
+        query = query.filter(NormalizedSupplier.active == active)
+    return query.order_by(NormalizedSupplier.name).all()
 
 
 @router.post("", response_model=NormalizedSupplierOut, dependencies=[_can_write])

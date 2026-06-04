@@ -5,7 +5,7 @@ import time
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 
 from app.core.catalog_protect import block_if_in_use
 from app.core.csv_import import (
@@ -138,8 +138,17 @@ def download_material_suppliers_csv_template():
 
 # --- Materials ---
 @router.get("/materials", response_model=List[MaterialOut])
-def list_materials(db: Session = Depends(get_db)):
-    return db.query(Material).options(joinedload(Material.material_supplier)).order_by(Material.name).all()
+def list_materials(
+    active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """Elenco materiali. `active` opzionale: se True/False filtra, se
+    omesso restituisce tutto (default invariato, per non rompere settings
+    né letture esistenti). Pattern di `normalized_items.list_items`."""
+    query = db.query(Material).options(joinedload(Material.material_supplier))
+    if active is not None:
+        query = query.filter(Material.active == active)
+    return query.order_by(Material.name).all()
 
 
 @router.post("/materials", response_model=MaterialOut, dependencies=[require_permission('settings')])

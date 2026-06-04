@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.core.catalog_protect import block_if_in_use
 from app.core.csv_import import (
@@ -19,8 +19,17 @@ router = APIRouter(prefix="/api", tags=["machines"])
 
 
 @router.get("/machines", response_model=List[MachineOut])
-def list_machines(db: Session = Depends(get_db)):
-    return db.query(Machine).order_by(Machine.name).all()
+def list_machines(
+    active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """Elenco centri di costo (macchine). `active` opzionale: se True/False
+    filtra, se omesso restituisce tutto (default invariato). Pattern di
+    `normalized_items.list_items`."""
+    query = db.query(Machine)
+    if active is not None:
+        query = query.filter(Machine.active == active)
+    return query.order_by(Machine.name).all()
 
 
 @router.post("/machines", response_model=MachineOut, dependencies=[require_permission('settings')])

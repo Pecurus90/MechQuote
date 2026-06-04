@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 
 from app.core.catalog_protect import block_if_in_use
 from app.core.csv_import import (
@@ -23,8 +23,17 @@ router = APIRouter(prefix="/api", tags=["treatments"])
 
 # --- Suppliers ---
 @router.get("/suppliers", response_model=List[SupplierOut])
-def list_suppliers(db: Session = Depends(get_db)):
-    return db.query(Supplier).order_by(Supplier.name).all()
+def list_suppliers(
+    active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """Elenco fornitori esterni / trattamenti. `active` opzionale: se
+    True/False filtra, se omesso restituisce tutto (default invariato).
+    Pattern di `normalized_items.list_items`."""
+    query = db.query(Supplier)
+    if active is not None:
+        query = query.filter(Supplier.active == active)
+    return query.order_by(Supplier.name).all()
 
 
 @router.post("/suppliers", response_model=SupplierOut, dependencies=[require_permission('settings')])
@@ -128,8 +137,17 @@ def download_suppliers_csv_template():
 
 # --- Treatments ---
 @router.get("/treatments", response_model=List[TreatmentOut])
-def list_treatments(db: Session = Depends(get_db)):
-    return db.query(Treatment).options(joinedload(Treatment.supplier)).order_by(Treatment.name).all()
+def list_treatments(
+    active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """Elenco trattamenti. `active` opzionale: se True/False filtra, se
+    omesso restituisce tutto (default invariato). Pattern di
+    `normalized_items.list_items`."""
+    query = db.query(Treatment).options(joinedload(Treatment.supplier))
+    if active is not None:
+        query = query.filter(Treatment.active == active)
+    return query.order_by(Treatment.name).all()
 
 
 @router.post("/treatments", response_model=TreatmentOut, dependencies=[require_permission('settings')])

@@ -5,7 +5,7 @@ phase_type è la categoria sottostante (uno degli slug PHASE_TYPES) che
 guida il cost engine (autocalc EDM, riconoscimento treatment, ecc.).
 """
 import logging
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
@@ -26,8 +26,17 @@ router = APIRouter(prefix="/api", tags=["operations"])
 
 
 @router.get("/operations", response_model=List[OperationOut])
-def list_operations(db: Session = Depends(get_db)):
-    return db.query(Operation).order_by(Operation.name).all()
+def list_operations(
+    active: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    """Elenco lavorazioni. `active` opzionale: se True/False filtra, se
+    omesso restituisce tutto (default invariato). Pattern di
+    `normalized_items.list_items`."""
+    query = db.query(Operation)
+    if active is not None:
+        query = query.filter(Operation.active == active)
+    return query.order_by(Operation.name).all()
 
 
 @router.post("/operations", response_model=OperationOut, dependencies=[require_permission('settings')])

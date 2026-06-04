@@ -17,6 +17,9 @@ REM  Niente automatismi a tempo, niente git reset --hard cieco,
 REM  niente push automatici. Fail-fast: ogni passo o riesce o si
 REM  ferma con un messaggio chiaro. Rilanciabile in sicurezza dopo
 REM  qualunque fallimento parziale (passi idempotenti).
+REM
+REM  Convenzione messaggi: ogni [STOP] dice (a) cosa e' successo,
+REM  (b) cosa fare per risolverlo, in italiano per un non-tecnico.
 REM ============================================================
 
 REM ─── Variabili di configurazione ────────────────────────────
@@ -28,8 +31,10 @@ set "DB_FILE=%BACKEND%\mechquote.db"
 set "BACKUP_DIR=%REPO%\backups"
 set "SERVICE=MechQuoteBackend"
 set "EXPECTED_BRANCH=main"
-set "HEALTH_URL=http://localhost:8000/"
+set "HEALTH_URL=http://localhost:8000/api/health"
 set "HEALTH_MAX_TRIES=15"
+set "LOG_FILE=%REPO%\logs\uvicorn.log"
+set "WAIT_PROMPT=Leggi il messaggio qui sopra, poi premi un tasto per chiudere."
 
 echo.
 echo ============================================================
@@ -40,55 +45,75 @@ echo.
 REM ─── 1) Check admin (serve per nssm restart) ────────────────
 net session >nul 2>&1
 if errorlevel 1 (
-  echo [STOP] Devi lanciare update.bat da CMD COME AMMINISTRATORE.
-  echo        Serve per nssm restart. Tasto destro su CMD -^> "Esegui come amministratore".
-  pause
-  exit /b 1
+  echo [STOP] Devi lanciare update.bat da una CMD aperta come amministratore.
+  echo        Serve per riavviare il servizio backend (nssm restart).
+  echo        Come fare: cerca "Prompt dei comandi" nel menu Start, tasto destro
+  echo        sull'icona -^> "Esegui come amministratore". Poi:
+  echo            cd %REPO%
+  echo            update.bat
+  goto :end_fail
 )
 echo [ OK ] CMD come amministratore.
 
 REM ─── 2) Prerequisiti ────────────────────────────────────────
 where git >nul 2>&1
 if errorlevel 1 (
-  echo [STOP] Git non trovato nel PATH. Installa Git o aggiungilo al PATH.
-  pause
-  exit /b 1
+  echo [STOP] Git non e' disponibile per questo utente (amministratore).
+  echo        Probabile che sia installato nel PATH del tuo utente normale ma
+  echo        non per l'amministratore. Verifica aprendo una nuova CMD admin e
+  echo        provando:  git --version
+  echo        Se manca, reinstalla "Git for Windows" scegliendo l'opzione
+  echo        "add to PATH per tutti gli utenti".
+  goto :end_fail
 )
 where npm >nul 2>&1
 if errorlevel 1 (
-  echo [STOP] npm non trovato nel PATH. Installa Node.js o aggiungilo al PATH.
-  pause
-  exit /b 1
+  echo [STOP] npm non e' disponibile per questo utente (amministratore).
+  echo        Probabile che Node.js sia installato nel PATH del tuo utente
+  echo        normale ma non per l'amministratore. Verifica con:  npm --version
+  echo        Se manca, reinstalla Node.js scegliendo l'opzione
+  echo        "add to PATH per tutti gli utenti".
+  goto :end_fail
 )
 if not exist "%VENV_PY%" (
-  echo [STOP] Venv Python non trovato in:
+  echo [STOP] Ambiente Python del backend non trovato in:
   echo        %VENV_PY%
-  echo        Verifica che il backend sia installato correttamente.
-  pause
-  exit /b 1
+  echo        Significa che il backend non e' installato o e' stato spostato.
+  echo        Reinstallalo seguendo INSTALLAZIONE.md, paragrafo 3.1
+  echo        (creazione del venv: python -m venv venv, pip install, ecc.).
+  goto :end_fail
 )
 if not exist "%REPO%\.git" (
-  echo [STOP] %REPO% non e' una repository git.
-  pause
-  exit /b 1
+  echo [STOP] La cartella %REPO% non e' una repository git
+  echo        (manca la sottocartella nascosta ".git"). Probabile che la cartella
+  echo        sia stata copiata invece di clonata da GitHub.
+  echo        Riclonala con:
+  echo            git clone https://github.com/Pecurus90/MechQuote.git %REPO%
+  echo        (devi prima rimuovere la cartella copiata).
+  goto :end_fail
 )
 if not exist "%DB_FILE%" (
   echo [STOP] Database non trovato in:
   echo        %DB_FILE%
-  pause
-  exit /b 1
+  echo        Vuol dire che il backend non e' mai stato avviato, oppure il file
+  echo        e' stato spostato altrove. Avvia il backend almeno una volta
+  echo        (es. nssm start %SERVICE%) per crearlo, poi rilancia update.bat.
+  goto :end_fail
 )
 
 REM Verifica esistenza servizio NSSM
 sc query %SERVICE% >nul 2>&1
 if errorlevel 1 (
   echo [STOP] Servizio Windows "%SERVICE%" non trovato.
-  echo        Controlla il nome esatto con:  nssm list
-  echo        (oppure:  sc query state= all  per vedere tutti i servizi)
-  echo        Se il servizio sul tuo server ha un nome diverso, modifica
-  echo        la variabile SERVICE in cima a questo script.
-  pause
-  exit /b 1
+  echo        Controlla con:  nssm status %SERVICE%
+  echo        Se sul server il servizio ha un nome diverso (probabile se
+  echo        l'installazione e' stata personalizzata), modifica la variabile
+  echo        SERVICE in cima a questo script col nome corretto.
+  echo        Per vedere tutti i servizi installati con NSSM:
+  echo            nssm list
+  echo        Oppure tutti i servizi Windows:
+  echo            sc query state= all
+  goto :end_fail
 )
 echo [ OK ] Prerequisiti (git, npm, venv, repo, db, servizio "%SERVICE%").
 
@@ -109,45 +134,52 @@ echo.
 
 REM ─── 4) Branch deve essere main ─────────────────────────────
 if not "%CUR_BRANCH%"=="%EXPECTED_BRANCH%" (
-  echo [STOP] Branch corrente "%CUR_BRANCH%" diverso da quello atteso "%EXPECTED_BRANCH%".
-  echo        Lo script aggiorna solo dalla branch %EXPECTED_BRANCH%.
-  echo        Per cambiare branch:  git checkout %EXPECTED_BRANCH%
-  echo        ^(se hai modifiche locali, gestiscile prima a mano^)
-  pause
-  exit /b 1
+  echo [STOP] Il server e' su un branch diverso da "%EXPECTED_BRANCH%":
+  echo        attualmente e' su "%CUR_BRANCH%".
+  echo        update.bat aggiorna solo dal branch "%EXPECTED_BRANCH%".
+  echo        Per tornare su "%EXPECTED_BRANCH%":
+  echo            git checkout %EXPECTED_BRANCH%
+  echo        (se ci sono modifiche locali, gestiscile prima a mano:
+  echo        git status per vederle, poi committale o scartale).
+  goto :end_fail
 )
 echo [ OK ] Branch atteso (%EXPECTED_BRANCH%).
 
 REM ─── 5) Backup DB PRIMA di toccare qualunque cosa ──────────
-REM Timestamp YYYYMMDD-HHMMSS (assume locale dd/mm/yyyy, HH:MM:SS)
-set "TS=%date:~6,4%%date:~3,2%%date:~0,2%-%time:~0,2%%time:~3,2%%time:~6,2%"
-set "TS=%TS: =0%"
-set "BKP_PATH=%BACKUP_DIR%\mechquote.db.bak-%TS%"
-echo [ .. ] Backup DB WAL-aware -^> %BKP_PATH%
-"%VENV_PY%" -c "import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" "%DB_FILE%" "%BKP_PATH%"
-if errorlevel 1 (
-  echo [STOP] Backup DB FALLITO. Niente viene applicato.
-  echo        Controlla spazio disco e permessi su %BACKUP_DIR%.
-  pause
-  exit /b 1
+REM Timestamp e path costruiti da Python (datetime.now() + sqlite3.backup()):
+REM evita lo slicing fragile di %date%/%time% (che assume locale italiano).
+REM Python stampa il path del file creato, lo catturiamo con for /f.
+REM Nota: %%Y/%%m/%%d/%%H/%%M/%%S sono literal % per strftime in un .bat.
+echo [ .. ] Backup DB WAL-aware in %BACKUP_DIR% ...
+set "BKP_PATH="
+for /f "usebackq delims=" %%i in (`"%VENV_PY%" -c "import sqlite3,sys,datetime,os; ts=datetime.datetime.now().strftime('%%Y%%m%%d-%%H%%M%%S'); dst=os.path.join(sys.argv[2], f'mechquote.db.bak-{ts}'); s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(dst); s.backup(d); d.close(); s.close(); print(dst)" "%DB_FILE%" "%BACKUP_DIR%"`) do set "BKP_PATH=%%i"
+if not defined BKP_PATH (
+  echo [STOP] Backup del database FALLITO. Niente viene aggiornato, il sistema
+  echo        resta com'e'. Cause probabili:
+  echo          - la cartella di backup non e' scrivibile dall'amministratore;
+  echo          - disco C: pieno (controlla spazio libero in Esplora risorse);
+  echo          - il file del database e' bloccato da un altro processo.
+  echo        Cartella di destinazione del backup:  %BACKUP_DIR%
+  goto :end_fail
 )
-echo [ OK ] Backup DB completato.
+echo [ OK ] Backup DB completato: %BKP_PATH%
 
 REM ─── 6) Working tree pulito (ignora untracked: db, logs, .env) ─
 set "DIRTY="
 for /f "tokens=*" %%i in ('git status --porcelain --untracked-files=no') do set "DIRTY=1"
 if defined DIRTY (
   echo.
-  echo [STOP] Working tree sporco: ci sono modifiche locali a file tracciati.
-  echo        Elenco:
+  echo [STOP] Ci sono modifiche locali non committate sul server: qualcuno ha
+  echo        toccato dei file a mano. Elenco:
   git status --short --untracked-files=no
   echo.
-  echo        Lo script NON sovrascrive. Controlla manualmente:
-  echo          - se le modifiche servono, committale o stashale
-  echo          - se sono accidentali, scartale con: git checkout -- ^<file^>
+  echo        Vanno annullate prima di aggiornare. Opzioni:
+  echo          - se le modifiche sono accidentali, scartale UNA per UNA con:
+  echo                git checkout -- ^<nome-file^>
+  echo          - se invece sembrano importanti, NON cancellarle: chiama lo
+  echo            sviluppatore prima di proseguire.
   echo        Poi rilancia update.bat.
-  pause
-  exit /b 1
+  goto :end_fail
 )
 echo [ OK ] Working tree pulito.
 
@@ -155,9 +187,14 @@ REM ─── 7) Fetch dal remoto ───────────────�
 echo [ .. ] git fetch ...
 git fetch
 if errorlevel 1 (
-  echo [STOP] git fetch fallito. Verifica connessione di rete e credenziali git.
-  pause
-  exit /b 1
+  echo [STOP] git fetch fallito: non riesco a contattare GitHub.
+  echo        Verifica nell'ordine:
+  echo          - la connessione internet del server funziona ^(es. apri Edge
+  echo            e prova a raggiungere github.com^);
+  echo          - il firewall aziendale non blocca le connessioni in uscita
+  echo            verso github.com:443;
+  echo          - se il repo richiede credenziali, sono ancora valide.
+  goto :end_fail
 )
 echo [ OK ] git fetch completato.
 
@@ -165,11 +202,16 @@ REM ─── 8) Pull --ff-only ────────────────
 echo [ .. ] git pull --ff-only ...
 git pull --ff-only
 if errorlevel 1 (
-  echo [STOP] git pull fallito: serve un merge ^(la cronologia diverge^).
-  echo        Sul server c'e' qualcosa di committato che non sta nel remoto.
-  echo        Risolvi a mano (git log, git merge, ...) e rilancia update.bat.
-  pause
-  exit /b 1
+  echo [STOP] Aggiornamento del codice rifiutato: sul server c'e' qualcosa che
+  echo        non sta su GitHub ^(qualcuno ha committato a mano, oppure c'e'
+  echo        stato un reset locale^). Non e' un problema risolvibile da
+  echo        update.bat: contatta lo sviluppatore.
+  echo.
+  echo        Per tornare allo stato di prima di update.bat:
+  echo            cd %REPO%
+  echo            git reset --hard %PREV_SHA%
+  echo            nssm restart %SERVICE%
+  goto :end_fail
 )
 for /f "tokens=*" %%i in ('git rev-parse --short HEAD') do set "NEW_SHA=%%i"
 echo [ OK ] Pull completato: %PREV_SHA% -^> %NEW_SHA%
@@ -193,9 +235,15 @@ if "%BACK_DEPS%"=="1" (
   echo [ .. ] requirements.txt cambiato -^> pip install ...
   "%VENV_PY%" -m pip install -r "%BACKEND%\requirements.txt"
   if errorlevel 1 (
-    echo [STOP] pip install fallito. Controlla l'output qui sopra.
-    pause
-    exit /b 1
+    echo [STOP] Installazione delle nuove librerie Python FALLITA.
+    echo        Leggi le righe rosse qui sopra: di solito dicono qual e' il
+    echo        pacchetto che da problema ^(rete, versione incompatibile,
+    echo        compilazione che richiede strumenti mancanti^).
+    echo        Il backend NON e' stato riavviato, sta ancora girando con il
+    echo        codice precedente. Per tornare al commit di partenza:
+    echo            cd %REPO%
+    echo            git reset --hard %PREV_SHA%
+    goto :end_fail
   )
   echo [ OK ] Dipendenze backend aggiornate.
 ) else (
@@ -208,9 +256,15 @@ if "%FRONT_DEPS%"=="1" (
   echo [ .. ] package.json/lock cambiato -^> npm install ...
   call npm install
   if errorlevel 1 (
-    echo [STOP] npm install fallito. Controlla l'output qui sopra.
-    pause
-    exit /b 1
+    echo [STOP] Installazione delle nuove librerie JavaScript FALLITA.
+    echo        Leggi le righe qui sopra: di solito dicono il pacchetto che
+    echo        da' problema o un errore di rete.
+    echo        Il frontend NON e' stato ancora ricostruito: la dist/ vecchia
+    echo        e' ancora a posto, Apache continua a servire la versione
+    echo        precedente del sito. Per tornare anche al commit di partenza:
+    echo            cd %REPO%
+    echo            git reset --hard %PREV_SHA%
+    goto :end_fail
   )
   echo [ OK ] Dipendenze frontend aggiornate.
 ) else (
@@ -222,11 +276,14 @@ echo [ .. ] npm run build ...
 call npm run build
 if errorlevel 1 (
   echo.
-  echo [STOP] npm run build fallito.
+  echo [STOP] Costruzione del frontend FALLITA ^(npm run build^).
   echo        La cartella dist/ precedente e' ancora a posto: Apache continua
-  echo        a servire la versione vecchia del sito. Diagnosi messaggio sopra.
-  pause
-  exit /b 1
+  echo        a servire la versione vecchia del sito, gli utenti non vedono
+  echo        differenze. Leggi le righe qui sopra per capire l'errore di
+  echo        compilazione. Per tornare anche al commit di partenza:
+  echo            cd %REPO%
+  echo            git reset --hard %PREV_SHA%
+  goto :end_fail
 )
 echo [ OK ] Frontend ricostruito ^(%FRONTEND%\dist^).
 
@@ -234,43 +291,57 @@ REM ─── 13) Restart backend via NSSM ────────────�
 echo [ .. ] nssm restart %SERVICE% ...
 nssm restart %SERVICE%
 if errorlevel 1 (
-  echo [STOP] nssm restart fallito. Controlla con: nssm status %SERVICE%
-  echo        e i log in %REPO%\logs\uvicorn.log
-  pause
-  exit /b 1
+  echo [STOP] Riavvio del servizio backend FALLITO.
+  echo        Controlla subito:
+  echo            nssm status %SERVICE%
+  echo        I log del backend sono in:
+  echo            %LOG_FILE%
+  echo        Apri il file e guarda le ultime righe: di solito dicono perche'
+  echo        non e' partito.
+  echo        Per tornare allo stato di prima di update.bat:
+  echo            cd %REPO%
+  echo            git reset --hard %PREV_SHA%
+  echo            nssm restart %SERVICE%
+  goto :end_fail
 )
 echo [ OK ] Comando di restart inviato. Attendo che il backend risponda...
 
 REM ─── 14) Health check: il backend risponde su :8000 ? ──────
-REM Usa curl (incluso in Windows 10/11). Senza -f, curl ritorna 0 per
-REM qualsiasi risposta HTTP arrivata (incluso 401/404): l'importante
-REM e' che il server risponda, non che la richiesta sia autorizzata.
-REM curl ritorna non-zero solo per connection refused / timeout (server
-REM giu'). Verifica iniziale che curl sia disponibile:
+REM Usa curl con -f: in questo modo qualsiasi risposta != 2xx (404/401/500)
+REM viene considerata "non sano". L'endpoint /api/health risponde 200 con un
+REM payload di stato quando il backend e' davvero su.
 where curl >nul 2>&1
 if errorlevel 1 (
-  echo [STOP] curl non trovato nel PATH ^(serve per health check^).
-  echo        E' incluso in Windows 10/11 di default; se manca, aggiorna il sistema.
-  pause
-  exit /b 1
+  echo [STOP] curl non disponibile sul sistema. Serve per controllare che il
+  echo        backend sia ripartito davvero. E' incluso in Windows 10/11 di
+  echo        default; se manca, aggiorna Windows.
+  goto :end_fail
 )
 set /a TRIES=0
 :health_loop
 set /a TRIES+=1
-curl -sS -o nul --max-time 2 "%HEALTH_URL%" >nul 2>&1
+curl -fsS -o nul --max-time 2 "%HEALTH_URL%" >nul 2>&1
 if not errorlevel 1 goto health_ok
 if %TRIES% GEQ %HEALTH_MAX_TRIES% (
   echo.
-  echo [STOP] Backend non risponde su %HEALTH_URL% dopo ~30s.
-  echo        Controlla i log: %REPO%\logs\uvicorn.log
-  echo        e lo stato del servizio: nssm status %SERVICE%
-  pause
-  exit /b 1
+  echo [STOP] Il backend non risponde su %HEALTH_URL% dopo ~60 secondi:
+  echo        il riavvio non e' andato a buon fine.
+  echo        Cosa controllare nell'ordine:
+  echo          1) i log del backend: apri il file
+  echo                 %LOG_FILE%
+  echo             e guarda le ULTIME righe ^(di solito dicono l'errore^);
+  echo          2) lo stato del servizio:
+  echo                 nssm status %SERVICE%
+  echo        Per tornare allo stato di prima di update.bat:
+  echo            cd %REPO%
+  echo            git reset --hard %PREV_SHA%
+  echo            nssm restart %SERVICE%
+  goto :end_fail
 )
 timeout /t 2 /nobreak >nul
 goto health_loop
 :health_ok
-echo [ OK ] Backend risponde su %HEALTH_URL%.
+echo [ OK ] Backend risponde correttamente su %HEALTH_URL%.
 
 REM ─── 15) Esito finale ───────────────────────────────────────
 echo.
@@ -283,7 +354,7 @@ echo   Frontend dist:  %FRONTEND%\dist
 echo   Servizio:       %SERVICE% riavviato e risponde
 echo ============================================================
 echo.
-echo Se qualcosa non va, per tornare al commit precedente:
+echo Se qualcosa non va in futuro, per tornare a questo commit precedente:
 echo.
 echo   cd %REPO%
 echo   git reset --hard %PREV_SHA%
@@ -291,8 +362,15 @@ echo   cd frontend
 echo   call npm run build
 echo   nssm restart %SERVICE%
 echo.
-echo Backup DB del giro precedente: %BKP_PATH%
+echo Backup DB pre-aggiornamento: %BKP_PATH%
 echo ^(per ripristinarlo: arresta il servizio, copia il .bak su mechquote.db, riavvia^)
 echo.
-pause
+echo %WAIT_PROMPT%
+pause >nul
 exit /b 0
+
+:end_fail
+echo.
+echo %WAIT_PROMPT%
+pause >nul
+exit /b 1

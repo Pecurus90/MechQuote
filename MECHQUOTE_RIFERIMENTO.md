@@ -340,6 +340,8 @@ finire.
   rimando; puntatori in `CLAUDE.md` aggiornati.
 - Registrata **C16** (consolidare il backup WAL-aware in
   `backend/backup_db.py`).
+- Fotografia modulo Catalogo completata (sola lettura): ritrovamenti in
+  `MECHQUOTE_LISTA_LAVORI.md`, sezione "Consolidamento moduli — Catalogo".
 
 ### Sessione 2026-05-27 — Chiusura Fascia 1 + apertura cantiere normalizzati
 

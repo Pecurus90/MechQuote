@@ -499,6 +499,117 @@ sicurezza dopo un fallimento parziale (tutti i passi idempotenti). Commit
 
 ---
 
+## ░░░ CONSOLIDAMENTO MODULI — CATALOGO (fotografia 04/06/2026) ░░░
+
+Esito della fotografia "sola lettura" del modulo Catalogo (materiali,
+fornitori grezzi, macchine, lavorazioni, trattamenti, fornitori esterni,
+normalizzati item + suppliers). Le voci sotto sono i disallineamenti
+emersi, NON un cantiere unico: alcune richiedono decisioni di prodotto
+prima del codice, altre sono pulizia "en passant" da fare quando si tocca
+la zona.
+
+### CAT-1 — Semantica del campo `active` 🔴 (tocca i preventivi)
+
+Oggi una voce non-attiva (materiale / macchina / lavorazione / trattamento
+/ fornitore) **resta nelle dropdown del preventivatore ed è usata dal cost
+engine** (`services/calculation.py` non filtra `active`, tranne
+`CuttingCycle.active` riga 681). Il toggle "Solo attivi" è solo
+client-side e incoerente: presente in 6 pagine (MaterialSuppliers,
+TreatmentSuppliers, NormalizedSuppliers, ToolSuppliers, MaterialsPage
+sezione Materiali, NormalizedItems), assente in 3 (Machines, Operations,
+Treatments). I filtri server-side `?active=…` esistono solo per
+`/normalized-items` e `/customers`.
+
+**Decisione di prodotto aperta**: cosa deve significare "ritirare" una
+voce? Opzioni: (a) la voce sparisce dalle dropdown ma resta sui
+preventivi storici (snapshot); (b) viene mostrata in coda con etichetta
+"ritirato"; (c) impedirne nuove assegnazioni ma lasciarle modificabili
+sui preventivi esistenti. Da decidere PRIMA di toccare: la scelta sfiora
+il ricalcolo prezzi.
+
+### CAT-2 — Doppione gestione fornitori
+
+`MaterialSupplier` e `Supplier` (esterni/trattamenti) si gestiscono da
+**due punti UI ciascuno**:
+- pagina **combo** (`MaterialsPage` / `TreatmentsPage`, sezione fornitori
+  con inline-edit in tabella);
+- pagina **standalone** (`MaterialSuppliersPage` / `TreatmentSuppliersPage`,
+  modale, in tab dentro `/settings/suppliers`).
+
+Le due viste lavorano sullo stesso endpoint ma sono **asimmetriche**: la
+versione co-locata è più povera (manca il toggle "Solo attivi", manca
+`notes` per entrambi, manca `supplier_type` per Supplier esterni). Stessa
+entità, due esperienze diverse a seconda della rotta.
+
+Candidato pulizia: **un solo punto per fornitore** (tenere la pagina
+standalone, rimuovere o ridurre la sezione co-locata a link). Impatto
+UX + chiusura della doppia manutenzione.
+
+### CAT-3 — Tre "scuole" UI nei cataloghi
+
+In compresenza:
+1. **Inline-edit in tabella** (stile `QuoteCategoriesPage`) — usata nelle
+   sezioni fornitori dentro `MaterialsPage` e `TreatmentsPage`.
+2. **Modale** (overlay `fixed inset-0`) — usata da tutte le pagine
+   standalone e dalle sezioni "Materiali" / "Trattamenti" delle pagine
+   combo.
+3. **Modale + toolbar avanzata** (debounce, multi-filtro, sort) — solo
+   `NormalizedItemsPage`.
+
+Approccio consigliato: **fissare uno standard** (probabilmente "modale
+semplice", che è il pattern di maggioranza) e allineare le pagine
+gradualmente quando le si tocca per altri motivi. **Non un cantiere
+unico**: il costo di un refactor en bloc supera il valore di consistenza
+finché le pagine restano funzionali.
+
+### CAT-4 — Quattro anagrafiche fornitori separate (DECISO: non intervenire)
+
+Coesistono `MaterialSupplier`, `Supplier` (esterni), `NormalizedSupplier`,
+`ToolSupplier` con campi parzialmente sovrapposti (tutti hanno `name` +
+`address` + `active`; `shipping_cost` in 3 su 4; `phone`/`email` in 2 su
+4; `cutting_cost_per_part` solo su `MaterialSupplier`; `supplier_type`
+solo su `Supplier`).
+
+Commento esplicito in `models.py:622-626` (ToolSupplier): *"Distinto da
+Supplier (trattamenti) e da MaterialSupplier (materiale grezzo). Domini
+diversi, niente sovrapposizioni voluta dal cliente."* La frammentazione è
+una **scelta di prodotto**, non un difetto tecnico. **Non accorpare**.
+
+### CAT-5 — Cosmetici / tecnici (bassa priorità, ripulire en passant)
+
+Da affrontare opportunisticamente quando si tocca la zona:
+
+- **Due convenzioni di naming endpoint FastAPI**: path completo nei
+  decoratori (`materials.py`, `machines.py`, `operations.py`,
+  `treatments.py`) vs prefix-per-router (`normalized_items.py`,
+  `normalized_suppliers.py`). Nuovi catalog usano il secondo,
+  nessuna regola dichiarata in `CLAUDE.md`.
+- **Due stili di gating permessi**: inline `dependencies=[require_permission('settings')]`
+  vs variabile factorizzata `_can_settings = require_permission(...)`.
+- **Search con debounce** solo in `NormalizedItemsPage`. Filtri backend
+  (`?q=&active=&supplier_id=&category=`) **pronti ma non cablati** dal
+  frontend; `limit(500)` hard-coded solo lì. Le altre pagine cercano
+  senza debounce, niente cap.
+- **Colonne legacy** in `treatments`: `fixed_cost`, `cost_per_part`,
+  `cost_per_surface_area`, `treatment_supplier_id` esistono nel DB
+  (SQLite non droppa), non sono mappate dal modello (vedi
+  `16_legacy_columns.md`).
+- **`MACHINE_TYPES` hardcoded** in `MachinesPage.tsx` (13 valori). Niente
+  tabella backend; aggiungere/rinominare un tipo = code change frontend.
+- **Uniqueness DB**: solo `Operation.name` è `UNIQUE`. Gli altri
+  cataloghi (Material, Machine, Treatment, Supplier, MaterialSupplier,
+  NormalizedSupplier) non hanno unique constraint; dedup vive solo
+  nell'app (UI + motore CSV).
+
+### CAT-6 — NormalizedItem senza `block_if_in_use` (rimando)
+
+`DELETE /api/normalized-items/{id}` non chiama `block_if_in_use`: già
+**TODO Step 4-5 del cantiere normalizzati** (vedi `normalized_items.py:137-142`).
+Si chiude naturalmente quando arriveranno le FK opzionali da
+`DieTemplateNormalized` e `DieNormalizedItem`. Non riaprire qui.
+
+---
+
 ## ░░░ IDEE PER IL FUTURO (non pianificate) ░░░
 
 - IVA opzionale attivabile dalle impostazioni (oggi i preventivi sono al netto;

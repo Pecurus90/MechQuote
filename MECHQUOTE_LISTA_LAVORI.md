@@ -508,24 +508,32 @@ emersi, NON un cantiere unico: alcune richiedono decisioni di prodotto
 prima del codice, altre sono pulizia "en passant" da fare quando si tocca
 la zona.
 
-### CAT-1 — Semantica del campo `active` 🔴 (tocca i preventivi)
+### CAT-1 — Semantica del campo `active` ✅ COMPLETATO (04/06/2026)
 
-Oggi una voce non-attiva (materiale / macchina / lavorazione / trattamento
-/ fornitore) **resta nelle dropdown del preventivatore ed è usata dal cost
-engine** (`services/calculation.py` non filtra `active`, tranne
-`CuttingCycle.active` riga 681). Il toggle "Solo attivi" è solo
+**Sintesi**: una voce di catalogo con `active=false` non compare più
+nelle dropdown di nuova scelta del preventivatore (manuale, 2D, stampi);
+i preventivi che la usano già la mostrano col suffisso "(ritirato)" sulla
+riga interessata e restano ricalcolabili invariati. Implementato in 4
+commit (`3b11e7f` backend, `c88058b` manuale, `febc2ec` 2D, `9a3defc`
+stampi). Dettaglio dell'implementazione in `MECHQUOTE_RIFERIMENTO.md`
+§10, sessione 2026-06-04 (CAT-1).
+
+Contesto pre-fix (mantenuto per memoria): una voce non-attiva
+(materiale / macchina / lavorazione / trattamento / fornitore) restava
+nelle dropdown del preventivatore ed era usata dal cost engine
+(`services/calculation.py` non filtrava `active`, tranne
+`CuttingCycle.active` riga 681). Il toggle "Solo attivi" era solo
 client-side e incoerente: presente in 6 pagine (MaterialSuppliers,
 TreatmentSuppliers, NormalizedSuppliers, ToolSuppliers, MaterialsPage
 sezione Materiali, NormalizedItems), assente in 3 (Machines, Operations,
-Treatments). I filtri server-side `?active=…` esistono solo per
+Treatments). I filtri server-side `?active=…` esistevano solo per
 `/normalized-items` e `/customers`.
 
 **DECISO (04/06/2026)**: "ritirare" una voce di catalogo la **toglie dai
 menu di SELEZIONE** del preventivatore (nuove scelte); **lo storico resta
 intatto e ricalcolabile**. Il filtro `active=true` si applica **solo alle
 liste di nuova scelta**, MAI al caricamento o al ricalcolo delle voci
-già agganciate a parti/fasi di preventivi esistenti. Stato: **da
-implementare**.
+già agganciate a parti/fasi di preventivi esistenti.
 
 ### CAT-2 — Doppione gestione fornitori
 
@@ -607,6 +615,18 @@ Da affrontare opportunisticamente quando si tocca la zona:
 **TODO Step 4-5 del cantiere normalizzati** (vedi `normalized_items.py:137-142`).
 Si chiude naturalmente quando arriveranno le FK opzionali da
 `DieTemplateNormalized` e `DieNormalizedItem`. Non riaprire qui.
+
+### CAT-7 — `treatments` dead state in `DieQuoteEditor.tsx` (rimando)
+
+`DieQuoteEditor.tsx` fetcha `/treatments` e lo mette in stato
+(`useState<Treatment[]>([])` riga 44, `setTreatments` riga 107), ma il
+valore **non è mai letto** da nessuna parte nel file: nessun `<select>`
+lo usa, nessun `useMemo` lo legge, non viene passato come prop a
+componenti figli. Emerso durante la fotografia per CAT-1 Fase 2 stampi.
+Da rivedere col cantiere stampi: o si rimuove (semplificazione), o si
+cabla (probabilmente la scelta del trattamento sulle piastre / sul
+castello, oggi non esposta in UI). Non urgente, fuori dal perimetro di
+CAT-1.
 
 ---
 

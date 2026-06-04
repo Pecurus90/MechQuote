@@ -342,6 +342,49 @@ finire.
   `backend/backup_db.py`).
 - Fotografia modulo Catalogo completata (sola lettura): ritrovamenti in
   `MECHQUOTE_LISTA_LAVORI.md`, sezione "Consolidamento moduli — Catalogo".
+- **CAT-1 — Semantica `active` ✅ CHIUSO**.
+  - **Semantica "ritirato"**: una voce di catalogo con `active=false`
+    sparisce dai menu di SCELTA per voci nuove (preventivatore manuale,
+    2D, stampi), ma resta sui preventivi che la usano già (mostrata
+    "(ritirato)" nella dropdown della sola riga interessata) e resta
+    ricalcolabile invariata. Il cost engine non è toccato: naviga le FK
+    per id (`Material.id == part.material_id`, `Machine.id == phase.machine_id`,
+    ecc.) senza passare dalle liste di catalogo, quindi le voci ritirate
+    continuano a calcolare il prezzo dei preventivi storici.
+  - **Backend**: parametro `?active` opzionale sui GET catalog
+    (`/materials`, `/machines`, `/operations`, `/treatments`, `/suppliers`,
+    `/normalized-suppliers`) — default invariato = ritorna tutto, per
+    non rompere settings e altre chiamate esistenti. `PhaseOut` esteso
+    con 4 nested (`machine`, `operation`, `treatment`, `supplier`) per
+    fornire il nome leggibile della voce ritirata; joinedload mirato su
+    TUTTE le route che ritornano fasi (no N+1):
+    `quotes._load_quote`, `parts.{add,get,update,duplicate}_part`,
+    `phases.{add,update}_phase` via helper `_load_phase_with_catalog`,
+    `workflow_templates.apply_workflow_to_part`.
+  - **Frontend**: helper unico `frontend/src/lib/catalogSelect.ts`
+    (`buildCatalogOptions`) che, dato `(activeList, currentValue,
+    currentItem, toLabel)`, costruisce le option del `<select>`:
+    aggiunge un'option speciale "<Nome> (ritirato)" se `currentValue` è
+    settato ma non appare nella lista attiva. Fallback `"(ritirato — id N)"`
+    se manca il nested.
+  - **Principio**: si filtra `?active=true` SOLO dove l'utente sceglie
+    da un menu, MAI sui lookup automatici del codice (rischio: una voce
+    di sistema ritirata farebbe sparire una fase intera dal preventivo).
+    Mappa per modulo:
+    - **Manuale** (`QuoteEditor.tsx` + `PhaseEditor.tsx`): filtrati
+      `/materials`, `/machines`, `/operations`, `/treatments`,
+      `/suppliers`.
+    - **2D** (`NewQuote2DPage.tsx` + `Dxf2dWizard.tsx`): filtrato solo
+      `/materials` (unica scelta utente). `/machines` e `/operations`
+      restano NON filtrati perché il wizard li usa come lookup
+      automatici per `wire_edm`, `EDM a filo`, `Foratura`.
+    - **Stampi** (`DieQuoteEditor.tsx`): filtrati `/materials`
+      (materiale piastra) e `/normalized-suppliers` (fornitore
+      normalizzato). `/machines` NON filtrato (lookup automatico per le
+      tariffe `milling/grinding/drilling/edm_wire`). `/treatments`
+      lasciato com'è — vedi CAT-7 in lista lavori.
+  - **Commit**: `3b11e7f` (backend, filtro opzionale GET catalog),
+    `c88058b` (manuale), `febc2ec` (2D), `9a3defc` (stampi).
 
 ### Sessione 2026-05-27 — Chiusura Fascia 1 + apertura cantiere normalizzati
 

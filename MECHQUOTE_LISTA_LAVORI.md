@@ -520,12 +520,12 @@ sezione Materiali, NormalizedItems), assente in 3 (Machines, Operations,
 Treatments). I filtri server-side `?active=…` esistono solo per
 `/normalized-items` e `/customers`.
 
-**Decisione di prodotto aperta**: cosa deve significare "ritirare" una
-voce? Opzioni: (a) la voce sparisce dalle dropdown ma resta sui
-preventivi storici (snapshot); (b) viene mostrata in coda con etichetta
-"ritirato"; (c) impedirne nuove assegnazioni ma lasciarle modificabili
-sui preventivi esistenti. Da decidere PRIMA di toccare: la scelta sfiora
-il ricalcolo prezzi.
+**DECISO (04/06/2026)**: "ritirare" una voce di catalogo la **toglie dai
+menu di SELEZIONE** del preventivatore (nuove scelte); **lo storico resta
+intatto e ricalcolabile**. Il filtro `active=true` si applica **solo alle
+liste di nuova scelta**, MAI al caricamento o al ricalcolo delle voci
+già agganciate a parti/fasi di preventivi esistenti. Stato: **da
+implementare**.
 
 ### CAT-2 — Doppione gestione fornitori
 

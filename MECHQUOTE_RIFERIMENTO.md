@@ -12,7 +12,7 @@
 
 ---
 
-## 0. Sintesi rapida (aggiornata al 2026-06-03)
+## 0. Sintesi rapida (aggiornata al 2026-06-04)
 
 Per non doverlo desumere ogni volta, lo stato del progetto in due righe:
 
@@ -28,6 +28,11 @@ Per non doverlo desumere ogni volta, lo stato del progetto in due righe:
   P_die_shape) backend, 19/19 frontend.
 - **Cantieri di prodotto aperti**: Catalogo Normalizzati (Step 1-3 fatti,
   restano 4-6 + 7 opzionale, ~2½-3 giornate).
+- **Cantiere Import CSV cataloghi**: **COMPLETATO** — motore condiviso
+  `app.core.csv_import` + import su 8 cataloghi (materiali, fornitori
+  grezzi, macchine, lavorazioni, fornitori esterni, utensili, fornitori
+  utensili, trattamenti). Restano fuori scope: import normalizzati (Step 6
+  del cantiere normalizzati) e import dei lookup utensili.
 - **Strumenti di lavoro creati**: `update.bat` — script di aggiornamento
   manuale del server, da lanciare a mano da CMD admin.
 
@@ -290,6 +295,40 @@ finire.
 
 ## 10. Diario delle sessioni rilevanti
 
+### Sessione 2026-06-04 — Cantiere import CSV cataloghi
+
+- **Motore condiviso** `backend/app/core/csv_import.py`: decode
+  multi-encoding (utf-8-sig / utf-8 / cp1252 / latin1), auto-detect
+  riga header con lookahead, csv.reader con delimiter `;`, dedup per
+  chiave normalizzata (`strip+lower`) con regola anti-sovrascrittura
+  (voci già presenti saltate, mai update), commit atomico con rollback
+  su `SQLAlchemyError`, helper `csv_template_response` per il modello
+  scaricabile (UTF-8 con BOM per Excel italiano), helper
+  `parse_decimal_it` per la virgola decimale italiana. Risposta
+  standard `{created, skipped_existing, skipped_invalid,
+  total_processed, examples}`. Test unit dedicato (19/19 verdi).
+- **8 cataloghi cablati** (POST `…/import-csv` + GET `…/csv-template`,
+  ciascuno con bottoni `Modello` / `Importa CSV` nella propria pagina
+  settings):
+  - Materiali (`Material`) — aggancio fornitore grezzo per nome
+  - Fornitori grezzi (`MaterialSupplier`)
+  - Centri di costo (`Machine`) — tariffa setup vuota = NULL (fallback)
+  - Lavorazioni (`Operation`) — UNIQUE su `name`
+  - Fornitori esterni / trattamenti (`Supplier`)
+  - Utensili (`Tool`) — **validazione stretta**: Tipo, Marca, Locazione
+    e Fornitore devono già esistere nei rispettivi cataloghi (nessuna
+    creazione al volo), chiave anti-duplicato = `code` (UNIQUE)
+  - Fornitori utensili (`ToolSupplier`)
+  - Trattamenti (`Treatment`) — **strict tariffe**: `kg` richiede
+    `cost_per_kg`, `dm3` richiede `cost_per_dm3` (evita trattamenti a
+    costo zero silenziosi nei preventivi)
+- **Aperti** (fuori dal cantiere chiuso): import normalizzati (resta
+  come Step 6 del cantiere catalogo normalizzati) e import dei lookup
+  utensili (`ToolType` / `ToolBrand` / `ToolLocation`, voce nuova in
+  "IDEE PER IL FUTURO").
+- **L'import clienti** (`POST /api/customers/import-csv`) resta sul suo
+  endpoint storico: ha semantica diversa (upsert per `customer_number`).
+
 ### Sessione 2026-06-03 — Bonifica documenti di progetto
 
 - Backup in INSTALLAZIONE.md reso WAL-aware (§9.1); §10 rimanda a `update.bat`
@@ -342,4 +381,4 @@ Cosa NON è stato toccato (esplicitamente fuori scope):
 *Documento basato sulle cinque ricognizioni condotte fino al 22 maggio
 2026. Aggiornato in corso d'opera man mano che i lavori vengono
 completati e le domande aperte ricevono risposta. Ultimo aggiornamento:
-2026-06-03.*
+2026-06-04.*

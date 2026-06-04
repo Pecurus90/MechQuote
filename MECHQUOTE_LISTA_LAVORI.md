@@ -38,7 +38,10 @@ preventivi storici restano congelati ai loro numeri.
 - ✅ **Step 3** — pagina UI catalogo (`26e7ab8`)
 - ⏸ **Step 4** — aggancio `DieTemplateNormalized` (FK + autocomplete) (~1 giornata)
 - ⏸ **Step 5** — aggancio `DieNormalizedItem` (FK + autocomplete) (~1 giornata)
-- ⏸ **Step 6** — import CSV + modello scaricabile (~½ giornata)
+- ⏸ **Step 6** — import CSV + modello scaricabile (~½ giornata) — il
+  motore condiviso `app.core.csv_import` esiste già (cantiere import
+  cataloghi chiuso il 2026-06-04), quindi è ora un lavoro breve: serve
+  solo cablare un mapper su `NormalizedItem` e i due endpoint.
 - ⏸ **Step 7** (opzionale) — estrazione automatica voci da template esistenti (~½ giornata)
 
 **Stima residua**: restano Step 4-5-6 (+7 opzionale), ~2½-3 giornate di
@@ -449,13 +452,6 @@ Idee di prodotto emerse durante la sessione del 27 maggio, registrate qui
 come "candidate" — non ancora pianificate, da valutare a freddo per
 priorità e impatto.
 
-- **Import CSV per più cataloghi** (materiali, utensili, normalizzati) +
-  pulsante **"scarica modello CSV"** in ognuna delle pagine catalogo
-  (template scaricabile con intestazioni e 1-2 righe di esempio). Pattern
-  già esistente per i clienti (`/customers/import-csv`), da estendere.
-  L'import normalizzati naturalmente diventa il **Step 6** del cantiere
-  catalogo normalizzati (vedi sezione "Cantieri aperti").
-
 - **Descrizione completa dei trattamenti nella selezione** (oltre al
   nome). Oggi quando l'utente sceglie un trattamento da una `<select>`
   vede solo il nome, non se è €/kg o €/dm³, non il fornitore. Sarebbe
@@ -516,6 +512,9 @@ sicurezza dopo un fallimento parziale (tutti i passi idempotenti). Commit
 - Audit UX — dopo qualche settimana di uso reale.
 - Aggiornare esbuild/vite (rischio solo sul PC di sviluppo, costo alto: per ora
   non conviene).
+- **Import CSV per i lookup utensili** (`ToolType` / `ToolBrand` /
+  `ToolLocation`), se servirà a popolarli in massa. Motore condiviso
+  `app.core.csv_import` già pronto.
 
 ---
 

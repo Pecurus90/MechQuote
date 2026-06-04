@@ -1,8 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.catalog_protect import block_if_in_use
+from app.core.csv_import import (
+    CsvImportConfig, CsvRowSkip,
+    csv_template_response, import_catalog_csv, parse_decimal_it,
+)
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import ManufacturingPhase, Supplier, Treatment
@@ -11,6 +17,7 @@ from app.schemas import (
     TreatmentCreate, TreatmentUpdate, TreatmentOut,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["treatments"])
 
 
@@ -54,6 +61,69 @@ def delete_supplier(sid: int, db: Session = Depends(get_db)):
     db.delete(s)
     db.commit()
     return {"ok": True}
+
+
+# --- Import CSV Fornitori trattamenti / esterni (Supplier) -----------------
+
+_SUPPLIERS_CSV_COLUMNS = [
+    'Nome', 'Tipo', 'Indirizzo', 'Spedizione (€)', 'Note',
+]
+
+
+def _supplier_mapper(row: dict):
+    name = (row.get('Nome') or '').strip()
+    if not name:
+        raise CsvRowSkip("Nome mancante")
+    return name, {
+        'name': name,
+        'supplier_type': (row.get('Tipo') or '').strip() or None,
+        'address': (row.get('Indirizzo') or '').strip() or None,
+        'shipping_cost': parse_decimal_it(
+            row.get('Spedizione (€)'), 'Spedizione', required=False,
+        ) or 0.0,
+        'notes': (row.get('Note') or '').strip() or None,
+        'active': True,
+    }
+
+
+_SUPPLIERS_IMPORT_CONFIG = CsvImportConfig(
+    expected_columns=_SUPPLIERS_CSV_COLUMNS,
+    model=Supplier,
+    db_key_attr='name',
+    mapper=_supplier_mapper,
+)
+
+
+@router.post("/suppliers/import-csv",
+             dependencies=[require_permission('settings')])
+async def import_suppliers_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Importa un CSV di fornitori esterni / trattamenti. Match per `name`
+    normalizzato: le voci già presenti vengono saltate (mai update)."""
+    result = await import_catalog_csv(
+        file=file, db=db, config=_SUPPLIERS_IMPORT_CONFIG,
+    )
+    logger.info(
+        "CSV fornitori esterni importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/suppliers/csv-template",
+            dependencies=[require_permission('settings')])
+def download_suppliers_csv_template():
+    """Modello CSV per l'import fornitori esterni (UTF-8 con BOM, ';')."""
+    return csv_template_response(
+        filename='fornitori_esterni_modello.csv',
+        columns=_SUPPLIERS_CSV_COLUMNS,
+        examples=[
+            ['Trattamenti Bianchi Srl', 'termico',     'Via Industria 5, Padova', '20.00', ''],
+            ['Galvanica Verdi SpA',     'superficiale', 'Via Brenta 12, Vicenza',  '15.00', 'Zincatura, nichelatura'],
+        ],
+    )
 
 
 # --- Treatments ---

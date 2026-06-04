@@ -4,18 +4,24 @@ Etichette libere usate dal Workflow per popolare le fasi del preventivo.
 phase_type è la categoria sottostante (uno degli slug PHASE_TYPES) che
 guida il cost engine (autocalc EDM, riconoscimento treatment, ecc.).
 """
+import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.catalog_protect import block_if_in_use
+from app.core.csv_import import (
+    CsvImportConfig, CsvRowSkip,
+    csv_template_response, import_catalog_csv,
+)
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import ManufacturingPhase, Operation, WorkflowTemplateStep
 from app.schemas import OperationCreate, OperationUpdate, OperationOut
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["operations"])
 
 
@@ -66,3 +72,60 @@ def delete_operation(oid: int, db: Session = Depends(get_db)):
     db.delete(op)
     db.commit()
     return {"ok": True}
+
+
+# --- Import CSV Lavorazioni (Operation) ------------------------------------
+#
+# Operation.name e' UNIQUE a DB: il motore CSV dedup-pa per chiave
+# normalizzata (strip+lower), quindi "Tornitura" e "tornitura" vengono
+# trattati come la stessa voce e la seconda viene saltata. Comportamento
+# coerente con l'intento utente.
+
+_OPERATIONS_CSV_COLUMNS = ['Nome']
+
+
+def _operation_mapper(row: dict):
+    name = (row.get('Nome') or '').strip()
+    if not name:
+        raise CsvRowSkip("Nome mancante")
+    return name, {'name': name, 'active': True}
+
+
+_OPERATIONS_IMPORT_CONFIG = CsvImportConfig(
+    expected_columns=_OPERATIONS_CSV_COLUMNS,
+    model=Operation,
+    db_key_attr='name',
+    mapper=_operation_mapper,
+)
+
+
+@router.post("/operations/import-csv",
+             dependencies=[require_permission('settings')])
+async def import_operations_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Importa un CSV di lavorazioni. Match per `name` normalizzato:
+    le voci già presenti vengono saltate (mai update)."""
+    result = await import_catalog_csv(
+        file=file, db=db, config=_OPERATIONS_IMPORT_CONFIG,
+    )
+    logger.info(
+        "CSV lavorazioni importato: created=%d skipped_existing=%d skipped_invalid=%d",
+        result.created, result.skipped_existing, result.skipped_invalid,
+    )
+    return result.to_dict()
+
+
+@router.get("/operations/csv-template",
+            dependencies=[require_permission('settings')])
+def download_operations_csv_template():
+    """Modello CSV per l'import lavorazioni (UTF-8 con BOM, ';')."""
+    return csv_template_response(
+        filename='lavorazioni_modello.csv',
+        columns=_OPERATIONS_CSV_COLUMNS,
+        examples=[
+            ['Tornitura'],
+            ['Foratura'],
+        ],
+    )

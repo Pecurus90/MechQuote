@@ -50,3 +50,13 @@ clienti.csv
 # Vecchio sito aziendale (reference locale, non va nel repo)
 PRV/
 prv/
+
+# Artefatti operativi/deploy locali (vivono solo sul PC server, mai nel repo).
+# tools_alert.ps1 contiene la password dell'utente scheduler -> MAI committare.
+/logs/
+/backups/
+/ms-playwright/
+/backup.ps1
+/tools_alert.ps1
+/setup-prod*.ps1
+estrazione_lavoro.csv

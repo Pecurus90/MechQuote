@@ -50,6 +50,29 @@ procede 1 step alla volta, ogni step richiede ok esplicito prima di partire.
 
 ---
 
+### Blindatura import CSV 🔴 APERTO (2026-06-05, dopo incidente produzione)
+Un import CSV materiali ha messo **offline l'app** in produzione: il motore
+`import_catalog_csv` scrive nel DB **senza passare dallo schema Pydantic**, e
+un valore `family` non valido (etichetta invece di slug) ha fatto crashare
+con 500 ogni lettura dei materiali. Asimmetria scrittura↔lettura presente in
+**tutti** i moduli CSV (materiali, trattamenti, utensili, macchine,
+lavorazioni, fornitori — e clienti, endpoint a parte).
+
+Dettaglio completo, runbook d'emergenza e fix strutturale in
+**`docs/NOTA_IMPORT_CSV_VALIDAZIONE.md`**.
+
+- ✅ Incidente 2026-06-05 riparato (dati corretti, app operativa).
+- ⏸ **Livello 1** — validazione di ogni riga via schema `...Create` nel motore
+  condiviso (azzera il rischio di blocco app; una modifica protegge tutti).
+- ⏸ **Livello 2** — normalizzazione per-campo nei mapper (etichetta→slug) così
+  gli import legittimi non vengono scartati.
+- ⏸ **Livello 3** — template scaricabili allineati ai valori ammessi reali.
+
+Da fare un modulo alla volta, con verifica (CLAUDE.md §7). Priorità alta:
+è un guasto già occorso su dati reali.
+
+---
+
 ## ░░░ BLOCCO A — PRIMA DI INSERIRE DATI REALI SUL SERVER ░░░
 
 *Questi sono il minimo indispensabile. Finché non sono fatti, MechQuote non

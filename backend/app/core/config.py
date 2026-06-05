@@ -23,6 +23,10 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        # ALLOWED_ORIGINS, e altre chiavi del .env, sono lette via os.getenv
+        # (vedi main.py CORS, config.py _looks_like_production), non come campi
+        # pydantic: ignora le chiavi extra invece di rifiutare l'avvio.
+        extra = "ignore"
 
 
 settings = Settings()

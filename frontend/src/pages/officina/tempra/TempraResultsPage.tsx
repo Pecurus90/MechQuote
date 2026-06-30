@@ -64,7 +64,7 @@ export default function TempraResultsPage() {
   const filtered = q ? rows.filter(r => r.material.toLowerCase().includes(q)) : rows
 
   return (
-    <PageContainer width="full" className="!max-w-[80%]">
+    <PageContainer width="xl">
       <div className="flex items-start justify-between gap-4">
         <SettingsPageHeader
           icon={Flame}

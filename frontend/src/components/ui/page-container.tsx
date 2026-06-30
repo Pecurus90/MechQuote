@@ -1,8 +1,9 @@
 // Wrap standard per le pagine: padding, max-width, spazio verticale.
 // Pattern uniformato per eliminare l'inconsistenza tra pagine che oggi
-// usano p-6/p-8 e max-w che oscillano tra 3xl e 7xl. Default copre ~90%
-// dei casi; le pagine con liste larghe (Archivio, Activity, Ordini) usano
-// width="xl" per max-w-7xl.
+// usano p-6/p-8 e max-w che oscillano tra 3xl e 7xl. Default 'lg' copre i
+// form anagrafici (volutamente stretti per leggibilità); le pagine "larghe"
+// (liste, tabelle, dashboard, hub Impostazioni) usano width="xl" = 80% della
+// finestra — sfrutta lo schermo senza allungare i form. Login resta custom.
 import type { ReactNode } from 'react'
 
 type Width = 'md' | 'lg' | 'xl' | 'full'
@@ -10,7 +11,7 @@ type Width = 'md' | 'lg' | 'xl' | 'full'
 const WIDTH_MAP: Record<Width, string> = {
   md:   'max-w-3xl',
   lg:   'max-w-5xl',
-  xl:   'max-w-7xl',
+  xl:   'max-w-[80%]',   // pagine larghe → 80% finestra (era max-w-7xl)
   full: 'max-w-none',
 }
 

@@ -24,6 +24,7 @@ import ToolsPage from '@/pages/ToolsPage'
 import OfficinaHub from '@/pages/officina/OfficinaHub'
 import OfficinaDocumentsPage from '@/pages/officina/DocumentsPage'
 import OfficinaMaterialsPage from '@/pages/officina/MaterialsPage'
+import TempraResultsPage from '@/pages/officina/tempra/TempraResultsPage'
 import ToolAttributesPage from '@/pages/settings/ToolAttributesPage'
 import DiesSettingsPage from '@/pages/settings/DiesSettingsPage'
 // Container "raggruppati" — ognuno ospita più tab interni:
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="officina" element={<ProtectedRoute permission="officina"><OfficinaHub /></ProtectedRoute>} />
         <Route path="officina/documenti" element={<ProtectedRoute permission="officina"><OfficinaDocumentsPage /></ProtectedRoute>} />
         <Route path="officina/materiali" element={<ProtectedRoute permission="officina"><OfficinaMaterialsPage /></ProtectedRoute>} />
+        <Route path="officina/tempra" element={<ProtectedRoute permission="officina"><TempraResultsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
         <Route path="statistics" element={<ProtectedRoute permission="dashboard"><StatisticsPage /></ProtectedRoute>} />
 

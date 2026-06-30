@@ -62,6 +62,7 @@ from app.api import (
     auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
+    heat_treatments,
     normalized_suppliers, normalized_items,
     dies, die_normalized_items, die_settings,
 )
@@ -93,6 +94,7 @@ app.include_router(orders.router, dependencies=_auth)
 app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
 app.include_router(officina.router, dependencies=_auth)
+app.include_router(heat_treatments.router, dependencies=_auth)
 app.include_router(normalized_suppliers.router, dependencies=_auth)
 app.include_router(normalized_items.router, dependencies=_auth)
 # Modulo Stampi — 3 router con prefix dedicato.
@@ -425,6 +427,27 @@ def _run_migrations():
          "sort_order INTEGER DEFAULT 100, "
          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
         "INSERT OR IGNORE INTO officina_categories (name, icon) SELECT DISTINCT category, 'Folder' FROM officina_documents WHERE category IS NOT NULL AND TRIM(category) != ''",
+
+        # Registro risultati tempra (Officina): misure pre/post trattamento.
+        # Compilato a mano dall'operatore, una riga per pezzo. Deformazioni
+        # derivate in UI (non salvate). Read 'officina', write 'officina.write'.
+        ("CREATE TABLE IF NOT EXISTS heat_treatment_results ("
+         "id INTEGER PRIMARY KEY, "
+         "material VARCHAR(100) NOT NULL, "
+         "temp_insertion_c FLOAT, "
+         "temp_quench_c FLOAT, "
+         "temp_temper_c FLOAT, "
+         "temper_time_min FLOAT, "
+         "outer_dia_pre_mm FLOAT, "
+         "outer_dia_post_mm FLOAT, "
+         "inner_dia_pre_mm FLOAT, "
+         "inner_dia_post_mm FLOAT, "
+         "length_pre_mm FLOAT, "
+         "length_post_mm FLOAT, "
+         "hardness VARCHAR(50), "
+         "notes TEXT, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "created_by_user_id INTEGER REFERENCES users(id))"),
 
         # Linking documento ↔ cliente per raggruppamento nelle viste officina
         # (es. datasheet per cliente). FK opzionale.

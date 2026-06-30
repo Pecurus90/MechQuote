@@ -1176,6 +1176,53 @@ class OfficinaCategoryOut(OfficinaCategoryBase):
         from_attributes = True
 
 
+# ─── Risultati tempra (Officina) ────────────────────────────────────────────
+
+class HeatTreatmentResultBase(BaseModel):
+    material: str = Field(min_length=1, max_length=100)
+    temp_insertion_c: Optional[float] = None
+    temp_quench_c: Optional[float] = None
+    temp_temper_c: Optional[float] = None
+    temper_time_min: Optional[float] = None
+    outer_dia_pre_mm: Optional[float] = None
+    outer_dia_post_mm: Optional[float] = None
+    inner_dia_pre_mm: Optional[float] = None
+    inner_dia_post_mm: Optional[float] = None
+    length_pre_mm: Optional[float] = None
+    length_post_mm: Optional[float] = None
+    hardness: Optional[str] = Field(default=None, max_length=50)
+    notes: Optional[str] = None
+
+
+class HeatTreatmentResultCreate(HeatTreatmentResultBase):
+    pass
+
+
+class HeatTreatmentResultUpdate(BaseModel):
+    material: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    temp_insertion_c: Optional[float] = None
+    temp_quench_c: Optional[float] = None
+    temp_temper_c: Optional[float] = None
+    temper_time_min: Optional[float] = None
+    outer_dia_pre_mm: Optional[float] = None
+    outer_dia_post_mm: Optional[float] = None
+    inner_dia_pre_mm: Optional[float] = None
+    inner_dia_post_mm: Optional[float] = None
+    length_pre_mm: Optional[float] = None
+    length_post_mm: Optional[float] = None
+    hardness: Optional[str] = Field(default=None, max_length=50)
+    notes: Optional[str] = None
+
+
+class HeatTreatmentResultOut(HeatTreatmentResultBase):
+    id: int
+    created_at: datetime
+    created_by: Optional[UserMinimal] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── Modulo Stampi ──────────────────────────────────────────────────────────
 
 class DieSpecBase(BaseModel):

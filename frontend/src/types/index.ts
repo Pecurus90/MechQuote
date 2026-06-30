@@ -669,6 +669,27 @@ export interface OfficinaCategory {
   created_at?: string
 }
 
+// Registro risultati tempra (Officina). Misure tutte opzionali: l'operatore
+// registra solo i valori che ha. Deformazioni derivate in UI (vedi tempraCalc).
+export interface HeatTreatmentResult {
+  id: number
+  material: string
+  temp_insertion_c: number | null
+  temp_quench_c: number | null
+  temp_temper_c: number | null
+  temper_time_min: number | null
+  outer_dia_pre_mm: number | null
+  outer_dia_post_mm: number | null
+  inner_dia_pre_mm: number | null
+  inner_dia_post_mm: number | null
+  length_pre_mm: number | null
+  length_post_mm: number | null
+  hardness: string | null
+  notes: string | null
+  created_at?: string
+  created_by?: UserMinimal | null
+}
+
 // ─── Modulo Preventivatore Stampi ───────────────────────────────────────────
 
 export type DieSubtype = 'passo' | 'blocco'

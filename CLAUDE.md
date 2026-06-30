@@ -274,6 +274,35 @@ Limite hardcoded a **50 MB** in `parts.py upload_file` (stream a chunk). Niente 
 
 ## 4. Architettura
 
+### Moduli auto-contenuti (mini-app) — regola
+
+Ogni nuova sezione/modulo si costruisce **il più auto-contenuto possibile**:
+il grosso della feature (comportamento, UI, calcoli, validazioni) vive in
+file dedicati a lei, così modificarla domani significa toccare solo quei
+file. Struttura standard:
+
+- **Backend**: un router dedicato `backend/app/api/<modulo>.py` con tutta la
+  logica CRUD/endpoint del modulo.
+- **Frontend**: una cartella dedicata `frontend/src/pages/<area>/<modulo>/`
+  con la pagina, i suoi modali/componenti e la logica pura (`<modulo>Calc.ts`).
+
+**Tre punti restano nei registri centrali — per scelta, non si spostano** (sono
+aggiunte *append-only*: scritte una volta, non si ritoccano lavorando sul
+modulo):
+
+1. **Modello SQLAlchemy** → `models.py` (single source of truth dello schema, §11).
+2. **Migrazione** → `main.py` `_run_migrations()` (l'ordine conta, §0-quater/§6).
+3. **Tipo TS** → `types/index.ts` (mai ridefinire un tipo localmente, §5).
+
+Forzare anche questi tre dentro la cartella del modulo va **contro** il manuale
+(modello centralizzato, migrazioni ordinate) ed è l'"astrazione per il futuro"
+che §0-bis vieta: non farlo. La struttura sopra è il massimo di
+auto-contenimento sano per questo progetto.
+
+> Esempio di riferimento: modulo "Tempra e deformazioni" (Officina) —
+> `api/heat_treatments.py` + `pages/officina/tempra/` (page + modal +
+> `tempraCalc.ts`), con modello/migrazione/tipo nei tre registri centrali.
+
 ### Data model
 
 > **Fonte autoritativa**: `backend/app/models.py`. Qui sotto solo overview a domini per orientamento — non un diagramma esaustivo (che andrebbe in drift a ogni feature).

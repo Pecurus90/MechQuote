@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Hammer, Box, Plus, Pencil, Trash2, Factory } from 'lucide-react'
+import { FileText, Hammer, Box, Plus, Pencil, Trash2, Factory, Flame } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
@@ -86,6 +86,22 @@ export default function OfficinaHub() {
                 <h2 className="font-semibold text-gray-900">Tutti i documenti</h2>
                 <p className="text-sm text-gray-500 mt-0.5">
                   Vista completa: PDF, Word, Excel, immagini, DXF.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/officina/tempra" className="block">
+          <Card className="hover:bg-blue-50/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="shrink-0 mt-0.5">
+                <Flame className="w-7 h-7 text-blue-700" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900">Tempra e deformazioni</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Registro misure pre/post tempra e deformazioni rilevate.
                 </p>
               </div>
             </CardContent>

@@ -849,6 +849,39 @@ class OfficinaDocument(Base):
     normalized_supplier = relationship("NormalizedSupplier", foreign_keys=[normalized_supplier_id])
 
 
+class HeatTreatmentResult(Base):
+    """Registro risultati tempra: misure pre/post trattamento e deformazioni.
+
+    Tabella dati compilata a mano dall'operatore (una riga per pezzo trattato),
+    consultabile in Officina. Read con permesso `officina`, scrittura con
+    `officina.write` — stesso gating dei documenti. Le deformazioni (delta
+    post-pre su Ø esterno/interno e lunghezza) NON sono salvate: si derivano in
+    UI dalle misure (DRY, una sola fonte di verità). Misure tutte opzionali:
+    l'operatore registra solo i valori che ha. Temperature in °C, tempo
+    rinvenimento in minuti, durezza testo libero (es. "58 HRC", "60-62 HRC").
+    """
+    __tablename__ = "heat_treatment_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material = Column(String(100), nullable=False)
+    temp_insertion_c = Column(Float, nullable=True)   # gradi inserimento forno
+    temp_quench_c = Column(Float, nullable=True)       # gradi tempra
+    temp_temper_c = Column(Float, nullable=True)       # gradi rinvenimento
+    temper_time_min = Column(Float, nullable=True)     # tempo rinvenimento (minuti)
+    outer_dia_pre_mm = Column(Float, nullable=True)
+    outer_dia_post_mm = Column(Float, nullable=True)
+    inner_dia_pre_mm = Column(Float, nullable=True)
+    inner_dia_post_mm = Column(Float, nullable=True)
+    length_pre_mm = Column(Float, nullable=True)
+    length_post_mm = Column(Float, nullable=True)
+    hardness = Column(String(50), nullable=True)       # testo libero (scala inclusa)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+
 # ─── Modulo Preventivatore Stampi Lamiera ───────────────────────────────────
 # Quote esteso con quote_type='die' + 6 tabelle satellite.
 # 1 Quote = 1 castello stampo; 1 Part = 1 piastra (riusa material/treatment/

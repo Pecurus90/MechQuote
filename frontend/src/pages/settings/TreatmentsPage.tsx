@@ -1,49 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, Ruler, Upload, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, Ruler } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import TreatmentFormModal from './TreatmentFormModal'
+import TreatmentsImportButtons from './TreatmentsImportButtons'
 import type { Supplier, Treatment } from '@/types'
 
 interface SupForm { id: number | null; name: string; supplierType: string; address: string; shippingCost: string }
 const emptySupplier = (): SupForm => ({ id: null, name: '', supplierType: '', address: '', shippingCost: '0' })
-
-interface TreatForm {
-  id: number | null
-  name: string
-  treatmentType: string
-  costPerKg: string
-  minimumCost: string
-  minimumWeightKg: string
-  supplierId: string
-  notes: string
-}
-const emptyTreat = (): TreatForm => ({
-  id: null, name: '', treatmentType: '', costPerKg: '0',
-  minimumCost: '0', minimumWeightKg: '', supplierId: '', notes: '',
-})
 
 export default function TreatmentsPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [loading, setLoading] = useState(true)
   const [supForm, setSupForm] = useState<SupForm | null>(null)
-  const [treatForm, setTreatForm] = useState<TreatForm | null>(null)
+  const [showTreatForm, setShowTreatForm] = useState(false)
+  const [editTreat, setEditTreat] = useState<Treatment | null>(null)
   const [searchSup, setSearchSup] = useState('')
   const [searchTreat, setSearchTreat] = useState('')
   const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
   const [pendingDelTreat, setPendingDelTreat] = useState<number | null>(null)
-  const [importingTreat, setImportingTreat] = useState(false)
-  const treatFileInputRef = useRef<HTMLInputElement>(null)
   useEscapeKey(() => setSupForm(null), !!supForm)
-  useEscapeKey(() => setTreatForm(null), !!treatForm)
 
   const loadData = () => {
     Promise.all([api.get('/suppliers'), api.get('/treatments')]).then(([sRes, tRes]) => {
@@ -76,67 +59,8 @@ export default function TreatmentsPage() {
   }
 
   // --- Treatment CRUD ---
-  const saveTreat = async () => {
-    if (!treatForm) return
-    const payload = {
-      name: treatForm.name,
-      treatment_type: treatForm.treatmentType,
-      cost_per_kg: Number(treatForm.costPerKg),
-      minimum_cost: Number(treatForm.minimumCost),
-      minimum_weight_kg: treatForm.minimumWeightKg !== '' ? Number(treatForm.minimumWeightKg) : null,
-      supplier_id: treatForm.supplierId ? Number(treatForm.supplierId) : null,
-      notes: treatForm.notes,
-    }
-    try {
-      if (treatForm.id) await api.put(`/treatments/${treatForm.id}`, payload)
-      else await api.post('/treatments', payload)
-      toast.success('Trattamento salvato')
-      setTreatForm(null); loadData()
-    } catch (e) {toast.error('Errore nel salvataggio') }
-  }
-
-  const handleImportTreatments = async (file: File) => {
-    setImportingTreat(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api.post('/treatments/import-csv', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      const { created, skipped_existing, skipped_invalid, examples } = res.data as {
-        created: number; skipped_existing: number; skipped_invalid: number; examples: string[]
-      }
-      const parts = []
-      if (created) parts.push(`${created} aggiunti`)
-      if (skipped_existing) parts.push(`${skipped_existing} già presenti`)
-      if (skipped_invalid) parts.push(`${skipped_invalid} scartati`)
-      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
-      if (skipped_invalid && examples?.length) {
-        toast.warning(`Esempi scartati: ${examples.slice(0, 3).join(' · ')}`)
-      }
-      loadData()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
-    } finally {
-      setImportingTreat(false)
-      if (treatFileInputRef.current) treatFileInputRef.current.value = ''
-    }
-  }
-
-  const downloadTreatmentsTemplate = async () => {
-    try {
-      const res = await api.get('/treatments/csv-template', { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data as Blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'trattamenti_modello.csv'
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast.error('Errore scaricamento modello')
-    }
-  }
+  const startNewTreat = () => { setEditTreat(null); setShowTreatForm(true) }
+  const startEditTreat = (t: Treatment) => { setEditTreat(t); setShowTreatForm(true) }
 
   const deleteTreat = (id: number) => setPendingDelTreat(id)
   const confirmDeleteTreat = async () => {
@@ -145,15 +69,6 @@ export default function TreatmentsPage() {
     try { await api.delete(`/treatments/${id}`); toast.success('Trattamento eliminato'); loadData() }
     catch (e) { toast.error('Errore nell\'eliminazione') }
   }
-
-  const startEditTreat = (t: Treatment) => setTreatForm({
-    id: t.id, name: t.name, treatmentType: t.treatment_type || '',
-    costPerKg: String(t.cost_per_kg || 0),
-    minimumCost: String(t.minimum_cost || 0),
-    minimumWeightKg: t.minimum_weight_kg != null ? String(t.minimum_weight_kg) : '',
-    supplierId: t.supplier_id ? String(t.supplier_id) : '',
-    notes: t.notes || '',
-  })
 
   const visibleSup = [...suppliers]
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
@@ -166,13 +81,13 @@ export default function TreatmentsPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <PageContainer width="full">
-      <SettingsPageHeader
-        icon={Ruler}
-        color="orange"
-        title="Trattamenti"
-        subtitle="Trattamenti termici/superficiali con tariffa €/kg o €/dm³ e fornitori associati"
-      />
+    <StandardPage
+      icon={Ruler}
+      color="orange"
+      width="full"
+      title="Trattamenti"
+      subtitle="Trattamenti termici/superficiali con tariffa €/kg o €/dm³ e fornitori associati"
+    >
 
       {/* ── Fornitori trattamenti ── */}
       <section>
@@ -262,26 +177,8 @@ export default function TreatmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchTreat} onChange={e => setSearchTreat(e.target.value)} className="pl-9 w-40" />
             </div>
-            <input
-              ref={treatFileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0]
-                if (f) handleImportTreatments(f)
-              }}
-            />
-            <Button size="sm" variant="outline" onClick={downloadTreatmentsTemplate}
-                    title="Scarica un modello CSV vuoto da compilare">
-              <Download className="w-4 h-4 mr-1" /> Modello
-            </Button>
-            <Button size="sm" variant="outline" disabled={importingTreat}
-                    onClick={() => treatFileInputRef.current?.click()}
-                    title="Importa un CSV di trattamenti (separatore ;). Tariffa coerente con l'unità obbligatoria; Fornitore via nome esatto.">
-              <Upload className="w-4 h-4 mr-1" /> {importingTreat ? 'Import...' : 'Importa CSV'}
-            </Button>
-            <PrimaryCtaButton color="orange" size="sm" onClick={() => setTreatForm(emptyTreat())}>
+            <TreatmentsImportButtons onImported={loadData} />
+            <PrimaryCtaButton color="orange" size="sm" onClick={startNewTreat}>
               <Plus className="w-4 h-4" /> Nuovo trattamento
             </PrimaryCtaButton>
           </div>
@@ -332,65 +229,13 @@ export default function TreatmentsPage() {
         </Card>
       </section>
 
-      {/* Treatment modal */}
-      {treatForm && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h3 className="font-semibold">{treatForm.id ? 'Modifica' : 'Nuovo'} Trattamento</h3>
-              <button onClick={() => setTreatForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
-            </div>
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Nome</label>
-                  <Input value={treatForm.name} onChange={e => setTreatForm(f => f ? { ...f, name: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Tipo</label>
-                  <Input value={treatForm.treatmentType} placeholder="Es. Zincatura, Anodizzazione" onChange={e => setTreatForm(f => f ? { ...f, treatmentType: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Costo per kg (€)</label>
-                  <Input type="number" step="0.01" value={treatForm.costPerKg} onChange={e => setTreatForm(f => f ? { ...f, costPerKg: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Costo minimo (€)</label>
-                  <Input type="number" step="0.01" value={treatForm.minimumCost} onChange={e => setTreatForm(f => f ? { ...f, minimumCost: e.target.value } : f)} />
-                  <p className="text-[10px] text-gray-400 mt-0.5">Si applica se il lotto è sotto la soglia peso</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Soglia peso lotto (kg)</label>
-                  <Input type="number" step="0.1" min="0" placeholder="—"
-                    value={treatForm.minimumWeightKg}
-                    onChange={e => setTreatForm(f => f ? { ...f, minimumWeightKg: e.target.value } : f)} />
-                  <p className="text-[10px] text-gray-400 mt-0.5">Se peso totale lotto {'<'} soglia → applica costo minimo</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Fornitore</label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={treatForm.supplierId}
-                    onChange={e => setTreatForm(f => f ? { ...f, supplierId: e.target.value } : f)}
-                  >
-                    <option value="">Nessun fornitore</option>
-                    {[...suppliers].sort((a, b) => a.name.localeCompare(b.name, 'it')).map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Note</label>
-                  <Input value={treatForm.notes} onChange={e => setTreatForm(f => f ? { ...f, notes: e.target.value } : f)} />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-6">
-                <PrimaryCtaButton color="orange" onClick={saveTreat}>Salva</PrimaryCtaButton>
-                <Button variant="outline" onClick={() => setTreatForm(null)}>Annulla</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {showTreatForm && (
+        <TreatmentFormModal
+          treatment={editTreat}
+          suppliers={suppliers}
+          onClose={() => setShowTreatForm(false)}
+          onSaved={loadData}
+        />
       )}
       <ConfirmDialog
         open={pendingDelSupplier != null}
@@ -406,6 +251,6 @@ export default function TreatmentsPage() {
         onConfirm={confirmDeleteTreat}
         onCancel={() => setPendingDelTreat(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

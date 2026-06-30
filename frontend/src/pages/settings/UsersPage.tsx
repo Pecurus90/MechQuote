@@ -5,9 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { Plus, Pencil, Trash2, Check, X, UserCog } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { ApiUser, Role as ApiRole } from '@/types'
@@ -136,20 +135,20 @@ export default function UsersPage() {
   const inp = 'h-7 text-xs px-2'
 
   return (
-    <PageContainer width="full">
-      <SettingsPageHeader
-        icon={UserCog}
-        color="gray"
-        title="Gestione Utenti"
-        subtitle="Crea e gestisci gli account di accesso"
-        action={
-          !showNew ? (
-            <PrimaryCtaButton color="gray" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
-              <Plus className="w-4 h-4" /> Nuovo Utente
-            </PrimaryCtaButton>
-          ) : undefined
-        }
-      />
+    <StandardPage
+      icon={UserCog}
+      color="gray"
+      width="full"
+      title="Gestione Utenti"
+      subtitle="Crea e gestisci gli account di accesso"
+      actions={
+        !showNew ? (
+          <PrimaryCtaButton color="gray" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+            <Plus className="w-4 h-4" /> Nuovo Utente
+          </PrimaryCtaButton>
+        ) : undefined
+      }
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -304,6 +303,6 @@ export default function UsersPage() {
         onConfirm={confirmDeleteUser}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

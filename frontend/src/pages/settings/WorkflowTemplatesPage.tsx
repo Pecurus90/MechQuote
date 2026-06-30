@@ -4,9 +4,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Link } from 'react-router-dom'
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Workflow } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -148,20 +147,20 @@ export default function WorkflowTemplatesPage() {
   }
 
   return (
-    <PageContainer width="full">
-      <SettingsPageHeader
-        icon={Workflow}
-        color="indigo"
-        title="Template flusso"
-        subtitle="Sequenze (Macchina + Lavorazione) applicate in un colpo al preventivo. L'apply genera le fasi pre-popolate."
-        action={
-          editingId === null ? (
-            <PrimaryCtaButton color="indigo" size="sm" onClick={startNew}>
-              <Plus className="w-4 h-4" /> Nuovo flusso
-            </PrimaryCtaButton>
-          ) : undefined
-        }
-      />
+    <StandardPage
+      icon={Workflow}
+      color="indigo"
+      width="full"
+      title="Template flusso"
+      subtitle="Sequenze (Macchina + Lavorazione) applicate in un colpo al preventivo. L'apply genera le fasi pre-popolate."
+      actions={
+        editingId === null ? (
+          <PrimaryCtaButton color="indigo" size="sm" onClick={startNew}>
+            <Plus className="w-4 h-4" /> Nuovo flusso
+          </PrimaryCtaButton>
+        ) : undefined
+      }
+    >
 
       {editingId !== null && (
         <Card>
@@ -313,6 +312,6 @@ export default function WorkflowTemplatesPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

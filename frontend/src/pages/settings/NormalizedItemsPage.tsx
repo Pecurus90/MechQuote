@@ -1,41 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, X, Search, Package } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import NormalizedItemFormModal from './NormalizedItemFormModal'
 import type { NormalizedItem, NormalizedSupplier } from '@/types'
-
-/** Pannello edit (struttura pattern: copia di NormalizedSuppliersPage). */
-interface FormState {
-  id: number | null
-  code: string
-  description: string
-  category: string
-  supplier_id: number | null
-  unit_price: number
-  notes: string
-  active: boolean
-}
-
-const empty = (): FormState => ({
-  id: null, code: '', description: '', category: '',
-  supplier_id: null, unit_price: 0, notes: '', active: true,
-})
 
 export default function NormalizedItemsPage() {
   const [items, setItems] = useState<NormalizedItem[]>([])
   const [suppliers, setSuppliers] = useState<NormalizedSupplier[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState<FormState | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editItem, setEditItem] = useState<NormalizedItem | null>(null)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
-  useEscapeKey(() => setForm(null), !!form)
 
   // Filtri
   const [searchInput, setSearchInput] = useState('')
@@ -66,46 +47,8 @@ export default function NormalizedItemsPage() {
 
   useEffect(() => { load() }, [])
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
-    setForm(f => (f ? { ...f, [k]: v } : f))
-
-  const startNew = () => setForm(empty())
-  const startEdit = (it: NormalizedItem) => setForm({
-    id: it.id,
-    code: it.code,
-    description: it.description,
-    category: it.category ?? '',
-    supplier_id: it.supplier_id ?? null,
-    unit_price: it.unit_price ?? 0,
-    notes: it.notes ?? '',
-    active: it.active ?? true,
-  })
-
-  const save = async () => {
-    if (!form) return
-    // Validazioni client base
-    if (!form.code.trim()) { toast.error('Codice obbligatorio'); return }
-    if (!form.description.trim()) { toast.error('Descrizione obbligatoria'); return }
-    if (form.unit_price < 0) { toast.error('Il prezzo non può essere negativo'); return }
-    const payload = {
-      code: form.code.trim(),
-      description: form.description.trim(),
-      category: form.category.trim() || null,
-      supplier_id: form.supplier_id,
-      unit_price: form.unit_price,
-      notes: form.notes.trim() || null,
-      active: form.active,
-    }
-    try {
-      if (form.id) await api.put(`/normalized-items/${form.id}`, payload)
-      else await api.post('/normalized-items', payload)
-      toast.success(form.id ? 'Voce aggiornata' : 'Voce creata')
-      setForm(null); load()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nel salvataggio')
-    }
-  }
+  const startNew = () => { setEditItem(null); setShowForm(true) }
+  const startEdit = (it: NormalizedItem) => { setEditItem(it); setShowForm(true) }
 
   const del = (id: number) => setPendingDelete(id)
   const confirmDel = async () => {
@@ -152,18 +95,18 @@ export default function NormalizedItemsPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Package}
-        color="sky"
-        title="Catalogo normalizzati"
-        subtitle={`${items.length} voci in catalogo (viti, cuscinetti, molle, colonne, boccole, spine...).`}
-        action={
-          <PrimaryCtaButton color="sky" onClick={startNew}>
-            <Plus className="w-4 h-4" /> Nuovo Normalizzato
-          </PrimaryCtaButton>
-        }
-      />
+    <StandardPage
+      icon={Package}
+      color="sky"
+      width="md"
+      title="Catalogo normalizzati"
+      subtitle={`${items.length} voci in catalogo (viti, cuscinetti, molle, colonne, boccole, spine...).`}
+      actions={
+        <PrimaryCtaButton color="sky" onClick={startNew}>
+          <Plus className="w-4 h-4" /> Nuovo Normalizzato
+        </PrimaryCtaButton>
+      }
+    >
 
       {/* Filtri */}
       <Card className="mb-3">
@@ -264,94 +207,14 @@ export default function NormalizedItemsPage() {
         </CardContent>
       </Card>
 
-      {form && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between px-5 py-3 border-b">
-              <h3 className="font-semibold">{form.id ? 'Modifica' : 'Nuovo'} normalizzato</h3>
-              <button onClick={() => setForm(null)} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <CardContent className="pt-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Codice *</label>
-                  <Input
-                    value={form.code}
-                    onChange={e => set('code', e.target.value)}
-                    placeholder="es. COL-D32-L250-RAB"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Categoria</label>
-                  <Input
-                    value={form.category}
-                    onChange={e => set('category', e.target.value)}
-                    placeholder="es. colonne, viti, molle"
-                    list="categories-suggest"
-                  />
-                  <datalist id="categories-suggest">
-                    {categories.map(c => <option key={c} value={c} />)}
-                  </datalist>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Descrizione *</label>
-                <Input
-                  value={form.description}
-                  onChange={e => set('description', e.target.value)}
-                  placeholder="es. Colonna Ø32 L250 Rabourdin"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Fornitore</label>
-                  <select
-                    className="w-full border rounded px-2 py-1.5 text-sm h-9"
-                    value={form.supplier_id ?? ''}
-                    onChange={e => set('supplier_id', e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">— nessuno —</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Prezzo €/pz</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={form.unit_price}
-                    onChange={e => set('unit_price', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Note</label>
-                <Input
-                  value={form.notes}
-                  onChange={e => set('notes', e.target.value)}
-                  placeholder="riferimenti, link scheda tecnica..."
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={e => set('active', e.target.checked)}
-                  className="w-4 h-4"
-                />
-                Attivo
-              </label>
-              <div className="flex gap-2 mt-4">
-                <PrimaryCtaButton color="sky" onClick={save}>Salva</PrimaryCtaButton>
-                <Button variant="outline" onClick={() => setForm(null)}>Annulla</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {showForm && (
+        <NormalizedItemFormModal
+          item={editItem}
+          suppliers={suppliers}
+          categories={categories}
+          onClose={() => setShowForm(false)}
+          onSaved={load}
+        />
       )}
 
       <ConfirmDialog
@@ -362,6 +225,6 @@ export default function NormalizedItemsPage() {
         onConfirm={confirmDel}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

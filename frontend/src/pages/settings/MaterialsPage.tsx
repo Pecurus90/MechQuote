@@ -1,33 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Save, X, Search, FileText, Box, Upload, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, X, Search, FileText, Box } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
+import { familyLabel } from '@/lib/materialFamilies'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import MaterialFormModal from './MaterialFormModal'
+import MaterialsImportButtons from './MaterialsImportButtons'
 import type { Material, MaterialSupplier } from '@/types'
 
 interface SupplierForm { id: number | null; name: string; address: string; shipping_cost: string; cutting_cost_per_part: string }
 const emptySupplier = (): SupplierForm => ({ id: null, name: '', address: '', shipping_cost: '0', cutting_cost_per_part: '0' })
-
-interface MatForm {
-  id: number | null; name: string; family: string; density: string; cost: string
-  edm: string; cnc: string; scrap: string; supplier_id: string; active: boolean
-}
-const emptyMat = (): MatForm => ({ id: null, name: '', family: '', density: '', cost: '', edm: '1.0', cnc: '1.0', scrap: '10', supplier_id: '', active: true })
 
 export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [supForm, setSupForm] = useState<SupplierForm | null>(null)
-  const [matForm, setMatForm] = useState<MatForm | null>(null)
+  const [showMatForm, setShowMatForm] = useState(false)
+  const [editMaterial, setEditMaterial] = useState<Material | null>(null)
   const [searchSup, setSearchSup] = useState('')
   const [searchMat, setSearchMat] = useState('')
   // Filtri "Solo attivi" — uniformazione cataloghi 2026-05-28.
@@ -36,10 +32,7 @@ export default function MaterialsPage() {
   const [onlyActiveMat, setOnlyActiveMat] = useState(false)
   const [pendingDelSupplier, setPendingDelSupplier] = useState<number | null>(null)
   const [pendingDelMaterial, setPendingDelMaterial] = useState<number | null>(null)
-  const [importingMat, setImportingMat] = useState(false)
-  const matFileInputRef = useRef<HTMLInputElement>(null)
   useEscapeKey(() => setSupForm(null), !!supForm)
-  useEscapeKey(() => setMatForm(null), !!matForm)
 
   const loadData = () => {
     Promise.all([api.get('/material-suppliers'), api.get('/materials')]).then(([sRes, mRes]) => {
@@ -70,24 +63,6 @@ export default function MaterialsPage() {
     catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
-  const saveMaterial = async () => {
-    if (!matForm) return
-    const payload = {
-      name: matForm.name, family: matForm.family,
-      density_kg_dm3: Number(matForm.density), cost_per_kg: Number(matForm.cost),
-      edm_coefficient: Number(matForm.edm), cnc_machinability_coefficient: Number(matForm.cnc),
-      default_scrap_percent: Number(matForm.scrap),
-      supplier_id: matForm.supplier_id ? Number(matForm.supplier_id) : null,
-      active: matForm.active,
-    }
-    try {
-      if (matForm.id) await api.put(`/materials/${matForm.id}`, payload)
-      else await api.post('/materials', payload)
-      toast.success('Materiale salvato')
-      setMatForm(null); loadData()
-    } catch (e) {toast.error('Errore nel salvataggio') }
-  }
-
   const deleteMaterial = (id: number) => setPendingDelMaterial(id)
   const confirmDeleteMaterial = async () => {
     if (pendingDelMaterial == null) return
@@ -96,57 +71,8 @@ export default function MaterialsPage() {
     catch (e) { toast.error('Errore nell\'eliminazione') }
   }
 
-  const handleImportMaterials = async (file: File) => {
-    setImportingMat(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api.post('/materials/import-csv', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      const { created, skipped_existing, skipped_invalid, examples } = res.data as {
-        created: number; skipped_existing: number; skipped_invalid: number; examples: string[]
-      }
-      const parts = []
-      if (created) parts.push(`${created} aggiunti`)
-      if (skipped_existing) parts.push(`${skipped_existing} già presenti`)
-      if (skipped_invalid) parts.push(`${skipped_invalid} scartati`)
-      toast.success(`Import OK: ${parts.join(', ') || 'nessuna modifica'}`)
-      if (skipped_invalid && examples?.length) {
-        toast.warning(`Esempi scartati: ${examples.slice(0, 3).join(' · ')}`)
-      }
-      loadData()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nell\'import')
-    } finally {
-      setImportingMat(false)
-      if (matFileInputRef.current) matFileInputRef.current.value = ''
-    }
-  }
-
-  const downloadMaterialsTemplate = async () => {
-    try {
-      const res = await api.get('/materials/csv-template', { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data as Blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'materiali_modello.csv'
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast.error('Errore scaricamento modello')
-    }
-  }
-
-  const startEditMat = (m: Material) => setMatForm({
-    id: m.id, name: m.name, family: m.family,
-    density: String(m.density_kg_dm3), cost: String(m.cost_per_kg),
-    edm: String(m.edm_coefficient), cnc: String(m.cnc_machinability_coefficient),
-    scrap: String(m.default_scrap_percent),
-    supplier_id: m.supplier_id ? String(m.supplier_id) : '',
-    active: m.active ?? true,
-  })
+  const startNewMat = () => { setEditMaterial(null); setShowMatForm(true) }
+  const startEditMat = (m: Material) => { setEditMaterial(m); setShowMatForm(true) }
 
   const visibleSup = [...suppliers]
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
@@ -166,13 +92,12 @@ export default function MaterialsPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <PageContainer>
-      <SettingsPageHeader
-        icon={Box}
-        color="blue"
-        title="Materiali"
-        subtitle="Anagrafica materiali con densità, costo €/kg e scheda tecnica"
-      />
+    <StandardPage
+      icon={Box}
+      color="blue"
+      title="Materiali"
+      subtitle="Anagrafica materiali con densità, costo €/kg e scheda tecnica"
+    >
 
       {/* ── Fornitori materiali ── */}
       <section>
@@ -275,26 +200,8 @@ export default function MaterialsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
             </div>
-            <input
-              ref={matFileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0]
-                if (f) handleImportMaterials(f)
-              }}
-            />
-            <Button size="sm" variant="outline" onClick={downloadMaterialsTemplate}
-                    title="Scarica un modello CSV vuoto da compilare">
-              <Download className="w-4 h-4 mr-1" /> Modello
-            </Button>
-            <Button size="sm" variant="outline" disabled={importingMat}
-                    onClick={() => matFileInputRef.current?.click()}
-                    title="Importa un CSV di materiali (separatore ;). Aggancio fornitore via nome esatto.">
-              <Upload className="w-4 h-4 mr-1" /> {importingMat ? 'Import...' : 'Importa CSV'}
-            </Button>
-            <PrimaryCtaButton color="blue" size="sm" onClick={() => setMatForm(emptyMat())}>
+            <MaterialsImportButtons onImported={loadData} />
+            <PrimaryCtaButton color="blue" size="sm" onClick={startNewMat}>
               <Plus className="w-4 h-4" /> Nuovo materiale
             </PrimaryCtaButton>
           </div>
@@ -353,85 +260,13 @@ export default function MaterialsPage() {
         </Card>
       </section>
 
-      {/* Material modal */}
-      {matForm && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h3 className="font-semibold">{matForm.id ? 'Modifica' : 'Nuovo'} Materiale</h3>
-              <button onClick={() => setMatForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
-            </div>
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Nome</label>
-                  <Input value={matForm.name} onChange={e => setMatForm(f => f ? { ...f, name: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Famiglia</label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    value={matForm.family}
-                    onChange={e => setMatForm(f => f ? { ...f, family: e.target.value } : f)}
-                  >
-                    <option value="">— scegli —</option>
-                    {MATERIAL_FAMILIES.map(fam => (
-                      <option key={fam.slug} value={fam.slug}>{fam.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Densità (kg/dm³)</label>
-                  <Input type="number" step="0.01" value={matForm.density} onChange={e => setMatForm(f => f ? { ...f, density: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Costo €/kg</label>
-                  <Input type="number" step="0.01" value={matForm.cost} onChange={e => setMatForm(f => f ? { ...f, cost: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">EDM Coeff.</label>
-                  <Input type="number" step="0.1" value={matForm.edm} onChange={e => setMatForm(f => f ? { ...f, edm: e.target.value } : f)} />
-                  <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">CNC Coeff. lavorabilità</label>
-                  <Input type="number" step="0.1" value={matForm.cnc} onChange={e => setMatForm(f => f ? { ...f, cnc: e.target.value } : f)} />
-                  <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Sfrido %</label>
-                  <Input type="number" step="0.5" value={matForm.scrap} onChange={e => setMatForm(f => f ? { ...f, scrap: e.target.value } : f)} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Fornitore materiale</label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={matForm.supplier_id}
-                    onChange={e => setMatForm(f => f ? { ...f, supplier_id: e.target.value } : f)}
-                  >
-                    <option value="">Nessun fornitore</option>
-                    {[...suppliers].sort((a, b) => a.name.localeCompare(b.name, 'it')).map(s => (
-                      <option key={s.id} value={s.id}>{s.name} — {s.shipping_cost.toFixed(2)} € spedizione</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm cursor-pointer mt-3">
-                <input
-                  type="checkbox"
-                  checked={matForm.active}
-                  onChange={e => setMatForm(f => f ? { ...f, active: e.target.checked } : f)}
-                  className="w-4 h-4"
-                />
-                Attivo
-              </label>
-              <div className="flex gap-2 mt-6">
-                <PrimaryCtaButton color="blue" onClick={saveMaterial}>Salva</PrimaryCtaButton>
-                <Button variant="outline" onClick={() => setMatForm(null)}>Annulla</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {showMatForm && (
+        <MaterialFormModal
+          material={editMaterial}
+          suppliers={suppliers}
+          onClose={() => setShowMatForm(false)}
+          onSaved={loadData}
+        />
       )}
       <ConfirmDialog
         open={pendingDelSupplier != null}
@@ -447,6 +282,6 @@ export default function MaterialsPage() {
         onConfirm={confirmDeleteMaterial}
         onCancel={() => setPendingDelMaterial(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

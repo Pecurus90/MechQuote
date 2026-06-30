@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Search, Wrench, FileDown, History, X, AlertTriangle } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -96,30 +95,30 @@ export default function OrdersToolsPage() {
   const hasItems = preview && preview.groups.length > 0
 
   return (
-    <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={Wrench}
-        color="violet"
-        title="Ordini utensili"
-        subtitle={`Utensili sotto quantità minima raggruppati per fornitore. "Esporta PDF" crea l'ordine (UO-NNNN nello storico).`}
-        action={
-          <div className="flex items-center gap-2 flex-wrap">
-            <PrimaryCtaButton
-              color="violet"
-              size="sm"
-              onClick={createOrder}
-              disabled={creating || !hasItems}
-              title={hasItems ? 'Crea ordine + scarica PDF' : 'Nessun utensile sotto minimo'}
-            >
-              <FileDown className="w-4 h-4" />
-              {creating ? 'Genero...' : 'Esporta PDF ordine'}
-            </PrimaryCtaButton>
-            <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
-              <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-            </Button>
-          </div>
-        }
-      />
+    <StandardPage
+      icon={Wrench}
+      color="violet"
+      width="xl"
+      title="Ordini utensili"
+      subtitle={`Utensili sotto quantità minima raggruppati per fornitore. "Esporta PDF" crea l'ordine (UO-NNNN nello storico).`}
+      actions={
+        <div className="flex items-center gap-2 flex-wrap">
+          <PrimaryCtaButton
+            color="violet"
+            size="sm"
+            onClick={createOrder}
+            disabled={creating || !hasItems}
+            title={hasItems ? 'Crea ordine + scarica PDF' : 'Nessun utensile sotto minimo'}
+          >
+            <FileDown className="w-4 h-4" />
+            {creating ? 'Genero...' : 'Esporta PDF ordine'}
+          </PrimaryCtaButton>
+          <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
+            <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
+          </Button>
+        </div>
+      }
+    >
 
       {stats && (
         <KpiBar items={[
@@ -285,6 +284,6 @@ export default function OrdersToolsPage() {
           </Card>
         </div>
       )}
-    </PageContainer>
+    </StandardPage>
   )
 }

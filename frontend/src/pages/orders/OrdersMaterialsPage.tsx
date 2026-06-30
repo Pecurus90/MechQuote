@@ -2,16 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Search, Package, FileDown, History, X } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
-import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import { Search, Package, History } from 'lucide-react'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { STATUS_LABELS } from '@/lib/constants'
-import { useEscapeKey } from '@/lib/useEscapeKey'
 import { timeAgo } from '@/lib/timeAgo'
 import KpiBar from '@/components/ui/kpi-bar'
+import OrderHistoryModal from './OrderHistoryModal'
+import AggregatePreview from './AggregatePreview'
 import type {
   MaterialAggregateResult, MaterialOrder, QuoteListItem,
 } from '@/types'
@@ -43,7 +42,6 @@ export default function OrdersMaterialsPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
   const [stats, setStats] = useState<MaterialsStats | null>(null)
-  useEscapeKey(() => setShowHistory(false), showHistory)
 
   const loadStats = () => {
     api.get('/orders/materials/stats')
@@ -164,22 +162,18 @@ export default function OrdersMaterialsPage() {
   }
 
   return (
-    <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={Package}
-        color="blue"
-        title="Ordini materiali"
-        subtitle='Seleziona preventivi e genera un PDF lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
-        action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(s => !s)}
-          >
-            <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-          </Button>
-        }
-      />
+    <StandardPage
+      icon={Package}
+      color="blue"
+      width="xl"
+      title="Ordini materiali"
+      subtitle='Seleziona preventivi e genera un PDF lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
+      actions={
+        <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
+          <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
+        </Button>
+      }
+    >
 
       {stats && (
         <KpiBar items={[
@@ -208,75 +202,14 @@ export default function OrdersMaterialsPage() {
         ]} />
       )}
 
-      {/* Storico ordini — modal popup */}
       {showHistory && (
-        <div
-          className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setShowHistory(false)}
-        >
-          <Card className="w-full max-w-4xl max-h-[85vh] flex flex-col bg-white shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
-              <h3 className="font-semibold flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-700" /> Storico ordini materiali
-              </h3>
-              <button onClick={() => setShowHistory(false)} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 border-b shrink-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <Input
-                  placeholder="Cerca per numero ordine (MO-0023), preventivo (001-26A_010), o creatore..."
-                  value={historySearch}
-                  onChange={e => setHistorySearch(e.target.value)}
-                  className="pl-9 h-9 text-sm"
-                  autoFocus
-                />
-              </div>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              <table className="table-fixed w-full text-sm">
-                <thead className="bg-gray-50 border-b sticky top-0">
-                  <tr>
-                    <th className="text-left p-3 w-[14%] font-medium text-gray-600">Numero</th>
-                    <th className="text-left p-3 w-[22%] font-medium text-gray-600">Data</th>
-                    <th className="text-left p-3 w-[20%] font-medium text-gray-600">Creato da</th>
-                    <th className="text-left p-3 w-[8%] font-medium text-gray-600">Quote</th>
-                    <th className="text-left p-3 font-medium text-gray-600">Preventivi</th>
-                    <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-gray-400">
-                      {historySearch ? 'Nessun ordine corrisponde alla ricerca.' : 'Nessun ordine ancora.'}
-                    </td></tr>
-                  )}
-                  {orders.map(o => (
-                    <tr key={o.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 font-mono text-blue-700">MO-{String(o.id).padStart(4, '0')}</td>
-                      <td className="p-3 text-gray-600">{new Date(o.created_at).toLocaleString('it-IT')}</td>
-                      <td className="p-3">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
-                      <td className="p-3 font-mono text-center">{o.quote_count}</td>
-                      <td className="p-3 text-xs text-gray-500 font-mono truncate">
-                        {o.quote_numbers.slice(0, 3).join(', ')}{o.quote_numbers.length > 3 && ` +${o.quote_numbers.length - 3}`}
-                      </td>
-                      <td className="p-3 text-center">
-                        <Button size="sm" variant="outline" onClick={() => downloadPdf(o.id)}>
-                          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-5 py-2 border-t text-xs text-gray-400 shrink-0">
-              {orders.length} ordin{orders.length === 1 ? 'e' : 'i'} mostrat{orders.length === 1 ? 'o' : 'i'}
-            </div>
-          </Card>
-        </div>
+        <OrderHistoryModal
+          orders={orders}
+          search={historySearch}
+          onSearchChange={setHistorySearch}
+          onDownloadPdf={downloadPdf}
+          onClose={() => setShowHistory(false)}
+        />
       )}
 
       {/* Nuovo ordine: lista preventivi */}
@@ -363,87 +296,16 @@ export default function OrdersMaterialsPage() {
           </p>
         </div>
 
-        {/* Preview aggregata */}
-        <div>
-          <h2 className="text-base font-semibold text-gray-700 mb-3">Materiali aggregati</h2>
-          {selectedIds.size === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center text-sm text-gray-400">
-                Seleziona uno o più preventivi per vedere l'aggregazione.
-              </CardContent>
-            </Card>
-          ) : loadingPreview ? (
-            <Card><CardContent className="p-8 text-center text-sm text-gray-400">Calcolo...</CardContent></Card>
-          ) : !aggregate || aggregate.groups.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center text-sm text-amber-700 bg-amber-50">
-                Nessun materiale da ordinare nei preventivi selezionati
-                (potrebbero essere tutti in conto lavoro o senza materiale).
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {aggregate.groups.map((g, gi) => (
-                <Card key={gi}>
-                  <CardContent className="p-0">
-                    <div className="bg-blue-50 border-b border-blue-100 px-3 py-2 flex items-center justify-between">
-                      <span className="font-semibold text-sm text-blue-900">{g.supplier_name}</span>
-                      <span className="text-xs text-blue-700">{g.items.length} {g.items.length === 1 ? 'materiale' : 'materiali'}</span>
-                    </div>
-                    <table className="w-full text-xs">
-                      <tbody>
-                        {g.items.map((it, i) => (
-                          <tr key={i} className={`border-b last:border-0 ${it.from_stock ? 'bg-amber-50/40' : ''}`}>
-                            <td className="p-2">
-                              <div className="font-medium text-gray-800 flex items-center gap-2 flex-wrap">
-                                <span>{it.material_name}</span>
-                                {it.family && <span className="text-gray-400 font-normal"> ({it.family.replace(/_/g, ' ')})</span>}
-                                {it.from_stock && (
-                                  <span className="inline-block bg-amber-100 text-amber-800 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded">
-                                    Da magazzino
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-gray-500 text-[11px]">{it.dim_str}</div>
-                            </td>
-                            <td className="p-2 text-right font-mono whitespace-nowrap">
-                              <div className={`font-semibold ${it.from_stock ? 'text-amber-700' : 'text-blue-700'}`}>{it.total_qty} pz</div>
-                              <div className="text-[11px] text-gray-500">{it.total_weight_kg.toFixed(2)} kg</div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </CardContent>
-                </Card>
-              ))}
-
-              <Card>
-                <CardContent className="p-3 flex items-center justify-between bg-gray-50 text-sm">
-                  <span className="text-gray-600">Totali</span>
-                  <span className="font-mono text-gray-900 font-semibold">
-                    {totalQty} pz &middot; {totalWeight.toFixed(2)} kg
-                  </span>
-                </CardContent>
-              </Card>
-
-              <PrimaryCtaButton
-                color="blue"
-                onClick={exportOrder}
-                disabled={exporting || selectedIds.size === 0}
-                className="w-full justify-center py-3"
-              >
-                <FileDown className="w-4 h-4" />
-                {exporting ? 'Generazione in corso...' : `PDF ordine (${selectedIds.size} preventiv${selectedIds.size === 1 ? 'o' : 'i'})`}
-              </PrimaryCtaButton>
-              <p className="text-[11px] text-gray-400 text-center">
-                I preventivi selezionati saranno marcati come "materiale ordinato"
-                e verrà inviata notifica a ufficio tecnico e amministrazione.
-              </p>
-            </div>
-          )}
-        </div>
+        <AggregatePreview
+          aggregate={aggregate}
+          loading={loadingPreview}
+          selectedCount={selectedIds.size}
+          totalQty={totalQty}
+          totalWeight={totalWeight}
+          exporting={exporting}
+          onExport={exportOrder}
+        />
       </div>
-    </PageContainer>
+    </StandardPage>
   )
 }

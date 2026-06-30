@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, X, Zap } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import type { CuttingCycle, CuttingPass, PassType } from '@/types'
 import { toast } from 'sonner'
@@ -103,20 +102,20 @@ export default function CuttingCyclesPage() {
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <PageContainer>
-      <SettingsPageHeader
-        icon={Zap}
-        color="amber"
-        title="Cicli di taglio"
-        subtitle='Template sequenze di passate. Es. "Standard 1+3" = 1 sgrossatura + 3 finiture, applicati alla fase Wire EDM.'
-        action={
-          editingId === null ? (
-            <PrimaryCtaButton color="amber" size="sm" onClick={startNew}>
-              <Plus className="w-4 h-4" /> Nuovo ciclo
-            </PrimaryCtaButton>
-          ) : undefined
-        }
-      />
+    <StandardPage
+      icon={Zap}
+      color="amber"
+      width="full"
+      title="Cicli di taglio"
+      subtitle='Template sequenze di passate. Es. "Standard 1+3" = 1 sgrossatura + 3 finiture, applicati alla fase Wire EDM.'
+      actions={
+        editingId === null ? (
+          <PrimaryCtaButton color="amber" size="sm" onClick={startNew}>
+            <Plus className="w-4 h-4" /> Nuovo ciclo
+          </PrimaryCtaButton>
+        ) : undefined
+      }
+    >
 
       {editingId !== null && (
         <Card>
@@ -236,6 +235,6 @@ export default function CuttingCyclesPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

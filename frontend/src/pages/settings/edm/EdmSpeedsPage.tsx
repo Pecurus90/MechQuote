@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Gauge } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import type { EdmCutSpeed } from '@/types'
 import { toast } from 'sonner'
@@ -132,20 +131,20 @@ export default function EdmSpeedsPage() {
   )
 
   return (
-    <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={Gauge}
-        color="amber"
-        title="Velocità di taglio Wire EDM"
-        subtitle="Avanzamento filo (mm/min) per famiglia materiale × altezza. Le passate derivano dai fattori in Parametri globali."
-        action={
-          !showNew ? (
-            <PrimaryCtaButton color="amber" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
-              <Plus className="w-4 h-4" /> Nuova riga
-            </PrimaryCtaButton>
-          ) : undefined
-        }
-      />
+    <StandardPage
+      icon={Gauge}
+      color="amber"
+      width="full"
+      title="Velocità di taglio Wire EDM"
+      subtitle="Avanzamento filo (mm/min) per famiglia materiale × altezza. Le passate derivano dai fattori in Parametri globali."
+      actions={
+        !showNew ? (
+          <PrimaryCtaButton color="amber" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+            <Plus className="w-4 h-4" /> Nuova riga
+          </PrimaryCtaButton>
+        ) : undefined
+      }
+    >
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
@@ -238,6 +237,6 @@ export default function EdmSpeedsPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

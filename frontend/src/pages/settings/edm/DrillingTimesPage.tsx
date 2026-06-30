@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Drill } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import type { DrillingTime } from '@/types'
 import { toast } from 'sonner'
@@ -117,20 +116,20 @@ export default function DrillingTimesPage() {
   )
 
   return (
-    <PageContainer>
-      <SettingsPageHeader
-        icon={Drill}
-        color="amber"
-        title="Velocità di foratura"
-        subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Lookup discreto su diametro."
-        action={
-          !showNew ? (
-            <PrimaryCtaButton color="amber" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
-              <Plus className="w-4 h-4" /> Nuova riga
-            </PrimaryCtaButton>
-          ) : undefined
-        }
-      />
+    <StandardPage
+      icon={Drill}
+      color="amber"
+      width="full"
+      title="Velocità di foratura"
+      subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Lookup discreto su diametro."
+      actions={
+        !showNew ? (
+          <PrimaryCtaButton color="amber" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
+            <Plus className="w-4 h-4" /> Nuova riga
+          </PrimaryCtaButton>
+        ) : undefined
+      }
+    >
 
       <Card>
         <CardContent className="p-0 overflow-x-auto">
@@ -219,6 +218,6 @@ export default function DrillingTimesPage() {
         onConfirm={confirmRemove}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

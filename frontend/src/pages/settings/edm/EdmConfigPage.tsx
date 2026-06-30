@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { SlidersHorizontal } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import type { EdmConfig, Machine } from '@/types'
 import { toast } from 'sonner'
@@ -56,18 +55,18 @@ export default function EdmConfigPage() {
   if (loading) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={SlidersHorizontal}
-        color="amber"
-        title="Parametri Wire EDM"
-        subtitle="Costanti globali del calcolo: fattori di velocità per tipo di passata e tempo pierce di default."
-        action={
-          <PrimaryCtaButton color="amber" onClick={handleSave} disabled={saving}>
-            {saving ? 'Salvataggio...' : 'Salva'}
-          </PrimaryCtaButton>
-        }
-      />
+    <StandardPage
+      icon={SlidersHorizontal}
+      color="amber"
+      width="md"
+      title="Parametri Wire EDM"
+      subtitle="Costanti globali del calcolo: fattori di velocità per tipo di passata e tempo pierce di default."
+      actions={
+        <PrimaryCtaButton color="amber" onClick={handleSave} disabled={saving}>
+          {saving ? 'Salvataggio...' : 'Salva'}
+        </PrimaryCtaButton>
+      }
+    >
 
       <Card>
         <CardHeader>
@@ -154,6 +153,6 @@ export default function EdmConfigPage() {
           </div>
         </CardContent>
       </Card>
-    </PageContainer>
+    </StandardPage>
   )
 }

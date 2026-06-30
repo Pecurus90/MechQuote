@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { X } from 'lucide-react'
+import { X, Circle, Square } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { parseDecimalOrNull } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
-import type { HeatTreatmentResult } from '@/types'
+import type { HeatTreatmentResult, HeatTreatmentShape } from '@/types'
 
 interface FormState {
   material: string
+  shape: HeatTreatmentShape
   temp_insertion_c: string
   temp_quench_c: string
   temp_temper_c: string
@@ -20,17 +21,26 @@ interface FormState {
   outer_dia_post_mm: string
   inner_dia_pre_mm: string
   inner_dia_post_mm: string
+  width_pre_mm: string
+  width_post_mm: string
+  height_pre_mm: string
+  height_post_mm: string
   length_pre_mm: string
   length_post_mm: string
   hardness: string
   notes: string
 }
 
-const num = (v: number | null | undefined): string =>
-  v == null ? '' : String(v)
+const num = (v: number | null | undefined): string => (v == null ? '' : String(v))
+
+// La dicitura "HRC" è gestita in automatico: nel form l'utente vede/edita solo
+// il valore (es. "58"), la sigla viene aggiunta al salvataggio e tolta in lettura.
+const stripHrc = (v: string | null | undefined): string =>
+  (v ?? '').replace(/\s*HRC\s*$/i, '').trim()
 
 const fromResult = (r: HeatTreatmentResult | null): FormState => ({
   material: r?.material ?? '',
+  shape: r?.shape ?? 'tondo',
   temp_insertion_c: num(r?.temp_insertion_c),
   temp_quench_c: num(r?.temp_quench_c),
   temp_temper_c: num(r?.temp_temper_c),
@@ -39,9 +49,13 @@ const fromResult = (r: HeatTreatmentResult | null): FormState => ({
   outer_dia_post_mm: num(r?.outer_dia_post_mm),
   inner_dia_pre_mm: num(r?.inner_dia_pre_mm),
   inner_dia_post_mm: num(r?.inner_dia_post_mm),
+  width_pre_mm: num(r?.width_pre_mm),
+  width_post_mm: num(r?.width_post_mm),
+  height_pre_mm: num(r?.height_pre_mm),
+  height_post_mm: num(r?.height_post_mm),
   length_pre_mm: num(r?.length_pre_mm),
   length_post_mm: num(r?.length_post_mm),
-  hardness: r?.hardness ?? '',
+  hardness: stripHrc(r?.hardness),
   notes: r?.notes ?? '',
 })
 
@@ -63,19 +77,27 @@ export default function TempraFormModal({
       toast.error('Il materiale è obbligatorio')
       return
     }
+    const isRound = form.shape === 'tondo'
+    const h = stripHrc(form.hardness)
     const payload = {
       material: form.material.trim(),
+      shape: form.shape,
       temp_insertion_c: parseDecimalOrNull(form.temp_insertion_c),
       temp_quench_c: parseDecimalOrNull(form.temp_quench_c),
       temp_temper_c: parseDecimalOrNull(form.temp_temper_c),
       temper_time_min: parseDecimalOrNull(form.temper_time_min),
-      outer_dia_pre_mm: parseDecimalOrNull(form.outer_dia_pre_mm),
-      outer_dia_post_mm: parseDecimalOrNull(form.outer_dia_post_mm),
-      inner_dia_pre_mm: parseDecimalOrNull(form.inner_dia_pre_mm),
-      inner_dia_post_mm: parseDecimalOrNull(form.inner_dia_post_mm),
+      // Solo le misure della forma scelta; le altre azzerate per dati puliti.
+      outer_dia_pre_mm: isRound ? parseDecimalOrNull(form.outer_dia_pre_mm) : null,
+      outer_dia_post_mm: isRound ? parseDecimalOrNull(form.outer_dia_post_mm) : null,
+      inner_dia_pre_mm: isRound ? parseDecimalOrNull(form.inner_dia_pre_mm) : null,
+      inner_dia_post_mm: isRound ? parseDecimalOrNull(form.inner_dia_post_mm) : null,
+      width_pre_mm: isRound ? null : parseDecimalOrNull(form.width_pre_mm),
+      width_post_mm: isRound ? null : parseDecimalOrNull(form.width_post_mm),
+      height_pre_mm: isRound ? null : parseDecimalOrNull(form.height_pre_mm),
+      height_post_mm: isRound ? null : parseDecimalOrNull(form.height_post_mm),
       length_pre_mm: parseDecimalOrNull(form.length_pre_mm),
       length_post_mm: parseDecimalOrNull(form.length_post_mm),
-      hardness: form.hardness.trim() || null,
+      hardness: h ? `${h} HRC` : null,
       notes: form.notes.trim() || null,
     }
     setSaving(true)
@@ -97,6 +119,20 @@ export default function TempraFormModal({
     }
   }
 
+  const PrePostRow = ({ label, preKey, postKey }: {
+    label: string; preKey: keyof FormState; postKey: keyof FormState
+  }) => (
+    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+      <label className="text-sm font-medium">{label}</label>
+      <Input type="number" step="0.001" className="w-28" placeholder="pre"
+        value={form[preKey] as string} onChange={e => set(preKey, e.target.value)} />
+      <Input type="number" step="0.001" className="w-28" placeholder="post"
+        value={form[postKey] as string} onChange={e => set(postKey, e.target.value)} />
+    </div>
+  )
+
+  const isRound = form.shape === 'tondo'
+
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-2xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
@@ -110,6 +146,29 @@ export default function TempraFormModal({
           <div>
             <label className="text-sm font-medium">Materiale *</label>
             <Input value={form.material} onChange={e => set('material', e.target.value)} placeholder="es. 1.2842, C45, 100Cr6" />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium block mb-1">Forma del pezzo</label>
+            <div className="flex gap-2">
+              {([
+                { v: 'tondo' as const, Icon: Circle },
+                { v: 'quadrato' as const, Icon: Square },
+              ]).map(({ v, Icon }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => set('shape', v)}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-md border text-sm capitalize transition-colors ${
+                    form.shape === v
+                      ? 'bg-emerald-600 text-white border-emerald-700'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" /> {v}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -135,39 +194,33 @@ export default function TempraFormModal({
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Misure pre / post tempra (mm)</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">Ø esterno pre</label>
-                <Input type="number" step="0.001" value={form.outer_dia_pre_mm} onChange={e => set('outer_dia_pre_mm', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Ø esterno post</label>
-                <Input type="number" step="0.001" value={form.outer_dia_post_mm} onChange={e => set('outer_dia_post_mm', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Ø interno pre</label>
-                <Input type="number" step="0.001" value={form.inner_dia_pre_mm} onChange={e => set('inner_dia_pre_mm', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Ø interno post</label>
-                <Input type="number" step="0.001" value={form.inner_dia_post_mm} onChange={e => set('inner_dia_post_mm', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Lunghezza pre</label>
-                <Input type="number" step="0.001" value={form.length_pre_mm} onChange={e => set('length_pre_mm', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Lunghezza post</label>
-                <Input type="number" step="0.001" value={form.length_post_mm} onChange={e => set('length_post_mm', e.target.value)} />
-              </div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Misure pre / post tempra (mm)</p>
+              <span className="text-[11px] text-gray-400">pre · post</span>
+            </div>
+            <div className="space-y-2">
+              {isRound ? (
+                <>
+                  <PrePostRow label="Ø esterno" preKey="outer_dia_pre_mm" postKey="outer_dia_post_mm" />
+                  <PrePostRow label="Ø interno" preKey="inner_dia_pre_mm" postKey="inner_dia_post_mm" />
+                </>
+              ) : (
+                <>
+                  <PrePostRow label="Larghezza" preKey="width_pre_mm" postKey="width_post_mm" />
+                  <PrePostRow label="Altezza" preKey="height_pre_mm" postKey="height_post_mm" />
+                </>
+              )}
+              <PrePostRow label="Lunghezza" preKey="length_pre_mm" postKey="length_post_mm" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium">Durezza ottenuta</label>
-              <Input value={form.hardness} onChange={e => set('hardness', e.target.value)} placeholder="es. 58 HRC" />
+              <div className="flex items-center gap-2">
+                <Input value={form.hardness} onChange={e => set('hardness', e.target.value)} placeholder="es. 58 oppure 60-62" />
+                <span className="text-sm font-medium text-gray-500 shrink-0">HRC</span>
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Note</label>

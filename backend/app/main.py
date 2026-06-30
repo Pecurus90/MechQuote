@@ -448,6 +448,13 @@ def _run_migrations():
          "notes TEXT, "
          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
          "created_by_user_id INTEGER REFERENCES users(id))"),
+        # Forma del pezzo (tondo|quadrato) + misure quadrato (larghezza/altezza).
+        # Additive su DB esistente: i tondi gia' inseriti restano 'tondo' (default).
+        "ALTER TABLE heat_treatment_results ADD COLUMN shape VARCHAR(20) DEFAULT 'tondo'",
+        "ALTER TABLE heat_treatment_results ADD COLUMN width_pre_mm FLOAT",
+        "ALTER TABLE heat_treatment_results ADD COLUMN width_post_mm FLOAT",
+        "ALTER TABLE heat_treatment_results ADD COLUMN height_pre_mm FLOAT",
+        "ALTER TABLE heat_treatment_results ADD COLUMN height_post_mm FLOAT",
 
         # Linking documento ↔ cliente per raggruppamento nelle viste officina
         # (es. datasheet per cliente). FK opzionale.

@@ -855,23 +855,36 @@ class HeatTreatmentResult(Base):
     Tabella dati compilata a mano dall'operatore (una riga per pezzo trattato),
     consultabile in Officina. Read con permesso `officina`, scrittura con
     `officina.write` — stesso gating dei documenti. Le deformazioni (delta
-    post-pre su Ø esterno/interno e lunghezza) NON sono salvate: si derivano in
-    UI dalle misure (DRY, una sola fonte di verità). Misure tutte opzionali:
-    l'operatore registra solo i valori che ha. Temperature in °C, tempo
-    rinvenimento in minuti, durezza testo libero (es. "58 HRC", "60-62 HRC").
+    post-pre sulle misure) NON sono salvate: si derivano in UI dalle misure
+    (DRY, una sola fonte di verità). Misure tutte opzionali: l'operatore
+    registra solo i valori che ha. Temperature in °C, tempo rinvenimento in
+    minuti, durezza testo libero (la dicitura "HRC" è aggiunta in UI).
+
+    `shape` determina quali misure geometriche sono pertinenti:
+    - 'tondo'    → Ø esterno + Ø interno + lunghezza
+    - 'quadrato' → larghezza + altezza + lunghezza
+    Le colonne non pertinenti alla forma restano NULL. La lunghezza è comune.
     """
     __tablename__ = "heat_treatment_results"
 
     id = Column(Integer, primary_key=True, index=True)
     material = Column(String(100), nullable=False)
+    shape = Column(String(20), default='tondo')        # tondo | quadrato
     temp_insertion_c = Column(Float, nullable=True)   # gradi inserimento forno
     temp_quench_c = Column(Float, nullable=True)       # gradi tempra
     temp_temper_c = Column(Float, nullable=True)       # gradi rinvenimento
     temper_time_min = Column(Float, nullable=True)     # tempo rinvenimento (minuti)
+    # Forma 'tondo': diametri esterno/interno
     outer_dia_pre_mm = Column(Float, nullable=True)
     outer_dia_post_mm = Column(Float, nullable=True)
     inner_dia_pre_mm = Column(Float, nullable=True)
     inner_dia_post_mm = Column(Float, nullable=True)
+    # Forma 'quadrato': larghezza e altezza
+    width_pre_mm = Column(Float, nullable=True)
+    width_post_mm = Column(Float, nullable=True)
+    height_pre_mm = Column(Float, nullable=True)
+    height_post_mm = Column(Float, nullable=True)
+    # Comune a entrambe le forme
     length_pre_mm = Column(Float, nullable=True)
     length_post_mm = Column(Float, nullable=True)
     hardness = Column(String(50), nullable=True)       # testo libero (scala inclusa)

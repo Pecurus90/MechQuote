@@ -671,17 +671,27 @@ export interface OfficinaCategory {
 
 // Registro risultati tempra (Officina). Misure tutte opzionali: l'operatore
 // registra solo i valori che ha. Deformazioni derivate in UI (vedi tempraCalc).
+export type HeatTreatmentShape = 'tondo' | 'quadrato'
+
 export interface HeatTreatmentResult {
   id: number
   material: string
+  shape: HeatTreatmentShape
   temp_insertion_c: number | null
   temp_quench_c: number | null
   temp_temper_c: number | null
   temper_time_min: number | null
+  // forma 'tondo'
   outer_dia_pre_mm: number | null
   outer_dia_post_mm: number | null
   inner_dia_pre_mm: number | null
   inner_dia_post_mm: number | null
+  // forma 'quadrato'
+  width_pre_mm: number | null
+  width_post_mm: number | null
+  height_pre_mm: number | null
+  height_post_mm: number | null
+  // comune
   length_pre_mm: number | null
   length_post_mm: number | null
   hardness: string | null

@@ -1180,6 +1180,7 @@ class OfficinaCategoryOut(OfficinaCategoryBase):
 
 class HeatTreatmentResultBase(BaseModel):
     material: str = Field(min_length=1, max_length=100)
+    shape: str = Field(default='tondo', pattern=r'^(tondo|quadrato)$')
     temp_insertion_c: Optional[float] = None
     temp_quench_c: Optional[float] = None
     temp_temper_c: Optional[float] = None
@@ -1188,6 +1189,10 @@ class HeatTreatmentResultBase(BaseModel):
     outer_dia_post_mm: Optional[float] = None
     inner_dia_pre_mm: Optional[float] = None
     inner_dia_post_mm: Optional[float] = None
+    width_pre_mm: Optional[float] = None
+    width_post_mm: Optional[float] = None
+    height_pre_mm: Optional[float] = None
+    height_post_mm: Optional[float] = None
     length_pre_mm: Optional[float] = None
     length_post_mm: Optional[float] = None
     hardness: Optional[str] = Field(default=None, max_length=50)
@@ -1200,6 +1205,7 @@ class HeatTreatmentResultCreate(HeatTreatmentResultBase):
 
 class HeatTreatmentResultUpdate(BaseModel):
     material: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    shape: Optional[str] = Field(default=None, pattern=r'^(tondo|quadrato)$')
     temp_insertion_c: Optional[float] = None
     temp_quench_c: Optional[float] = None
     temp_temper_c: Optional[float] = None
@@ -1208,6 +1214,10 @@ class HeatTreatmentResultUpdate(BaseModel):
     outer_dia_post_mm: Optional[float] = None
     inner_dia_pre_mm: Optional[float] = None
     inner_dia_post_mm: Optional[float] = None
+    width_pre_mm: Optional[float] = None
+    width_post_mm: Optional[float] = None
+    height_pre_mm: Optional[float] = None
+    height_post_mm: Optional[float] = None
     length_pre_mm: Optional[float] = None
     length_post_mm: Optional[float] = None
     hardness: Optional[str] = Field(default=None, max_length=50)

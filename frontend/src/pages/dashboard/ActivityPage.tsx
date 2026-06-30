@@ -8,8 +8,7 @@ import { timeAgo } from '@/lib/timeAgo'
 import { ACTIVITY_KIND } from '@/lib/activity'
 import type { ActivityRow } from '@/types'
 import { Activity as ActivityIcon, Search } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 
 type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert'
@@ -43,14 +42,13 @@ export default function ActivityPage() {
   }
 
   return (
-    <PageContainer>
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <SettingsPageHeader
-          icon={ActivityIcon}
-          color="gray"
-          title="Attività del team"
-          subtitle="Log delle modifiche ai preventivi (chi, quando, cosa)"
-        />
+    <StandardPage
+      icon={ActivityIcon}
+      color="gray"
+      width="xl"
+      title="Attività del team"
+      subtitle="Log delle modifiche ai preventivi (chi, quando, cosa)"
+      actions={
         <div className="flex items-end gap-3 flex-wrap">
           <div className="w-72">
             <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>
@@ -79,8 +77,8 @@ export default function ActivityPage() {
             </select>
           </div>
         </div>
-      </div>
-
+      }
+    >
       {loading ? (
         <div className="p-8 text-center text-gray-400">Caricamento...</div>
       ) : (
@@ -139,6 +137,6 @@ export default function ActivityPage() {
           <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>
         )}
       </div>
-    </PageContainer>
+    </StandardPage>
   )
 }

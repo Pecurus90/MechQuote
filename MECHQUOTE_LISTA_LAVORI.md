@@ -17,6 +17,27 @@
 
 ---
 
+## ⭐ PROSSIMA SESSIONE — DA FARE SUBITO (aggiornato 2026-06-30)
+
+**1. Pulizia file/doc obsoleti** ← la prima cosa da fare.
+Tanti file accumulati, diversi probabilmente obsoleti/inutili. Metodo:
+ricognizione a sola lettura (specie `docs/specs/` — 02/04/06/10 marcati
+DEPRECATED-DRIFT — il ROADMAP ritirato, i file di root) → proposta
+*cancella / unisci / tieni* con il perché → cancellare **solo dopo ok**, in un
+commit dedicato (git tiene la storia). NON cancellare alla cieca: alcuni doc
+possono essere ancora autoritativi.
+
+**2. Piano architettura (consolidamento motore + "tutto collegato").**
+Documento completo: `docs/specs/17_architettura_target.md`. Principio: motore
+preventivi come **cuore puro** (monolite modulare, non microservizio). Roadmap
+per rischio: **F1** guard-rail → **F2** nucleo costi unico → **F3** collega
+normalizzati → C1/C2 coerenza → P1 decisioni prodotto → D1 differito. Partire
+da **F1** (rischio basso).
+> Nota: **F3 = Step 4/5 del "Cantiere Catalogo Normalizzati" qui sotto**
+> (aggancio FK `NormalizedItem`): è lo stesso lavoro, da fare una volta sola.
+
+---
+
 ## ░░░ CANTIERI APERTI (lavori in corso oltre i blocchi) ░░░
 
 ### Cantiere Catalogo Normalizzati 🚧 IN CORSO (aperto 2026-05-27)

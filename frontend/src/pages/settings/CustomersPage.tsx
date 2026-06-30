@@ -105,7 +105,7 @@ export default function CustomersPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <PageContainer>
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Users}
         color="emerald"

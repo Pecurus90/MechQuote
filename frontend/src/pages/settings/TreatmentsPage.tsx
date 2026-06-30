@@ -166,7 +166,7 @@ export default function TreatmentsPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <PageContainer>
+    <PageContainer width="full">
       <SettingsPageHeader
         icon={Ruler}
         color="orange"

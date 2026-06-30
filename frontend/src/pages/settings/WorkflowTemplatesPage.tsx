@@ -148,7 +148,7 @@ export default function WorkflowTemplatesPage() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer width="full">
       <SettingsPageHeader
         icon={Workflow}
         color="indigo"

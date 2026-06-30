@@ -136,7 +136,7 @@ export default function UsersPage() {
   const inp = 'h-7 text-xs px-2'
 
   return (
-    <PageContainer>
+    <PageContainer width="full">
       <SettingsPageHeader
         icon={UserCog}
         color="gray"

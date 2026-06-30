@@ -135,7 +135,7 @@ export default function MachinesPage() {
   if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
 
   return (
-    <PageContainer>
+    <PageContainer width="full">
       <SettingsPageHeader
         icon={Cog}
         color="indigo"

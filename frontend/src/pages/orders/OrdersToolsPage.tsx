@@ -96,7 +96,7 @@ export default function OrdersToolsPage() {
   const hasItems = preview && preview.groups.length > 0
 
   return (
-    <PageContainer>
+    <PageContainer width="xl">
       <SettingsPageHeader
         icon={Wrench}
         color="violet"

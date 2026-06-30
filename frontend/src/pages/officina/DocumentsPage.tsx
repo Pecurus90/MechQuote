@@ -262,7 +262,7 @@ export default function OfficinaDocumentsPage() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer width="xl">
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
           <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">

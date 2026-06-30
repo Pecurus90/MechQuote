@@ -3,9 +3,8 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Plus, Pencil, Trash2, Flame, Circle, Square, Search, BarChart3 } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -64,21 +63,18 @@ export default function TempraResultsPage() {
   const filtered = q ? rows.filter(r => r.material.toLowerCase().includes(q)) : rows
 
   return (
-    <PageContainer width="xl">
-      <div className="flex items-start justify-between gap-4">
-        <SettingsPageHeader
-          icon={Flame}
-          color="emerald"
-          title="Tempra e deformazioni"
-          subtitle="Registro misure pre/post tempra e deformazioni rilevate"
-        />
-        {canWrite && (
-          <PrimaryCtaButton color="emerald" onClick={openCreate}>
-            <Plus className="w-4 h-4" /> Aggiungi
-          </PrimaryCtaButton>
-        )}
-      </div>
-
+    <StandardPage
+      icon={Flame}
+      color="emerald"
+      title="Tempra e deformazioni"
+      subtitle="Registro misure pre/post tempra e deformazioni rilevate"
+      width="xl"
+      actions={canWrite ? (
+        <PrimaryCtaButton color="emerald" onClick={openCreate}>
+          <Plus className="w-4 h-4" /> Aggiungi
+        </PrimaryCtaButton>
+      ) : undefined}
+    >
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -188,6 +184,6 @@ export default function TempraResultsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

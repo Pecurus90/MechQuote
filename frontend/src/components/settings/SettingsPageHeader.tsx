@@ -3,7 +3,7 @@
 // Stesso look dei container raggruppati (SuppliersSettingsPage, ecc.).
 import type { LucideIcon } from 'lucide-react'
 
-type Color =
+export type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
 

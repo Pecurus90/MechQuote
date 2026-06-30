@@ -6,7 +6,7 @@
 // finestra — sfrutta lo schermo senza allungare i form. Login resta custom.
 import type { ReactNode } from 'react'
 
-type Width = 'md' | 'lg' | 'xl' | 'full'
+export type Width = 'md' | 'lg' | 'xl' | 'full'
 
 const WIDTH_MAP: Record<Width, string> = {
   md:   'max-w-3xl',

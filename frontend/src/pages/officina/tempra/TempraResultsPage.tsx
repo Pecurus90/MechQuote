@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Flame, Circle, Square } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Plus, Pencil, Trash2, Flame, Circle, Square, Search, BarChart3 } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import PageContainer from '@/components/ui/page-container'
@@ -10,6 +12,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import type { HeatTreatmentResult } from '@/types'
 import TempraFormModal from './TempraFormModal'
+import TempraAnalysisModal from './TempraAnalysisModal'
 import { dimensionsFor, fmtMm, formatDelta, deltaClass } from './tempraCalc'
 
 const fmt = (v: number | null, suffix = ''): string =>
@@ -22,9 +25,11 @@ export default function TempraResultsPage() {
 
   const [rows, setRows] = useState<HeatTreatmentResult[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<HeatTreatmentResult | null>(null)
   const [pendingDelete, setPendingDelete] = useState<HeatTreatmentResult | null>(null)
+  const [showAnalysis, setShowAnalysis] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -55,6 +60,8 @@ export default function TempraResultsPage() {
   if (!canRead) return null
 
   const colCount = canWrite ? 9 : 8
+  const q = search.trim().toLowerCase()
+  const filtered = q ? rows.filter(r => r.material.toLowerCase().includes(q)) : rows
 
   return (
     <PageContainer width="full" className="!max-w-[80%]">
@@ -70,6 +77,21 @@ export default function TempraResultsPage() {
             <Plus className="w-4 h-4" /> Aggiungi
           </PrimaryCtaButton>
         )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Input
+            className="pl-8"
+            placeholder="Cerca per materiale…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <Button variant="outline" onClick={() => setShowAnalysis(true)} disabled={rows.length === 0}>
+          <BarChart3 className="w-4 h-4 mr-1.5" /> Analisi materiale
+        </Button>
       </div>
 
       <Card className="overflow-x-auto">
@@ -92,7 +114,9 @@ export default function TempraResultsPage() {
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-gray-400">Caricamento…</td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-gray-400">Nessun risultato registrato.</td></tr>
-            ) : rows.map(r => {
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={colCount} className="px-3 py-6 text-center text-gray-400">Nessun materiale corrisponde a «{search.trim()}».</td></tr>
+            ) : filtered.map(r => {
               const ShapeIcon = r.shape === 'quadrato' ? Square : Circle
               return (
                 <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50/60 align-top">
@@ -145,6 +169,14 @@ export default function TempraResultsPage() {
           result={editing}
           onClose={() => { setShowForm(false); setEditing(null) }}
           onSaved={load}
+        />
+      )}
+
+      {showAnalysis && (
+        <TempraAnalysisModal
+          rows={rows}
+          initialMaterial={filtered[0]?.material}
+          onClose={() => setShowAnalysis(false)}
         />
       )}
 

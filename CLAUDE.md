@@ -474,6 +474,7 @@ Gemelli geometria/lookup (devono restare identici):
 - Niente `any`. Se serve un escape hatch, usa `unknown` + narrowing
 - API tramite `@/lib/api` (Axios con auth interceptor + 401 → logout). Mai `fetch()` diretto
 - shadcn/ui primitives only (`@/components/ui/*`). No altre UI library
+- **Impaginazione pagina**: per le pagine standard (liste, cataloghi, impostazioni) usa `StandardPage` (`@/components/layout/StandardPage`) — compone `PageContainer` + `SettingsPageHeader` + slot `actions`. È la fonte unica del guscio pagina: cambiando lì (o i due mattoni) cambiano tutte. Larghezza: form → `lg` (default), liste/dashboard/hub → `width="xl"` (= 80% finestra, definito in `page-container.tsx`). Editor preventivi, hub a tab e Login restano su layout proprio (non forzarli in `StandardPage`). L'adozione sulle pagine esistenti è graduale, fatta quando si tocca il dominio.
 - Toast per ogni feedback utente: `toast.success()`, `toast.error()`. Mai `alert()`. Mai `useState error` + JSX inline
 - `console.error/log/warn` solo se hai contesto utile, mai nudo nei catch (preferisci toast)
 - Settings page: pattern inline-edit di `QuoteCategoriesPage.tsx` (table + edit row state + new row in fondo)

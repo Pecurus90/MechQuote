@@ -20,6 +20,8 @@ interface Props {
   color?: Color
   /** CTA / barra azioni a destra dell'header (es. bottone "Aggiungi"). */
   actions?: ReactNode
+  /** Riga opzionale sopra l'header (es. breadcrumb "← Officina"). */
+  breadcrumb?: ReactNode
   /** Larghezza: default 'lg' (form comodi); le liste passano 'xl' (80%). */
   width?: Width
   className?: string
@@ -27,11 +29,14 @@ interface Props {
 }
 
 export default function StandardPage({
-  icon, title, subtitle, color, actions, width = 'lg', className, children,
+  icon, title, subtitle, color, actions, breadcrumb, width = 'lg', className, children,
 }: Props) {
+  const header = (
+    <SettingsPageHeader icon={icon} title={title} subtitle={subtitle} color={color} action={actions} />
+  )
   return (
     <PageContainer width={width} className={className}>
-      <SettingsPageHeader icon={icon} title={title} subtitle={subtitle} color={color} action={actions} />
+      {breadcrumb ? <div>{breadcrumb}{header}</div> : header}
       {children}
     </PageContainer>
   )

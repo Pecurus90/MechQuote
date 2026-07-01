@@ -242,7 +242,7 @@ export default function OrdersMaterialsPage() {
       {/* Nuovo ordine: lista preventivi */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div>
-          <h2 className="text-base font-semibold text-gray-700 mb-3">Seleziona preventivi</h2>
+          <h2 className="text-base font-semibold text-foreground mb-3">Seleziona preventivi</h2>
           <div className="flex items-center gap-2 mb-3">
             <select
               className="h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -251,7 +251,7 @@ export default function OrdersMaterialsPage() {
             >
               {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={onlyUnordered}
@@ -260,7 +260,7 @@ export default function OrdersMaterialsPage() {
               Solo non ordinati
             </label>
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Cerca numero o cliente..."
                 value={search}
@@ -273,7 +273,7 @@ export default function OrdersMaterialsPage() {
           <Card>
             <CardContent className="p-0">
               <table className="table-fixed w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted border-b">
                   <tr>
                     <th className="p-2 w-8">
                       <input
@@ -282,21 +282,21 @@ export default function OrdersMaterialsPage() {
                         onChange={toggleAll}
                       />
                     </th>
-                    <th className="text-left p-2 font-medium text-gray-600">Numero</th>
-                    <th className="text-left p-2 font-medium text-gray-600">Cliente</th>
-                    <th className="text-right p-2 w-16 font-medium text-gray-600">Stato</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">Numero</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">Cliente</th>
+                    <th className="text-right p-2 w-16 font-medium text-muted-foreground">Stato</th>
                   </tr>
                 </thead>
                 <tbody>
                   {quotes.length === 0 && (
-                    <tr><td colSpan={4} className="p-6 text-center text-gray-400">
+                    <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">
                       Nessun preventivo da mostrare con i filtri attuali.
                     </td></tr>
                   )}
                   {quotes.map(q => (
                     <tr
                       key={q.id}
-                      className={`border-b hover:bg-gray-50 cursor-pointer ${selectedIds.has(q.id) ? 'bg-blue-50' : ''}`}
+                      className={`border-b hover:bg-muted cursor-pointer ${selectedIds.has(q.id) ? 'bg-primary/10' : ''}`}
                       onClick={() => toggleSelected(q.id)}
                     >
                       <td className="p-2 text-center">
@@ -307,16 +307,16 @@ export default function OrdersMaterialsPage() {
                           onClick={e => e.stopPropagation()}
                         />
                       </td>
-                      <td className="p-2 font-mono font-medium text-blue-700">{q.quote_number}</td>
-                      <td className="p-2 text-gray-700 truncate">{q.customer_name || '—'}</td>
-                      <td className="p-2 text-right text-xs text-gray-500">{STATUS_LABELS[q.status] ?? q.status}</td>
+                      <td className="p-2 font-mono font-medium text-primary">{q.quote_number}</td>
+                      <td className="p-2 text-foreground truncate">{q.customer_name || '—'}</td>
+                      <td className="p-2 text-right text-xs text-muted-foreground">{STATUS_LABELS[q.status] ?? q.status}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </CardContent>
           </Card>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             {selectedIds.size > 0
               ? `${selectedIds.size} preventiv${selectedIds.size === 1 ? 'o' : 'i'} selezionat${selectedIds.size === 1 ? 'o' : 'i'}`
               : 'Nessuna selezione'}

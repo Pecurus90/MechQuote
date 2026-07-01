@@ -46,7 +46,7 @@ export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
               type="button"
               onClick={() => setScanMode('load')}
               className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                scanMode === 'load' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                scanMode === 'load' ? 'bg-green-600 text-white' : 'bg-card text-muted-foreground hover:bg-muted'
               }`}
             >
               <ArrowUp className="w-4 h-4" /> Carico
@@ -55,7 +55,7 @@ export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
               type="button"
               onClick={() => setScanMode('unload')}
               className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                scanMode === 'unload' ? 'bg-rose-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                scanMode === 'unload' ? 'bg-rose-600 text-white' : 'bg-card text-muted-foreground hover:bg-muted'
               }`}
             >
               <ArrowDown className="w-4 h-4" /> Scarico
@@ -71,7 +71,7 @@ export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
               className="h-11 text-base font-mono"
             />
           </form>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             Pistola barcode → premi Enter per confermare automaticamente
           </span>
         </div>

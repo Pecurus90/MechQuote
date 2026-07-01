@@ -331,7 +331,7 @@ export default function QuoteEditor() {
     )
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Caricamento...</div>
   if (!quote) return null
 
   // Modulo Stampi: i preventivi tipo 'die' usano un editor dedicato a 2 colonne
@@ -392,14 +392,14 @@ export default function QuoteEditor() {
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-muted border-b">
                     <tr>
-                      <th className="text-left p-3 font-medium text-gray-600">Codice</th>
-                      <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
-                      <th className="text-right p-3 font-medium text-gray-600">Qtà</th>
-                      <th className="text-right p-3 font-medium text-gray-600">Costo/pz</th>
-                      <th className="text-right p-3 font-medium text-gray-600">Prezzo/pz</th>
-                      <th className="text-right p-3 font-medium text-gray-600">Totale</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Codice</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Descrizione</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">Qtà</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">Costo/pz</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">Prezzo/pz</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">Totale</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -407,48 +407,48 @@ export default function QuoteEditor() {
                       <tr
                         key={part.id ?? idx}
                         onClick={() => setSelectedPartIdx(idx)}
-                        className="border-b hover:bg-blue-50 cursor-pointer"
+                        className="border-b hover:bg-primary/10 cursor-pointer"
                       >
-                        <td className="p-3 font-mono font-medium text-blue-700 whitespace-nowrap">
+                        <td className="p-3 font-mono font-medium text-primary whitespace-nowrap">
                           {partsWithIssues.has(idx) && <span className="text-amber-500 mr-1">⚠</span>}
                           {part.part_code}
                         </td>
-                        <td className="p-3 text-gray-600 truncate max-w-48">{part.description || '—'}</td>
+                        <td className="p-3 text-muted-foreground truncate max-w-48">{part.description || '—'}</td>
                         <td className="p-3 text-right">{part.quantity}</td>
-                        <td className="p-3 text-right text-gray-500">{(part.total_cost ?? 0).toFixed(2)} €</td>
-                        <td className="p-3 text-right text-gray-500">{fmtUnitPrice(part.unit_price ?? 0)} €</td>
+                        <td className="p-3 text-right text-muted-foreground">{(part.total_cost ?? 0).toFixed(2)} €</td>
+                        <td className="p-3 text-right text-muted-foreground">{fmtUnitPrice(part.unit_price ?? 0)} €</td>
                         <td className="p-3 text-right font-semibold">{(part.total_price ?? 0).toFixed(2)} €</td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="border-t bg-gray-50">
+                  <tfoot className="border-t bg-muted">
                     <tr>
-                      <td colSpan={5} className="p-3 text-right text-sm text-gray-500">Subtotale</td>
+                      <td colSpan={5} className="p-3 text-right text-sm text-muted-foreground">Subtotale</td>
                       <td className="p-3 text-right font-medium">{partsSubtotal.toFixed(2)} €</td>
                     </tr>
                     {quote.transport_cost > 0 && (
                       <tr>
-                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-gray-500">Trasporto</td>
+                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-muted-foreground">Trasporto</td>
                         <td className="px-3 pb-1 text-right text-sm">{quote.transport_cost.toFixed(2)} €</td>
                       </tr>
                     )}
                     {quote.packaging_cost > 0 && (
                       <tr>
-                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-gray-500">Imballaggio</td>
+                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-muted-foreground">Imballaggio</td>
                         <td className="px-3 pb-1 text-right text-sm">{quote.packaging_cost.toFixed(2)} €</td>
                       </tr>
                     )}
                     {quote.global_discount_percent > 0 && (
                       <tr>
-                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-gray-500">Sconto {quote.global_discount_percent}%</td>
+                        <td colSpan={5} className="px-3 pb-1 text-right text-sm text-muted-foreground">Sconto {quote.global_discount_percent}%</td>
                         <td className="px-3 pb-1 text-right text-sm text-red-500">
                           -{((partsSubtotal + quote.transport_cost + quote.packaging_cost) * quote.global_discount_percent / 100).toFixed(2)} €
                         </td>
                       </tr>
                     )}
                     <tr className="border-t">
-                      <td colSpan={5} className="p-3 text-right font-bold text-gray-800">Totale commessa</td>
-                      <td className="p-3 text-right font-bold text-blue-700 text-base">{total.toFixed(2)} €</td>
+                      <td colSpan={5} className="p-3 text-right font-bold text-foreground">Totale commessa</td>
+                      <td className="p-3 text-right font-bold text-primary text-base">{total.toFixed(2)} €</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -466,33 +466,33 @@ export default function QuoteEditor() {
                 <fieldset disabled={isLocked} className="border-0 p-0 m-0 disabled:opacity-90">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Riferimento cliente</label>
+                    <label className="text-xs font-medium text-muted-foreground">Riferimento cliente</label>
                     <Input className="mt-1 h-9 text-sm" value={quote.customer_reference || ''}
                       onChange={e => setQuote(q => q ? { ...q, customer_reference: e.target.value } : q)}
                       onBlur={saveQuote} placeholder="Rif. ordine cliente" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Margine globale (%)</label>
+                    <label className="text-xs font-medium text-muted-foreground">Margine globale (%)</label>
                     <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={500} step={1} className="mt-1 h-9 text-sm"
                       value={quote.global_margin_percent}
                       onChange={e => setQuote(q => q ? { ...q, global_margin_percent: parseDecimal(e.target.value) || 0 } : q)}
                       onBlur={saveQuoteAndRecalculate} />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Validità (giorni)</label>
+                    <label className="text-xs font-medium text-muted-foreground">Validità (giorni)</label>
                     <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-9 text-sm"
                       value={quote.validity_days}
                       onChange={e => setQuote(q => q ? { ...q, validity_days: parseInt(e.target.value) || 30 } : q)}
                       onBlur={saveQuote} />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-gray-600">Condizioni di consegna</label>
+                    <label className="text-xs font-medium text-muted-foreground">Condizioni di consegna</label>
                     <Input className="mt-1 h-9 text-sm" value={quote.delivery_text || ''}
                       onChange={e => setQuote(q => q ? { ...q, delivery_text: e.target.value } : q)}
                       onBlur={saveQuote} placeholder="es. 30 giorni lavorativi" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-gray-600">Note per il cliente</label>
+                    <label className="text-xs font-medium text-muted-foreground">Note per il cliente</label>
                     <textarea
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-20 resize-none"
                       value={quote.notes_customer || ''}
@@ -501,7 +501,7 @@ export default function QuoteEditor() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-gray-600">Note interne</label>
+                    <label className="text-xs font-medium text-muted-foreground">Note interne</label>
                     <textarea
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-20 resize-none"
                       value={quote.notes_internal || ''}
@@ -516,7 +516,7 @@ export default function QuoteEditor() {
           )}
 
           {selectedPartIdx >= 0 && !selectedPart && (
-            <div className="text-center text-gray-400 pt-16">Seleziona una parte dalla lista</div>
+            <div className="text-center text-muted-foreground pt-16">Seleziona una parte dalla lista</div>
           )}
 
           {selectedPartIdx >= 0 && selectedPart && (
@@ -546,14 +546,14 @@ export default function QuoteEditor() {
         <Card className="mt-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Chiusura commessa</CardTitle>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Compila a vendita / consegna avvenuta. Questi numeri alimentano la
               calibrazione automatica dei preventivi futuri.
             </p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2 pb-3">
             <div>
-              <label className="text-xs text-gray-600">Prezzo venduto (€)</label>
+              <label className="text-xs text-muted-foreground">Prezzo venduto (€)</label>
               <input
                 type="number"
                 className="flex h-9 w-full rounded-md border px-2 text-sm"
@@ -563,7 +563,7 @@ export default function QuoteEditor() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-600">Costo consuntivo (€)</label>
+              <label className="text-xs text-muted-foreground">Costo consuntivo (€)</label>
               <input
                 type="number"
                 className="flex h-9 w-full rounded-md border px-2 text-sm"

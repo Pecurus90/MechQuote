@@ -111,7 +111,7 @@ export default function ToolsPage() {
       {/* Filtri */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input placeholder="Cerca codice, marchio, modello..." value={search}
             onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
@@ -136,7 +136,7 @@ export default function ToolsPage() {
           <option value="">Tutti i fornitori</option>
           {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-2">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer ml-2">
           <input type="checkbox" checked={lowStockOnly}
             onChange={e => setLowStockOnly(e.target.checked)} />
           <span className="flex items-center gap-1">
@@ -144,7 +144,7 @@ export default function ToolsPage() {
             Solo sotto minimo
           </span>
         </label>
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
           <input type="checkbox" checked={onlyActive}
             onChange={e => setOnlyActive(e.target.checked)} />
           Solo attivi
@@ -154,47 +154,47 @@ export default function ToolsPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-2 w-[18%] font-medium text-gray-600">Codice</th>
-                <th className="text-left p-2 w-[13%] font-medium text-gray-600">Tipo</th>
-                <th className="text-left p-2 w-[19%] font-medium text-gray-600">Marchio · Modello</th>
-                <th className="text-right p-2 w-[9%] font-medium text-gray-600">Ø (mm)</th>
-                <th className="text-right p-2 w-[9%] font-medium text-gray-600">Qtà / Min</th>
-                <th className="text-left p-2 w-[15%] font-medium text-gray-600">Fornitore</th>
-                <th className="text-center p-2 w-[7%] font-medium text-gray-600">Attivo</th>
-                <th className="text-center p-2 w-[10%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-2 w-[18%] font-medium text-muted-foreground">Codice</th>
+                <th className="text-left p-2 w-[13%] font-medium text-muted-foreground">Tipo</th>
+                <th className="text-left p-2 w-[19%] font-medium text-muted-foreground">Marchio · Modello</th>
+                <th className="text-right p-2 w-[9%] font-medium text-muted-foreground">Ø (mm)</th>
+                <th className="text-right p-2 w-[9%] font-medium text-muted-foreground">Qtà / Min</th>
+                <th className="text-left p-2 w-[15%] font-medium text-muted-foreground">Fornitore</th>
+                <th className="text-center p-2 w-[7%] font-medium text-muted-foreground">Attivo</th>
+                <th className="text-center p-2 w-[10%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="p-6 text-center text-gray-400">Caricamento...</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Caricamento...</td></tr>
               ) : tools.length === 0 ? (
-                <tr><td colSpan={8} className="p-6 text-center text-gray-400">Nessun utensile trovato.</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Nessun utensile trovato.</td></tr>
               ) : tools.map(t => {
                 const isLow = t.quantity < t.minimum_quantity && t.minimum_quantity > 0
                 return (
-                  <tr key={t.id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-rose-50' : ''}`}>
-                    <td className="p-2 font-mono text-xs text-gray-800 truncate">{t.code}</td>
+                  <tr key={t.id} className={`border-b hover:bg-muted ${isLow ? 'bg-rose-50' : ''}`}>
+                    <td className="p-2 font-mono text-xs text-foreground truncate">{t.code}</td>
                     <td className="p-2 truncate">{t.tool_type || '—'}</td>
                     <td className="p-2 truncate">
                       <span className="font-medium">{t.brand || ''}</span>
-                      {t.model && <span className="text-gray-500"> · {t.model}</span>}
+                      {t.model && <span className="text-muted-foreground"> · {t.model}</span>}
                     </td>
                     <td className="p-2 text-right font-mono">{t.diameter_mm ?? '—'}</td>
                     <td className="p-2 text-right font-mono">
-                      <span className={isLow ? 'text-rose-700 font-bold' : 'text-gray-800'}>{t.quantity}</span>
-                      <span className="text-gray-400"> / {t.minimum_quantity}</span>
+                      <span className={isLow ? 'text-rose-700 font-bold' : 'text-foreground'}>{t.quantity}</span>
+                      <span className="text-muted-foreground"> / {t.minimum_quantity}</span>
                     </td>
-                    <td className="p-2 truncate text-gray-600">{t.tool_supplier?.name ?? supplierName(t.tool_supplier_id)}</td>
+                    <td className="p-2 truncate text-muted-foreground">{t.tool_supplier?.name ?? supplierName(t.tool_supplier_id)}</td>
                     <td className="p-2 text-center">
                       {t.active === false
-                        ? <span className="text-gray-300 text-xs" title="Ritirato">●</span>
+                        ? <span className="text-muted-foreground/50 text-xs" title="Ritirato">●</span>
                         : <span className="text-green-600 text-xs" title="Attivo">●</span>}
                     </td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1.5 justify-center">
-                        <button onClick={() => startEdit(t)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEdit(t)} className="p-1 hover:bg-muted rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
                         <button onClick={() => setPendingDelete(t.id)} className="p-1 hover:bg-red-50 rounded">

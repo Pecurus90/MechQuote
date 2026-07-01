@@ -191,25 +191,25 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
           {/* Riga 1: identificativi */}
           <div className="flex items-end gap-3">
             <div className="w-44 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Codice Parte</label>
+              <label className="text-xs font-medium text-muted-foreground">Codice Parte</label>
               <Input className="mt-1 h-8 font-mono text-sm" value={part.part_code ?? ''}
                 onChange={e => onUpdate({ part_code: e.target.value })}
                 onBlur={() => onSave()} />
             </div>
             <div className="flex-1 min-w-0">
-              <label className="text-xs font-medium text-gray-600">Descrizione</label>
+              <label className="text-xs font-medium text-muted-foreground">Descrizione</label>
               <Input className="mt-1 h-8 text-sm" value={part.description ?? ''}
                 onChange={e => onUpdate({ description: e.target.value })}
                 onBlur={() => onSave()} placeholder="Descrizione del pezzo" />
             </div>
             <div className="w-16 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Rev.</label>
+              <label className="text-xs font-medium text-muted-foreground">Rev.</label>
               <Input className="mt-1 h-8 text-sm" value={part.revision ?? ''}
                 onChange={e => onUpdate({ revision: e.target.value })}
                 onBlur={() => onSave()} />
             </div>
             <div className="w-20 shrink-0">
-              <label className="text-xs font-medium text-gray-600">Qtà</label>
+              <label className="text-xs font-medium text-muted-foreground">Qtà</label>
               <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-8 text-sm"
                 value={part.quantity}
                 onChange={e => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
@@ -220,7 +220,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
           {/* Riga A: Materiale + Toggle grezzo */}
           <div className="flex items-end gap-3">
             <div className="flex-1 min-w-0">
-              <label className="text-xs font-medium text-gray-600">Materiale</label>
+              <label className="text-xs font-medium text-muted-foreground">Materiale</label>
               <select
                 className="mt-1 flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
                 value={part.material_id || ''}
@@ -239,7 +239,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
               </select>
             </div>
             <div className="shrink-0">
-              <label className="text-xs font-medium text-gray-600 block mb-1">Grezzo</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Grezzo</label>
               <div className="flex gap-1">
                 {([
                   { type: 'none' as StockType, label: '—' },
@@ -252,8 +252,8 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                     onClick={() => { handleStockTypeChange(opt.type); onSave() }}
                     className={`h-8 px-2.5 rounded-md border text-sm flex items-center gap-1 transition-colors ${
                       stockType === opt.type
-                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        ? 'border-blue-600 bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-gray-300'
                     }`}
                   >
                     {opt.icon ?? opt.label}
@@ -262,7 +262,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
               </div>
             </div>
             <div className="shrink-0 pb-1">
-              <label className="text-xs font-medium text-gray-600 flex flex-col gap-0.5">
+              <label className="text-xs font-medium text-muted-foreground flex flex-col gap-0.5">
                 <span title="Provenienza materiale. 'A magazzino' usa gli override shipping/cutting impostati in Dati Azienda.">
                   Provenienza
                 </span>
@@ -296,21 +296,21 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
           {stockType === 'round' && (
             <div className="flex items-end gap-3">
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Ø (mm)</label>
+                <label className="text-xs font-medium text-muted-foreground">Ø (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_diameter_mm ?? ''}
                   onChange={e => handleDimChange('raw_diameter_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={() => onSave()} />
               </div>
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Lungh. (mm)</label>
+                <label className="text-xs font-medium text-muted-foreground">Lungh. (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={() => onSave()} />
               </div>
               {selectedMaterial && part.raw_diameter_mm && part.raw_z_mm && (
-                <p className="text-xs text-gray-400 pb-2 whitespace-nowrap">
+                <p className="text-xs text-muted-foreground pb-2 whitespace-nowrap">
                   {(() => {
                     const r = part.raw_diameter_mm! / 2
                     const kg = (Math.PI * r * r * part.raw_z_mm!) / 1_000_000 * selectedMaterial.density_kg_dm3
@@ -324,28 +324,28 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
           {stockType === 'square' && (
             <div className="flex items-end gap-3">
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">X (mm)</label>
+                <label className="text-xs font-medium text-muted-foreground">X (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_x_mm ?? ''}
                   onChange={e => handleDimChange('raw_x_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={() => onSave()} />
               </div>
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Y (mm)</label>
+                <label className="text-xs font-medium text-muted-foreground">Y (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_y_mm ?? ''}
                   onChange={e => handleDimChange('raw_y_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={() => onSave()} />
               </div>
               <div className="shrink-0">
-                <label className="text-xs font-medium text-gray-600">Z (mm)</label>
+                <label className="text-xs font-medium text-muted-foreground">Z (mm)</label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
                   value={part.raw_z_mm ?? ''}
                   onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
                   onBlur={() => onSave()} />
               </div>
               {selectedMaterial && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm && (
-                <p className="text-xs text-gray-400 pb-2 whitespace-nowrap">
+                <p className="text-xs text-muted-foreground pb-2 whitespace-nowrap">
                   {((part.raw_x_mm * part.raw_y_mm * part.raw_z_mm) / 1_000_000 * selectedMaterial.density_kg_dm3).toFixed(3)} kg grezzo
                 </p>
               )}
@@ -365,14 +365,14 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
           {/* Riga C: Costi — grid fisso, nessun wrap */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600">Costo mat. (€)</label>
+              <label className="text-xs font-medium text-muted-foreground">Costo mat. (€)</label>
               <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
                 value={part.material_cost}
                 onChange={e => onUpdate({ material_cost: parseDecimal(e.target.value) || 0 })}
                 onBlur={() => onSave()} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Spediz. mat. (€)</label>
+              <label className="text-xs font-medium text-muted-foreground">Spediz. mat. (€)</label>
               <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.5} className="mt-1 h-8 text-sm"
                 value={part.material_delivery_cost ?? ''}
                 placeholder="—"
@@ -380,7 +380,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 onBlur={() => onSave()} />
             </div>
             <div>
-              <label className={`text-xs font-medium ${needsFinishedWeight ? 'text-red-600' : 'text-gray-600'}`}>
+              <label className={`text-xs font-medium ${needsFinishedWeight ? 'text-red-600' : 'text-muted-foreground'}`}>
                 Peso finito (kg){needsFinishedWeight && <span className="ml-1">*</span>}
               </label>
               <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.001}
@@ -403,7 +403,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
       {treatments.length > 0 && (
         <Card>
           <CardContent className="pt-3 pb-3">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Trattamento termico</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Trattamento termico</p>
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <select
@@ -427,7 +427,7 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                   <button
                     type="button"
                     onClick={() => handleTreatmentSelect(undefined)}
-                    className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 shrink-0"
+                    className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -474,38 +474,38 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
 
         {/* Riepilogo costi (sticky) */}
         <div className="w-52 shrink-0 sticky top-4">
-          <Card className="border-blue-200 bg-blue-50">
+          <Card className="border-blue-200 bg-primary/10">
             <CardContent className="pt-4 pb-4">
               <div className="space-y-1 text-sm">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Costo per pezzo</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Costo per pezzo</p>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Materiale</span>
+                  <span className="text-muted-foreground">Materiale</span>
                   <span>{materialTotal.toFixed(2)} €</span>
                 </div>
                 {deliveryPerPiece > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
                     <span>di cui spedizione</span>
                     <span>{deliveryPerPiece.toFixed(2)} €</span>
                   </div>
                 )}
                 {cuttingPerPiece > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
                     <span>di cui taglio</span>
                     <span>{cuttingPerPiece.toFixed(2)} €</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Lavorazioni</span>
+                  <span className="text-muted-foreground">Lavorazioni</span>
                   <span>{workPhaseCost.toFixed(2)} €</span>
                 </div>
                 {workSetupTotal > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
                     <span>di cui attrezzaggi</span>
                     <span>{workSetupTotal.toFixed(2)} €</span>
                   </div>
                 )}
                 {workCycleTotal > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
                     <span>di cui lavorazione</span>
                     <span>{workCycleTotal.toFixed(2)} €</span>
                   </div>
@@ -513,11 +513,11 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 {treatmentPhaseCost > 0 && (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Trattamenti</span>
+                      <span className="text-muted-foreground">Trattamenti</span>
                       <span>{treatmentPhaseCost.toFixed(2)} €</span>
                     </div>
                     {treatmentShippingPerPiece > 0 && (
-                      <div className="flex justify-between pl-3 text-[11px] text-gray-400">
+                      <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
                         <span>di cui spedizione</span>
                         <span>{treatmentShippingPerPiece.toFixed(2)} €</span>
                       </div>
@@ -531,15 +531,15 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
 
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-2">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Margine (%)</label>
+                    <label className="text-xs font-medium text-muted-foreground">Margine (%)</label>
                     <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.margin_percent ?? globalMarginPercent}
                       onChange={e => onUpdate({ margin_percent: parseDecimal(e.target.value) || 0 })}
                       onBlur={() => onSave()} />
-                    <p className="text-[10px] text-gray-400 mt-0.5">default: {globalMarginPercent}%</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">default: {globalMarginPercent}%</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Prezzo minimo (€)</label>
+                    <label className="text-xs font-medium text-muted-foreground">Prezzo minimo (€)</label>
                     <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-full text-xs mt-0.5"
                       value={part.minimum_price ?? ''}
                       placeholder="—"
@@ -554,11 +554,11 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
                 </div>
 
                 <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-1">
-                  <div className="flex justify-between text-gray-600">
+                  <div className="flex justify-between text-muted-foreground">
                     <span>Prezzo/pz</span>
                     <span>{fmtUnitPrice(part.unit_price)} €</span>
                   </div>
-                  <div className="flex justify-between font-bold text-blue-700 text-base pt-0.5">
+                  <div className="flex justify-between font-bold text-primary text-base pt-0.5">
                     <span>× {part.quantity}</span>
                     <span>{part.total_price.toFixed(2)} €</span>
                   </div>

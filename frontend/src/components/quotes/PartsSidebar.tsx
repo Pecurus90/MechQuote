@@ -24,21 +24,21 @@ export default function PartsSidebar({
   onSelect, onAdd, onDuplicate, onRequestDelete,
 }: Props) {
   return (
-    <div className="w-64 bg-white border-r flex flex-col shrink-0">
+    <div className="w-64 bg-card border-r flex flex-col shrink-0">
       <div className="p-3 border-b flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Parti ({quote.parts.length})
         </span>
         {quote.quote_type !== 'single' && !isLocked && (
-          <button onClick={onAdd} className="p-0.5 hover:text-blue-600 text-gray-400" title="Aggiungi parte">
+          <button onClick={onAdd} className="p-0.5 hover:text-blue-600 text-muted-foreground" title="Aggiungi parte">
             <Plus className="w-4 h-4" />
           </button>
         )}
       </div>
       <div
         onClick={() => onSelect(-1)}
-        className={`px-3 py-2 cursor-pointer border-b text-xs text-gray-500 hover:bg-gray-50 ${
-          selectedPartIdx === -1 ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
+        className={`px-3 py-2 cursor-pointer border-b text-xs text-muted-foreground hover:bg-muted ${
+          selectedPartIdx === -1 ? 'bg-primary/10 border-l-2 border-l-blue-600' : ''
         }`}
       >
         ⚙ Dati preventivo
@@ -48,31 +48,31 @@ export default function PartsSidebar({
           <div
             key={part.id ?? idx}
             onClick={() => onSelect(idx)}
-            className={`px-3 py-2.5 cursor-pointer border-b hover:bg-gray-50 ${
-              selectedPartIdx === idx ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
+            className={`px-3 py-2.5 cursor-pointer border-b hover:bg-muted ${
+              selectedPartIdx === idx ? 'bg-primary/10 border-l-2 border-l-blue-600' : ''
             }`}
           >
             <div className="flex items-center justify-between gap-1">
-              <span className="text-sm font-mono font-medium text-gray-800 truncate">{part.part_code}</span>
+              <span className="text-sm font-mono font-medium text-foreground truncate">{part.part_code}</span>
               <div className="flex items-center gap-1 shrink-0">
                 {partsWithIssues.has(idx) && (
                   <span className="text-amber-500 text-xs" title="Dati mancanti">⚠</span>
                 )}
                 {quote.quote_type !== 'single' && !isLocked && (
                   <button onClick={e => { e.stopPropagation(); onDuplicate(idx) }}
-                    className="p-1 hover:text-blue-600 hover:bg-blue-50 rounded text-gray-400" title="Duplica">
+                    className="p-1 hover:text-blue-600 hover:bg-primary/10 rounded text-muted-foreground" title="Duplica">
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                 )}
                 {quote.quote_type !== 'single' && !isLocked && (
                   <button onClick={e => { e.stopPropagation(); onRequestDelete(idx) }}
-                    className="p-1 hover:text-red-600 hover:bg-red-50 rounded text-gray-400" title="Elimina">
+                    className="p-1 hover:text-red-600 hover:bg-red-50 rounded text-muted-foreground" title="Elimina">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
             </div>
-            <div className="text-xs text-gray-400 truncate">{part.description || 'Nessuna descrizione'}</div>
+            <div className="text-xs text-muted-foreground truncate">{part.description || 'Nessuna descrizione'}</div>
             <div className="text-xs font-semibold text-blue-600 mt-0.5">{part.total_price.toFixed(2)} €</div>
           </div>
         ))}

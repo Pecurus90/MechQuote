@@ -98,12 +98,12 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
           <FileText className="w-5 h-5" />
         </div>
         <div>
           <h1 className="text-xl font-bold">Nuovo Preventivo Manuale</h1>
-          <p className="text-xs text-gray-500">Componi il codice e scegli il tipo</p>
+          <p className="text-xs text-muted-foreground">Componi il codice e scegli il tipo</p>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
         <CardHeader><CardTitle className="text-base">Cliente & codice preventivo</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Cliente</label>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Cliente</label>
             <div ref={customerRef} className="relative">
               <Input
                 className="h-9"
@@ -126,15 +126,15 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 }}
               />
               {customerOpen && filteredCustomers.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                <div className="absolute z-50 mt-1 w-full bg-card border rounded-lg shadow-lg max-h-56 overflow-y-auto">
                   {filteredCustomers.map(c => (
                     <button
                       key={c.id}
                       type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-3 border-b last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-primary/10 flex items-center gap-3 border-b last:border-0"
                       onMouseDown={e => { e.preventDefault(); selectCustomer(c) }}
                     >
-                      <span className="font-mono text-xs text-gray-400 w-10 shrink-0">
+                      <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">
                         {String(c.customer_number).padStart(3, '0')}
                       </span>
                       <span className="text-sm">{c.name}</span>
@@ -143,7 +143,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 </div>
               )}
               {customerId && (
-                <p className="mt-1 text-xs text-blue-700 font-medium">
+                <p className="mt-1 text-xs text-primary font-medium">
                   ✓ {customerCode} — {customerName}
                 </p>
               )}
@@ -151,7 +151,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Codice preventivo</label>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Codice preventivo</label>
             <div className="flex items-center gap-1.5">
               <Input
                 className="w-16 text-center font-mono h-9"
@@ -159,7 +159,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                 value={customerCode}
                 onChange={e => setCustomerCode(e.target.value.replace(/\D/g, '').slice(0, 3))}
               />
-              <span className="text-gray-400">-</span>
+              <span className="text-muted-foreground">-</span>
               <Input
                 className="w-12 text-center font-mono h-9"
                 maxLength={2}
@@ -175,7 +175,7 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
                   <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
                 ))}
               </select>
-              <span className="text-gray-400">_</span>
+              <span className="text-muted-foreground">_</span>
               <Input
                 className="w-20 text-center font-mono h-9"
                 maxLength={3}
@@ -185,14 +185,14 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               />
             </div>
             {quoteNumber && (
-              <p className="mt-2.5 text-sm font-mono font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg inline-block">
+              <p className="mt-2.5 text-sm font-mono font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-lg inline-block">
                 {quoteNumber}
               </p>
             )}
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Riferimento cliente (opzionale)</label>
+            <label className="text-xs font-medium text-muted-foreground block mb-1">Riferimento cliente (opzionale)</label>
             <Input value={customerReference} onChange={e => setCustomerReference(e.target.value)} placeholder="es. RDA-2026-001" />
           </div>
         </CardContent>
@@ -208,15 +208,15 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               onClick={() => proceedTo('single')}
               className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                 canProceed && !saving
-                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer bg-white'
-                  : 'border-gray-200 opacity-50 cursor-not-allowed bg-gray-50'
+                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer bg-card'
+                  : 'border-border opacity-50 cursor-not-allowed bg-muted'
               }`}
             >
               <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
                 <FileText className="w-6 h-6" />
               </div>
               <h3 className="font-semibold text-lg">Preventivo singolo</h3>
-              <p className="text-sm text-gray-500 mt-1">Un solo codice articolo: una parte, una quantità, una sequenza di fasi.</p>
+              <p className="text-sm text-muted-foreground mt-1">Un solo codice articolo: una parte, una quantità, una sequenza di fasi.</p>
             </button>
 
             <button
@@ -225,22 +225,22 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
               onClick={() => proceedTo('commessa')}
               className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                 canProceed && !saving
-                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer bg-white'
-                  : 'border-gray-200 opacity-50 cursor-not-allowed bg-gray-50'
+                  ? 'border-blue-200 hover:border-blue-500 hover:shadow-md cursor-pointer bg-card'
+                  : 'border-border opacity-50 cursor-not-allowed bg-muted'
               }`}
             >
               <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
                 <Layers className="w-6 h-6" />
               </div>
               <h3 className="font-semibold text-lg">Commessa multi-parti</h3>
-              <p className="text-sm text-gray-500 mt-1">Più componenti del preventivo: il sistema crea N parti pre-codificate (default 2, modificabili nell'editor).</p>
+              <p className="text-sm text-muted-foreground mt-1">Più componenti del preventivo: il sistema crea N parti pre-codificate (default 2, modificabili nell'editor).</p>
             </button>
           </div>
           {!canProceed && (
             <p className="text-xs text-amber-600 mt-3">Compila cliente, categoria e progressivo per sbloccare la scelta.</p>
           )}
           {saving && (
-            <p className="text-xs text-gray-500 mt-3">Creazione preventivo…</p>
+            <p className="text-xs text-muted-foreground mt-3">Creazione preventivo…</p>
           )}
         </CardContent>
       </Card>

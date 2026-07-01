@@ -162,7 +162,7 @@ export default function OrdersToolsPage() {
 
       {/* Preview low-stock */}
       {!preview ? (
-        <Card><CardContent className="p-8 text-center text-gray-400">Caricamento...</CardContent></Card>
+        <Card><CardContent className="p-8 text-center text-muted-foreground">Caricamento...</CardContent></Card>
       ) : !hasItems ? (
         <Card>
           <CardContent className="p-6 text-center text-sm text-green-700 bg-green-50">
@@ -189,12 +189,12 @@ export default function OrdersToolsPage() {
             {preview.groups.map((g, gi) => (
               <Card key={gi}>
                 <CardContent className="p-0">
-                  <div className="bg-blue-50 border-b border-blue-100 px-3 py-2 flex items-center justify-between">
-                    <span className="font-semibold text-sm text-blue-900">{g.supplier_name}</span>
-                    <span className="text-xs text-blue-700">{g.items.length} {g.items.length === 1 ? 'utensile' : 'utensili'}</span>
+                  <div className="bg-primary/10 border-b border-primary/20 px-3 py-2 flex items-center justify-between">
+                    <span className="font-semibold text-sm text-primary">{g.supplier_name}</span>
+                    <span className="text-xs text-primary">{g.items.length} {g.items.length === 1 ? 'utensile' : 'utensili'}</span>
                   </div>
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-xs text-gray-500">
+                    <thead className="bg-muted text-xs text-muted-foreground">
                       <tr>
                         <th className="text-left p-2 font-medium">Codice</th>
                         <th className="text-left p-2 font-medium">Tipo / Marchio</th>
@@ -207,15 +207,15 @@ export default function OrdersToolsPage() {
                       {g.items.map((it, i) => (
                         <tr key={i} className="border-b last:border-0">
                           <td className="p-2 font-mono text-xs">{it.code}</td>
-                          <td className="p-2 text-gray-700">
+                          <td className="p-2 text-foreground">
                             <div className="font-medium">{it.brand} {it.model}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-muted-foreground">
                               {it.tool_type}{it.diameter_mm != null && ` · Ø${it.diameter_mm} mm`}
                             </div>
                           </td>
                           <td className="p-2 text-right font-mono text-rose-700 font-bold">{it.quantity}</td>
-                          <td className="p-2 text-right font-mono text-gray-500">{it.minimum_quantity}</td>
-                          <td className="p-2 text-right font-mono text-blue-700 font-bold">{it.quantity_to_order}</td>
+                          <td className="p-2 text-right font-mono text-muted-foreground">{it.minimum_quantity}</td>
+                          <td className="p-2 text-right font-mono text-primary font-bold">{it.quantity_to_order}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -234,17 +234,17 @@ export default function OrdersToolsPage() {
           className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowPicker(false)}
         >
-          <Card className="w-full max-w-lg max-h-[85vh] flex flex-col bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+          <Card className="w-full max-w-lg max-h-[85vh] flex flex-col bg-card shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
               <h3 className="font-semibold flex items-center gap-2">
                 <FileDown className="w-4 h-4 text-violet-700" /> Crea CSV ordine — scegli il fornitore
               </h3>
-              <button onClick={() => setShowPicker(false)} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => setShowPicker(false)} className="p-1 hover:bg-muted rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-3 space-y-2">
-              <p className="text-xs text-gray-500 px-1">
+              <p className="text-xs text-muted-foreground px-1">
                 Ogni fornitore genera un ordine e un file CSV separati. Verrà inviata
                 notifica a ufficio tecnico e amministrazione.
               </p>
@@ -258,12 +258,12 @@ export default function OrdersToolsPage() {
                     className="w-full flex items-center justify-between gap-3 p-3 rounded-md border hover:border-violet-300 hover:bg-violet-50 disabled:opacity-50 text-left transition-colors"
                   >
                     <div>
-                      <div className="font-semibold text-sm text-gray-800">{g.supplier_name}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="font-semibold text-sm text-foreground">{g.supplier_name}</div>
+                      <div className="text-xs text-muted-foreground">
                         {g.items.length} {g.items.length === 1 ? 'utensile' : 'utensili'} · {qty} pz da ordinare
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                   </button>
                 )
               })}
@@ -278,18 +278,18 @@ export default function OrdersToolsPage() {
           className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowHistory(false)}
         >
-          <Card className="w-full max-w-4xl max-h-[85vh] flex flex-col bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+          <Card className="w-full max-w-4xl max-h-[85vh] flex flex-col bg-card shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
               <h3 className="font-semibold flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-700" /> Storico ordini utensili
+                <History className="w-4 h-4 text-primary" /> Storico ordini utensili
               </h3>
-              <button onClick={() => setShowHistory(false)} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => setShowHistory(false)} className="p-1 hover:bg-muted rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-4 border-b shrink-0">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
                   placeholder="Cerca per numero ordine (UO-0001), fornitore, codice utensile, o creatore..."
                   value={historySearch}
@@ -301,28 +301,28 @@ export default function OrdersToolsPage() {
             </div>
             <div className="overflow-y-auto flex-1">
               <table className="table-fixed w-full text-sm">
-                <thead className="bg-gray-50 border-b sticky top-0">
+                <thead className="bg-muted border-b sticky top-0">
                   <tr>
-                    <th className="text-left p-3 w-[13%] font-medium text-gray-600">Numero</th>
-                    <th className="text-left p-3 w-[19%] font-medium text-gray-600">Data</th>
-                    <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
-                    <th className="text-left p-3 w-[16%] font-medium text-gray-600">Creato da</th>
-                    <th className="text-left p-3 w-[9%] font-medium text-gray-600">Utensili</th>
-                    <th className="text-left p-3 w-[9%] font-medium text-gray-600">Qtà tot.</th>
-                    <th className="text-center p-3 w-[14%] font-medium text-gray-600">Azioni</th>
+                    <th className="text-left p-3 w-[13%] font-medium text-muted-foreground">Numero</th>
+                    <th className="text-left p-3 w-[19%] font-medium text-muted-foreground">Data</th>
+                    <th className="text-left p-3 w-[20%] font-medium text-muted-foreground">Fornitore</th>
+                    <th className="text-left p-3 w-[16%] font-medium text-muted-foreground">Creato da</th>
+                    <th className="text-left p-3 w-[9%] font-medium text-muted-foreground">Utensili</th>
+                    <th className="text-left p-3 w-[9%] font-medium text-muted-foreground">Qtà tot.</th>
+                    <th className="text-center p-3 w-[14%] font-medium text-muted-foreground">Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orders.length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-gray-400">
+                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">
                       {historySearch ? 'Nessun ordine corrisponde alla ricerca.' : 'Nessun ordine ancora.'}
                     </td></tr>
                   )}
                   {orders.map(o => (
-                    <tr key={o.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 font-mono text-blue-700">UO-{String(o.id).padStart(4, '0')}</td>
-                      <td className="p-3 text-gray-600">{new Date(o.created_at).toLocaleString('it-IT')}</td>
-                      <td className="p-3 text-gray-700 truncate">{o.supplier_name || '—'}</td>
+                    <tr key={o.id} className="border-b hover:bg-muted">
+                      <td className="p-3 font-mono text-primary">UO-{String(o.id).padStart(4, '0')}</td>
+                      <td className="p-3 text-muted-foreground">{new Date(o.created_at).toLocaleString('it-IT')}</td>
+                      <td className="p-3 text-foreground truncate">{o.supplier_name || '—'}</td>
                       <td className="p-3 truncate">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
                       <td className="p-3 font-mono">{o.item_count}</td>
                       <td className="p-3 font-mono">{o.total_quantity} pz</td>
@@ -336,7 +336,7 @@ export default function OrdersToolsPage() {
                 </tbody>
               </table>
             </div>
-            <div className="px-5 py-2 border-t text-xs text-gray-400 shrink-0">
+            <div className="px-5 py-2 border-t text-xs text-muted-foreground shrink-0">
               {orders.length} ordin{orders.length === 1 ? 'e' : 'i'} mostrat{orders.length === 1 ? 'o' : 'i'}
             </div>
           </Card>

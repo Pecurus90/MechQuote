@@ -87,12 +87,12 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
 
   return (
     <div className="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
+      <div className="bg-card rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="font-semibold flex items-center gap-2">
             <FileText className="w-4 h-4" /> Modifica selezione profili DXF
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -126,7 +126,7 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
             </>
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-gray-50">
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted">
           <Button variant="outline" onClick={onClose}>Annulla</Button>
           <Button
             onClick={confirm}

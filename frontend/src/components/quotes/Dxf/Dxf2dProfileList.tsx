@@ -21,7 +21,7 @@ export default function Dxf2dProfileList({ profiles, selectedIds, onToggle, onSe
             type="button"
             onClick={() => onSelectAll(true)}
             disabled={allSelected}
-            className="px-2 py-0.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-2 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Seleziona tutti
           </button>
@@ -29,7 +29,7 @@ export default function Dxf2dProfileList({ profiles, selectedIds, onToggle, onSe
             type="button"
             onClick={() => onSelectAll(false)}
             disabled={noneSelected}
-            className="px-2 py-0.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-2 py-0.5 rounded border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Deseleziona tutti
           </button>
@@ -41,7 +41,7 @@ export default function Dxf2dProfileList({ profiles, selectedIds, onToggle, onSe
             <li key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/40">
               <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => onToggle(p.id)} />
               <span className="font-mono text-xs text-muted-foreground w-8">#{p.id}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded ${p.closed ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded ${p.closed ? 'bg-blue-100 text-primary' : 'bg-amber-100 text-amber-700'}`}>
                 {p.closed ? 'chiuso' : 'aperto'}
               </span>
               <span className="flex-1 text-xs text-muted-foreground">

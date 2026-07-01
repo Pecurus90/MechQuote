@@ -51,9 +51,9 @@ export default function ActivityPage() {
       actions={
         <div className="flex items-end gap-3 flex-wrap">
           <div className="w-72">
-            <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Cerca</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="titolo, preventivo, autore..."
                 value={search}
@@ -63,7 +63,7 @@ export default function ActivityPage() {
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-600 mb-1 block">Filtro tipo</label>
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Filtro tipo</label>
             <select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={typeFilter}
@@ -80,12 +80,12 @@ export default function ActivityPage() {
       }
     >
       {loading ? (
-        <div className="p-8 text-center text-gray-400">Caricamento...</div>
+        <div className="p-8 text-center text-muted-foreground">Caricamento...</div>
       ) : (
         <Card>
           <CardContent className="p-0">
             {items.length === 0 ? (
-              <div className="p-8 text-center text-gray-400">Nessuna attività</div>
+              <div className="p-8 text-center text-muted-foreground">Nessuna attività</div>
             ) : (
               <ul>
                 {items.map(a => {
@@ -97,25 +97,25 @@ export default function ActivityPage() {
                     <li
                       key={a.id}
                       onClick={() => onRowClick(a)}
-                      className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
+                      className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-muted' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="text-xs text-gray-400 w-20 shrink-0 pt-0.5">{timeAgo(a.created_at)}</div>
+                        <div className="text-xs text-muted-foreground w-20 shrink-0 pt-0.5">{timeAgo(a.created_at)}</div>
                         {kind ? (
                           <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${kind.pillClass}`}>
                             {kind.icon}
                             {kind.label}
                           </span>
                         ) : (
-                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
                             {a.type}
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 truncate">{a.title}</p>
-                          {a.body && <p className="text-xs text-gray-500 truncate">{a.body}</p>}
+                          <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
+                          {a.body && <p className="text-xs text-muted-foreground truncate">{a.body}</p>}
                         </div>
-                        <div className="text-xs text-gray-400 shrink-0 max-w-[160px] truncate" title={actorName}>
+                        <div className="text-xs text-muted-foreground shrink-0 max-w-[160px] truncate" title={actorName}>
                           {actorName}
                         </div>
                       </div>
@@ -132,7 +132,7 @@ export default function ActivityPage() {
         {page > 1 && (
           <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)}>← Precedente</Button>
         )}
-        <span className="flex items-center px-4 text-sm text-gray-500">Pagina {page}</span>
+        <span className="flex items-center px-4 text-sm text-muted-foreground">Pagina {page}</span>
         {items.length >= pageSize && (
           <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>
         )}

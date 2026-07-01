@@ -144,7 +144,7 @@ export default function DxfProfilePicker({ onChange, viewerHeight = 420, rawX, r
             htmlFor="dxf-picker-input"
             onDragOver={e => e.preventDefault()}
             onDrop={onDrop}
-            className="block border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors"
+            className="block border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-primary/10/30 transition-colors"
           >
             <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm font-medium">Trascina qui un file DXF o clicca per selezionarlo</p>

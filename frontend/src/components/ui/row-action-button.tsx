@@ -1,7 +1,7 @@
 // Bottone-icona standard per azioni di riga (edit, delete, view, download…).
 // Target click ≥ 36px, hover background coerente, colore semantico per variant.
 // Sostituisce i due pattern paralleli oggi presenti:
-//   <button className="p-1 hover:bg-gray-100 rounded">…</button>     (raw)
+//   <button className="p-1 hover:bg-muted rounded">…</button>     (raw)
 //   <Button size="sm" variant="outline" className="text-red-500 …">…</Button>
 import type { ButtonHTMLAttributes } from 'react'
 import { Pencil, Trash2, Eye, Download, type LucideIcon } from 'lucide-react'
@@ -20,7 +20,7 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {
 const PRESETS: Record<Exclude<Variant, 'custom'>, { icon: LucideIcon; color: string }> = {
   edit:     { icon: Pencil,    color: 'text-blue-600' },
   delete:   { icon: Trash2,    color: 'text-red-600' },
-  view:     { icon: Eye,       color: 'text-gray-600' },
+  view:     { icon: Eye,       color: 'text-muted-foreground' },
   download: { icon: Download,  color: 'text-emerald-600' },
 }
 
@@ -32,7 +32,7 @@ export default function RowActionButton({
   if (variant === 'custom') {
     if (!icon) throw new Error('RowActionButton variant="custom" richiede prop `icon`')
     Icon = icon
-    color = colorClass || 'text-gray-600'
+    color = colorClass || 'text-muted-foreground'
   } else {
     Icon = PRESETS[variant].icon
     color = PRESETS[variant].color
@@ -52,7 +52,7 @@ export default function RowActionButton({
     <button
       type="button"
       title={defaultTitle}
-      className={`${padding} rounded-md hover:bg-gray-100 transition-colors ${color} ${className}`}
+      className={`${padding} rounded-md hover:bg-muted transition-colors ${color} ${className}`}
       {...rest}
     >
       <Icon className={iconSize} />

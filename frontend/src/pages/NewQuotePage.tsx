@@ -57,7 +57,7 @@ const colorMap = {
   emerald: {
     card: 'border-border opacity-60',
     icon: 'bg-emerald-100 text-emerald-500',
-    badge: 'bg-gray-200 text-muted-foreground',
+    badge: 'bg-muted text-muted-foreground',
     button: '',
   },
   rose: {

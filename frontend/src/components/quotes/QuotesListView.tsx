@@ -179,7 +179,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
               onChange={e => setSearchInput(e.target.value)}
             />
             {searchInput && (
-              <button onClick={() => setSearchInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-gray-700" title="Cancella">
+              <button onClick={() => setSearchInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" title="Cancella">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -255,7 +255,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
                       <td className="p-3 text-center">
                         <button
                           onClick={e => { e.stopPropagation(); toggleExpand(q.id) }}
-                          className="p-0.5 rounded hover:bg-gray-200 text-muted-foreground hover:text-gray-700"
+                          className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
                           title="Mostra articoli e stato materiale"
                         >
                           {expandedId === q.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

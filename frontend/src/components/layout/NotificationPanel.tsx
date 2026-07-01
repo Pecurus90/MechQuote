@@ -51,34 +51,34 @@ export default function NotificationPanel({
   return createPortal(
     <>
       <div className="fixed inset-0 bg-black/30 z-[9998]" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl z-[9999] flex flex-col">
+      <aside className="fixed right-0 top-0 h-screen w-96 bg-card shadow-2xl z-[9999] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-gray-500" />
-            <h2 className="font-semibold text-gray-900">Notifiche</h2>
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground">Notifiche</h2>
           </div>
           <div className="flex items-center gap-1">
             {readCount > 0 && (
               <button
                 onClick={handleClearRead}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-500 hover:text-red-600 hover:bg-red-50"
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50"
                 title="Svuota notifiche lette"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Svuota lette
               </button>
             )}
-            <button onClick={onClose} className="p-1 rounded hover:bg-gray-100" title="Chiudi">
-              <X className="w-4 h-4 text-gray-500" />
+            <button onClick={onClose} className="p-1 rounded hover:bg-muted" title="Chiudi">
+              <X className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="p-6 text-sm text-gray-400 text-center">Caricamento...</div>
+            <div className="p-6 text-sm text-muted-foreground text-center">Caricamento...</div>
           ) : items.length === 0 ? (
-            <div className="p-6 text-sm text-gray-400 text-center">Nessuna notifica</div>
+            <div className="p-6 text-sm text-muted-foreground text-center">Nessuna notifica</div>
           ) : (
             <ul>
               {items.map(n => {
@@ -87,7 +87,7 @@ export default function NotificationPanel({
                 return (
                   <li
                     key={n.id}
-                    className={`border-b px-4 py-3 cursor-pointer hover:bg-gray-50 ${unread ? 'bg-blue-50/30' : ''}`}
+                    className={`border-b px-4 py-3 cursor-pointer hover:bg-muted ${unread ? 'bg-primary/10/30' : ''}`}
                     onClick={() => handleClick(n)}
                   >
                     <div className="flex gap-2">
@@ -101,11 +101,11 @@ export default function NotificationPanel({
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                        <p className={`text-sm ${unread ? 'font-medium text-foreground' : 'text-foreground'}`}>
                           {n.title}
                         </p>
-                        {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
-                        <p className="text-[11px] text-gray-400 mt-1">{timeAgo(n.created_at)}</p>
+                        {n.body && <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>}
+                        <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(n.created_at)}</p>
                         {n.requires_action && !confirmed && (
                           <button
                             onClick={e => { e.stopPropagation(); onMarkConfirmed(n.id) }}

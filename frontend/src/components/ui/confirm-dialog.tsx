@@ -36,7 +36,7 @@ export default function ConfirmDialog({
       className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
       onClick={onCancel}
     >
-      <Card className="w-full max-w-md bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+      <Card className="w-full max-w-md bg-card shadow-xl" onClick={e => e.stopPropagation()}>
         <CardContent className="pt-5 pb-4 space-y-3">
           <div className="flex items-start gap-3">
             {variant === 'destructive' && (
@@ -45,9 +45,9 @@ export default function ConfirmDialog({
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900">{title}</h3>
+              <h3 className="font-semibold text-foreground">{title}</h3>
               {description && (
-                <p className="mt-1 text-sm text-gray-600">{description}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{description}</p>
               )}
             </div>
           </div>

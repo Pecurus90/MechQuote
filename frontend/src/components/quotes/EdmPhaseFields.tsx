@@ -178,7 +178,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           {edmAuto && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-amber-200 text-amber-800">auto</span>}
           {phase.dxf_profile_ids && phase.dxf_profile_ids.length > 0 && (
             <span
-              className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700"
+              className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-primary"
               title="Profili importati da DXF — riapri 'Carica da DXF' per cambiare selezione"
             >
               <Paperclip className="w-3 h-3" /> {phase.dxf_profile_ids.length} profili DXF
@@ -219,7 +219,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
-          <label className="text-xs font-medium text-gray-600">Lunghezza profilo (mm)</label>
+          <label className="text-xs font-medium text-muted-foreground">Lunghezza profilo (mm)</label>
           <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
             value={phase.cut_length_mm ?? ''}
             placeholder="es. 320"
@@ -227,7 +227,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             onBlur={onBlur} />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600">Altezza pezzo (mm)</label>
+          <label className="text-xs font-medium text-muted-foreground">Altezza pezzo (mm)</label>
           <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
             value={phase.cut_height_mm ?? ''}
             placeholder="es. 40"
@@ -235,7 +235,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             onBlur={onBlur} />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600">Ciclo di taglio</label>
+          <label className="text-xs font-medium text-muted-foreground">Ciclo di taglio</label>
           <select
             className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             value={phase.cutting_cycle_id ?? ''}
@@ -260,7 +260,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           )}
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600">N° pierce (fori partenza)</label>
+          <label className="text-xs font-medium text-muted-foreground">N° pierce (fori partenza)</label>
           <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
             value={phase.n_pierce ?? ''}
             placeholder="0"
@@ -282,14 +282,14 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
 
       {showDxfModal && (
         <div className="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
+          <div className="bg-card rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-xl">
             <div className="flex items-center justify-between px-5 py-3 border-b">
               <h3 className="font-semibold flex items-center gap-2">
                 <FileText className="w-4 h-4" /> Carica DXF per fase EDM
               </h3>
               <button
                 onClick={() => { setShowDxfModal(false); setPendingDxf(null) }}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-muted rounded"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -302,7 +302,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
               </p>
               <DxfProfilePicker onChange={setPendingDxf} viewerHeight={360} rawX={partRawXmm} rawY={partRawYmm} />
             </div>
-            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-gray-50">
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted">
               <Button variant="outline" onClick={() => { setShowDxfModal(false); setPendingDxf(null) }}>
                 Annulla
               </Button>

@@ -15,7 +15,7 @@ export function StatusChips({ stats, onClick }: {
   // Spec 18: 5 stati. "In revisione" raggruppa inviato+letto (in mano ad
   // amministrazione). Il breakdown fine arriverà col redesign dashboard.
   const CHIPS = [
-    { status: 'bozza' as const,      label: 'Bozze',        count: counts.bozza ?? 0,                                    colors: 'bg-gray-50 border-gray-200 hover:border-gray-400 text-gray-700' },
+    { status: 'bozza' as const,      label: 'Bozze',        count: counts.bozza ?? 0,                                    colors: 'bg-muted border-border hover:border-gray-400 text-foreground' },
     { status: 'inviato' as const,    label: 'In revisione', count: (counts.inviato ?? 0) + (counts.letto ?? 0),          colors: 'bg-amber-50 border-amber-200 hover:border-amber-400 text-amber-800' },
     { status: 'confermato' as const, label: 'Confermati',   count: counts.confermato ?? 0,                               colors: 'bg-violet-50 border-violet-200 hover:border-violet-400 text-violet-800' },
     { status: 'completo' as const,   label: 'Completi',     count: counts.completo ?? 0,                                 colors: 'bg-green-50 border-green-200 hover:border-green-400 text-green-800' },
@@ -54,24 +54,24 @@ export function QuoteListSection({
         <CardTitle className="text-base flex items-center gap-2">
           {icon}
           {title}
-          <span className="text-sm font-normal text-gray-400">({count})</span>
+          <span className="text-sm font-normal text-muted-foreground">({count})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         {rows.length === 0 ? (
-          <div className="p-4 text-sm text-gray-400">{emptyText}</div>
+          <div className="p-4 text-sm text-muted-foreground">{emptyText}</div>
         ) : (
           <ul>
             {rows.map(q => (
               <li
                 key={q.id}
                 onClick={() => onClick(q.id)}
-                className="border-b last:border-0 px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex items-center gap-3"
+                className="border-b last:border-0 px-4 py-2.5 cursor-pointer hover:bg-muted flex items-center gap-3"
               >
-                <span className="font-mono font-medium text-blue-700 text-sm shrink-0">{q.quote_number}</span>
-                <span className="text-sm text-gray-600 truncate flex-1">{q.customer_name || '—'}</span>
+                <span className="font-mono font-medium text-primary text-sm shrink-0">{q.quote_number}</span>
+                <span className="text-sm text-muted-foreground truncate flex-1">{q.customer_name || '—'}</span>
                 {showSubmitter && q.submitted_by && (
-                  <span className="text-xs text-gray-400 shrink-0">
+                  <span className="text-xs text-muted-foreground shrink-0">
                     {q.submitted_by.full_name || q.submitted_by.username}
                     {q.submitted_at && <> · {timeAgo(q.submitted_at)}</>}
                   </span>
@@ -106,7 +106,7 @@ export function ActivityCard({ items, onClick, onSeeAll }: {
       </CardHeader>
       <CardContent className="p-0">
         {items.length === 0 ? (
-          <div className="p-4 text-sm text-gray-400">Nessuna attività</div>
+          <div className="p-4 text-sm text-muted-foreground">Nessuna attività</div>
         ) : (
           <ul>
             {items.map(a => {
@@ -119,7 +119,7 @@ export function ActivityCard({ items, onClick, onSeeAll }: {
                 <li
                   key={a.id}
                   onClick={() => quoteId && onClick(quoteId)}
-                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-gray-50' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
+                  className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-muted' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
                 >
                   <div className="flex items-start gap-2">
                     <div className="pt-1.5 shrink-0">
@@ -133,7 +133,7 @@ export function ActivityCard({ items, onClick, onSeeAll }: {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-2 justify-between">
-                        <p className={`text-sm ${unread ? 'font-medium text-gray-900' : 'text-gray-700'}`}>{a.title}</p>
+                        <p className={`text-sm ${unread ? 'font-medium text-foreground' : 'text-foreground'}`}>{a.title}</p>
                         {kind && (
                           <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${kind.pillClass}`}>
                             {kind.icon}
@@ -141,8 +141,8 @@ export function ActivityCard({ items, onClick, onSeeAll }: {
                           </span>
                         )}
                       </div>
-                      {a.body && <p className="text-xs text-gray-500">{a.body}</p>}
-                      <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(a.created_at)}</p>
+                      {a.body && <p className="text-xs text-muted-foreground">{a.body}</p>}
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(a.created_at)}</p>
                     </div>
                   </div>
                 </li>

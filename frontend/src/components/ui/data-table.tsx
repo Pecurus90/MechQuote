@@ -1,7 +1,7 @@
 // Wrapper "preset" per le tabelle delle Impostazioni e pagine liste.
 // Non è un table headless smart (no sort/filter built-in) — è un Card +
 // table con thead/empty state già stilizzati, così le pagine non
-// ripetono `bg-gray-50 border-b` + `p-3 font-medium text-gray-600`
+// ripetono `bg-muted border-b` + `p-3 font-medium text-muted-foreground`
 // ovunque. Le righe le scrivono ancora a mano (contenuti troppo
 // eterogenei per astrarli).
 //
@@ -11,7 +11,7 @@
 //     empty="Nessun materiale"
 //   >
 //     {items.map(it => (
-//       <tr key={it.id} className="border-b hover:bg-gray-50">
+//       <tr key={it.id} className="border-b hover:bg-muted">
 //         <td className="p-3">{it.name}</td>
 //         <td className="p-3 text-right">€ {it.cost.toFixed(2)}</td>
 //         <td className="p-3 text-center">…</td>
@@ -57,12 +57,12 @@ export default function DataTable({ columns, children, empty, isEmpty, className
     <Card className={className}>
       <CardContent className="p-0">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
               {cols.map((c, i) => (
                 <th
                   key={i}
-                  className={`${alignClass(c.align)} p-3 font-medium text-gray-600 ${c.width || ''}`}
+                  className={`${alignClass(c.align)} p-3 font-medium text-muted-foreground ${c.width || ''}`}
                 >
                   {c.label}
                 </th>
@@ -72,7 +72,7 @@ export default function DataTable({ columns, children, empty, isEmpty, className
           <tbody>
             {hasChildren ? children : (
               <tr>
-                <td colSpan={cols.length} className="p-6 text-center text-gray-400">
+                <td colSpan={cols.length} className="p-6 text-center text-muted-foreground">
                   {empty || 'Nessun elemento.'}
                 </td>
               </tr>

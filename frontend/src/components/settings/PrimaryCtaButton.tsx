@@ -44,7 +44,7 @@ export default function PrimaryCtaButton({
       disabled={disabled}
       className={`${sizeClasses} rounded-lg border-2 font-medium transition-all shadow-sm inline-flex items-center gap-1.5 ${
         disabled
-          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+          ? 'bg-muted border-border text-muted-foreground cursor-not-allowed'
           : `${VARIANTS[color]} text-white hover:shadow-md active:scale-[0.98]`
       } ${className}`}
       {...rest}

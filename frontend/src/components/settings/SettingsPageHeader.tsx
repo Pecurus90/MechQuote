@@ -8,11 +8,11 @@ export type Color =
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
 
 const COLOR_MAP: Record<Color, string> = {
-  blue:    'bg-blue-100 text-blue-700',
+  blue:    'bg-blue-100 text-primary',
   indigo:  'bg-indigo-100 text-indigo-700',
   rose:    'bg-rose-100 text-rose-700',
   amber:   'bg-amber-100 text-amber-700',
-  gray:    'bg-gray-100 text-gray-700',
+  gray:    'bg-muted text-foreground',
   emerald: 'bg-emerald-100 text-emerald-700',
   violet:  'bg-violet-100 text-violet-700',
   orange:  'bg-orange-100 text-orange-700',
@@ -36,8 +36,8 @@ export default function SettingsPageHeader({ icon: Icon, color = 'blue', title, 
           <Icon className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{title}</h1>
-          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+          <h1 className="text-xl font-bold text-foreground">{title}</h1>
+          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}

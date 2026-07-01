@@ -839,7 +839,7 @@ export default function NewDieQuotePage() {
               disabled={saving}
               className={`w-full py-4 rounded-xl border-2 text-base font-semibold transition-all shadow-md ${
                 saving
-                  ? 'bg-gray-200 border-border text-muted-foreground cursor-wait'
+                  ? 'bg-muted border-border text-muted-foreground cursor-wait'
                   : 'bg-rose-600 border-rose-700 text-white hover:bg-rose-700 hover:shadow-lg active:scale-[0.99]'
               }`}
             >

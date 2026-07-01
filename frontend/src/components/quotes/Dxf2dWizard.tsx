@@ -410,10 +410,10 @@ export default function Dxf2dWizard({
                     setForm(f => ({ ...f, customer_id: '', customer_name: e.target.value }))
                   }} />
                 {customerOpen && filteredCustomers.length > 0 && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
+                  <div className="absolute z-50 mt-1 w-full bg-card border rounded shadow-lg max-h-56 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button key={c.id} type="button"
-                        className="w-full text-left px-3 py-1.5 hover:bg-blue-50 flex items-center gap-2 text-xs"
+                        className="w-full text-left px-3 py-1.5 hover:bg-primary/10 flex items-center gap-2 text-xs"
                         onMouseDown={e => { e.preventDefault(); selectCustomer(c) }}>
                         <span className="font-mono text-muted-foreground w-10">{String(c.customer_number).padStart(3, '0')}</span>
                         <span className="truncate">{c.name}</span>
@@ -444,7 +444,7 @@ export default function Dxf2dWizard({
                   onChange={e => set('progressive', e.target.value.replace(/\D/g, '').slice(0, 3))} />
               </div>
               {quoteNumber && (
-                <p className="mt-2 text-sm font-mono font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded inline-block">
+                <p className="mt-2 text-sm font-mono font-semibold text-primary bg-primary/10 px-2 py-1 rounded inline-block">
                   {quoteNumber}
                 </p>
               )}
@@ -528,7 +528,7 @@ export default function Dxf2dWizard({
                 <button type="button"
                   onClick={() => set('drilling_mode', 'foratrice_edm')}
                   className={`flex-1 px-3 py-2 rounded-lg border-2 text-left transition-colors ${
-                    form.drilling_mode === 'foratrice_edm' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    form.drilling_mode === 'foratrice_edm' ? 'border-blue-600 bg-primary/10' : 'border-border hover:border-gray-300'
                   }`}>
                   <p className="text-xs font-medium">Foratrice EDM</p>
                   <p className="text-[10px] text-muted-foreground">La nostra foratrice fa i fori prima dell'EDM</p>
@@ -536,7 +536,7 @@ export default function Dxf2dWizard({
                 <button type="button"
                   onClick={() => set('drilling_mode', 'piastra_preforata')}
                   className={`flex-1 px-3 py-2 rounded-lg border-2 text-left transition-colors ${
-                    form.drilling_mode === 'piastra_preforata' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    form.drilling_mode === 'piastra_preforata' ? 'border-blue-600 bg-primary/10' : 'border-border hover:border-gray-300'
                   }`}>
                   <p className="text-xs font-medium">Piastra pre-forata</p>
                   <p className="text-[10px] text-muted-foreground">Pezzo già forato (no fase Foratura)</p>

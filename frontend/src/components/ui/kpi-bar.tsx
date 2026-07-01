@@ -8,8 +8,8 @@ export interface KpiItem {
 }
 
 const COLOR_MAP: Record<NonNullable<KpiItem['color']>, string> = {
-  gray:   'text-gray-700',
-  blue:   'text-blue-700',
+  gray:   'text-foreground',
+  blue:   'text-primary',
   orange: 'text-orange-600',
   green:  'text-green-700',
   rose:   'text-rose-600',
@@ -23,14 +23,14 @@ export default function KpiBar({ items }: { items: KpiItem[] }) {
       {items.map((it, i) => (
         <Card key={i}>
           <CardContent className="p-3">
-            <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
               {it.label}
             </div>
             <div className={`text-2xl font-bold mt-0.5 ${COLOR_MAP[it.color ?? 'gray']}`}>
               {it.value}
             </div>
             {it.hint && (
-              <div className="text-xs text-gray-400 mt-0.5 truncate">{it.hint}</div>
+              <div className="text-xs text-muted-foreground mt-0.5 truncate">{it.hint}</div>
             )}
           </CardContent>
         </Card>

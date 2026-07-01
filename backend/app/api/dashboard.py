@@ -19,7 +19,7 @@ from app.models import Quote, Part, User, Notification, NotificationRead
 from app.schemas import (
     DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow,
     StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
-    MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
+    StatsHoursRow, MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
     StatsLeadTimePoint, StatsToolRow,
 )
 from app.api.notifications import serialize_notification
@@ -240,12 +240,15 @@ def _period_range(period: str):
 @router.get("/dashboard/statistics", response_model=StatisticsOut)
 def get_statistics(
     period: str = 'year',
+    quote_type: Optional[str] = None,   # 'standard' | 'die' | None=tutti
+    customer_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
 ):
-    """Dataset aggregato per la pagina /statistics. 4 dataset in 1 risposta.
+    """Dataset aggregato per la pagina /statistics (tab Preventivi).
     Param `period`: year (default) | 12m | prev_year | all.
+    Filtri opzionali: `quote_type` (standard|die), `customer_id`.
     """
     date_from, date_to = _period_range(period)
     where_parts = []
@@ -256,6 +259,13 @@ def get_statistics(
     if date_to is not None:
         where_parts.append("q.quote_date <= :date_to")
         params['date_to'] = date_to
+    if customer_id is not None:
+        where_parts.append("q.customer_id = :customer_id")
+        params['customer_id'] = customer_id
+    if quote_type == 'die':
+        where_parts.append("q.quote_type = 'die'")
+    elif quote_type == 'standard':
+        where_parts.append("(q.quote_type != 'die' OR q.quote_type IS NULL)")
     date_filter = (' AND ' + ' AND '.join(where_parts)) if where_parts else ''
 
     # ─── 1. Trend mensile per tipo (standard vs dies) ──────────────────
@@ -370,12 +380,58 @@ def get_statistics(
         m_pct = ((rev - cost) / cost * 100.0) if cost > 0 else 0.0
         margin_monthly.append(StatsMarginPoint(month=r.m, margin_percent=round(m_pct, 2)))
 
+    # ─── 5. Conteggi (KPI) ────────────────────────────────────────────
+    cnt_row = db.execute(text(
+        f"""
+        SELECT
+          SUM(CASE WHEN q.quote_type = 'die' THEN 1 ELSE 0 END) AS dies,
+          SUM(CASE WHEN q.quote_type != 'die' OR q.quote_type IS NULL THEN 1 ELSE 0 END) AS standard
+        FROM quotes q
+        WHERE 1=1 {date_filter}
+        """
+    ), params).first()
+    dies_count = int(cnt_row.dies or 0) if cnt_row else 0
+    standard_count = int(cnt_row.standard or 0) if cnt_row else 0
+
+    # ─── 6. Distribuzione ore (solo standard: gli stampi non hanno fasi) ──
+    # Ore fase = setup + ciclo×qty. Raggruppate per macchina e per lavorazione.
+    def _hours_by(join_sql: str, label_expr: str) -> List[StatsHoursRow]:
+        rows = db.execute(text(
+            f"""
+            SELECT {label_expr} AS label,
+              COALESCE(SUM(ph.setup_hours + ph.cycle_hours_per_part * COALESCE(p.quantity, 1)), 0) AS h
+            FROM manufacturing_phases ph
+            JOIN parts p ON p.id = ph.part_id
+            JOIN quotes q ON q.id = p.quote_id
+            {join_sql}
+            WHERE (q.quote_type != 'die' OR q.quote_type IS NULL) {date_filter}
+            GROUP BY label
+            HAVING h > 0
+            ORDER BY h DESC
+            LIMIT 20
+            """
+        ), params).all()
+        return [StatsHoursRow(label=r.label or '—', hours=round(float(r.h or 0), 2)) for r in rows]
+
+    hours_by_machine = _hours_by(
+        "LEFT JOIN machines m ON m.id = ph.machine_id",
+        "COALESCE(m.name, 'Senza macchina')",
+    )
+    hours_by_operation = _hours_by(
+        "LEFT JOIN operations o ON o.id = ph.operation_id",
+        "COALESCE(o.name, 'Senza lavorazione')",
+    )
+
     return StatisticsOut(
         period=period,
+        standard_count=standard_count,
+        dies_count=dies_count,
         trend_monthly=trend,
         top_customers=top_customers,
         by_category=by_category,
         margin_monthly=margin_monthly,
+        hours_by_machine=hours_by_machine,
+        hours_by_operation=hours_by_operation,
     )
 
 

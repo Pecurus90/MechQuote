@@ -718,12 +718,22 @@ class StatsMarginPoint(BaseModel):
     margin_percent: float
 
 
+class StatsHoursRow(BaseModel):
+    """Ore aggregate per una dimensione (macchina o lavorazione)."""
+    label: str
+    hours: float
+
+
 class StatisticsOut(BaseModel):
     period: str                              # 'year' | '12m' | 'prev_year' | 'all'
+    standard_count: int = 0                  # n° preventivi standard nel periodo
+    dies_count: int = 0                      # n° preventivi stampo nel periodo
     trend_monthly: List[StatsTrendPoint]
     top_customers: List[StatsCustomerRow]
     by_category: List[StatsCategoryRow]
     margin_monthly: List[StatsMarginPoint]
+    hours_by_machine: List[StatsHoursRow] = []
+    hours_by_operation: List[StatsHoursRow] = []
 
 
 # ─── Statistics: tab Materiali ────────────────────────────────────────────

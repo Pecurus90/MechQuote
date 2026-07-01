@@ -14,6 +14,21 @@ export const fmtEur = (n: number) =>
 
 export const CATEGORY_COLORS = ['#2563eb', '#7c3aed', '#dc2626', '#ea580c', '#16a34a', '#0891b2', '#db2777', '#475569']
 
+// Riga di KPI-card riusabile dai tab statistiche.
+export function KpiCards({ items }: { items: Array<{ label: string; value: string; hint?: string }> }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {items.map((it, i) => (
+        <div key={i} className="rounded-xl border bg-white p-4">
+          <div className="text-2xl font-bold text-gray-900 leading-none">{it.value}</div>
+          <div className="text-sm font-medium text-gray-600 mt-1">{it.label}</div>
+          {it.hint && <div className="text-xs text-gray-400 mt-0.5">{it.hint}</div>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function Loading() {
   return <div className="flex items-center justify-center h-64 text-gray-500">Caricamento…</div>
 }

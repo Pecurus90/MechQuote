@@ -645,12 +645,21 @@ export interface StatsMarginPoint {
   margin_percent: number
 }
 
+export interface StatsHoursRow {
+  label: string
+  hours: number
+}
+
 export interface Statistics {
   period: 'year' | '12m' | 'prev_year' | 'all'
+  standard_count: number
+  dies_count: number
   trend_monthly: StatsTrendPoint[]
   top_customers: StatsCustomerRow[]
   by_category: StatsCategoryRow[]
   margin_monthly: StatsMarginPoint[]
+  hours_by_machine: StatsHoursRow[]
+  hours_by_operation: StatsHoursRow[]
 }
 
 // Tab "Materiali" — statistiche ordini materiali

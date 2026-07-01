@@ -26,6 +26,30 @@
     --radius: 0.5rem;
   }
 
+  /* Tema scuro (spec 20): slate-900 morbido + blu primario. Attivo quando
+     <html class="dark"> — gestito da lib/theme.tsx. */
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 96%;
+    --card: 222 41% 15%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 41% 15%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 24%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 25% 24%;
+    --input: 217 25% 24%;
+    --ring: 217 91% 60%;
+  }
+
   * {
     border-color: hsl(var(--border));
   }

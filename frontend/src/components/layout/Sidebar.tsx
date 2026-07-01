@@ -5,10 +5,11 @@ import {
   Box, Building2, ClipboardList,
   Tag, Users, ChevronDown, ChevronRight, LogOut, Bell, Settings,
   Zap, Package, ShoppingCart, Wrench, Hammer,
-  Truck, Factory, Shield,
+  Truck, Factory, Shield, Sun, Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { useTheme } from '@/lib/theme'
 import { useNotifications } from '@/lib/useNotifications'
 import NotificationPanel from '@/components/layout/NotificationPanel'
 
@@ -17,11 +18,11 @@ const navLinkClass = (isActive: boolean, small = false) =>
     'flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors',
     small ? 'text-xs' : 'text-sm',
     isActive
-      ? 'bg-blue-50 text-blue-700 font-medium'
-      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      ? 'bg-primary/10 text-primary font-medium'
+      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
   )
 
-const sectionLabelClass = 'px-2 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider'
+const sectionLabelClass = 'px-2 pt-2 pb-0.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -34,6 +35,7 @@ export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, hasPermission, logout } = useAuth()
+  const { theme, toggle: toggleTheme } = useTheme()
 
   const isQuotesActive = location.pathname.startsWith('/quotes')
   const isOrdersActive = location.pathname.startsWith('/orders')
@@ -104,18 +106,18 @@ export default function Sidebar() {
             onClick={() => setQuotesOpen(o => !o)}
             className={cn(
               'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-              isQuotesActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              isQuotesActive ? 'text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             )}
           >
             <span className="flex items-center gap-2">
               <FileText className="w-4 h-4 shrink-0" />
               <span>Preventivazione</span>
             </span>
-            {quotesOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+            {quotesOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
           </button>
 
           {quotesOpen && (
-            <div className="mt-0.5 ml-3 pl-3 border-l border-gray-100 space-y-0.5">
+            <div className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5">
               {canQuote && (
                 <NavLink to="/quotes/new" className={({ isActive }) => navLinkClass(isActive, true)}>
                   <Plus className="w-3.5 h-3.5 shrink-0" />
@@ -145,17 +147,17 @@ export default function Sidebar() {
               onClick={() => setOrdersOpen(o => !o)}
               className={cn(
                 'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-                isOrdersActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                isOrdersActive ? 'text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               )}
             >
               <span className="flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 shrink-0" />
                 <span>Ordini</span>
               </span>
-              {ordersOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+              {ordersOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
             {ordersOpen && (
-              <div className="mt-0.5 ml-3 pl-3 border-l border-gray-100 space-y-0.5">
+              <div className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5">
                 <NavLink to="/orders/materials" className={({ isActive }) => navLinkClass(isActive, true)}>
                   <Package className="w-3.5 h-3.5 shrink-0" />
                   <span>Ordini materiali</span>
@@ -205,18 +207,18 @@ export default function Sidebar() {
               onClick={() => setSettingsOpen(o => !o)}
               className={cn(
                 'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors',
-                isSettingsActive ? 'text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                isSettingsActive ? 'text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               )}
             >
               <span className="flex items-center gap-2">
                 <Settings className="w-4 h-4 shrink-0" />
                 <span>Impostazioni</span>
               </span>
-              {settingsOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+              {settingsOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
 
             {settingsOpen && (
-              <div className="mt-0.5 ml-3 pl-3 border-l border-gray-100 space-y-0.5">
+              <div className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5">
 
                 {showCatalog && (
                   <>
@@ -316,10 +318,17 @@ export default function Sidebar() {
               <p className="text-[10px] text-muted-foreground">{ROLE_LABELS[user.role] ?? user.role}</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
+                title={theme === 'dark' ? 'Tema chiaro' : 'Tema scuro'}
+              >
+                {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
               {notifEnabled && (
                 <button
                   onClick={() => setNotifOpen(true)}
-                  className="relative p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  className="relative p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition-colors"
                   title="Notifiche"
                 >
                   <Bell className="w-3.5 h-3.5" />
@@ -332,7 +341,7 @@ export default function Sidebar() {
               )}
               <button
                 onClick={handleLogout}
-                className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 title="Esci"
               >
                 <LogOut className="w-3.5 h-3.5" />

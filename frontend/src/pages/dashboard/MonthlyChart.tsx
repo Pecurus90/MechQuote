@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import type { MonthlyData } from '@/types'
 import { fmtEur } from './dashboardUtil'
+import { useTheme } from '@/lib/theme'
 
 type Metric = 'value' | 'margin' | 'material' | 'labor'
 
@@ -17,6 +18,7 @@ const METRIC_CONFIG: Record<Metric, { label: string; color: string }> = {
 
 export default function MonthlyChart({ data }: { data: MonthlyData[] }) {
   const [metric, setMetric] = useState<Metric>('value')
+  const { theme } = useTheme()
   // Ultimi 6 mesi: la API ritorna ordinata asc; prendiamo gli ultimi 6
   const last6 = data.slice(-6)
   const formatted = last6.map(d => ({
@@ -25,14 +27,10 @@ export default function MonthlyChart({ data }: { data: MonthlyData[] }) {
   }))
   const cfg = METRIC_CONFIG[metric]
 
-  // Colori grafico (recharts non legge CSS variables)
-  const chartColors = {
-    grid: '#f0f0f0',
-    tick: '#6b7280',
-    tooltipBg: '#ffffff',
-    tooltipBorder: '#e5e7eb',
-    tooltipText: '#111827',
-  }
+  // Colori grafico (recharts non legge le CSS variables → li scelgo per tema).
+  const chartColors = theme === 'dark'
+    ? { grid: '#2b3648', tick: '#93a1b5', tooltipBg: '#1a2334', tooltipBorder: '#2b3648', tooltipText: '#eef2f8' }
+    : { grid: '#f0f0f0', tick: '#6b7280', tooltipBg: '#ffffff', tooltipBorder: '#e5e7eb', tooltipText: '#111827' }
 
   return (
     <Card>

@@ -30,9 +30,11 @@ export default function QuoteArchivePage() {
   // Permette ai chip della dashboard di linkare l'archivio già filtrato.
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'bozza' | 'inviato' | 'completato'>(
-    initialStatus === 'bozza' || initialStatus === 'inviato' || initialStatus === 'completato'
-      ? initialStatus
+  const QUOTE_STATUSES = ['bozza', 'inviato', 'letto', 'confermato', 'completo'] as const
+  type StatusFilter = 'all' | typeof QUOTE_STATUSES[number]
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    (QUOTE_STATUSES as readonly string[]).includes(initialStatus ?? '')
+      ? (initialStatus as StatusFilter)
       : 'all'
   )
   const [typeFilter, setTypeFilter] = useState<'all' | 'single' | 'commessa' | 'die'>('all')
@@ -121,11 +123,11 @@ export default function QuoteArchivePage() {
     return q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
   }
 
-  // Normalizza i valori legacy del DB sotto i 3 stati visibili
+  // Normalizza i valori legacy del DB sotto i 5 stati visibili (spec 18)
   const normalizeStatus = (s: string): string => {
-    if (s === 'bozza' || s === 'inviato' || s === 'completato') return s
+    if ((QUOTE_STATUSES as readonly string[]).includes(s)) return s
     if (s === 'draft') return 'bozza'
-    return 'completato'  // sent / inviato_cliente / vinto / perso
+    return 'completo'  // completato / sent / inviato_cliente / vinto / perso
   }
 
   const visibleQuotes = statusFilter === 'all'
@@ -191,7 +193,9 @@ export default function QuoteArchivePage() {
             <option value="all">Tutti</option>
             <option value="bozza">Bozza</option>
             <option value="inviato">Inviato</option>
-            <option value="completato">Completato</option>
+            <option value="letto">Letto</option>
+            <option value="confermato">Confermato</option>
+            <option value="completo">Completo</option>
           </select>
         </div>
         <div>

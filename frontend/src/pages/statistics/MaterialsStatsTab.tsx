@@ -68,9 +68,9 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
 
       <Card className="lg:col-span-2">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Lead time medio "completato → ordine"</CardTitle>
+          <CardTitle className="text-base">Lead time medio "confermato → ordine"</CardTitle>
           <p className="text-xs text-gray-500">
-            Giorni medi tra completamento preventivo e generazione ordine materiale ·
+            Giorni medi tra conferma preventivo e generazione ordine materiale ·
             media periodo: <span className="font-semibold text-blue-700">{data.lead_time_avg_days.toFixed(1)} gg</span>
           </p>
         </CardHeader>

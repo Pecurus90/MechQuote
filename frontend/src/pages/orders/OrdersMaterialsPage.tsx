@@ -23,7 +23,9 @@ interface MaterialsStats {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'completato', label: 'Completati' },
+  { value: 'confermato', label: 'Confermati' },
+  { value: 'completo', label: 'Completi' },
+  { value: 'letto', label: 'Letti' },
   { value: 'inviato', label: 'Inviati' },
   { value: 'bozza', label: 'Bozze' },
   { value: '', label: 'Tutti gli stati' },
@@ -33,7 +35,7 @@ export default function OrdersMaterialsPage() {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
   const [orders, setOrders] = useState<MaterialOrder[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [statusFilter, setStatusFilter] = useState('completato')
+  const [statusFilter, setStatusFilter] = useState('confermato')
   const [onlyUnordered, setOnlyUnordered] = useState(true)
   const [search, setSearch] = useState('')
   const [aggregate, setAggregate] = useState<MaterialAggregateResult | null>(null)
@@ -51,9 +53,9 @@ export default function OrdersMaterialsPage() {
 
   const loadQuotes = () => {
     const params = new URLSearchParams()
-    // Passo sempre `status`, anche vuoto: il default backend è "completato",
+    // Passo sempre `status`, anche vuoto: il default backend è "confermato",
     // quindi se non lo settassi la voce "Tutti gli stati" (value='') tornerebbe
-    // solo completati.
+    // solo confermati.
     params.set('status', statusFilter)
     if (search.trim()) params.set('q', search.trim())
     params.set('only_unordered', String(onlyUnordered))

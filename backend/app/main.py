@@ -764,6 +764,19 @@ def _run_migrations():
         # ═══ Spec 18 — ordine materiale per fornitore (come utensili) ═══
         "ALTER TABLE material_orders ADD COLUMN material_supplier_id INTEGER REFERENCES material_suppliers(id)",
         "ALTER TABLE material_orders ADD COLUMN supplier_name VARCHAR(100)",
+
+        # ═══ Spec 18 Blocco 4 — ciclo di vita preventivo esteso ═══
+        # Nuovi stati letto/confermato/completo (String, no Enum) + timestamp/attori.
+        "ALTER TABLE quotes ADD COLUMN read_by_user_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE quotes ADD COLUMN read_at DATETIME",
+        "ALTER TABLE quotes ADD COLUMN confirmed_by_user_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE quotes ADD COLUMN confirmed_at DATETIME",
+        # Permesso "Conferma preventivo" (sostituisce quotes.complete).
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.confirm' FROM roles WHERE name IN ('admin','amministrazione') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='quotes.confirm')",
+        "DELETE FROM role_permissions WHERE permission_key = 'quotes.complete'",
+        # Opzione B (deciso con l'utente): nessun preventivo reale in DB → mappo
+        # gli eventuali 'completato' legacy a 'letto' per coerenza coi nuovi stati.
+        "UPDATE quotes SET status = 'letto' WHERE status = 'completato'",
     ]
     with engine.connect() as conn:
         for sql in migrations:

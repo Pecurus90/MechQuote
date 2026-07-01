@@ -4,7 +4,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.archive": "Archivio preventivi",
     "quotes.pdf":    "Scarica PDF",
     "quotes.send":   "Invia preventivo per revisione",
-    "quotes.complete": "Marca preventivo come completato leggendolo",
+    "quotes.confirm": "Conferma preventivo (amministrazione)",
     "quotes.view_all": "Vede tutti i preventivi (non solo i propri)",
     "dies.create":     "Crea/modifica preventivi stampi",
     "dies.archive":    "Archivio preventivi stampi",
@@ -35,7 +35,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     ],
     "amministrazione": [
         "dashboard", "quotes.archive", "quotes.pdf", "quotes.view_all",
-        "quotes.complete", "notifications", "orders.materials", "tools",
+        "quotes.confirm", "notifications", "orders.materials", "tools",
         "officina", "officina.write",
         "dies.archive", "dies.pdf",
     ],

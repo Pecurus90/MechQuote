@@ -8,14 +8,19 @@ from typing import List
 
 from app.core.database import get_db, utc_now
 from app.core.security import require_permission, get_current_user
-from app.models import Quote, Part, ManufacturingPhase, User, CompanySettings, DieNormalizedItem
+from app.models import (
+    Quote, Part, ManufacturingPhase, QuoteSupplierOrder, User,
+    CompanySettings, DieNormalizedItem,
+)
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
+from app.services import quote_workflow as wf
 from app.services.calculation import recalculate_part
 from app.services.notifications import create_notification
 
 logger = logging.getLogger(__name__)
 _can_write = require_permission('quotes.create')
 _can_send = require_permission('quotes.send')
+_can_confirm = require_permission('quotes.confirm')
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
@@ -39,6 +44,8 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
         ),
         joinedload(Quote.customer),
         joinedload(Quote.submitted_by),
+        joinedload(Quote.read_by),
+        joinedload(Quote.confirmed_by),
         joinedload(Quote.completed_by),
         joinedload(Quote.die_spec),
         joinedload(Quote.die_normalized_items).joinedload(DieNormalizedItem.supplier),
@@ -46,12 +53,13 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
 
 
 def ensure_editable(quote: Quote, current_user: User) -> None:
-    """Solo le bozze sono modificabili; admin è sempre l'eccezione (safety net).
+    """Modificabile fino a 'letto'; bloccato dalla Conferma (admin esente).
 
-    Esportata per uso da parts.py / phases.py — qualsiasi mutazione sulle parti
-    o sulle fasi di un preventivo è in effetti una modifica del preventivo stesso.
+    Spec 18: si modifica in bozza/inviato/letto, poi la Conferma manuale di
+    amministrazione blocca (confermato/completo). Esportata per parts.py /
+    phases.py — mutare parti o fasi è modificare il preventivo.
     """
-    if quote.status == 'bozza':
+    if wf.is_editable(quote.status):
         return
     if current_user.role == 'admin':
         return
@@ -167,43 +175,21 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
 
-    # Auto-mark "completato" quando un utente con quotes.complete apre un quote 'inviato'.
-    # Il creator (ufficio_tecnico) non ha questo permesso, quindi aprire la propria bozza
-    # non altera mai il workflow — invariante by-design.
-    #
-    # Atomicità sotto carico concorrente:
-    # 1. L'UPDATE filtra `WHERE status='inviato'`: SQLite serializza le scritture, quindi
-    #    solo UN thread effettivamente cambia status da 'inviato' a 'completato' e scrive
-    #    il proprio user.id come completed_by_user_id. Gli altri thread vedono già
-    #    'completato' nel WHERE → 0 righe modificate → completed_by_user_id resta del primo.
-    # 2. Dopo il commit, ricarica e crea la notifica solo se completed_by_user_id == me:
-    #    questo è il "vincitore" della race. Niente notifiche duplicate al creatore.
+    # Auto-mark "letto" quando amministrazione (quotes.confirm) apre un 'inviato'
+    # (spec 18). Leggere NON completa più nulla: la conferma è manuale. Il
+    # creator (ufficio_tecnico) non ha quotes.confirm → aprire la propria bozza
+    # non altera il workflow. UPDATE atomico con WHERE status='inviato': sotto
+    # concorrenza solo un thread scrive read_by/read_at.
     perms = getattr(current_user, '_permissions', [])
-    if quote.status == 'inviato' and 'quotes.complete' in perms:
-        now = utc_now()
+    if quote.status == 'inviato' and 'quotes.confirm' in perms:
         db.execute(
-            text("UPDATE quotes SET status='completato', "
-                 "completed_by_user_id=:uid, completed_at=:ts "
+            text("UPDATE quotes SET status='letto', "
+                 "read_by_user_id=:uid, read_at=:ts "
                  "WHERE id=:qid AND status='inviato'"),
-            {"uid": current_user.id, "ts": now, "qid": quote_id},
+            {"uid": current_user.id, "ts": utc_now(), "qid": quote_id},
         )
         db.commit()
         db.refresh(quote)
-        if quote.status == 'completato' and quote.submitted_by_user_id:
-            # La notifica al creatore è dedupata via UNIQUE INDEX su DB
-            # (type, target_user_id, target_quote_id WHERE type='quote_completed').
-            # Race concorrenti producono al massimo 1 notifica.
-            reviewer_name = current_user.full_name or current_user.username
-            type_label = 'stampo ' if quote.quote_type == 'die' else ''
-            create_notification(
-                db,
-                type='quote_completed',
-                title=f"Preventivo {type_label}{quote.quote_number} completato",
-                body=f"Letto da {reviewer_name}",
-                created_by_user_id=current_user.id,
-                target_user_id=quote.submitted_by_user_id,
-                data={'quote_id': quote.id, 'quote_number': quote.quote_number},
-            )
 
     return quote
 
@@ -220,9 +206,9 @@ def update_quote_status(
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
 
-    # Only one explicit transition is allowed via this endpoint: bozza → inviato.
-    # The reverse path (inviato → completato) is handled automatically in GET when an
-    # admin/amministrazione user opens it. 'completato' is terminal.
+    # Questa route gestisce solo bozza → inviato. Il resto del ciclo (spec 18):
+    # inviato → letto (auto in GET all'apertura di amministrazione),
+    # letto → confermato (POST /confirm), confermato → completo (auto).
     if data.status != 'inviato':
         raise HTTPException(status_code=400, detail="Solo la transizione a 'inviato' è permessa qui")
     if quote.status != 'bozza':
@@ -248,6 +234,146 @@ def update_quote_status(
     return _load_quote(quote_id, db)
 
 
+def notify_quote_completed(db: Session, quote: Quote, actor_user: User) -> None:
+    """Notifica al creatore che il preventivo è passato a 'completo'.
+
+    Riusata da confirm_quote e da api/orders.py (ultimo ordine materiale che
+    porta il preventivo a completo). Dedupata via UNIQUE INDEX su DB
+    (type='quote_completed', target_user_id, target_quote_id).
+    """
+    target = quote.submitted_by_user_id or quote.created_by_user_id
+    if not target:
+        return
+    actor = actor_user.full_name or actor_user.username
+    type_label = 'stampo ' if quote.quote_type == 'die' else ''
+    create_notification(
+        db,
+        type='quote_completed',
+        title=f"Preventivo {type_label}{quote.quote_number} completato",
+        body=f"Completato ({actor})",
+        created_by_user_id=actor_user.id,
+        target_user_id=target,
+        data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+    )
+
+
+@router.post("/{quote_id}/confirm", response_model=QuoteOut)
+def confirm_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Conferma manuale (amministrazione): letto/inviato → confermato.
+
+    Da qui il preventivo è bloccato in modifica. Se il materiale è già
+    risolto (non necessario, tutto evaso, o preventivo stampo) passa subito a
+    'completo'.
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Conferma non possibile dallo stato '{quote.status}'",
+        )
+    quote.status = wf.STATUS_CONFERMATO
+    quote.confirmed_by_user_id = current_user.id
+    quote.confirmed_at = utc_now()
+    completed = wf.maybe_complete(db, quote, current_user.id)
+    db.commit()
+    db.refresh(quote)
+
+    actor = current_user.full_name or current_user.username
+    if quote.submitted_by_user_id:
+        create_notification(
+            db,
+            type='quote_confirmed',
+            title=f"Preventivo {quote.quote_number} confermato",
+            body=f"Confermato da {actor}",
+            created_by_user_id=current_user.id,
+            target_user_id=quote.submitted_by_user_id,
+            data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+        )
+    if completed:
+        notify_quote_completed(db, quote, current_user)
+    return _load_quote(quote_id, db)
+
+
+@router.post("/{quote_id}/reopen", response_model=QuoteOut)
+def reopen_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Rimanda in bozza (amministrazione): inviato/letto → bozza + notifica creatore."""
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Rimando in bozza non possibile dallo stato '{quote.status}'",
+        )
+    creator_id = quote.created_by_user_id
+    quote.status = wf.STATUS_BOZZA
+    quote.submitted_at = None
+    quote.submitted_by_user_id = None
+    quote.read_at = None
+    quote.read_by_user_id = None
+    db.commit()
+    db.refresh(quote)
+
+    if creator_id:
+        actor = current_user.full_name or current_user.username
+        create_notification(
+            db,
+            type='quote_reopened',
+            title=f"Preventivo {quote.quote_number} rimandato in bozza",
+            body=f"Rimandato da {actor} — serve una revisione",
+            created_by_user_id=current_user.id,
+            target_user_id=creator_id,
+            data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+        )
+    return _load_quote(quote_id, db)
+
+
+@router.post("/{quote_id}/unconfirm", response_model=QuoteOut)
+def unconfirm_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin: annulla la conferma (confermato/completo → letto).
+
+    Azzera le coppie (preventivo, fornitore) ordinate — l'ordine resta nello
+    storico ma il materiale va riordinato — e sblocca la modifica.
+    """
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Solo admin può annullare la conferma")
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status not in (wf.STATUS_CONFERMATO, wf.STATUS_COMPLETO):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nessuna conferma da annullare (stato '{quote.status}')",
+        )
+    db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
+    quote.material_ordered_at = None
+    quote.material_ordered_by_user_id = None
+    quote.status = wf.STATUS_LETTO
+    quote.confirmed_at = None
+    quote.confirmed_by_user_id = None
+    quote.completed_at = None
+    quote.completed_by_user_id = None
+    db.commit()
+    logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
+    return _load_quote(quote_id, db)
+
+
 @router.put("/{quote_id}", response_model=QuoteOut)
 def update_quote(
     quote_id: int,
@@ -268,10 +394,10 @@ def update_quote(
     closeout_fields = {'sold_price', 'actual_cost'}
     closeout_only = payload and set(payload.keys()).issubset(closeout_fields)
     has_closeout = any(k in payload for k in closeout_fields)
-    if has_closeout and quote.status != 'completato':
+    if has_closeout and quote.status != wf.STATUS_COMPLETO:
         raise HTTPException(
             status_code=400,
-            detail="sold_price / actual_cost compilabili solo su preventivi completati",
+            detail="sold_price / actual_cost compilabili solo su preventivi completi",
         )
     if not closeout_only:
         ensure_editable(quote, current_user)

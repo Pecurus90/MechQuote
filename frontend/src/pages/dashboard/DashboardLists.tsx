@@ -9,16 +9,19 @@ import { ACTIVITY_KIND } from '@/lib/activity'
 // 3 chip cliccabili con conteggio per stato. Click → archivio filtrato.
 export function StatusChips({ stats, onClick }: {
   stats: WorkflowStats
-  onClick: (status: 'bozza' | 'inviato' | 'completato') => void
+  onClick: (status: 'bozza' | 'inviato' | 'letto' | 'confermato' | 'completo') => void
 }) {
   const counts = stats.by_status
+  // Spec 18: 5 stati. "In revisione" raggruppa inviato+letto (in mano ad
+  // amministrazione). Il breakdown fine arriverà col redesign dashboard.
   const CHIPS = [
-    { status: 'bozza' as const,      label: 'Bozze',        count: counts.bozza ?? 0,      colors: 'bg-gray-50 border-gray-200 hover:border-gray-400 text-gray-700' },
-    { status: 'inviato' as const,    label: 'In revisione', count: counts.inviato ?? 0,    colors: 'bg-amber-50 border-amber-200 hover:border-amber-400 text-amber-800' },
-    { status: 'completato' as const, label: 'Completati',   count: counts.completato ?? 0, colors: 'bg-green-50 border-green-200 hover:border-green-400 text-green-800' },
+    { status: 'bozza' as const,      label: 'Bozze',        count: counts.bozza ?? 0,                                    colors: 'bg-gray-50 border-gray-200 hover:border-gray-400 text-gray-700' },
+    { status: 'inviato' as const,    label: 'In revisione', count: (counts.inviato ?? 0) + (counts.letto ?? 0),          colors: 'bg-amber-50 border-amber-200 hover:border-amber-400 text-amber-800' },
+    { status: 'confermato' as const, label: 'Confermati',   count: counts.confermato ?? 0,                               colors: 'bg-violet-50 border-violet-200 hover:border-violet-400 text-violet-800' },
+    { status: 'completo' as const,   label: 'Completi',     count: counts.completo ?? 0,                                 colors: 'bg-green-50 border-green-200 hover:border-green-400 text-green-800' },
   ]
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-4 gap-3">
       {CHIPS.map(c => (
         <button
           key={c.status}

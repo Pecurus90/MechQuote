@@ -209,10 +209,10 @@ def get_workflow_stats(
         Quote.status == 'inviato',
     ).scalar() or 0
 
-    has_complete = 'quotes.complete' in getattr(current_user, '_permissions', [])
+    has_confirm = 'quotes.confirm' in getattr(current_user, '_permissions', [])
     to_review = (
         db.query(func.count(Quote.id)).filter(Quote.status == 'inviato').scalar() or 0
-    ) if has_complete else 0
+    ) if has_confirm else 0
 
     return WorkflowStats(
         by_status=by_status,
@@ -429,7 +429,7 @@ def get_materials_stats(
     ), params).all()
     top_suppliers = [StatsSupplierRow(supplier_name=r.name, count=int(r.n)) for r in rows_sup]
 
-    # 3. Lead time medio "completato → ordine materiale" (giorni).
+    # 3. Lead time medio "confermato → ordine materiale" (giorni).
     # Solo quote con entrambe le date popolate. julianday() è SQLite-specifico.
     where_q = []
     q_params: dict = {}
@@ -442,9 +442,9 @@ def get_materials_stats(
     q_filter = (' AND ' + ' AND '.join(where_q)) if where_q else ''
     lt_row = db.execute(text(
         f"""
-        SELECT AVG(julianday(q.material_ordered_at) - julianday(q.completed_at)) AS avg_d
+        SELECT AVG(julianday(q.material_ordered_at) - julianday(q.confirmed_at)) AS avg_d
         FROM quotes q
-        WHERE q.completed_at IS NOT NULL
+        WHERE q.confirmed_at IS NOT NULL
           AND q.material_ordered_at IS NOT NULL
           {q_filter}
         """
@@ -454,9 +454,9 @@ def get_materials_stats(
     rows_lt = db.execute(text(
         f"""
         SELECT strftime('%Y-%m', q.material_ordered_at) AS m,
-               AVG(julianday(q.material_ordered_at) - julianday(q.completed_at)) AS avg_d
+               AVG(julianday(q.material_ordered_at) - julianday(q.confirmed_at)) AS avg_d
         FROM quotes q
-        WHERE q.completed_at IS NOT NULL
+        WHERE q.confirmed_at IS NOT NULL
           AND q.material_ordered_at IS NOT NULL
           {q_filter}
         GROUP BY m ORDER BY m
@@ -580,7 +580,7 @@ def get_alerts(
 
     # 3. Completati senza ordine materiale
     to_order = db.execute(text(
-        "SELECT COUNT(*) FROM quotes WHERE status = 'completato' AND material_ordered_at IS NULL"
+        "SELECT COUNT(*) FROM quotes WHERE status = 'confermato' AND material_ordered_at IS NULL"
     )).scalar() or 0
 
     return {
@@ -599,9 +599,9 @@ def get_my_quotes(
     limit: int = 10,
 ):
     """Lista preventivi del utente corrente. status opzionale: se None ritorna
-    tutti gli stati (bozza/inviato/completato).
+    tutti gli stati (bozza/inviato/letto/confermato/completo).
     """
-    if status is not None and status not in ('bozza', 'inviato', 'completato'):
+    if status is not None and status not in ('bozza', 'inviato', 'letto', 'confermato', 'completo'):
         raise HTTPException(status_code=400, detail="Stato non valido")
     q = db.query(Quote).options(
         joinedload(Quote.parts),
@@ -620,7 +620,7 @@ def get_to_review(
     _=_can_view,
     limit: int = 10,
 ):
-    if 'quotes.complete' not in getattr(current_user, '_permissions', []):
+    if 'quotes.confirm' not in getattr(current_user, '_permissions', []):
         raise HTTPException(status_code=403, detail="Permesso negato")
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),

@@ -80,10 +80,20 @@ class Quote(Base):
     packaging_cost = Column(Float, default=0.0)
     notes_customer = Column(Text)
     notes_internal = Column(Text)
-    status = Column(String(20), default="bozza")  # bozza|inviato|completato
+    # Spec 18: bozza|inviato|letto|confermato|completo (String, no Enum).
+    # 'letto' auto quando amministrazione apre un 'inviato'; 'confermato' via
+    # pulsante manuale (blocca modifica); 'completo' auto quando confermato +
+    # materiale risolto. Vedi services/quote_workflow.py.
+    status = Column(String(20), default="bozza")
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     submitted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     submitted_at = Column(DateTime, nullable=True)
+    # Lettura da amministrazione (spec 18).
+    read_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    read_at = Column(DateTime, nullable=True)
+    # Conferma manuale amministrazione (spec 18): da qui il preventivo è locked.
+    confirmed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
     completed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     completed_at = Column(DateTime, nullable=True)
     # Tracking ordine materiale: settato quando un MaterialOrder include questo
@@ -92,7 +102,7 @@ class Quote(Base):
     material_ordered_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     # Sprint G — tracking storico per calibrazione (post-completamento):
     # prezzo finale di vendita (post-trattativa col cliente) e consuntivo
-    # reale a fine commessa. Compilabili solo su status='completato'.
+    # reale a fine commessa. Compilabili solo su status='completo'.
     # Usati da find-similar per mostrare ratio venduto/preventivato e
     # cost-to-quoted, calibrazione passiva del cost engine.
     sold_price = Column(Float, nullable=True)
@@ -109,6 +119,8 @@ class Quote(Base):
                          order_by="Part.id")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     submitted_by = relationship("User", foreign_keys=[submitted_by_user_id])
+    read_by = relationship("User", foreign_keys=[read_by_user_id])
+    confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])
     completed_by = relationship("User", foreign_keys=[completed_by_user_id])
     material_ordered_by = relationship("User", foreign_keys=[material_ordered_by_user_id])
     # Modulo Stampi: 1:1 con DieSpec (NULL se quote_type != 'die').

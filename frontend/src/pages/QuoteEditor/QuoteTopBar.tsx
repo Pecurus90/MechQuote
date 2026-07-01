@@ -4,6 +4,7 @@ import { ChevronLeft, FileDown, Save, Send } from 'lucide-react'
 import type { Quote } from '@/types'
 import { STATUS_COLORS, STATUS_LABELS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
+import QuoteStatusActions from '@/components/quotes/QuoteStatusActions'
 
 interface Props {
   quote: Quote
@@ -13,6 +14,7 @@ interface Props {
   onSave: () => void
   onSubmitForReview: () => void
   onPdfClick: () => void
+  onWorkflowChanged: (q: Quote) => void
 }
 
 /** Top bar del QuoteEditor: numero preventivo, badge status, info workflow,
@@ -20,7 +22,7 @@ interface Props {
  */
 export default function QuoteTopBar({
   quote, isLocked, saving, canSubmit,
-  onSave, onSubmitForReview, onPdfClick,
+  onSave, onSubmitForReview, onPdfClick, onWorkflowChanged,
 }: Props) {
   const navigate = useNavigate()
 
@@ -42,12 +44,15 @@ export default function QuoteTopBar({
           {quote.submitted_at && <> · {timeAgo(quote.submitted_at)}</>}
         </span>
       )}
-      {quote.status === 'completato' && quote.completed_by && (
-        <span
-          className="text-xs text-gray-500"
-          title={quote.submitted_by ? `Inviato da ${quote.submitted_by.full_name || quote.submitted_by.username}` : undefined}
-        >
-          Completato da <span className="font-medium text-gray-700">{quote.completed_by.full_name || quote.completed_by.username}</span>
+      {quote.status === 'confermato' && quote.confirmed_by && (
+        <span className="text-xs text-gray-500">
+          Confermato da <span className="font-medium text-gray-700">{quote.confirmed_by.full_name || quote.confirmed_by.username}</span>
+          {quote.confirmed_at && <> · {timeAgo(quote.confirmed_at)}</>}
+        </span>
+      )}
+      {quote.status === 'completo' && quote.completed_by && (
+        <span className="text-xs text-gray-500">
+          Completo da <span className="font-medium text-gray-700">{quote.completed_by.full_name || quote.completed_by.username}</span>
           {quote.completed_at && <> · {timeAgo(quote.completed_at)}</>}
         </span>
       )}
@@ -56,6 +61,7 @@ export default function QuoteTopBar({
           <Send className="w-3.5 h-3.5 mr-1" /> Invia per revisione
         </Button>
       )}
+      <QuoteStatusActions quote={quote} onChanged={onWorkflowChanged} />
       <Button size="sm" variant="outline" onClick={onPdfClick}>
         <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
       </Button>

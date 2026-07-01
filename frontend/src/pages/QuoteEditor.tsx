@@ -230,7 +230,7 @@ export default function QuoteEditor() {
     try {
       // Sprint G — su preventivi completati, solo i campi di chiusura
       // (sold_price/actual_cost) sono modificabili. Gli altri sono locked.
-      const payload = quote.status === 'completato'
+      const payload = quote.status === 'completo'
         ? { sold_price: quote.sold_price ?? null, actual_cost: quote.actual_cost ?? null }
         : {
             customer_name: quote.customer_name,
@@ -346,7 +346,8 @@ export default function QuoteEditor() {
   const partsSubtotal = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
-  const isLocked = quote.status !== 'bozza' && !hasRole('admin')
+  // Spec 18: modificabile in bozza/inviato/letto; bloccato dalla Conferma.
+  const isLocked = !['bozza', 'inviato', 'letto'].includes(quote.status) && !hasRole('admin')
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-gray-50">
@@ -358,13 +359,14 @@ export default function QuoteEditor() {
         onSave={saveQuote}
         onSubmitForReview={submitForReview}
         onPdfClick={handlePdfClick}
+        onWorkflowChanged={applyQuoteData}
       />
 
       {isLocked && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-xs text-amber-800 flex items-center gap-2">
           <span className="font-medium">🔒 Preventivo non più modificabile</span>
           <span className="text-amber-700">·</span>
-          <span>{quote.status === 'inviato' ? 'È in attesa di lettura.' : 'È stato completato.'} Solo un admin può apportare modifiche.</span>
+          <span>{quote.status === 'confermato' ? 'È stato confermato.' : 'È completo.'} Solo un admin può apportare modifiche.</span>
         </div>
       )}
 
@@ -539,8 +541,8 @@ export default function QuoteEditor() {
       </div>
 
       {/* Sprint G — chiusura commessa: prezzo venduto + costo consuntivo,
-          solo su status='completato'. Calibrazione storica passiva. */}
-      {quote.status === 'completato' && (
+          solo su status='completo'. Calibrazione storica passiva. */}
+      {quote.status === 'completo' && (
         <Card className="mt-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Chiusura commessa</CardTitle>

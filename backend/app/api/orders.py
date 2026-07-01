@@ -40,6 +40,7 @@ from app.schemas import (
     MaterialAggregateOut, MaterialAggregateBySupplier, MaterialItemAggregated,
     MaterialOrderCreate, MaterialOrderOut, QuoteOut,
 )
+from app.services import quote_workflow as wf
 from app.services.material_status import (
     MAT_TOTALMENTE_EVASO, part_needs_ordering, quote_material_status,
 )
@@ -257,7 +258,7 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     to_order = db.query(Quote).filter(
-        Quote.status == 'completato',
+        Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
     ).count()
 
@@ -279,7 +280,7 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
 
 @router.get("/quotes-selectable", response_model=List[QuoteOut])
 def list_selectable_quotes(
-    status: Optional[str] = "completato",
+    status: Optional[str] = "confermato",
     q: Optional[str] = None,
     only_unordered: bool = True,
     db: Session = Depends(get_db),
@@ -287,9 +288,9 @@ def list_selectable_quotes(
 ):
     """Preventivi selezionabili per creare un ordine materiali.
 
-    Default: solo `completato`, solo quelli senza flag material_ordered_at.
-    Toggle `only_unordered=false` per vedere anche quelli già ordinati.
-    Toggle `status=null` per vedere tutti gli stati.
+    Default: solo `confermato` (spec 18: si ordina dopo la Conferma), solo
+    quelli senza flag material_ordered_at. Toggle `only_unordered=false` per
+    vedere anche quelli già ordinati. Toggle `status=null` per tutti gli stati.
     """
     query = db.query(Quote).options(
         joinedload(Quote.parts).joinedload(Part.material),
@@ -367,6 +368,13 @@ def create_order(
             status_code=400,
             detail=f"Materiale già ordinato per {supplier.name} in questi preventivi",
         )
+    # Spec 18: il materiale si ordina solo dopo la Conferma del preventivo.
+    new_ids = {qid for qid in new_ids if quote_by_id[qid].status in wf.ORDERABLE_STATUSES}
+    if not new_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo i preventivi confermati possono essere ordinati",
+        )
 
     now = utc_now()
     order = MaterialOrder(
@@ -388,11 +396,20 @@ def create_order(
         ))
     db.flush()
 
+    completed_quotes = []
     for qid in new_ids:
-        _refresh_quote_material_flag(quote_by_id[qid], db, current_user.id)
+        q = quote_by_id[qid]
+        _refresh_quote_material_flag(q, db, current_user.id)
+        # L'ultimo fornitore che evade il materiale porta il preventivo a completo.
+        if wf.maybe_complete(db, q, current_user.id):
+            completed_quotes.append(q)
 
     db.commit()
     db.refresh(order)
+
+    for q in completed_quotes:
+        from app.api.quotes import notify_quote_completed
+        notify_quote_completed(db, q, current_user)
 
     actor_name = current_user.full_name or current_user.username
     nums = sorted(quote_by_id[qid].quote_number for qid in new_ids)

@@ -47,7 +47,7 @@ export default function AlertPanel({
       iconColor: 'text-blue-600',
       titleColor: 'text-blue-800',
       bodyColor: 'text-blue-700',
-      title: `${alerts.to_order_materials} preventiv${alerts.to_order_materials === 1 ? 'o completato senza' : 'i completati senza'} ordine materiale`,
+      title: `${alerts.to_order_materials} preventiv${alerts.to_order_materials === 1 ? 'o confermato senza' : 'i confermati senza'} ordine materiale`,
       body: 'Apri Ordini materiali per generare la lista per fornitore',
       onClick: () => onNavigate('/orders/materials'),
     },

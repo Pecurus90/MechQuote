@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import QuoteStatusActions from '@/components/quotes/QuoteStatusActions'
 import { computeDiePreviewCosts, estimateDiePlateHours } from '@/lib/dieCalc'
 import type {
   Quote, DieSpec, DieNormalizedItem, NormalizedSupplier, Material, Treatment,
@@ -31,7 +32,7 @@ const PLATE_ROLE_LABELS: Record<string, string> = {
 
 export default function DieQuoteEditor() {
   const { id } = useParams<{ id: string }>()
-  const { hasPermission } = useAuth()
+  const { hasPermission, hasRole } = useAuth()
   const canWrite = hasPermission('dies.create')
   const canSubmit = hasPermission('quotes.send')
   const canPdf = hasPermission('quotes.pdf') || hasPermission('dies.pdf')
@@ -175,7 +176,8 @@ export default function DieQuoteEditor() {
     return <div className="p-8 text-sm text-gray-500">Caricamento…</div>
   }
 
-  const editable = quote.status === 'bozza'
+  // Spec 18: modificabile in bozza/inviato/letto; bloccato dalla Conferma (admin esente).
+  const editable = ['bozza', 'inviato', 'letto'].includes(quote.status) || hasRole('admin')
 
   // ─── Local mutators (state-only, mark dirty) ────────────────────────────
   const setSpecLocal = (patch: Partial<DieSpec>) => {
@@ -403,11 +405,12 @@ export default function DieQuoteEditor() {
           <p className="text-sm text-gray-500">{quote.customer_name || 'Cliente non specificato'}</p>
         </div>
         <div className="flex gap-2">
-          {editable && canSubmit && (
+          {quote.status === 'bozza' && canSubmit && (
             <Button variant="outline" disabled={saving} onClick={() => setConfirmSubmit(true)}>
               <Send className="w-4 h-4 mr-1" /> Invia per revisione
             </Button>
           )}
+          <QuoteStatusActions quote={quote} onChanged={setQuote} />
           {canPdf && (
             <Button variant="outline" onClick={handleDownloadPdf}>
               <FileText className="w-4 h-4 mr-1" /> PDF
@@ -846,8 +849,8 @@ export default function DieQuoteEditor() {
             </CardContent>
           </Card>
 
-          {/* Sprint G — chiusura commessa: venduto + consuntivo, solo su completato */}
-          {quote.status === 'completato' && (
+          {/* Sprint G — chiusura commessa: venduto + consuntivo, solo su completo */}
+          {quote.status === 'completo' && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Chiusura commessa</CardTitle>

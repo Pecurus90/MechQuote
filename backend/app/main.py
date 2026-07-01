@@ -747,6 +747,19 @@ def _run_migrations():
         # ═══ Ordine utensili per-fornitore: colonna fornitore sullo storico ═══
         # Un ToolOrder ora riguarda un solo fornitore (export CSV per fornitore).
         "ALTER TABLE tool_orders ADD COLUMN supplier_name VARCHAR(100)",
+
+        # ═══ Spec 18 — evasione materiale per (preventivo × fornitore) ═══
+        # Fonte di verità dello stato materiale del preventivo (sostituisce
+        # come guida il flag per-preventivo quotes.material_ordered_at).
+        ("CREATE TABLE IF NOT EXISTS quote_supplier_orders ("
+         "id INTEGER PRIMARY KEY, "
+         "quote_id INTEGER NOT NULL REFERENCES quotes(id), "
+         "material_supplier_id INTEGER NOT NULL REFERENCES material_suppliers(id), "
+         "material_order_id INTEGER REFERENCES material_orders(id), "
+         "ordered_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "ordered_by_user_id INTEGER REFERENCES users(id), "
+         "UNIQUE(quote_id, material_supplier_id))"),
+        "CREATE INDEX IF NOT EXISTS idx_quote_supplier_orders_quote ON quote_supplier_orders(quote_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

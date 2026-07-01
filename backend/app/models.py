@@ -4,7 +4,7 @@ from datetime import date
 
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Float, ForeignKey, Integer,
-    String, Text, JSON, event,
+    String, Text, JSON, UniqueConstraint, event,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -614,6 +614,34 @@ class MaterialOrderQuote(Base):
     id = Column(Integer, primary_key=True)
     material_order_id = Column(Integer, ForeignKey("material_orders.id"), nullable=False)
     quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
+
+
+class QuoteSupplierOrder(Base):
+    """Evasione materiale per coppia (preventivo × fornitore grezzo).
+
+    Una riga = il materiale di UN fornitore, per UN preventivo, è stato
+    ordinato (CSV emesso). Da queste righe si deriva lo stato materiale del
+    preventivo — non_necessario / non_ordinato / parziale / totalmente_evaso
+    (spec 18, `services/material_status.py`). "Evaso" = ordine emesso, non
+    arrivo fisico del materiale.
+
+    Sostituisce come fonte-di-verità il flag per-preventivo
+    `Quote.material_ordered_at`, che resta in DB ma non guida più lo stato.
+    Vincolo unico (quote_id, material_supplier_id): un fornitore ordinato una
+    sola volta per preventivo (ri-scarico CSV = idempotente).
+    """
+    __tablename__ = "quote_supplier_orders"
+
+    id = Column(Integer, primary_key=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
+    material_supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=False)
+    material_order_id = Column(Integer, ForeignKey("material_orders.id"), nullable=True)
+    ordered_at = Column(DateTime, server_default=func.now())
+    ordered_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("quote_id", "material_supplier_id", name="uq_quote_supplier_order"),
+    )
 
 
 # ─── Utensili (porting da legacy `utensili`) ───────────────────────────────

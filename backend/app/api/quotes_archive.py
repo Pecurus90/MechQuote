@@ -65,6 +65,8 @@ def list_archive(
     year: Optional[int] = None,
     q: Optional[str] = None,
     quote_type: Optional[str] = None,   # 'single' | 'commessa' | 'die' (None=tutti)
+    phase: Optional[str] = None,        # 'active' (non completo) | 'completed' | None=tutti
+    status: Optional[str] = None,       # filtro stato esatto (opzionale)
     page: int = 1,
     page_size: int = 20,
     _=_can_view,
@@ -95,6 +97,13 @@ def list_archive(
             Quote.quote_number.ilike(like),
             Quote.customer_name.ilike(like),
         ))
+    # Spec 18: split "Preventivi in corso" (non completo) vs Archivio (completo).
+    if phase == 'completed':
+        query = query.filter(Quote.status == 'completo')
+    elif phase == 'active':
+        query = query.filter(Quote.status.in_(['bozza', 'inviato', 'letto', 'confermato']))
+    if status:
+        query = query.filter(Quote.status == status)
     query = query.order_by(Quote.quote_date.desc(), Quote.id.desc())
     offset = (page - 1) * page_size
     results = query.offset(offset).limit(page_size).all()

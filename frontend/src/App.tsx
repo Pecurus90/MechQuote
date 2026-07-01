@@ -7,6 +7,7 @@ import DashboardPage from '@/pages/dashboard/DashboardPage'
 import AppLayout from '@/components/layout/AppLayout'
 import QuoteEditor from '@/pages/QuoteEditor'
 import QuoteArchivePage from '@/pages/QuoteArchivePage'
+import QuotesActivePage from '@/pages/QuotesActivePage'
 import NewQuotePage from '@/pages/NewQuotePage'
 import NewQuote2DPage from '@/pages/NewQuote2DPage'
 import NewDieQuotePage from '@/pages/NewDieQuotePage'
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="quotes/2d/new" element={<ProtectedRoute permission="quotes.create"><NewQuote2DPage /></ProtectedRoute>} />
         <Route path="quotes/die/new" element={<ProtectedRoute permission="dies.create"><NewDieQuotePage /></ProtectedRoute>} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
+        <Route path="quotes/active" element={<ProtectedRoute permission="quotes.archive"><QuotesActivePage /></ProtectedRoute>} />
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
         <Route path="orders/tools" element={<ProtectedRoute permission="tools"><OrdersToolsPage /></ProtectedRoute>} />

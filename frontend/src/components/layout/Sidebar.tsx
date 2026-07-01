@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, LineChart, Plus, Archive, FileText, Activity,
-  Box, Building2,
+  Box, Building2, ClipboardList,
   Tag, Users, ChevronDown, ChevronRight, LogOut, Bell, Settings,
   Zap, Package, ShoppingCart, Wrench, Hammer,
   Truck, Factory, Shield,
@@ -120,6 +120,12 @@ export default function Sidebar() {
                 <NavLink to="/quotes/new" className={({ isActive }) => navLinkClass(isActive, true)}>
                   <Plus className="w-3.5 h-3.5 shrink-0" />
                   <span>Nuovo Preventivo</span>
+                </NavLink>
+              )}
+              {canArchive && (
+                <NavLink to="/quotes/active" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                  <span>Preventivi in corso</span>
                 </NavLink>
               )}
               {canArchive && (

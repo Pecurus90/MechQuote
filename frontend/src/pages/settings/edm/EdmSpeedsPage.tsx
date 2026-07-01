@@ -202,7 +202,7 @@ export default function EdmSpeedsPage() {
                 ))}
 
                 {showNew && (
-                  <tr className="bg-blue-50/40 border-b">
+                  <tr className="bg-primary/10/40 border-b">
                     {renderRow(newRow, setNewRow)}
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">

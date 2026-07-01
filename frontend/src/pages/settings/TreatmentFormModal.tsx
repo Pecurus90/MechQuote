@@ -61,10 +61,10 @@ export default function TreatmentFormModal({ treatment, suppliers, onClose, onSa
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl bg-white shadow-xl">
+      <Card className="w-full max-w-2xl bg-card shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <h3 className="font-semibold">{treatment ? 'Modifica' : 'Nuovo'} Trattamento</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
         </div>
         <CardContent className="pt-4">
           <div className="grid grid-cols-2 gap-4">
@@ -83,14 +83,14 @@ export default function TreatmentFormModal({ treatment, suppliers, onClose, onSa
             <div>
               <label className="text-sm font-medium">Costo minimo (€)</label>
               <Input type="number" step="0.01" value={form.minimumCost} onChange={e => set('minimumCost', e.target.value)} />
-              <p className="text-[10px] text-gray-400 mt-0.5">Si applica se il lotto è sotto la soglia peso</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Si applica se il lotto è sotto la soglia peso</p>
             </div>
             <div>
               <label className="text-sm font-medium">Soglia peso lotto (kg)</label>
               <Input type="number" step="0.1" min="0" placeholder="—"
                 value={form.minimumWeightKg}
                 onChange={e => set('minimumWeightKg', e.target.value)} />
-              <p className="text-[10px] text-gray-400 mt-0.5">Se peso totale lotto {'<'} soglia → applica costo minimo</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Se peso totale lotto {'<'} soglia → applica costo minimo</p>
             </div>
             <div>
               <label className="text-sm font-medium">Fornitore</label>

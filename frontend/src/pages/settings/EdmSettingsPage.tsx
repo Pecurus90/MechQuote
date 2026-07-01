@@ -28,7 +28,7 @@ export default function EdmSettingsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold">Wire EDM</h1>
-          <p className="text-xs text-gray-500">Configurazione elettroerosione a filo</p>
+          <p className="text-xs text-muted-foreground">Configurazione elettroerosione a filo</p>
         </div>
       </div>
 
@@ -38,7 +38,7 @@ export default function EdmSettingsPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
-              tab === t ? 'border-amber-600 text-amber-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              tab === t ? 'border-amber-600 text-amber-700' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {TAB_LABELS[t]}

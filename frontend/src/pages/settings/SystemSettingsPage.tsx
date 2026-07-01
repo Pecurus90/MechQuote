@@ -21,12 +21,12 @@ export default function SystemSettingsPage() {
   return (
     <PageContainer width="xl">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-muted text-foreground flex items-center justify-center">
           <Shield className="w-5 h-5" />
         </div>
         <div>
           <h1 className="text-xl font-bold">Sistema</h1>
-          <p className="text-xs text-gray-500">Amministrazione: utenti, permessi e backup</p>
+          <p className="text-xs text-muted-foreground">Amministrazione: utenti, permessi e backup</p>
         </div>
       </div>
 
@@ -36,7 +36,7 @@ export default function SystemSettingsPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
-              tab === t ? 'border-gray-700 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800'
+              tab === t ? 'border-gray-700 text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {TAB_LABELS[t]}

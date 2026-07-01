@@ -12,7 +12,7 @@ import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 const PASS_TYPES: { value: PassType; label: string; color: string }[] = [
   { value: 'rough',  label: 'Sgrossatura', color: 'bg-amber-100 text-amber-700' },
-  { value: 'semi',   label: 'Semifinitura', color: 'bg-blue-100 text-blue-700' },
+  { value: 'semi',   label: 'Semifinitura', color: 'bg-blue-100 text-primary' },
   { value: 'finish', label: 'Finitura', color: 'bg-green-100 text-green-700' },
 ]
 

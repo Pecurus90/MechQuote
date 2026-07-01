@@ -23,7 +23,7 @@ import DieSideView from '@/components/quotes/die/DieSideView'
 import { computeDieGeometry } from '@/lib/dieCalc'
 
 function Label({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <label className={`text-xs font-medium text-gray-600 block mb-1 ${className}`}>{children}</label>
+  return <label className={`text-xs font-medium text-muted-foreground block mb-1 ${className}`}>{children}</label>
 }
 
 /** Toggle "pill" ad alta visibilità per scelte multi-opzione (modalità,
@@ -40,10 +40,10 @@ function SegmentedButton({
       disabled={disabled}
       className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
         disabled
-          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+          ? 'border-border bg-muted text-muted-foreground cursor-not-allowed'
           : selected
             ? 'border-rose-600 bg-rose-600 text-white shadow-sm'
-            : 'border-gray-200 bg-white text-gray-700 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50/50'
+            : 'border-border bg-card text-foreground hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50/50'
       }`}
     >
       {children}
@@ -399,7 +399,7 @@ export default function NewDieQuotePage() {
           </div>
           <div>
             <h1 className="text-xl font-bold">Nuovo Preventivo Stampo</h1>
-            <p className="text-xs text-gray-500">Componi il codice e scegli la tipologia</p>
+            <p className="text-xs text-muted-foreground">Componi il codice e scegli la tipologia</p>
           </div>
         </div>
 
@@ -422,7 +422,7 @@ export default function NewDieQuotePage() {
                   }}
                 />
                 {customerOpen && filteredCustomers.length > 0 && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  <div className="absolute z-50 mt-1 w-full bg-card border rounded-lg shadow-lg max-h-56 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button
                         key={c.id}
@@ -430,7 +430,7 @@ export default function NewDieQuotePage() {
                         className="w-full text-left px-3 py-2 hover:bg-rose-50 flex items-center gap-3 border-b last:border-0"
                         onMouseDown={e => { e.preventDefault(); selectCustomer(c) }}
                       >
-                        <span className="font-mono text-xs text-gray-400 w-10 shrink-0">
+                        <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">
                           {String(c.customer_number).padStart(3, '0')}
                         </span>
                         <span className="text-sm">{c.name}</span>
@@ -455,7 +455,7 @@ export default function NewDieQuotePage() {
                   value={customerCode}
                   onChange={e => setCustomerCode(e.target.value.replace(/\D/g, '').slice(0, 3))}
                 />
-                <span className="text-gray-400">-</span>
+                <span className="text-muted-foreground">-</span>
                 <Input
                   className="w-12 text-center font-mono h-9"
                   maxLength={2}
@@ -471,7 +471,7 @@ export default function NewDieQuotePage() {
                     <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
                   ))}
                 </select>
-                <span className="text-gray-400">_</span>
+                <span className="text-muted-foreground">_</span>
                 <Input
                   className="w-20 text-center font-mono h-9"
                   maxLength={3}
@@ -504,15 +504,15 @@ export default function NewDieQuotePage() {
                 onClick={() => proceedTo('blocco')}
                 className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                   canProceed
-                    ? 'border-rose-200 hover:border-rose-500 hover:shadow-md cursor-pointer bg-white'
-                    : 'border-gray-200 opacity-50 cursor-not-allowed bg-gray-50'
+                    ? 'border-rose-200 hover:border-rose-500 hover:shadow-md cursor-pointer bg-card'
+                    : 'border-border opacity-50 cursor-not-allowed bg-muted'
                 }`}
               >
                 <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center mb-3">
                   <Square className="w-6 h-6" />
                 </div>
                 <h3 className="font-semibold text-lg">Stampo a Blocco</h3>
-                <p className="text-sm text-gray-500 mt-1">Tranciatura/piega a stazione singola: il pezzo entra in un'unica posizione e tutte le operazioni avvengono nello stesso punto.</p>
+                <p className="text-sm text-muted-foreground mt-1">Tranciatura/piega a stazione singola: il pezzo entra in un'unica posizione e tutte le operazioni avvengono nello stesso punto.</p>
               </button>
 
               <button
@@ -521,15 +521,15 @@ export default function NewDieQuotePage() {
                 onClick={() => proceedTo('passo')}
                 className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                   canProceed
-                    ? 'border-rose-200 hover:border-rose-500 hover:shadow-md cursor-pointer bg-white'
-                    : 'border-gray-200 opacity-50 cursor-not-allowed bg-gray-50'
+                    ? 'border-rose-200 hover:border-rose-500 hover:shadow-md cursor-pointer bg-card'
+                    : 'border-border opacity-50 cursor-not-allowed bg-muted'
                 }`}
               >
                 <div className="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center mb-3">
                   <Layers className="w-6 h-6" />
                 </div>
                 <h3 className="font-semibold text-lg">Stampo a Passo (Progressivo)</h3>
-                <p className="text-sm text-gray-500 mt-1">Striscia che avanza di un passo a ogni colpo: tranciatura/piega in N stazioni successive, pezzo finito all'ultima.</p>
+                <p className="text-sm text-muted-foreground mt-1">Striscia che avanza di un passo a ogni colpo: tranciatura/piega in N stazioni successive, pezzo finito all'ultima.</p>
               </button>
             </div>
             {!canProceed && (
@@ -546,7 +546,7 @@ export default function NewDieQuotePage() {
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => setStep('code')} className="text-gray-500 hover:text-rose-700 flex items-center gap-1 text-sm">
+        <button onClick={() => setStep('code')} className="text-muted-foreground hover:text-rose-700 flex items-center gap-1 text-sm">
           <ArrowLeft className="w-4 h-4" /> Cambia codice / tipo
         </button>
         <div className="text-sm font-mono font-semibold text-rose-700 bg-rose-50 px-3 py-1 rounded">{quoteNumber}</div>
@@ -563,9 +563,9 @@ export default function NewDieQuotePage() {
             <CardContent className="space-y-3">
               {!dxfAnalysis && !manualGeometry && (
                 <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                  <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm font-medium text-gray-700 mb-2">Carica DXF del pezzo</p>
-                  <p className="text-xs text-gray-500 mb-3">Il bbox X×Y viene estratto automaticamente; il profilo è renderizzato nel preview.</p>
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium text-foreground mb-2">Carica DXF del pezzo</p>
+                  <p className="text-xs text-muted-foreground mb-3">Il bbox X×Y viene estratto automaticamente; il profilo è renderizzato nel preview.</p>
                   <input
                     type="file"
                     accept=".dxf"
@@ -591,15 +591,15 @@ export default function NewDieQuotePage() {
                 </div>
               )}
               {dxfAnalysis && (
-                <div className="flex items-center justify-between rounded-md bg-blue-50 border border-blue-200 px-3 py-2">
+                <div className="flex items-center justify-between rounded-md bg-primary/10 border border-blue-200 px-3 py-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <FileText className="w-4 h-4 text-blue-700" />
-                    <span className="font-medium text-blue-900">{dxfFileName}</span>
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-primary">{dxfFileName}</span>
                     <span className="text-blue-600 text-xs">
                       {dxfAnalysis.profiles.length} profili · {dxfAnalysis.bbox_global.w.toFixed(0)}×{dxfAnalysis.bbox_global.h.toFixed(0)} mm
                     </span>
                   </div>
-                  <button onClick={clearDxf} className="text-blue-700 hover:text-red-600"><X className="w-4 h-4" /></button>
+                  <button onClick={clearDxf} className="text-primary hover:text-red-600"><X className="w-4 h-4" /></button>
                 </div>
               )}
               <div className="grid grid-cols-3 gap-2">
@@ -648,7 +648,7 @@ export default function NewDieQuotePage() {
                   </select>
                 </div>
               </div>
-              <p className="text-[10px] text-gray-500 -mt-1">
+              <p className="text-[10px] text-muted-foreground -mt-1">
                 Il perimetro guida la stima delle ore EDM filo (matrice + estrattore). Se non lo conosci,
                 il sistema lo stima da 2×(X+Y)×complessità.
               </p>
@@ -656,7 +656,7 @@ export default function NewDieQuotePage() {
                 <div>
                   <button
                     onClick={() => setManualGeometry(m => !m)}
-                    className="text-xs text-blue-700 hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     {manualGeometry ? '🔒 Blocca X/Y dal DXF' : '✏️ Modifica X/Y manualmente'}
                   </button>
@@ -771,7 +771,7 @@ export default function NewDieQuotePage() {
                   castleOffsetY={parseFloat(castleOffsetY) || 0}
                   dxfAnalysis={dxfAnalysis}
                 />
-                <div className="mt-3 text-xs text-gray-600 grid grid-cols-2 gap-y-1">
+                <div className="mt-3 text-xs text-muted-foreground grid grid-cols-2 gap-y-1">
                   <span>Castello:</span>
                   <span className="font-mono text-right">{Math.round(geom.castleX)} × {Math.round(geom.castleY)} mm</span>
                   <span>Striscia:</span>
@@ -792,7 +792,7 @@ export default function NewDieQuotePage() {
                   castleX={geom.castleX}
                 />
                 {selectedTemplate && (
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Template <strong>{selectedTemplate.name}</strong> — {selectedTemplate.plates.length} piastre,
                     spessore totale {selectedTemplate.plates.reduce((s, p) => s + p.default_thickness_mm, 0)} mm
                   </p>
@@ -806,7 +806,7 @@ export default function NewDieQuotePage() {
                 <CardHeader>
                   <CardTitle className="text-base">Stampi simili ({similarItems.length})</CardTitle>
                   {similarStats && similarStats.n_with_sold_price > 0 && similarStats.avg_sold_to_quoted_ratio != null && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Stampi simili venduti in media a <strong>{similarStats.avg_sold_to_quoted_ratio.toFixed(2)}×</strong> il preventivo
                       ({similarStats.n_with_sold_price} con prezzo finale tracciato)
                     </p>
@@ -819,7 +819,7 @@ export default function NewDieQuotePage() {
                       <div key={it.id} className="flex items-center justify-between text-xs border-b pb-1">
                         <div className="min-w-0 flex-1">
                           <div className="font-mono truncate">{it.quote_number}</div>
-                          <div className="text-gray-500 truncate">{it.customer_name}</div>
+                          <div className="text-muted-foreground truncate">{it.customer_name}</div>
                         </div>
                         <div className="text-right ml-2">
                           <div className="font-medium">€ {cost.toFixed(0)}</div>
@@ -839,7 +839,7 @@ export default function NewDieQuotePage() {
               disabled={saving}
               className={`w-full py-4 rounded-xl border-2 text-base font-semibold transition-all shadow-md ${
                 saving
-                  ? 'bg-gray-200 border-gray-200 text-gray-500 cursor-wait'
+                  ? 'bg-gray-200 border-border text-muted-foreground cursor-wait'
                   : 'bg-rose-600 border-rose-700 text-white hover:bg-rose-700 hover:shadow-lg active:scale-[0.99]'
               }`}
             >

@@ -17,14 +17,14 @@ import type { Material } from '@/types'
 
 const FAMILY_COLORS: Record<string, string> = {
   acciaio:        'bg-slate-100 text-slate-700',
-  acciaio_inox:   'bg-blue-100 text-blue-700',
+  acciaio_inox:   'bg-blue-100 text-primary',
   acciaio_legato: 'bg-indigo-100 text-indigo-700',
   alluminio:      'bg-sky-100 text-sky-700',
   ottone:         'bg-amber-100 text-amber-700',
   rame:           'bg-orange-100 text-orange-700',
   bronzo:         'bg-yellow-100 text-yellow-800',
   plastica:       'bg-green-100 text-green-700',
-  altro:          'bg-gray-100 text-gray-600',
+  altro:          'bg-muted text-muted-foreground',
 }
 const familyClass = (f: string | null | undefined) => f && FAMILY_COLORS[f] ? FAMILY_COLORS[f] : FAMILY_COLORS.altro
 
@@ -116,7 +116,7 @@ export default function OfficinaMaterialsPage() {
   return (
     <PageContainer>
       <div>
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
           <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
             <ChevronLeft className="w-3 h-3" /> Officina
           </Link>
@@ -133,7 +133,7 @@ export default function OfficinaMaterialsPage() {
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input placeholder="Cerca per nome..." value={search}
             onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
@@ -148,32 +148,32 @@ export default function OfficinaMaterialsPage() {
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-gray-400">Caricamento...</div>
+        <div className="p-8 text-center text-muted-foreground">Caricamento...</div>
       ) : visible.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-gray-400">
+        <Card><CardContent className="p-8 text-center text-muted-foreground">
           {search || filterFamily ? 'Nessun materiale corrisponde ai filtri.' : 'Nessun materiale in catalogo.'}
         </CardContent></Card>
       ) : (
         <div className="space-y-2">
           {visible.map(m => (
-            <Card key={m.id} className="hover:bg-gray-50/40 transition-colors">
+            <Card key={m.id} className="hover:bg-muted/40 transition-colors">
               <CardContent className="p-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900 text-base">{m.name}</span>
+                    <span className="font-semibold text-foreground text-base">{m.name}</span>
                     {m.family && (
                       <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${familyClass(m.family)}`}>
                         {familyLabel(m.family)}
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5 font-mono">
+                  <div className="text-xs text-muted-foreground mt-0.5 font-mono">
                     {m.density_kg_dm3?.toFixed(2) ?? '—'} kg/dm³
                     {' · '}{m.cost_per_kg?.toFixed(2) ?? '—'} €/kg
                     {m.default_scrap_percent != null && <> · scrap {m.default_scrap_percent}%</>}
                   </div>
                   {m.material_supplier && (
-                    <div className="text-[11px] text-gray-400 mt-0.5">
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
                       Fornitore: {m.material_supplier.name}
                     </div>
                   )}
@@ -193,7 +193,7 @@ export default function OfficinaMaterialsPage() {
                       )}
                       {canWrite && (
                         <button onClick={() => startUpload(m)}
-                          className="p-1.5 hover:bg-blue-50 rounded text-blue-600"
+                          className="p-1.5 hover:bg-primary/10 rounded text-blue-600"
                           title="Sostituisci scheda">
                           <ExternalLink className="w-4 h-4" />
                         </button>
@@ -204,7 +204,7 @@ export default function OfficinaMaterialsPage() {
                       <Upload className="w-4 h-4 mr-1" /> Allega scheda
                     </Button>
                   ) : (
-                    <span className="text-xs text-gray-400 italic">nessuna scheda</span>
+                    <span className="text-xs text-muted-foreground italic">nessuna scheda</span>
                   )}
                 </div>
               </CardContent>
@@ -215,13 +215,13 @@ export default function OfficinaMaterialsPage() {
 
       {uploadFor && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg bg-white shadow-xl">
+          <Card className="w-full max-w-lg bg-card shadow-xl">
             <div className="flex items-center justify-between px-5 py-3 border-b">
               <h3 className="font-semibold">
                 {uploadFor.has_datasheet ? 'Sostituisci scheda' : 'Allega scheda'} — {uploadFor.name}
               </h3>
               <button onClick={() => { setUploadFor(null); setSelectedFile(null) }}
-                className="p-1 hover:bg-gray-100 rounded">
+                className="p-1 hover:bg-muted rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -233,14 +233,14 @@ export default function OfficinaMaterialsPage() {
                   type="file"
                   accept="application/pdf,.pdf"
                   onChange={e => setSelectedFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100 cursor-pointer mt-1"
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-blue-100 cursor-pointer mt-1"
                 />
                 {selectedFile && (
-                  <p className="text-[11px] text-gray-500 mt-1">
+                  <p className="text-[11px] text-muted-foreground mt-1">
                     {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
                   </p>
                 )}
-                <p className="text-[11px] text-gray-400 mt-0.5">Max 50 MB, solo PDF.</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Max 50 MB, solo PDF.</p>
                 {uploadFor.has_datasheet && (
                   <p className="text-[11px] text-amber-600 mt-1">
                     ⚠ La scheda esistente verrà sostituita.

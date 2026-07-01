@@ -74,10 +74,10 @@ export default function NormalizedItemFormModal({ item, suppliers, categories, o
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-xl bg-white shadow-xl">
+      <Card className="w-full max-w-xl bg-card shadow-xl">
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="font-semibold">{item ? 'Modifica' : 'Nuovo'} normalizzato</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>

@@ -174,7 +174,7 @@ export default function OfficinaDocumentsPage() {
       subtitle="PDF, Word, Excel, immagini e DXF consultabili dall'officina"
       width="xl"
       breadcrumb={
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
           <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
             <ChevronLeft className="w-3 h-3" /> Officina
           </Link>
@@ -188,7 +188,7 @@ export default function OfficinaDocumentsPage() {
     >
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input placeholder="Cerca per titolo..." value={search}
             onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
@@ -227,7 +227,7 @@ export default function OfficinaDocumentsPage() {
             </optgroup>
           )}
         </select>
-        <label className="text-xs text-gray-600 flex items-center gap-1.5 cursor-pointer ml-2">
+        <label className="text-xs text-muted-foreground flex items-center gap-1.5 cursor-pointer ml-2">
           <input type="checkbox" checked={groupByCustomer} onChange={e => setGroupByCustomer(e.target.checked)} />
           Raggruppa per riferimento
         </label>

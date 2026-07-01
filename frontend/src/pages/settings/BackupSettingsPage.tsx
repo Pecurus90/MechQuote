@@ -80,7 +80,7 @@ export default function BackupSettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Esporta tutti i dati del database in formato JSON. Include preventivi, clienti, materiali, macchine, ecc.
             </p>
             <PrimaryCtaButton color="emerald" onClick={handleExport} disabled={exporting} className="w-full justify-center">
@@ -97,7 +97,7 @@ export default function BackupSettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Importa dati da un file di backup JSON. <strong>Attenzione:</strong> tutti i dati attuali verranno sovrascritti.
             </p>
             <PrimaryCtaButton color="red" onClick={handleImport} disabled={importing} className="w-full justify-center">

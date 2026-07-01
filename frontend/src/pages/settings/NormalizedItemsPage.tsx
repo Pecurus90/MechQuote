@@ -92,7 +92,7 @@ export default function NormalizedItemsPage() {
     return s?.name ?? `#${id}`
   }
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <StandardPage
@@ -112,7 +112,7 @@ export default function NormalizedItemsPage() {
       <Card className="mb-3">
         <CardContent className="p-3 flex flex-wrap items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Cerca codice o descrizione..."
               value={searchInput}
@@ -136,7 +136,7 @@ export default function NormalizedItemsPage() {
             <option value="">Tutte le categorie</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
               checked={onlyActive}
@@ -145,7 +145,7 @@ export default function NormalizedItemsPage() {
             />
             Solo attivi
           </label>
-          <div className="ml-auto text-xs text-gray-500">
+          <div className="ml-auto text-xs text-muted-foreground">
             {visible.length} su {items.length} visualizzate
           </div>
         </CardContent>
@@ -154,32 +154,32 @@ export default function NormalizedItemsPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-3 w-[18%] font-medium text-gray-600">Codice</th>
-                <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
-                <th className="text-left p-3 w-[13%] font-medium text-gray-600">Categoria</th>
-                <th className="text-left p-3 w-[18%] font-medium text-gray-600">Fornitore</th>
-                <th className="text-right p-3 w-[10%] font-medium text-gray-600">€/pz</th>
-                <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
-                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[18%] font-medium text-muted-foreground">Codice</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Descrizione</th>
+                <th className="text-left p-3 w-[13%] font-medium text-muted-foreground">Categoria</th>
+                <th className="text-left p-3 w-[18%] font-medium text-muted-foreground">Fornitore</th>
+                <th className="text-right p-3 w-[10%] font-medium text-muted-foreground">€/pz</th>
+                <th className="text-center p-3 w-[8%] font-medium text-muted-foreground">Attivo</th>
+                <th className="text-center p-3 w-[10%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-400">
+                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">
                   Nessun normalizzato ancora — clicca <span className="font-medium">+ Nuovo Normalizzato</span> per iniziare.
                 </td></tr>
               ) : visible.length === 0 ? (
-                <tr><td colSpan={7} className="p-6 text-center text-gray-400">
+                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">
                   Nessuna voce corrisponde ai filtri.
                 </td></tr>
               ) : visible.map(it => (
-                <tr key={it.id} className="border-b hover:bg-gray-50">
+                <tr key={it.id} className="border-b hover:bg-muted">
                   <td className="p-3 font-mono text-xs">{it.code}</td>
                   <td className="p-3 truncate">{it.description}</td>
-                  <td className="p-3 text-gray-500">{it.category || '—'}</td>
-                  <td className="p-3 text-gray-500 truncate">{supplierName(it.supplier_id)}</td>
+                  <td className="p-3 text-muted-foreground">{it.category || '—'}</td>
+                  <td className="p-3 text-muted-foreground truncate">{supplierName(it.supplier_id)}</td>
                   <td className="p-3 text-right font-mono text-xs">
                     {(it.unit_price ?? 0).toFixed(2)}
                   </td>
@@ -187,12 +187,12 @@ export default function NormalizedItemsPage() {
                     {it.active ? (
                       <span className="text-green-600 text-xs">●</span>
                     ) : (
-                      <span className="text-gray-300 text-xs">●</span>
+                      <span className="text-muted-foreground/50 text-xs">●</span>
                     )}
                   </td>
                   <td className="p-3 text-center">
                     <div className="flex gap-1.5 justify-center">
-                      <button onClick={() => startEdit(it)} className="p-1 hover:bg-gray-100 rounded" title="Modifica">
+                      <button onClick={() => startEdit(it)} className="p-1 hover:bg-muted rounded" title="Modifica">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => del(it.id)} className="p-1 hover:bg-red-50 rounded" title="Elimina">

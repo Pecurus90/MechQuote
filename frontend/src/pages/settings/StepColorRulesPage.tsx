@@ -65,7 +65,7 @@ export default function StepColorRulesPage() {
     .sort((a, b) => (a.color_name || '').localeCompare(b.color_name || '', 'it'))
     .filter(r => !search || (r.color_name || '').toLowerCase().includes(search.toLowerCase()) || (r.meaning || '').toLowerCase().includes(search.toLowerCase()))
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <PageContainer>
@@ -77,7 +77,7 @@ export default function StepColorRulesPage() {
         action={
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
             </div>
             <PrimaryCtaButton color="orange" size="sm" onClick={() => resetForm(true)}>
@@ -90,21 +90,21 @@ export default function StepColorRulesPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-3 w-[6%] font-medium text-gray-600">Colore</th>
-                <th className="text-left p-3 w-[20%] font-medium text-gray-600">Nome</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Significato</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Fase Suggerita</th>
-                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[6%] font-medium text-muted-foreground">Colore</th>
+                <th className="text-left p-3 w-[20%] font-medium text-muted-foreground">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-muted-foreground">Significato</th>
+                <th className="text-left p-3 w-[28%] font-medium text-muted-foreground">Fase Suggerita</th>
+                <th className="text-center p-3 w-[18%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessuna regola trovata.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Nessuna regola trovata.</td></tr>
               )}
               {visible.map(r => (
-                <tr key={r.id} className="border-b hover:bg-gray-50">
+                <tr key={r.id} className="border-b hover:bg-muted">
                   <td className="p-3">
                     <div className="w-6 h-6 rounded border" style={{ backgroundColor: r.color_hex }} />
                   </td>
@@ -113,7 +113,7 @@ export default function StepColorRulesPage() {
                   <td className="p-3 truncate">{r.suggested_phase_type || '—'}</td>
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
-                      <button onClick={() => startEdit(r)} className="p-1 hover:bg-gray-100 rounded">
+                      <button onClick={() => startEdit(r)} className="p-1 hover:bg-muted rounded">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded">
@@ -130,10 +130,10 @@ export default function StepColorRulesPage() {
 
       {editingId !== null && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
+          <Card className="w-full max-w-2xl bg-card shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{editingId > 0 ? 'Modifica' : 'Nuova'} Regola Colore</h3>
-              <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={() => resetForm()} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">

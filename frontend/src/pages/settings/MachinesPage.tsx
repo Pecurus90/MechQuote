@@ -132,7 +132,7 @@ export default function MachinesPage() {
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
     .filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()) || (MACHINE_TYPES.find(t => t.value === m.machine_type)?.label || m.machine_type || '').toLowerCase().includes(search.toLowerCase()))
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <PageContainer width="full">
@@ -144,7 +144,7 @@ export default function MachinesPage() {
         action={
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
             </div>
             <input
@@ -176,30 +176,30 @@ export default function MachinesPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-3 w-[34%] font-medium text-gray-600">Nome</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Tipo</th>
-                <th className="text-right p-3 w-[14%] font-medium text-gray-600">Lavoro €/h</th>
-                <th className="text-right p-3 w-[14%] font-medium text-gray-600">Setup €/h</th>
-                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[34%] font-medium text-muted-foreground">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-muted-foreground">Tipo</th>
+                <th className="text-right p-3 w-[14%] font-medium text-muted-foreground">Lavoro €/h</th>
+                <th className="text-right p-3 w-[14%] font-medium text-muted-foreground">Setup €/h</th>
+                <th className="text-center p-3 w-[10%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessun centro di costo trovato.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Nessun centro di costo trovato.</td></tr>
               )}
               {visible.map(m => (
-                <tr key={m.id} className="border-b hover:bg-gray-50">
+                <tr key={m.id} className="border-b hover:bg-muted">
                   <td className="p-3 font-medium truncate">{m.name}</td>
                   <td className="p-3 truncate">{MACHINE_TYPES.find(t => t.value === m.machine_type)?.label || m.machine_type}</td>
                   <td className="p-3 text-right font-mono">{m.hourly_rate}</td>
                   <td className="p-3 text-right font-mono text-muted-foreground">
-                    {m.setup_hourly_rate != null ? m.setup_hourly_rate : <span className="text-gray-400">= {m.hourly_rate}</span>}
+                    {m.setup_hourly_rate != null ? m.setup_hourly_rate : <span className="text-muted-foreground">= {m.hourly_rate}</span>}
                   </td>
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
-                      <button onClick={() => startEdit(m)} className="p-1 hover:bg-gray-100 rounded">
+                      <button onClick={() => startEdit(m)} className="p-1 hover:bg-muted rounded">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => handleDelete(m.id)} className="p-1 hover:bg-red-50 rounded">
@@ -216,10 +216,10 @@ export default function MachinesPage() {
 
       {editingId !== null && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl bg-white shadow-xl">
+          <Card className="w-full max-w-2xl bg-card shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{editingId > 0 ? 'Modifica' : 'Nuovo'} Centro di costo</h3>
-              <button onClick={() => resetForm()} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={() => resetForm()} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">
@@ -237,17 +237,17 @@ export default function MachinesPage() {
                 <div>
                   <label className="text-sm font-medium">Tariffa lavoro €/ora</label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" value={rate} onChange={e => setRate(e.target.value)} />
-                  <p className="text-[11px] text-gray-400 mt-0.5">Costo orario quando la macchina lavora</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Costo orario quando la macchina lavora</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tariffa setup €/ora</label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" placeholder={`default ${rate || '...'}`} value={setupRate} onChange={e => setSetupRate(e.target.value)} />
-                  <p className="text-[11px] text-gray-400 mt-0.5">Costo orario attrezzaggio (operatore senza macchina). Vuoto = stessa di lavoro.</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Costo orario attrezzaggio (operatore senza macchina). Vuoto = stessa di lavoro.</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Setup minimo (h)</label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" value={setup} onChange={e => setSetup(e.target.value)} />
-                  <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
                 </div>
               </div>
               <div className="flex gap-2 mt-6">

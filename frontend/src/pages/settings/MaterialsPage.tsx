@@ -89,7 +89,7 @@ export default function MaterialsPage() {
           || familyLabel(m.family).toLowerCase().includes(q)
     })
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <StandardPage
@@ -102,10 +102,10 @@ export default function MaterialsPage() {
       {/* ── Fornitori materiali ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Fornitori materiali</h2>
+          <h2 className="text-base font-semibold text-foreground">Fornitori materiali</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
             </div>
             <PrimaryCtaButton color="blue" size="sm" onClick={() => setSupForm(emptySupplier())}>
@@ -116,22 +116,22 @@ export default function MaterialsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left p-3 w-[25%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[33%] font-medium text-gray-600">Indirizzo</th>
-                  <th className="text-right p-3 w-[14%] font-medium text-gray-600">Spedizione (€)</th>
-                  <th className="text-right p-3 w-[14%] font-medium text-gray-600">Taglio (€/pz)</th>
-                  <th className="text-center p-3 w-[14%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[25%] font-medium text-muted-foreground">Nome</th>
+                  <th className="text-left p-3 w-[33%] font-medium text-muted-foreground">Indirizzo</th>
+                  <th className="text-right p-3 w-[14%] font-medium text-muted-foreground">Spedizione (€)</th>
+                  <th className="text-right p-3 w-[14%] font-medium text-muted-foreground">Taglio (€/pz)</th>
+                  <th className="text-center p-3 w-[14%] font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleSup.length === 0 && (
-                  <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessun fornitore trovato.</td></tr>
+                  <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Nessun fornitore trovato.</td></tr>
                 )}
                 {visibleSup.map(s => (
                   supForm?.id === s.id ? (
-                    <tr key={s.id} className="border-b bg-blue-50">
+                    <tr key={s.id} className="border-b bg-primary/10">
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
                       <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
@@ -139,19 +139,19 @@ export default function MaterialsPage() {
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4 text-muted-foreground" /></button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <tr key={s.id} className="border-b hover:bg-muted">
                       <td className="p-3 font-medium">{s.name}</td>
-                      <td className="p-3 text-gray-500 truncate">{s.address || '—'}</td>
+                      <td className="p-3 text-muted-foreground truncate">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{s.shipping_cost.toFixed(2)} €</td>
                       <td className="p-3 text-right font-mono">{(s.cutting_cost_per_part ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0) })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, address: s.address || '', shipping_cost: String(s.shipping_cost), cutting_cost_per_part: String(s.cutting_cost_per_part ?? 0) })} className="p-1 hover:bg-muted rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -163,7 +163,7 @@ export default function MaterialsPage() {
                   )
                 ))}
                 {supForm?.id === null && (
-                  <tr className="border-b bg-blue-50">
+                  <tr className="border-b bg-primary/10">
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
                     <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shipping_cost} onChange={e => setSupForm(f => f ? { ...f, shipping_cost: e.target.value } : f)} /></td>
@@ -171,7 +171,7 @@ export default function MaterialsPage() {
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4 text-muted-foreground" /></button>
                       </div>
                     </td>
                   </tr>
@@ -185,9 +185,9 @@ export default function MaterialsPage() {
       {/* ── Materiali ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Materiali</h2>
+          <h2 className="text-base font-semibold text-foreground">Materiali</h2>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={onlyActiveMat}
@@ -197,7 +197,7 @@ export default function MaterialsPage() {
               Solo attivi
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={searchMat} onChange={e => setSearchMat(e.target.value)} className="pl-9 w-40" />
             </div>
             <MaterialsImportButtons onImported={loadData} />
@@ -209,42 +209,42 @@ export default function MaterialsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left p-3 w-[18%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[13%] font-medium text-gray-600">Famiglia</th>
-                  <th className="text-right p-3 w-[12%] font-medium text-gray-600">Densità (kg/dm³)</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Costo €/kg</th>
-                  <th className="text-left p-3 w-[15%] font-medium text-gray-600">Fornitore</th>
-                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Scheda PDF</th>
-                  <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
-                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[18%] font-medium text-muted-foreground">Nome</th>
+                  <th className="text-left p-3 w-[13%] font-medium text-muted-foreground">Famiglia</th>
+                  <th className="text-right p-3 w-[12%] font-medium text-muted-foreground">Densità (kg/dm³)</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-muted-foreground">Costo €/kg</th>
+                  <th className="text-left p-3 w-[15%] font-medium text-muted-foreground">Fornitore</th>
+                  <th className="text-center p-3 w-[11%] font-medium text-muted-foreground">Scheda PDF</th>
+                  <th className="text-center p-3 w-[8%] font-medium text-muted-foreground">Attivo</th>
+                  <th className="text-center p-3 w-[12%] font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleMat.length === 0 && (
-                  <tr><td colSpan={8} className="p-6 text-center text-gray-400">Nessun materiale trovato.</td></tr>
+                  <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Nessun materiale trovato.</td></tr>
                 )}
                 {visibleMat.map(m => (
-                  <tr key={m.id} className="border-b hover:bg-gray-50">
+                  <tr key={m.id} className="border-b hover:bg-muted">
                     <td className="p-3 font-medium truncate">{m.name}</td>
                     <td className="p-3 truncate">{familyLabel(m.family)}</td>
                     <td className="p-3 text-right">{m.density_kg_dm3}</td>
                     <td className="p-3 text-right">{m.cost_per_kg}</td>
-                    <td className="p-3 text-gray-500 text-xs truncate">{m.material_supplier?.name || '—'}</td>
+                    <td className="p-3 text-muted-foreground text-xs truncate">{m.material_supplier?.name || '—'}</td>
                     <td className="p-3 text-center text-xs">
                       {m.has_datasheet
                         ? <span className="inline-flex items-center gap-1 text-green-700"><FileText className="w-3.5 h-3.5" /> Allegata</span>
-                        : <span className="text-gray-400 italic">—</span>}
+                        : <span className="text-muted-foreground italic">—</span>}
                     </td>
                     <td className="p-3 text-center">
                       {m.active === false
-                        ? <span className="text-gray-300 text-xs" title="Ritirato">●</span>
+                        ? <span className="text-muted-foreground/50 text-xs" title="Ritirato">●</span>
                         : <span className="text-green-600 text-xs" title="Attivo">●</span>}
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => startEditMat(m)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEditMat(m)} className="p-1 hover:bg-muted rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
                         <button onClick={() => deleteMaterial(m.id)} className="p-1 hover:bg-red-50 rounded">

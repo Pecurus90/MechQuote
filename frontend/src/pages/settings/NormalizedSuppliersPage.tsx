@@ -87,7 +87,7 @@ export default function NormalizedSuppliersPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <PageContainer width="md">
@@ -98,7 +98,7 @@ export default function NormalizedSuppliersPage() {
         subtitle="Fornitori di componenti standard: viti, bulloni, cuscinetti, dadi, rondelle, guarnizioni, raccordi (es. Bossard, Würth, Misumi)."
         action={
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={onlyActive}
@@ -117,31 +117,31 @@ export default function NormalizedSuppliersPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Nome</th>
-                <th className="text-left p-3 font-medium text-gray-600">Indirizzo</th>
-                <th className="text-left p-3 w-[16%] font-medium text-gray-600">Telefono</th>
-                <th className="text-center p-3 w-[8%] font-medium text-gray-600">Attivo</th>
-                <th className="text-center p-3 w-[10%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[28%] font-medium text-muted-foreground">Nome</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Indirizzo</th>
+                <th className="text-left p-3 w-[16%] font-medium text-muted-foreground">Telefono</th>
+                <th className="text-center p-3 w-[8%] font-medium text-muted-foreground">Attivo</th>
+                <th className="text-center p-3 w-[10%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 ? (
-                <tr><td colSpan={5} className="p-6 text-center text-gray-400">Nessun fornitore.</td></tr>
+                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Nessun fornitore.</td></tr>
               ) : visible.map(s => (
-                <tr key={s.id} className="border-b hover:bg-gray-50">
+                <tr key={s.id} className="border-b hover:bg-muted">
                   <td className="p-3 font-medium">{s.name}</td>
-                  <td className="p-3 text-gray-500 truncate">{s.address || '—'}</td>
-                  <td className="p-3 text-gray-500 font-mono text-xs">{s.phone || '—'}</td>
+                  <td className="p-3 text-muted-foreground truncate">{s.address || '—'}</td>
+                  <td className="p-3 text-muted-foreground font-mono text-xs">{s.phone || '—'}</td>
                   <td className="p-3 text-center">
                     {s.active === false
-                      ? <span className="text-gray-300 text-xs" title="Ritirato">●</span>
+                      ? <span className="text-muted-foreground/50 text-xs" title="Ritirato">●</span>
                       : <span className="text-green-600 text-xs" title="Attivo">●</span>}
                   </td>
                   <td className="p-3 text-center">
                     <div className="flex gap-1.5 justify-center">
-                      <button onClick={() => startEdit(s)} className="p-1 hover:bg-gray-100 rounded">
+                      <button onClick={() => startEdit(s)} className="p-1 hover:bg-muted rounded">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => del(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -158,10 +158,10 @@ export default function NormalizedSuppliersPage() {
 
       {form && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg bg-white shadow-xl">
+          <Card className="w-full max-w-lg bg-card shadow-xl">
             <div className="flex items-center justify-between px-5 py-3 border-b">
               <h3 className="font-semibold">{form.id ? 'Modifica' : 'Nuovo'} Fornitore normalizzati</h3>
-              <button onClick={() => setForm(null)} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => setForm(null)} className="p-1 hover:bg-muted rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>

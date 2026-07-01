@@ -25,12 +25,12 @@ export default function TempraAnalysisModal({
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 bg-white z-10">
+      <Card className="w-full max-w-4xl bg-card shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 bg-card z-10">
           <h3 className="font-semibold flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-emerald-600" /> Analisi deformazioni per materiale
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -48,12 +48,12 @@ export default function TempraAnalysisModal({
           </div>
 
           {analyses.length === 0 ? (
-            <p className="text-sm text-gray-400 py-8 text-center">Nessuna misura per questo materiale.</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Nessuna misura per questo materiale.</p>
           ) : analyses.map(a => (
             <div key={a.shape} className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold capitalize">{a.shape}</h4>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {a.recordCount} {a.recordCount === 1 ? 'misura' : 'misure'}
                 </span>
               </div>
@@ -84,7 +84,7 @@ export default function TempraAnalysisModal({
 
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs uppercase text-gray-500">
+                  <tr className="border-b text-left text-xs uppercase text-muted-foreground">
                     <th className="py-1.5 font-medium">Dimensione</th>
                     <th className="py-1.5 font-medium text-right">Δ medio</th>
                     <th className="py-1.5 font-medium text-right">min</th>
@@ -99,9 +99,9 @@ export default function TempraAnalysisModal({
                       <td className={`py-1.5 text-right tabular-nums font-medium ${deltaClass(s.avg)}`}>
                         {s.count ? `${formatDelta(s.avg)} mm` : '—'}
                       </td>
-                      <td className="py-1.5 text-right tabular-nums text-gray-600">{s.count ? formatDelta(s.min) : '—'}</td>
-                      <td className="py-1.5 text-right tabular-nums text-gray-600">{s.count ? formatDelta(s.max) : '—'}</td>
-                      <td className="py-1.5 text-right tabular-nums text-gray-500">{s.count}</td>
+                      <td className="py-1.5 text-right tabular-nums text-muted-foreground">{s.count ? formatDelta(s.min) : '—'}</td>
+                      <td className="py-1.5 text-right tabular-nums text-muted-foreground">{s.count ? formatDelta(s.max) : '—'}</td>
+                      <td className="py-1.5 text-right tabular-nums text-muted-foreground">{s.count}</td>
                     </tr>
                   ))}
                 </tbody>

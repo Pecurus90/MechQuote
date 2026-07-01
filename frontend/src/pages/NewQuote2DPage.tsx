@@ -61,8 +61,8 @@ export default function NewQuote2DPage() {
   if (loadingRefs) return <div className="p-8 text-center">Caricamento...</div>
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      <div className="bg-white border-b px-6 py-4">
+    <div className="flex flex-col h-full bg-muted">
+      <div className="bg-card border-b px-6 py-4">
         <h1 className="text-lg font-bold">Nuovo Preventivo 2D</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           Carica un DXF, seleziona i profili da tagliare e compila i dati. Il sistema calcola automaticamente

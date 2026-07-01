@@ -14,7 +14,7 @@ import type { Role } from '@/types'
 const COLOR_OPTIONS = [
   { value: 'green',  label: 'Verde',   cls: 'bg-green-100 text-green-800' },
   { value: 'blue',   label: 'Blu',     cls: 'bg-blue-100 text-blue-800' },
-  { value: 'gray',   label: 'Grigio',  cls: 'bg-gray-100 text-gray-800' },
+  { value: 'gray',   label: 'Grigio',  cls: 'bg-muted text-foreground' },
   { value: 'purple', label: 'Viola',   cls: 'bg-purple-100 text-purple-800' },
   { value: 'amber',  label: 'Ambra',   cls: 'bg-amber-100 text-amber-800' },
   { value: 'red',    label: 'Rosso',   cls: 'bg-red-100 text-red-800' },
@@ -22,7 +22,7 @@ const COLOR_OPTIONS = [
 ]
 
 const colorClass = (color: string) =>
-  COLOR_OPTIONS.find(c => c.value === color)?.cls ?? 'bg-gray-100 text-gray-800'
+  COLOR_OPTIONS.find(c => c.value === color)?.cls ?? 'bg-muted text-foreground'
 
 const emptyNew = () => ({ name: '', label: '', color: 'gray' })
 
@@ -118,10 +118,10 @@ export default function RolesPage() {
       {showNew && (
         <Card className="mb-4">
           <CardContent className="p-4">
-            <p className="text-sm font-medium text-gray-700 mb-3">Nuovo ruolo</p>
+            <p className="text-sm font-medium text-foreground mb-3">Nuovo ruolo</p>
             <div className="flex items-center gap-3 flex-wrap">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Nome slug (senza spazi)</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Nome slug (senza spazi)</label>
                 <Input
                   className="h-8 text-sm w-44"
                   placeholder="es. commerciale"
@@ -130,7 +130,7 @@ export default function RolesPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Etichetta</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Etichetta</label>
                 <Input
                   className="h-8 text-sm w-48"
                   placeholder="es. Ufficio Commerciale"
@@ -139,9 +139,9 @@ export default function RolesPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Colore</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Colore</label>
                 <select
-                  className="h-8 text-sm border rounded px-2 bg-white"
+                  className="h-8 text-sm border rounded px-2 bg-card"
                   value={newRole.color}
                   onChange={e => setNewRole(r => ({ ...r, color: e.target.value }))}
                 >
@@ -155,7 +155,7 @@ export default function RolesPage() {
                   <Check className="w-4 h-4" />
                 </button>
                 <button onClick={() => { setShowNew(false); setNewRole(emptyNew()) }}
-                  className="p-1.5 text-gray-400 hover:bg-gray-100 rounded">
+                  className="p-1.5 text-muted-foreground hover:bg-muted rounded">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -165,24 +165,24 @@ export default function RolesPage() {
       )}
 
       {loading ? (
-        <div className="p-6 text-sm text-gray-500">Caricamento...</div>
+        <div className="p-6 text-sm text-muted-foreground">Caricamento...</div>
       ) : (
         <Card>
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs w-56">Permesso</th>
+                <tr className="border-b bg-muted">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs w-56">Permesso</th>
                   {roles.map(role => (
                     <th key={role.id} className="px-4 py-3 text-center">
                       <div className="flex flex-col items-center gap-1">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass(role.color)}`}>
                           {role.label}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-mono">{role.name}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{role.name}</span>
                         <button
                           onClick={() => deleteRole(role)}
-                          className="p-0.5 text-gray-300 hover:text-red-400 transition-colors"
+                          className="p-0.5 text-muted-foreground/50 hover:text-red-400 transition-colors"
                           title="Elimina ruolo"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -194,11 +194,11 @@ export default function RolesPage() {
               </thead>
               <tbody>
                 {permKeys.map(key => (
-                  <tr key={key} className="border-b last:border-0 hover:bg-gray-50">
+                  <tr key={key} className="border-b last:border-0 hover:bg-muted">
                     <td className="px-4 py-2.5">
                       <div>
-                        <p className="text-xs font-medium text-gray-700">{permissions[key]}</p>
-                        <p className="text-[10px] text-gray-400 font-mono">{key}</p>
+                        <p className="text-xs font-medium text-foreground">{permissions[key]}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{key}</p>
                       </div>
                     </td>
                     {roles.map(role => {

@@ -29,7 +29,7 @@ export default function CatalogSettingsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold">Lavorazioni & Macchine</h1>
-          <p className="text-xs text-gray-500">Catalogo di produzione: cosa si fa, dove si fa, in che sequenza</p>
+          <p className="text-xs text-muted-foreground">Catalogo di produzione: cosa si fa, dove si fa, in che sequenza</p>
         </div>
       </div>
 
@@ -39,7 +39,7 @@ export default function CatalogSettingsPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
-              tab === t ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              tab === t ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {TAB_LABELS[t]}

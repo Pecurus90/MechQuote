@@ -133,7 +133,7 @@ export default function WorkflowTemplatesPage() {
       <div className="p-8 max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold mb-2">Template flusso</h1>
         <Card>
-          <CardContent className="p-6 text-center text-gray-500">
+          <CardContent className="p-6 text-center text-muted-foreground">
             <p className="mb-2">Nessuna lavorazione disponibile.</p>
             <p className="text-sm">
               Crea prima le lavorazioni in{' '}
@@ -283,11 +283,11 @@ export default function WorkflowTemplatesPage() {
               </div>
               <ol className="space-y-0.5">
                 {w.steps.map((s, i) => (
-                  <li key={s.id ?? `step-${i}`} className="text-xs text-gray-600 flex gap-2">
-                    <span className="font-mono text-gray-400 w-5">{i + 1}.</span>
+                  <li key={s.id ?? `step-${i}`} className="text-xs text-muted-foreground flex gap-2">
+                    <span className="font-mono text-muted-foreground w-5">{i + 1}.</span>
                     <span className="flex-1 truncate">
                       {operationName(s.operation_id)}
-                      <span className="text-gray-400"> — {machineName(s.machine_id)}</span>
+                      <span className="text-muted-foreground"> — {machineName(s.machine_id)}</span>
                     </span>
                   </li>
                 ))}

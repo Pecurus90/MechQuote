@@ -76,7 +76,7 @@ export default function QuoteCategoriesPage() {
         action={
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-40" />
             </div>
             <PrimaryCtaButton color="violet" size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
@@ -89,21 +89,21 @@ export default function QuoteCategoriesPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-3 w-[18%] font-medium text-gray-600">Codice</th>
-                <th className="text-left p-3 font-medium text-gray-600">Descrizione</th>
-                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Ordine</th>
-                <th className="text-center p-3 w-[18%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[18%] font-medium text-muted-foreground">Codice</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Descrizione</th>
+                <th className="text-center p-3 w-[18%] font-medium text-muted-foreground">Ordine</th>
+                <th className="text-center p-3 w-[18%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="p-4 text-center text-gray-400">Caricamento...</td></tr>
+                <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">Caricamento...</td></tr>
               ) : (
                 <>
                   {visible.map(cat => (
-                    <tr key={cat.id} className="border-b hover:bg-gray-50">
+                    <tr key={cat.id} className="border-b hover:bg-muted">
                       {editingId === cat.id ? (
                         <>
                           <td className="p-2">
@@ -122,19 +122,19 @@ export default function QuoteCategoriesPage() {
                             <button onClick={() => saveEdit(cat.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
                               <Check className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                            <button onClick={() => setEditingId(null)} className="p-1 text-muted-foreground hover:bg-muted rounded">
                               <X className="w-4 h-4" />
                             </button>
                           </td>
                         </>
                       ) : (
                         <>
-                          <td className="p-3 font-mono font-bold text-blue-700">{cat.code}</td>
+                          <td className="p-3 font-mono font-bold text-primary">{cat.code}</td>
                           <td className="p-3">{cat.name}</td>
-                          <td className="p-3 text-center text-gray-400">{cat.sort_order}</td>
+                          <td className="p-3 text-center text-muted-foreground">{cat.sort_order}</td>
                           <td className="p-3 text-center">
                             <div className="flex gap-2 justify-center">
-                              <button onClick={() => startEdit(cat)} className="p-1 hover:bg-gray-100 rounded">
+                              <button onClick={() => startEdit(cat)} className="p-1 hover:bg-muted rounded">
                                 <Pencil className="w-4 h-4 text-blue-600" />
                               </button>
                               <button onClick={() => deleteCategory(cat.id)} className="p-1 hover:bg-red-50 rounded">
@@ -148,7 +148,7 @@ export default function QuoteCategoriesPage() {
                   ))}
 
                   {showNew && (
-                    <tr className="border-b bg-blue-50">
+                    <tr className="border-b bg-primary/10">
                       <td className="p-2">
                         <Input className="h-8 text-sm font-mono" placeholder="H" maxLength={5}
                           value={newRow.code} onChange={e => setNewRow(r => ({ ...r, code: e.target.value.toUpperCase() }))} autoFocus />
@@ -167,7 +167,7 @@ export default function QuoteCategoriesPage() {
                           <Check className="w-4 h-4" />
                         </button>
                         <button onClick={() => { setShowNew(false); setNewRow({ code: '', name: '', sort_order: 0 }) }}
-                          className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                          className="p-1 text-muted-foreground hover:bg-muted rounded">
                           <X className="w-4 h-4" />
                         </button>
                       </td>
@@ -175,7 +175,7 @@ export default function QuoteCategoriesPage() {
                   )}
 
                   {visible.length === 0 && !showNew && (
-                    <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessuna categoria trovata.</td></tr>
+                    <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Nessuna categoria trovata.</td></tr>
                   )}
                 </>
               )}

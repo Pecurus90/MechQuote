@@ -78,7 +78,7 @@ export default function TreatmentsPage() {
     .sort((a, b) => a.name.localeCompare(b.name, 'it'))
     .filter(t => !searchTreat || t.name.toLowerCase().includes(searchTreat.toLowerCase()) || (t.treatment_type || '').toLowerCase().includes(searchTreat.toLowerCase()))
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <StandardPage
@@ -92,10 +92,10 @@ export default function TreatmentsPage() {
       {/* ── Fornitori trattamenti ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Fornitori trattamenti</h2>
+          <h2 className="text-base font-semibold text-foreground">Fornitori trattamenti</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={searchSup} onChange={e => setSearchSup(e.target.value)} className="pl-9 w-40" />
             </div>
             <PrimaryCtaButton color="orange" size="sm" onClick={() => setSupForm(emptySupplier())}>
@@ -106,39 +106,39 @@ export default function TreatmentsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left p-3 w-[28%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[43%] font-medium text-gray-600">Indirizzo</th>
-                  <th className="text-right p-3 w-[17%] font-medium text-gray-600">Spedizione (€)</th>
-                  <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[28%] font-medium text-muted-foreground">Nome</th>
+                  <th className="text-left p-3 w-[43%] font-medium text-muted-foreground">Indirizzo</th>
+                  <th className="text-right p-3 w-[17%] font-medium text-muted-foreground">Spedizione (€)</th>
+                  <th className="text-center p-3 w-[12%] font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleSup.length === 0 && (
-                  <tr><td colSpan={4} className="p-6 text-center text-gray-400">Nessun fornitore trovato.</td></tr>
+                  <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Nessun fornitore trovato.</td></tr>
                 )}
                 {visibleSup.map(s => (
                   supForm?.id === s.id ? (
-                    <tr key={s.id} className="border-b bg-blue-50">
+                    <tr key={s.id} className="border-b bg-primary/10">
                       <td className="p-2"><Input className="h-8 text-sm" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                       <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
                       <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shippingCost} onChange={e => setSupForm(f => f ? { ...f, shippingCost: e.target.value } : f)} /></td>
                       <td className="p-2 text-center">
                         <div className="flex gap-1 justify-center">
                           <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                          <button onClick={() => setSupForm(null)} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4 text-muted-foreground" /></button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <tr key={s.id} className="border-b hover:bg-muted">
                       <td className="p-3 font-medium">{s.name}</td>
-                      <td className="p-3 text-gray-500">{s.address || '—'}</td>
+                      <td className="p-3 text-muted-foreground">{s.address || '—'}</td>
                       <td className="p-3 text-right font-mono">{(s.shipping_cost ?? 0).toFixed(2)} €</td>
                       <td className="p-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost ?? 0) })} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => setSupForm({ id: s.id, name: s.name, supplierType: s.supplier_type || '', address: s.address || '', shippingCost: String(s.shipping_cost ?? 0) })} className="p-1 hover:bg-muted rounded">
                             <Pencil className="w-4 h-4 text-blue-600" />
                           </button>
                           <button onClick={() => deleteSupplier(s.id)} className="p-1 hover:bg-red-50 rounded">
@@ -150,14 +150,14 @@ export default function TreatmentsPage() {
                   )
                 ))}
                 {supForm?.id === null && (
-                  <tr className="border-b bg-blue-50">
+                  <tr className="border-b bg-primary/10">
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={supForm.name} onChange={e => setSupForm(f => f ? { ...f, name: e.target.value } : f)} /></td>
                     <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={supForm.address} onChange={e => setSupForm(f => f ? { ...f, address: e.target.value } : f)} /></td>
                     <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm w-full" value={supForm.shippingCost} onChange={e => setSupForm(f => f ? { ...f, shippingCost: e.target.value } : f)} /></td>
                     <td className="p-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={saveSupplier} className="p-1 hover:bg-green-100 rounded"><Save className="w-4 h-4 text-green-600" /></button>
-                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4 text-gray-500" /></button>
+                        <button onClick={() => setSupForm(null)} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4 text-muted-foreground" /></button>
                       </div>
                     </td>
                   </tr>
@@ -171,10 +171,10 @@ export default function TreatmentsPage() {
       {/* ── Trattamenti ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">Trattamenti</h2>
+          <h2 className="text-base font-semibold text-foreground">Trattamenti</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={searchTreat} onChange={e => setSearchTreat(e.target.value)} className="pl-9 w-40" />
             </div>
             <TreatmentsImportButtons onImported={loadData} />
@@ -186,34 +186,34 @@ export default function TreatmentsPage() {
         <Card>
           <CardContent className="p-0">
             <table className="table-fixed w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
-                  <th className="text-left p-3 w-[14%] font-medium text-gray-600">Tipo</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">€/kg</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Min (€)</th>
-                  <th className="text-right p-3 w-[11%] font-medium text-gray-600">Soglia (kg)</th>
-                  <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
-                  <th className="text-center p-3 w-[11%] font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 w-[22%] font-medium text-muted-foreground">Nome</th>
+                  <th className="text-left p-3 w-[14%] font-medium text-muted-foreground">Tipo</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-muted-foreground">€/kg</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-muted-foreground">Min (€)</th>
+                  <th className="text-right p-3 w-[11%] font-medium text-muted-foreground">Soglia (kg)</th>
+                  <th className="text-left p-3 w-[20%] font-medium text-muted-foreground">Fornitore</th>
+                  <th className="text-center p-3 w-[11%] font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleTreat.length === 0 && (
-                  <tr><td colSpan={7} className="p-6 text-center text-gray-400">Nessun trattamento trovato.</td></tr>
+                  <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Nessun trattamento trovato.</td></tr>
                 )}
                 {visibleTreat.map(t => (
-                  <tr key={t.id} className="border-b hover:bg-gray-50">
+                  <tr key={t.id} className="border-b hover:bg-muted">
                     <td className="p-3 font-medium truncate">{t.name}</td>
                     <td className="p-3 truncate">{t.treatment_type || '—'}</td>
                     <td className="p-3 text-right">{t.cost_per_kg.toFixed(2)}</td>
                     <td className="p-3 text-right">{t.minimum_cost.toFixed(2)}</td>
-                    <td className="p-3 text-right text-gray-500">{t.minimum_weight_kg != null ? `< ${t.minimum_weight_kg} kg` : '—'}</td>
-                    <td className="p-3 text-xs text-gray-500 truncate">
+                    <td className="p-3 text-right text-muted-foreground">{t.minimum_weight_kg != null ? `< ${t.minimum_weight_kg} kg` : '—'}</td>
+                    <td className="p-3 text-xs text-muted-foreground truncate">
                       {t.supplier?.name || '—'}
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => startEditTreat(t)} className="p-1 hover:bg-gray-100 rounded">
+                        <button onClick={() => startEditTreat(t)} className="p-1 hover:bg-muted rounded">
                           <Pencil className="w-4 h-4 text-blue-600" />
                         </button>
                         <button onClick={() => deleteTreat(t.id)} className="p-1 hover:bg-red-50 rounded">

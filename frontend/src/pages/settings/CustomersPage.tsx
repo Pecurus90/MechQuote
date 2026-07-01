@@ -102,7 +102,7 @@ export default function CustomersPage() {
       return String(c.customer_number).includes(q) || normalize(c.name).includes(q) || normalize(c.address || '').includes(q)
     })
 
-  if (loading) return <div className="p-8 text-gray-400">Caricamento...</div>
+  if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
     <PageContainer width="xl">
@@ -114,7 +114,7 @@ export default function CustomersPage() {
         action={
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
             </div>
             <input
@@ -147,35 +147,35 @@ export default function CustomersPage() {
       <Card>
         <CardContent className="p-0">
           <table className="table-fixed w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted border-b">
               <tr>
-                <th className="text-left p-3 w-[10%] font-medium text-gray-600">Codice</th>
-                <th className="text-left p-3 w-[22%] font-medium text-gray-600">Nome</th>
-                <th className="text-left p-3 w-[28%] font-medium text-gray-600">Indirizzo</th>
-                <th className="text-left p-3 w-[24%] font-medium text-gray-600">Email</th>
-                <th className="text-left p-3 w-[10%] font-medium text-gray-600">Telefono</th>
-                <th className="text-center p-3 w-[6%] font-medium text-gray-600">Azioni</th>
+                <th className="text-left p-3 w-[10%] font-medium text-muted-foreground">Codice</th>
+                <th className="text-left p-3 w-[22%] font-medium text-muted-foreground">Nome</th>
+                <th className="text-left p-3 w-[28%] font-medium text-muted-foreground">Indirizzo</th>
+                <th className="text-left p-3 w-[24%] font-medium text-muted-foreground">Email</th>
+                <th className="text-left p-3 w-[10%] font-medium text-muted-foreground">Telefono</th>
+                <th className="text-center p-3 w-[6%] font-medium text-muted-foreground">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 ? (
-                <tr><td colSpan={6} className="p-6 text-center text-gray-400">Nessun cliente trovato.</td></tr>
+                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Nessun cliente trovato.</td></tr>
               ) : visible.map(c => (
-                <tr key={c.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 font-mono font-medium text-gray-700">{c.customer_number}</td>
+                <tr key={c.id} className="border-b hover:bg-muted">
+                  <td className="p-3 font-mono font-medium text-foreground">{c.customer_number}</td>
                   <td className="p-3 font-medium truncate">{c.name}</td>
-                  <td className="p-3 text-gray-500 truncate">
+                  <td className="p-3 text-muted-foreground truncate">
                     {c.address
                       ? <a href={`https://maps.google.com/?q=${encodeURIComponent(c.address)}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{c.address}</a>
                       : '—'}
                   </td>
-                  <td className="p-3 text-gray-500 truncate">
+                  <td className="p-3 text-muted-foreground truncate">
                     {c.email ? <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline">{c.email}</a> : '—'}
                   </td>
-                  <td className="p-3 text-gray-500 truncate">{c.phone || '—'}</td>
+                  <td className="p-3 text-muted-foreground truncate">{c.phone || '—'}</td>
                   <td className="p-3 text-center">
                     <div className="flex gap-1.5 justify-center">
-                      <button onClick={() => startEdit(c)} className="p-1 hover:bg-gray-100 rounded">
+                      <button onClick={() => startEdit(c)} className="p-1 hover:bg-muted rounded">
                         <Pencil className="w-4 h-4 text-blue-600" />
                       </button>
                       <button onClick={() => handleDelete(c.id)} className="p-1 hover:bg-red-50 rounded">
@@ -192,10 +192,10 @@ export default function CustomersPage() {
 
       {editingId !== null && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-full max-w-lg bg-white shadow-xl">
+          <Card className="w-full max-w-lg bg-card shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-semibold">{editingId > 0 ? 'Modifica Cliente' : 'Nuovo Cliente'}</h3>
-              <button onClick={closeForm} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+              <button onClick={closeForm} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
             </div>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">

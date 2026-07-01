@@ -61,21 +61,21 @@ export default function DxfPreviewModal({ documentId, documentTitle, onClose }: 
       className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
-      <Card className="w-full max-w-5xl max-h-[90vh] flex flex-col bg-white shadow-xl"
+      <Card className="w-full max-w-5xl max-h-[90vh] flex flex-col bg-card shadow-xl"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
           <h3 className="font-semibold flex items-center gap-2">
-            <FileText className="w-4 h-4 text-blue-700" />
+            <FileText className="w-4 h-4 text-primary" />
             <span className="truncate">{documentTitle}</span>
-            <span className="text-xs text-gray-400 font-mono">DXF</span>
+            <span className="text-xs text-muted-foreground font-mono">DXF</span>
           </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
         <CardContent className="flex-1 overflow-auto p-4">
           {loading && (
-            <div className="text-center text-gray-400 py-12">Analisi DXF in corso...</div>
+            <div className="text-center text-muted-foreground py-12">Analisi DXF in corso...</div>
           )}
           {error && (
             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -95,7 +95,7 @@ export default function DxfPreviewModal({ documentId, documentTitle, onClose }: 
                 readOnly
                 height={500}
               />
-              <div className="mt-3 text-xs text-gray-500 flex items-center gap-4 flex-wrap">
+              <div className="mt-3 text-xs text-muted-foreground flex items-center gap-4 flex-wrap">
                 <span>Profili: <strong>{analysis.profiles.length}</strong></span>
                 <span>Chiusi: <strong>{analysis.n_closed_profiles}</strong></span>
                 <span>Lunghezza totale: <strong>{analysis.total_length_mm?.toFixed(1)} mm</strong></span>

@@ -55,9 +55,9 @@ const colorMap = {
     button: 'bg-violet-600 hover:bg-violet-700 text-white',
   },
   emerald: {
-    card: 'border-gray-200 opacity-60',
+    card: 'border-border opacity-60',
     icon: 'bg-emerald-100 text-emerald-500',
-    badge: 'bg-gray-200 text-gray-500',
+    badge: 'bg-gray-200 text-muted-foreground',
     button: '',
   },
   rose: {
@@ -92,7 +92,7 @@ export default function NewQuotePage() {
               onClick={() => mode.available && 'to' in mode && navigate(mode.to)}
             >
               {!mode.available && (
-                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-medium">
+                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
                   In sviluppo
                 </span>
               )}
@@ -100,8 +100,8 @@ export default function NewQuotePage() {
                 <mode.icon className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <h2 className="font-semibold text-gray-900 mb-1">{mode.title}</h2>
-                <p className="text-sm text-gray-500 leading-relaxed">{mode.description}</p>
+                <h2 className="font-semibold text-foreground mb-1">{mode.title}</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">{mode.description}</p>
               </div>
               {mode.available && (
                 <button

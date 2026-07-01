@@ -32,7 +32,7 @@ export function FileTypeBadge({ kind }: { kind: FileKind }) {
     image:  { icon: ImageIcon,       color: 'text-pink-600',  label: 'IMG' },
     dxf:    { icon: Box,             color: 'text-blue-600',  label: 'DXF' },
     office: { icon: FileSpreadsheet, color: 'text-green-700', label: 'DOC' },
-    other:  { icon: FileType2,       color: 'text-gray-500',  label: '—' },
+    other:  { icon: FileType2,       color: 'text-muted-foreground',  label: '—' },
   }
   const { icon: Icon, color, label } = map[kind]
   return (

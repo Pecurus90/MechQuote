@@ -107,7 +107,7 @@ function AttributeTable({ section }: { section: Section }) {
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div>
           <h2 className="font-semibold">{section.title}</h2>
-          <p className="text-xs text-gray-500">{section.description}</p>
+          <p className="text-xs text-muted-foreground">{section.description}</p>
         </div>
         <PrimaryCtaButton color="violet" size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
           <Plus className="w-4 h-4" /> Aggiungi
@@ -115,19 +115,19 @@ function AttributeTable({ section }: { section: Section }) {
       </div>
       <CardContent className="p-0">
         <table className="table-fixed w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
-              <th className="text-left p-2 font-medium text-gray-600">Nome</th>
-              <th className="text-center p-2 w-[18%] font-medium text-gray-600">Azioni</th>
+              <th className="text-left p-2 font-medium text-muted-foreground">Nome</th>
+              <th className="text-center p-2 w-[18%] font-medium text-muted-foreground">Azioni</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={2} className="p-4 text-center text-gray-400">Caricamento...</td></tr>
+              <tr><td colSpan={2} className="p-4 text-center text-muted-foreground">Caricamento...</td></tr>
             ) : (
               <>
                 {items.map(it => (
-                  <tr key={it.id} className="border-b hover:bg-gray-50">
+                  <tr key={it.id} className="border-b hover:bg-muted">
                     {editingId === it.id ? (
                       <>
                         <td className="p-2">
@@ -140,7 +140,7 @@ function AttributeTable({ section }: { section: Section }) {
                           <button onClick={() => saveEdit(it.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
                             <Check className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                          <button onClick={() => setEditingId(null)} className="p-1 text-muted-foreground hover:bg-muted rounded">
                             <X className="w-4 h-4" />
                           </button>
                         </td>
@@ -150,7 +150,7 @@ function AttributeTable({ section }: { section: Section }) {
                         <td className="p-3">{it.name}</td>
                         <td className="p-3 text-center">
                           <div className="flex gap-2 justify-center">
-                            <button onClick={() => startEdit(it)} className="p-1 hover:bg-gray-100 rounded">
+                            <button onClick={() => startEdit(it)} className="p-1 hover:bg-muted rounded">
                               <Pencil className="w-4 h-4 text-blue-600" />
                             </button>
                             <button onClick={() => remove(it.id)} className="p-1 hover:bg-red-50 rounded">
@@ -164,7 +164,7 @@ function AttributeTable({ section }: { section: Section }) {
                 ))}
 
                 {showNew && (
-                  <tr className="border-b bg-blue-50">
+                  <tr className="border-b bg-primary/10">
                     <td className="p-2">
                       <Input className="h-8 text-sm" placeholder={section.newPlaceholder}
                         value={newName} onChange={e => setNewName(e.target.value)}
@@ -176,7 +176,7 @@ function AttributeTable({ section }: { section: Section }) {
                         <Check className="w-4 h-4" />
                       </button>
                       <button onClick={() => { setShowNew(false); setNewName('') }}
-                        className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+                        className="p-1 text-muted-foreground hover:bg-muted rounded">
                         <X className="w-4 h-4" />
                       </button>
                     </td>
@@ -184,7 +184,7 @@ function AttributeTable({ section }: { section: Section }) {
                 )}
 
                 {items.length === 0 && !showNew && (
-                  <tr><td colSpan={2} className="p-6 text-center text-gray-400">Nessuna voce.</td></tr>
+                  <tr><td colSpan={2} className="p-6 text-center text-muted-foreground">Nessuna voce.</td></tr>
                 )}
               </>
             )}

@@ -74,10 +74,10 @@ export default function UploadModal({
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-lg bg-white shadow-xl">
+      <Card className="w-full max-w-lg bg-card shadow-xl">
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="font-semibold">Carica file</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -97,7 +97,7 @@ export default function UploadModal({
               <option value="">— Nessuna —</option>
               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Le categorie sono gestite dall'amministratore (Hub Officina → "Nuova categoria").
             </p>
           </div>
@@ -150,14 +150,14 @@ export default function UploadModal({
                 const f = e.target.files?.[0]
                 if (f) setFile(f)
               }}
-              className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100 cursor-pointer mt-1"
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-blue-100 cursor-pointer mt-1"
             />
             {file && (
-              <p className="text-[11px] text-gray-500 mt-1">
+              <p className="text-[11px] text-muted-foreground mt-1">
                 {file.name} ({fmtBytes(file.size)})
               </p>
             )}
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Max 50 MB. Accettati: PDF, Word, Excel, immagini (PNG/JPG/GIF), DXF.
             </p>
           </div>

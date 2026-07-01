@@ -135,10 +135,10 @@ export default function TempraFormModal({
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 bg-white z-10">
+      <Card className="w-full max-w-2xl bg-card shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 bg-card z-10">
           <h3 className="font-semibold">{result ? 'Modifica' : 'Nuovo'} risultato tempra</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -162,7 +162,7 @@ export default function TempraFormModal({
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md border text-sm capitalize transition-colors ${
                     form.shape === v
                       ? 'bg-emerald-600 text-white border-emerald-700'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : 'bg-card text-foreground border-gray-300 hover:bg-muted'
                   }`}
                 >
                   <Icon className="w-4 h-4" /> {v}
@@ -172,7 +172,7 @@ export default function TempraFormModal({
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Temperature e tempi</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Temperature e tempi</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">Gradi inserimento (°C)</label>
@@ -195,8 +195,8 @@ export default function TempraFormModal({
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase">Misure pre / post tempra (mm)</p>
-              <span className="text-[11px] text-gray-400">pre · post</span>
+              <p className="text-xs font-semibold text-muted-foreground uppercase">Misure pre / post tempra (mm)</p>
+              <span className="text-[11px] text-muted-foreground">pre · post</span>
             </div>
             <div className="space-y-2">
               {isRound ? (
@@ -219,7 +219,7 @@ export default function TempraFormModal({
               <label className="text-sm font-medium">Durezza ottenuta</label>
               <div className="flex items-center gap-2">
                 <Input value={form.hardness} onChange={e => set('hardness', e.target.value)} placeholder="es. 58 oppure 60-62" />
-                <span className="text-sm font-medium text-gray-500 shrink-0">HRC</span>
+                <span className="text-sm font-medium text-muted-foreground shrink-0">HRC</span>
               </div>
             </div>
             <div>

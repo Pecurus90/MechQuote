@@ -63,10 +63,10 @@ export default function MaterialFormModal({ material, suppliers, onClose, onSave
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl bg-white shadow-xl">
+      <Card className="w-full max-w-2xl bg-card shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <h3 className="font-semibold">{material ? 'Modifica' : 'Nuovo'} Materiale</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
         </div>
         <CardContent className="pt-4">
           <div className="grid grid-cols-2 gap-4">
@@ -98,12 +98,12 @@ export default function MaterialFormModal({ material, suppliers, onClose, onSave
             <div>
               <label className="text-sm font-medium">EDM Coeff.</label>
               <Input type="number" step="0.1" value={form.edm} onChange={e => set('edm', e.target.value)} />
-              <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
             </div>
             <div>
               <label className="text-sm font-medium">CNC Coeff. lavorabilità</label>
               <Input type="number" step="0.1" value={form.cnc} onChange={e => set('cnc', e.target.value)} />
-              <p className="text-[11px] text-gray-400 mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
             </div>
             <div>
               <label className="text-sm font-medium">Sfrido %</label>

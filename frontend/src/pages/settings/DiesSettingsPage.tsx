@@ -19,7 +19,7 @@ import type {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-xs font-medium text-gray-600 block mb-1">{label}</label>
+      <label className="text-xs font-medium text-muted-foreground block mb-1">{label}</label>
       {children}
     </div>
   )
@@ -40,7 +40,7 @@ export default function DiesSettingsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold">Impostazioni Stampi</h1>
-          <p className="text-xs text-gray-500">Tariffe, fasce piastra e template per il modulo Preventivatore Stampi</p>
+          <p className="text-xs text-muted-foreground">Tariffe, fasce piastra e template per il modulo Preventivatore Stampi</p>
         </div>
       </div>
 
@@ -50,7 +50,7 @@ export default function DiesSettingsPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              tab === t ? 'border-rose-600 text-rose-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              tab === t ? 'border-rose-600 text-rose-700' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t === 'tariffe' && 'Tariffe & costi'}
@@ -125,7 +125,7 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
     }
   }
 
-  if (!s) return <p className="text-sm text-gray-500">Caricamento…</p>
+  if (!s) return <p className="text-sm text-muted-foreground">Caricamento…</p>
 
   const num = (key: keyof DieSettings, label: string) => (
     <Field label={label}>
@@ -143,7 +143,7 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">1. Tariffe orarie officina (€/h)</CardTitle>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Aggancia una macchina del catalogo per propagare automaticamente la sua tariffa
             (Settings → Macchine). Altrimenti usa la tariffa esplicita inserita qui.
           </p>
@@ -173,7 +173,7 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">7. Progettazione (ore × tariffa)</CardTitle>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Ore totali = ore[difficoltà] + bonus piega × n. pieghe + bonus punzone × n. punzoni.
             Più feature ⇒ più CAD/programmazione, indipendentemente dalla difficoltà globale.
           </p>
@@ -213,7 +213,7 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">11. Driver EDM filo piastre stampo</CardTitle>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Lunghezza EDM per piastra = perimetro pezzo × n. stazioni × moltiplicatore (1.0 matrice, factor estrattore per porta-punzoni).
             Velocità di taglio prese dalla tabella Wire EDM esistente.
           </p>
@@ -238,7 +238,7 @@ function TariffeTab({ canWrite }: { canWrite: boolean }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">12. Produttività officina piastre stampo</CardTitle>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Ore per dm² di superficie lavorata, per operazione. Sono parametri della MIA officina
             (cambiando macchina cambia il numero). Formula: ore_piastra = setup + Σ (area × h/dm² × n_facce) + station_bonus.
             La scala "piastra grande" è gestita dalla tab <strong>Fasce piastra</strong> a fianco.
@@ -312,7 +312,7 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
         <CardTitle className="text-base">Fasce piastra</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-xs text-muted-foreground mb-3">
           Moltiplicatore ore meccaniche per area della singola piastra (gestione gru,
           manipolazione, set-up per piastre grandi). Lookup: area_min ≤ area &lt; area_max
           (ultima fascia: area_max vuoto = ∞). Esempio: area piastra 50 dm² → coeff fascia
@@ -320,7 +320,7 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
         </p>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-gray-500 border-b">
+            <tr className="text-xs text-muted-foreground border-b">
               <th className="text-left py-2">Etichetta</th>
               <th className="text-right py-2">Area min (dm²)</th>
               <th className="text-right py-2">Area max (dm²)</th>
@@ -353,14 +353,14 @@ function FasceTab({ canWrite }: { canWrite: boolean }) {
                         <Button size="sm" variant="outline" onClick={() => setEditing(prev => { const c = { ...prev }; delete c[b.id]; return c })}>Annulla</Button>
                       </div>
                     ) : canWrite && (
-                      <button onClick={() => remove(b.id)} className="text-gray-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                      <button onClick={() => remove(b.id)} className="text-muted-foreground hover:text-red-600"><X className="w-4 h-4" /></button>
                     )}
                   </td>
                 </tr>
               )
             })}
             {canWrite && (
-              <tr className="bg-gray-50">
+              <tr className="bg-muted">
                 <td className="py-1.5"><Input className="h-8" placeholder="Etichetta" value={newRow.label}
                   onChange={e => setNewRow({ ...newRow, label: e.target.value })} /></td>
                 <td className="py-1.5"><Input className="h-8 text-right" type="number" value={newRow.area_min_dm2 ?? 0}
@@ -568,14 +568,14 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        <p className="text-xs text-gray-500 mb-3">I template pre-compilano le piastre e i suggerimenti feature in fase di creazione.</p>
+        <p className="text-xs text-muted-foreground mb-3">I template pre-compilano le piastre e i suggerimenti feature in fase di creazione.</p>
         {list.map(t => (
           <div key={t.id} className="border rounded-md">
-            <div className="p-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+            <div className="p-3 flex items-center justify-between hover:bg-muted cursor-pointer"
               onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}>
               <div>
                 <div className="font-medium">{t.name}</div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-muted-foreground">
                   {t.die_subtype} · {t.plates.length} piastre · difficoltà {t.default_difficulty}
                 </div>
               </div>
@@ -590,7 +590,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
               <div className="px-3 pb-3 border-t pt-2">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-gray-500">
+                    <tr className="text-muted-foreground">
                       <th className="text-left py-1">Ruolo</th>
                       <th className="text-right py-1">Spessore (mm)</th>
                       <th className="text-left py-1 pl-2">Materiale default</th>
@@ -615,10 +615,10 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
         {/* Modale editing inline */}
         {editingTpl && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setEditingTpl(null)}>
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-card rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto p-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold">{editingTpl.id === 0 ? 'Nuovo template' : 'Modifica template'}</h2>
-                <button onClick={() => setEditingTpl(null)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+                <button onClick={() => setEditingTpl(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
@@ -669,7 +669,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                   </div>
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-gray-500 border-b">
+                      <tr className="text-muted-foreground border-b">
                         <th className="text-left py-1">Ruolo</th>
                         <th className="text-right py-1">Spessore</th>
                         <th className="text-left py-1 pl-2">Materiale default</th>
@@ -702,29 +702,29 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                             <td className="py-1"><Input className="h-8 text-right w-14" type="number" value={p.sort_order}
                               onChange={e => updateTplPlate(idx, { sort_order: parseInt(e.target.value, 10) || 0 })} /></td>
                             <td className="text-right py-1">
-                              <button onClick={() => removePlate(idx)} className="text-gray-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                              <button onClick={() => removePlate(idx)} className="text-muted-foreground hover:text-red-600"><X className="w-4 h-4" /></button>
                             </td>
                           </tr>
-                          <tr className="border-b bg-gray-50/50">
+                          <tr className="border-b bg-muted/50">
                             <td colSpan={6} className="py-1 px-2">
                               <div className="grid grid-cols-5 gap-2 items-center">
-                                <label className="text-[10px] text-gray-500">Setup (h)
+                                <label className="text-[10px] text-muted-foreground">Setup (h)
                                   <Input className="h-7 text-xs" type="number" step="0.1" value={p.setup_hours_fixed}
                                     onChange={e => updateTplPlate(idx, { setup_hours_fixed: parseFloat(e.target.value) || 0 })} />
                                 </label>
-                                <label className="text-[10px] text-gray-500">Facce fresate
+                                <label className="text-[10px] text-muted-foreground">Facce fresate
                                   <Input className="h-7 text-xs" type="number" value={p.n_milled_faces}
                                     onChange={e => updateTplPlate(idx, { n_milled_faces: parseInt(e.target.value, 10) || 0 })} />
                                 </label>
-                                <label className="text-[10px] text-gray-500">Facce rettificate
+                                <label className="text-[10px] text-muted-foreground">Facce rettificate
                                   <Input className="h-7 text-xs" type="number" value={p.n_ground_faces}
                                     onChange={e => updateTplPlate(idx, { n_ground_faces: parseInt(e.target.value, 10) || 0 })} />
                                 </label>
-                                <label className="text-[10px] text-gray-500">Facce forate
+                                <label className="text-[10px] text-muted-foreground">Facce forate
                                   <Input className="h-7 text-xs" type="number" value={p.n_drilled_faces}
                                     onChange={e => updateTplPlate(idx, { n_drilled_faces: parseInt(e.target.value, 10) || 0 })} />
                                 </label>
-                                <label className="text-[10px] text-gray-500">Bonus/stazione (h)
+                                <label className="text-[10px] text-muted-foreground">Bonus/stazione (h)
                                   <Input className="h-7 text-xs" type="number" step="0.1" value={p.station_bonus_hours}
                                     onChange={e => updateTplPlate(idx, { station_bonus_hours: parseFloat(e.target.value) || 0 })} />
                                 </label>
@@ -742,7 +742,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                   <div className="flex items-center justify-between">
                     <div>
                       <strong className="text-sm">Normalizzati di default (BoM scalabile)</strong>
-                      <p className="text-[10px] text-gray-500 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
                         Auto-popolati al momento della creazione del preventivo. La quantità è una mini-formula sulle variabili:
                         <code className="ml-1">n_stations</code>, <code>n_bends_total</code>, <code>n_punches_total</code>,
                         <code>area_castello_dm2</code>, <code>castle_x_mm</code>, <code>castle_y_mm</code>, <code>bbox_x_mm</code>, <code>bbox_y_mm</code>.
@@ -753,7 +753,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                   </div>
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-gray-500 border-b">
+                      <tr className="text-muted-foreground border-b">
                         <th className="text-left py-1">Descrizione</th>
                         <th className="text-left py-1 pl-2">Fornitore</th>
                         <th className="text-left py-1 pl-2">Quantità (formula)</th>
@@ -764,7 +764,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                     </thead>
                     <tbody>
                       {(editingTpl.normalized_items || []).length === 0 && (
-                        <tr><td colSpan={6} className="py-2 text-gray-400 italic">Nessun normalizzato di default.</td></tr>
+                        <tr><td colSpan={6} className="py-2 text-muted-foreground italic">Nessun normalizzato di default.</td></tr>
                       )}
                       {(editingTpl.normalized_items || []).map((n, idx) => (
                         <tr key={idx} className="border-b">
@@ -784,7 +784,7 @@ function TemplatesTab({ canWrite }: { canWrite: boolean }) {
                           <td className="py-1"><Input className="h-8 text-right w-14" type="number" value={n.sort_order}
                             onChange={e => updateTplNorm(idx, { sort_order: parseInt(e.target.value, 10) || 0 })} /></td>
                           <td className="text-right py-1">
-                            <button onClick={() => removeNorm(idx)} className="text-gray-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                            <button onClick={() => removeNorm(idx)} className="text-muted-foreground hover:text-red-600"><X className="w-4 h-4" /></button>
                           </td>
                         </tr>
                       ))}

@@ -24,12 +24,12 @@ export default function SuppliersSettingsPage() {
   return (
     <PageContainer width="xl">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
           <Truck className="w-5 h-5" />
         </div>
         <div>
           <h1 className="text-xl font-bold">Fornitori</h1>
-          <p className="text-xs text-gray-500">Anagrafiche fornitori divise per tipologia</p>
+          <p className="text-xs text-muted-foreground">Anagrafiche fornitori divise per tipologia</p>
         </div>
       </div>
 
@@ -39,7 +39,7 @@ export default function SuppliersSettingsPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
-              tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              tab === t ? 'border-blue-600 text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {TAB_LABELS[t]}

@@ -19,7 +19,7 @@ import type {
 } from '@/types'
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label className="text-xs font-medium text-gray-600 block mb-1">{children}</label>
+  return <label className="text-xs font-medium text-muted-foreground block mb-1">{children}</label>
 }
 
 const PLATE_ROLE_LABELS: Record<string, string> = {
@@ -173,7 +173,7 @@ export default function DieQuoteEditor() {
   }, [spec, dieSettings, parts, materials, brackets, edmCfg, edmSpeeds, cycles, machines])
 
   if (loading || !quote || !spec) {
-    return <div className="p-8 text-sm text-gray-500">Caricamento…</div>
+    return <div className="p-8 text-sm text-muted-foreground">Caricamento…</div>
   }
 
   // Spec 18: modificabile in bozza/inviato/letto; bloccato dalla Conferma (admin esente).
@@ -364,9 +364,9 @@ export default function DieQuoteEditor() {
     if (override != null) {
       return (
         <div className="flex items-center gap-2 justify-end">
-          <span className="font-medium text-orange-600">€ {override.toFixed(2)} <span className="text-xs text-gray-500">(manuale)</span></span>
+          <span className="font-medium text-orange-600">€ {override.toFixed(2)} <span className="text-xs text-muted-foreground">(manuale)</span></span>
           {editable && canWrite && (
-            <button onClick={() => setOverride(key, null)} title="Rimuovi override" className="text-gray-400 hover:text-red-600">
+            <button onClick={() => setOverride(key, null)} title="Rimuovi override" className="text-muted-foreground hover:text-red-600">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -377,7 +377,7 @@ export default function DieQuoteEditor() {
       <div className="flex items-center gap-2 justify-end">
         <span>€ {calculated.toFixed(2)}</span>
         {editable && canWrite && (
-          <button onClick={() => { setEditingOverride(key); setOverrideValue(calculated.toFixed(2)) }} title="Override manuale" className="text-gray-400 hover:text-blue-600">
+          <button onClick={() => { setEditingOverride(key); setOverrideValue(calculated.toFixed(2)) }} title="Override manuale" className="text-muted-foreground hover:text-blue-600">
             <Pencil className="w-3 h-3" />
           </button>
         )}
@@ -395,14 +395,14 @@ export default function DieQuoteEditor() {
             <span className="text-xs px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
               Stampo {spec.die_subtype === 'passo' ? 'a Passo' : 'a Blocco'}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{quote.status}</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">{quote.status}</span>
             {isDirty && (
               <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />Modifiche non salvate
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500">{quote.customer_name || 'Cliente non specificato'}</p>
+          <p className="text-sm text-muted-foreground">{quote.customer_name || 'Cliente non specificato'}</p>
         </div>
         <div className="flex gap-2">
           {quote.status === 'bozza' && canSubmit && (
@@ -467,7 +467,7 @@ export default function DieQuoteEditor() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === key
                 ? 'border-rose-600 text-rose-700'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {label}
@@ -553,7 +553,7 @@ export default function DieQuoteEditor() {
                   </select>
                 </div>
               </div>
-              <p className="text-[10px] text-gray-500 -mt-1">
+              <p className="text-[10px] text-muted-foreground -mt-1">
                 Driver per la stima ore EDM filo. Se vuoto: stimato come 2×(X+Y)×complessità.
               </p>
               <div className="grid grid-cols-6 gap-2">
@@ -600,7 +600,7 @@ export default function DieQuoteEditor() {
                   />
                 </div>
               </div>
-              <p className="text-[10px] text-gray-500">P = pieghe, Pz = punzoni</p>
+              <p className="text-[10px] text-muted-foreground">P = pieghe, Pz = punzoni</p>
             </CardContent>
           </Card>
         )}
@@ -611,11 +611,11 @@ export default function DieQuoteEditor() {
             <CardHeader><CardTitle className="text-base">Piastre castello ({parts.length})</CardTitle></CardHeader>
             <CardContent>
               {parts.length === 0 ? (
-                <p className="text-sm text-gray-500">Nessuna piastra. Crea il preventivo con un template oppure aggiungi manualmente.</p>
+                <p className="text-sm text-muted-foreground">Nessuna piastra. Crea il preventivo con un template oppure aggiungi manualmente.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-gray-500 border-b">
+                    <tr className="text-xs text-muted-foreground border-b">
                       <th className="text-left py-1">Ruolo</th>
                       <th className="text-right py-1">X×Y×Z</th>
                       <th className="text-left py-1 pl-2">Materiale</th>
@@ -633,7 +633,7 @@ export default function DieQuoteEditor() {
                           <input
                             type="number"
                             disabled={!editable || !canWrite}
-                            className="w-14 text-right border-b border-gray-200 bg-transparent"
+                            className="w-14 text-right border-b border-border bg-transparent"
                             value={p.raw_z_mm || 0}
                             onChange={e => p.id && updatePartLocal(p.id, { raw_z_mm: parseFloat(e.target.value) || 0 })}
                           />
@@ -656,7 +656,7 @@ export default function DieQuoteEditor() {
                             ))}
                           </select>
                         </td>
-                        <td className="text-right py-1 text-xs text-gray-700">{ore > 0 ? `${ore.toFixed(1)} h` : '—'}</td>
+                        <td className="text-right py-1 text-xs text-foreground">{ore > 0 ? `${ore.toFixed(1)} h` : '—'}</td>
                         <td className="text-right py-1">€ {(p.total_cost || 0).toFixed(2)}</td>
                       </tr>
                       )
@@ -679,11 +679,11 @@ export default function DieQuoteEditor() {
             </CardHeader>
             <CardContent>
               {normalizedItems.length === 0 ? (
-                <p className="text-sm text-gray-500">Nessun normalizzato.</p>
+                <p className="text-sm text-muted-foreground">Nessun normalizzato.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-gray-500 border-b">
+                    <tr className="text-xs text-muted-foreground border-b">
                       <th className="text-left py-1">Descrizione</th>
                       <th className="text-left py-1">Fornitore</th>
                       <th className="text-right py-1 w-16">Qty</th>
@@ -698,7 +698,7 @@ export default function DieQuoteEditor() {
                         <td className="py-1">
                           <input
                             disabled={!editable || !canWrite}
-                            className="w-full border-b border-gray-200 bg-transparent text-sm"
+                            className="w-full border-b border-border bg-transparent text-sm"
                             value={it.description}
                             onChange={e => updateItemLocal(it.id, { description: e.target.value })}
                           />
@@ -723,14 +723,14 @@ export default function DieQuoteEditor() {
                         </td>
                         <td className="text-right py-1">
                           <input type="number" disabled={!editable || !canWrite}
-                            className="w-12 text-right border-b border-gray-200 bg-transparent"
+                            className="w-12 text-right border-b border-border bg-transparent"
                             value={it.quantity}
                             onChange={e => updateItemLocal(it.id, { quantity: parseInt(e.target.value, 10) || 1 })}
                           />
                         </td>
                         <td className="text-right py-1">
                           <input type="number" disabled={!editable || !canWrite}
-                            className="w-16 text-right border-b border-gray-200 bg-transparent"
+                            className="w-16 text-right border-b border-border bg-transparent"
                             value={it.unit_price}
                             onChange={e => updateItemLocal(it.id, { unit_price: parseFloat(e.target.value) || 0 })}
                           />
@@ -738,7 +738,7 @@ export default function DieQuoteEditor() {
                         <td className="text-right py-1">€ {(it.quantity * it.unit_price).toFixed(2)}</td>
                         <td className="text-right py-1">
                           {editable && canWrite && (
-                            <button onClick={() => deleteNormalizedItem(it.id)} className="text-gray-400 hover:text-red-600">
+                            <button onClick={() => deleteNormalizedItem(it.id)} className="text-muted-foreground hover:text-red-600">
                               <X className="w-4 h-4" />
                             </button>
                           )}
@@ -773,13 +773,13 @@ export default function DieQuoteEditor() {
                     <td className="py-2 text-right">{renderOverrideCell('machining', previewMachining, spec.override_machining)}</td>
                   </tr>
                   {previewMachiningMech > 0 && (
-                    <tr className="border-b text-xs text-gray-600">
+                    <tr className="border-b text-xs text-muted-foreground">
                       <td className="py-1 pl-4">↳ di cui lavorazione meccanica piastre</td>
                       <td className="py-1 text-right">€ {previewMachiningMech.toFixed(2)}</td>
                     </tr>
                   )}
                   {previewMachiningEdm > 0 && (
-                    <tr className="border-b text-xs text-gray-600">
+                    <tr className="border-b text-xs text-muted-foreground">
                       <td className="py-1 pl-4">↳ di cui EDM filo (matrice + estrattore)</td>
                       <td className="py-1 text-right">€ {previewMachiningEdm.toFixed(2)}</td>
                     </tr>
@@ -788,7 +788,7 @@ export default function DieQuoteEditor() {
                     <td className="py-2">L4 Accessori (design + montaggio + extras)</td>
                     <td className="py-2 text-right">{renderOverrideCell('accessories', previewAccessories, spec.override_accessories)}</td>
                   </tr>
-                  <tr className="border-b font-semibold bg-gray-50">
+                  <tr className="border-b font-semibold bg-muted">
                     <td className="py-2">L5 Costo industriale</td>
                     <td className="py-2 text-right">€ {industrial.toFixed(2)}</td>
                   </tr>
@@ -798,7 +798,7 @@ export default function DieQuoteEditor() {
                   </tr>
                   <tr>
                     <td className="py-2">L7 Sconto ({discount}%)</td>
-                    <td className="py-2 text-right text-gray-500">- € {(industrial * (1 + margin / 100) * discount / 100).toFixed(2)}</td>
+                    <td className="py-2 text-right text-muted-foreground">- € {(industrial * (1 + margin / 100) * discount / 100).toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -811,11 +811,11 @@ export default function DieQuoteEditor() {
 
               {/* Sprint G — calibrazione storica via find-similar stats */}
               {similarStats && (similarStats.n_with_sold_price > 0 || similarStats.n_with_actual_cost > 0) && (
-                <div className="mt-3 pt-3 border-t border-dashed border-gray-300 text-xs text-gray-600 space-y-0.5">
+                <div className="mt-3 pt-3 border-t border-dashed border-gray-300 text-xs text-muted-foreground space-y-0.5">
                   {similarStats.n_with_sold_price > 0 && similarStats.avg_sold_to_quoted_ratio != null && (
                     <div>
                       <strong>{similarStats.n_with_sold_price}</strong> stampi simili venduti in media a <strong>{similarStats.avg_sold_to_quoted_ratio.toFixed(2)}×</strong> il preventivo
-                      <span className="text-gray-400"> (suggerimento prezzo finale: € {(industrial * similarStats.avg_sold_to_quoted_ratio).toFixed(0)})</span>
+                      <span className="text-muted-foreground"> (suggerimento prezzo finale: € {(industrial * similarStats.avg_sold_to_quoted_ratio).toFixed(0)})</span>
                     </div>
                   )}
                   {similarStats.n_with_actual_cost > 0 && similarStats.avg_cost_to_quoted_ratio != null && (
@@ -854,7 +854,7 @@ export default function DieQuoteEditor() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Chiusura commessa</CardTitle>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Compila quando lo stampo è stato venduto e/o consegnato.
                   Questi numeri alimentano la calibrazione automatica (find-similar
                   mostra i ratio agli stampi futuri simili).

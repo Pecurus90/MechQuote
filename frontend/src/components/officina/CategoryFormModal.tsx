@@ -62,10 +62,10 @@ export default function CategoryFormModal({ category, onClose, onSaved }: Props)
       className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
-      <Card className="w-full max-w-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+      <Card className="w-full max-w-2xl bg-card shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="font-semibold">{isEdit ? 'Modifica categoria' : 'Nuova categoria'}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -80,13 +80,13 @@ export default function CategoryFormModal({ category, onClose, onSaved }: Props)
               <label className="text-sm font-medium">Ordine</label>
               <Input type="number" min={0} value={sortOrder}
                 onChange={e => setSortOrder(parseInt(e.target.value) || 0)} />
-              <p className="text-[11px] text-gray-400 mt-0.5">Più basso = appare prima</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Più basso = appare prima</p>
             </div>
           </div>
 
           <div>
             <label className="text-sm font-medium block mb-2">Icona</label>
-            <div className="grid grid-cols-10 sm:grid-cols-15 gap-1.5 max-h-48 overflow-y-auto p-2 border rounded-md bg-gray-50">
+            <div className="grid grid-cols-10 sm:grid-cols-15 gap-1.5 max-h-48 overflow-y-auto p-2 border rounded-md bg-muted">
               {ICON_NAMES.map(iconName => {
                 const Icon = ICON_MAP[iconName]
                 const selected = icon === iconName
@@ -98,8 +98,8 @@ export default function CategoryFormModal({ category, onClose, onSaved }: Props)
                     title={iconName}
                     className={`relative p-2 rounded-md border transition-colors flex items-center justify-center ${
                       selected
-                        ? 'bg-blue-100 border-blue-400 text-blue-700'
-                        : 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200 text-gray-600'
+                        ? 'bg-blue-100 border-blue-400 text-primary'
+                        : 'bg-card border-border hover:bg-primary/10 hover:border-blue-200 text-muted-foreground'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -110,7 +110,7 @@ export default function CategoryFormModal({ category, onClose, onSaved }: Props)
                 )
               })}
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Selezionata: <strong>{icon}</strong></p>
+            <p className="text-[11px] text-muted-foreground mt-1">Selezionata: <strong>{icon}</strong></p>
           </div>
 
           <div className="flex gap-2 pt-2">

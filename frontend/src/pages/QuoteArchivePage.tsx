@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import type { QuoteListItem as Quote } from '@/types'
+import type { QuoteListItem as Quote, QuoteMaterialDetail } from '@/types'
 import api from '@/lib/api'
-import { FileText, Plus, Trash2, Search, X, Archive } from 'lucide-react'
+import { FileText, Plus, Trash2, Search, X, Archive, ChevronRight, ChevronDown } from 'lucide-react'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import PageContainer from '@/components/ui/page-container'
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
+import {
+  MATERIAL_STATUS_LABELS, MATERIAL_STATUS_COLORS,
+  PART_STATE_LABELS, PART_STATE_COLORS,
+} from '@/lib/materialStatus'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -39,6 +43,24 @@ export default function QuoteArchivePage() {
   const [loading, setLoading] = useState(true)
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  // Vista espandibile articoli (spec 18): un preventivo aperto alla volta,
+  // dettaglio caricato lazy e messo in cache.
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [detailCache, setDetailCache] = useState<Record<number, QuoteMaterialDetail | 'loading'>>({})
+
+  const toggleExpand = (id: number) => {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    if (detailCache[id] === undefined) {
+      setDetailCache(c => ({ ...c, [id]: 'loading' }))
+      api.get(`/quotes/${id}/material-detail`)
+        .then(r => setDetailCache(c => ({ ...c, [id]: r.data })))
+        .catch(() => {
+          setDetailCache(c => { const n = { ...c }; delete n[id]; return n })
+          toast.error('Errore nel caricamento del dettaglio materiale')
+        })
+    }
+  }
 
   useEffect(() => {
     api.get('/quotes/years').then(res => setYears(res.data))
@@ -195,10 +217,12 @@ export default function QuoteArchivePage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="w-8 p-3"></th>
                   <th className="text-left p-3 font-medium text-gray-600">N. Preventivo</th>
                   <th className="text-left p-3 font-medium text-gray-600">Cliente</th>
                   <th className="text-left p-3 font-medium text-gray-600">Data</th>
                   <th className="text-left p-3 font-medium text-gray-600">Stato</th>
+                  <th className="text-left p-3 font-medium text-gray-600">Materiale</th>
                   <th className="text-right p-3 font-medium text-gray-600">Totale</th>
                   <th className="text-center p-3 font-medium text-gray-600">Azioni</th>
                 </tr>
@@ -206,17 +230,28 @@ export default function QuoteArchivePage() {
               <tbody>
                 {visibleQuotes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-gray-400">
+                    <td colSpan={8} className="p-6 text-center text-gray-400">
                       Nessun preventivo trovato.
                     </td>
                   </tr>
                 ) : (
                   visibleQuotes.map(q => (
+                    <Fragment key={q.id}>
                     <tr
-                      key={q.id}
                       className="border-b hover:bg-gray-50 cursor-pointer"
                       onClick={() => navigate(`/quotes/${q.id}`)}
                     >
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleExpand(q.id) }}
+                          className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
+                          title="Mostra articoli e stato materiale"
+                        >
+                          {expandedId === q.id
+                            ? <ChevronDown className="w-4 h-4" />
+                            : <ChevronRight className="w-4 h-4" />}
+                        </button>
+                      </td>
                       <td className="p-3 font-mono font-medium text-blue-700">
                         {q.quote_number}
                         {q.quote_type === 'die' && (
@@ -232,14 +267,15 @@ export default function QuoteArchivePage() {
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
                           {STATUS_LABELS[q.status] || q.status}
                         </span>
-                        {q.material_ordered_at && (
-                          <span
-                            className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-700"
-                            title={`Ordinato il ${new Date(q.material_ordered_at).toLocaleString('it-IT')}${q.material_ordered_by ? ' da ' + (q.material_ordered_by.full_name || q.material_ordered_by.username) : ''}`}
-                          >
-                            Ordine materiale
-                          </span>
-                        )}
+                      </td>
+                      <td className="p-3">
+                        {q.material_status
+                          ? (
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${MATERIAL_STATUS_COLORS[q.material_status] || 'bg-gray-100 text-gray-500'}`}>
+                              {MATERIAL_STATUS_LABELS[q.material_status] || q.material_status}
+                            </span>
+                          )
+                          : <span className="text-xs text-gray-300">—</span>}
                       </td>
                       <td className="p-3 text-right font-medium">{quoteTotal(q).toFixed(2)} €</td>
                       <td className="p-3 text-center">
@@ -262,6 +298,49 @@ export default function QuoteArchivePage() {
                         </div>
                       </td>
                     </tr>
+                    {expandedId === q.id && (
+                      <tr className="bg-gray-50/60">
+                        <td colSpan={8} className="px-6 py-3">
+                          {detailCache[q.id] === 'loading' || detailCache[q.id] === undefined ? (
+                            <div className="text-sm text-gray-400 py-2">Caricamento articoli...</div>
+                          ) : (detailCache[q.id] as QuoteMaterialDetail).articles.length === 0 ? (
+                            <div className="text-sm text-gray-400 py-2">Nessun articolo in questo preventivo.</div>
+                          ) : (
+                            <table className="w-full text-xs bg-white rounded border">
+                              <thead className="bg-gray-100 text-gray-500">
+                                <tr>
+                                  <th className="text-left p-2 font-medium">Codice</th>
+                                  <th className="text-left p-2 font-medium">Materiale</th>
+                                  <th className="text-left p-2 font-medium">Tipo</th>
+                                  <th className="text-left p-2 font-medium">Misure</th>
+                                  <th className="text-left p-2 font-medium">Trattamenti termici</th>
+                                  <th className="text-left p-2 font-medium">Fornitore</th>
+                                  <th className="text-left p-2 font-medium">Stato</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(detailCache[q.id] as QuoteMaterialDetail).articles.map(a => (
+                                  <tr key={a.part_id} className="border-t">
+                                    <td className="p-2 font-mono">{a.part_code}{a.revision ? ` / ${a.revision}` : ''}</td>
+                                    <td className="p-2">{a.material_name || '—'}</td>
+                                    <td className="p-2 text-gray-500">{a.family ? a.family.replace(/_/g, ' ') : '—'}</td>
+                                    <td className="p-2 text-gray-600">{a.dimensions}</td>
+                                    <td className="p-2 text-gray-600">{a.treatments.length ? a.treatments.join(', ') : '—'}</td>
+                                    <td className="p-2">{a.supplier_name || '—'}</td>
+                                    <td className="p-2">
+                                      <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${PART_STATE_COLORS[a.state] || 'bg-gray-100 text-gray-500'}`}>
+                                        {PART_STATE_LABELS[a.state] || a.state}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))
                 )}
               </tbody>

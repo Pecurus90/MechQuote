@@ -392,10 +392,31 @@ export interface QuoteListItem {
   created_by_user_id?: number | null
   material_ordered_at?: string | null
   material_ordered_by?: UserMinimal | null
+  // Spec 18: stato materiale derivato (solo lista archivio). null per stampi.
+  material_status?: string | null
   parts: { total_price?: number }[]
   // Modulo Stampi: presente solo per quote_type==='die'. Usato per calcolare
   // il `display_price` dell'archivio (cost_industrial × margin × discount).
   die_spec?: { cost_industrial: number } | null
+}
+
+// Vista espandibile archivio: dettaglio articoli con stato materiale (spec 18).
+export interface ArticleMaterialRow {
+  part_id: number
+  part_code: string
+  revision?: string | null
+  material_name?: string | null
+  family?: string | null
+  dimensions: string
+  treatments: string[]
+  supplier_name?: string | null
+  state: string
+}
+
+export interface QuoteMaterialDetail {
+  quote_id: number
+  material_status: string
+  articles: ArticleMaterialRow[]
 }
 
 // Template di flusso lavoro: sequenza di (Macchina + Lavorazione).

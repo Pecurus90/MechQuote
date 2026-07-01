@@ -1,12 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import func, extract, or_
 from typing import List, Optional
 
+from app.api.orders import _format_dim
 from app.core.database import get_db
 from app.core.security import require_any_permission, get_current_user
-from app.models import Quote, User
-from app.schemas import QuoteOut
+from app.models import (
+    ManufacturingPhase, Material, Part, Quote, QuoteSupplierOrder, User,
+)
+from app.schemas import (
+    ArchiveQuoteOut, ArticleMaterialRow, QuoteMaterialDetailOut, QuoteOut,
+)
+from app.services.material_status import (
+    part_material_state, quote_material_status,
+)
 
 
 router = APIRouter(prefix="/api", tags=["quotes-archive"])
@@ -50,7 +58,7 @@ def get_quote_years(
     return years or [2026]
 
 
-@router.get("/quotes/archive", response_model=List[QuoteOut])
+@router.get("/quotes/archive", response_model=List[ArchiveQuoteOut])
 def list_archive(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -65,9 +73,10 @@ def list_archive(
     page = max(1, page)
     page_size = max(1, min(100, page_size))
     # joinedload(die_spec) per dare al frontend cost_industrial/margin/discount
-    # senza una seconda chiamata per ogni riga.
+    # senza una seconda chiamata per ogni riga. parts.material serve per lo
+    # stato materiale derivato (spec 18).
     query = db.query(Quote).options(
-        selectinload(Quote.parts),
+        selectinload(Quote.parts).selectinload(Part.material),
         joinedload(Quote.die_spec),
     )
     # ACL: senza quotes.view_all l'utente vede solo i preventivi che ha creato.
@@ -88,4 +97,69 @@ def list_archive(
         ))
     query = query.order_by(Quote.quote_date.desc(), Quote.id.desc())
     offset = (page - 1) * page_size
-    return query.offset(offset).limit(page_size).all()
+    results = query.offset(offset).limit(page_size).all()
+
+    # Stato materiale derivato (spec 18) per la colonna archivio. Batch dei
+    # fornitori ordinati per i preventivi di questa pagina (evita N+1). Gli
+    # stampi restano fuori scope → material_status None.
+    quote_ids = [r.id for r in results]
+    ordered_map: dict = {}
+    if quote_ids:
+        rows = db.query(
+            QuoteSupplierOrder.quote_id, QuoteSupplierOrder.material_supplier_id
+        ).filter(QuoteSupplierOrder.quote_id.in_(quote_ids)).all()
+        for qid, sid in rows:
+            ordered_map.setdefault(qid, set()).add(sid)
+    for r in results:
+        if r.quote_type == 'die':
+            r.material_status = None
+        else:
+            r.material_status = quote_material_status(r.parts, ordered_map.get(r.id, set()))
+    return results
+
+
+@router.get("/quotes/{quote_id}/material-detail", response_model=QuoteMaterialDetailOut)
+def quote_material_detail(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """Dettaglio articoli con stato materiale, per la vista espandibile
+    dell'archivio (spec 18, sola visualizzazione)."""
+    quote = db.query(Quote).options(
+        selectinload(Quote.parts).joinedload(Part.material).joinedload(Material.material_supplier),
+        selectinload(Quote.parts).selectinload(Part.phases).joinedload(ManufacturingPhase.treatment),
+    ).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if not _user_sees_all(current_user) and quote.created_by_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Accesso negato")
+
+    ordered = {
+        r.material_supplier_id for r in db.query(QuoteSupplierOrder).filter(
+            QuoteSupplierOrder.quote_id == quote_id
+        ).all()
+    }
+
+    articles: List[ArticleMaterialRow] = []
+    for p in quote.parts:
+        mat = p.material
+        sup = mat.material_supplier if mat else None
+        treatments = [ph.treatment.name for ph in p.phases if ph.treatment_id and ph.treatment]
+        articles.append(ArticleMaterialRow(
+            part_id=p.id,
+            part_code=p.part_code,
+            revision=p.revision,
+            material_name=mat.name if mat else None,
+            family=mat.family if mat else None,
+            dimensions=_format_dim(p),
+            treatments=treatments,
+            supplier_name=sup.name if sup else None,
+            state=part_material_state(p, ordered),
+        ))
+    return QuoteMaterialDetailOut(
+        quote_id=quote.id,
+        material_status=quote_material_status(quote.parts, ordered),
+        articles=articles,
+    )

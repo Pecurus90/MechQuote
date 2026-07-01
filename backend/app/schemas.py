@@ -431,6 +431,31 @@ class QuoteOut(QuoteBase):
         from_attributes = True
 
 
+class ArchiveQuoteOut(QuoteOut):
+    """QuoteOut + stato materiale derivato (spec 18), solo per la lista
+    archivio. `None` per gli stampi (fuori scope) o quando non calcolato."""
+    material_status: Optional[str] = None
+
+
+class ArticleMaterialRow(BaseModel):
+    """Riga articolo nella vista espandibile dell'archivio (spec 18, sola vista)."""
+    part_id: int
+    part_code: str
+    revision: Optional[str] = None
+    material_name: Optional[str] = None
+    family: Optional[str] = None          # etichettato "Tipo" in UI
+    dimensions: str = "—"
+    treatments: List[str] = []            # nomi trattamenti termici (fasi treatment)
+    supplier_name: Optional[str] = None
+    state: str                            # ordinato / da_ordinare / da_magazzino / conto_lavoro / senza_fornitore / nessun_materiale
+
+
+class QuoteMaterialDetailOut(BaseModel):
+    quote_id: int
+    material_status: str
+    articles: List[ArticleMaterialRow] = []
+
+
 # --- Machine ---
 class MachineBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)

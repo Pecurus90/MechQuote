@@ -27,32 +27,32 @@ export default function QuoteTopBar({
   const navigate = useNavigate()
 
   return (
-    <div className="bg-white border-b px-6 py-3 flex items-center gap-3 flex-wrap">
-      <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-700 mr-1">
+    <div className="bg-card border-b px-6 py-3 flex items-center gap-3 flex-wrap">
+      <button onClick={() => navigate('/dashboard')} className="text-muted-foreground hover:text-foreground mr-1">
         <ChevronLeft className="w-5 h-5" />
       </button>
-      <span className="font-mono font-bold text-lg text-blue-700">{quote.quote_number}</span>
-      <span className="text-gray-300">|</span>
-      <span className="text-sm text-gray-500">{quote.customer_name || 'Nessun cliente'}</span>
+      <span className="font-mono font-bold text-lg text-primary">{quote.quote_number}</span>
+      <span className="text-muted-foreground/40">|</span>
+      <span className="text-sm text-muted-foreground">{quote.customer_name || 'Nessun cliente'}</span>
       <div className="flex-1" />
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[quote.status] ?? STATUS_COLORS.bozza}`}>
         {STATUS_LABELS[quote.status] ?? quote.status}
       </span>
       {quote.status === 'inviato' && quote.submitted_by && (
-        <span className="text-xs text-gray-500">
-          Inviato da <span className="font-medium text-gray-700">{quote.submitted_by.full_name || quote.submitted_by.username}</span>
+        <span className="text-xs text-muted-foreground">
+          Inviato da <span className="font-medium text-foreground">{quote.submitted_by.full_name || quote.submitted_by.username}</span>
           {quote.submitted_at && <> · {timeAgo(quote.submitted_at)}</>}
         </span>
       )}
       {quote.status === 'confermato' && quote.confirmed_by && (
-        <span className="text-xs text-gray-500">
-          Confermato da <span className="font-medium text-gray-700">{quote.confirmed_by.full_name || quote.confirmed_by.username}</span>
+        <span className="text-xs text-muted-foreground">
+          Confermato da <span className="font-medium text-foreground">{quote.confirmed_by.full_name || quote.confirmed_by.username}</span>
           {quote.confirmed_at && <> · {timeAgo(quote.confirmed_at)}</>}
         </span>
       )}
       {quote.status === 'completo' && quote.completed_by && (
-        <span className="text-xs text-gray-500">
-          Completo da <span className="font-medium text-gray-700">{quote.completed_by.full_name || quote.completed_by.username}</span>
+        <span className="text-xs text-muted-foreground">
+          Completo da <span className="font-medium text-foreground">{quote.completed_by.full_name || quote.completed_by.username}</span>
           {quote.completed_at && <> · {timeAgo(quote.completed_at)}</>}
         </span>
       )}

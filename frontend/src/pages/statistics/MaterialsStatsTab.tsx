@@ -42,14 +42,14 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
       {/* Filtri */}
       <div className="flex gap-3 flex-wrap items-end">
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Fornitore</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Fornitore</label>
           <select className="h-9 rounded-md border bg-background px-2 text-sm min-w-[160px]" value={supplierId} onChange={e => setSupplierId(e.target.value)}>
             <option value="">Tutti i fornitori</option>
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Tipo materiale</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo materiale</label>
           <select className="h-9 rounded-md border bg-background px-2 text-sm min-w-[160px]" value={family} onChange={e => setFamily(e.target.value)}>
             <option value="">Tutti i tipi</option>
             {MATERIAL_FAMILIES.map(f => <option key={f.slug} value={f.slug}>{f.label}</option>)}
@@ -69,7 +69,7 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><Package className="w-4 h-4" /> Trend ordini per mese</CardTitle>
-            <p className="text-xs text-gray-500">N. ordini materiale emessi mese su mese</p>
+            <p className="text-xs text-muted-foreground">N. ordini materiale emessi mese su mese</p>
           </CardHeader>
           <CardContent>
             {data.trend_monthly.length === 0 ? <EmptyChart /> : (
@@ -89,7 +89,7 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Costo materiale per fornitore</CardTitle>
-            <p className="text-xs text-gray-500">€ grezzo ordinato per fornitore nel periodo</p>
+            <p className="text-xs text-muted-foreground">€ grezzo ordinato per fornitore nel periodo</p>
           </CardHeader>
           <CardContent>
             {data.by_supplier.length === 0 ? <EmptyChart /> : (
@@ -111,7 +111,7 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Top 10 materiali per costo</CardTitle>
-            <p className="text-xs text-gray-500">€ grezzo ordinato per materiale</p>
+            <p className="text-xs text-muted-foreground">€ grezzo ordinato per materiale</p>
           </CardHeader>
           <CardContent>
             {data.by_material.length === 0 ? <EmptyChart /> : (
@@ -133,12 +133,12 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Dettaglio per fornitore</CardTitle>
-            <p className="text-xs text-gray-500">Costo · peso · spedizioni · n° ordini</p>
+            <p className="text-xs text-muted-foreground">Costo · peso · spedizioni · n° ordini</p>
           </CardHeader>
           <CardContent className="p-0">
             {data.by_supplier.length === 0 ? <EmptyChart /> : (
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b text-xs text-gray-500">
+                <thead className="bg-muted border-b text-xs text-muted-foreground">
                   <tr>
                     <th className="text-left p-2 font-medium">Fornitore</th>
                     <th className="text-right p-2 font-medium">Costo materiale</th>
@@ -166,7 +166,7 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Lead time medio "confermato → ordine"</CardTitle>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Giorni medi tra conferma preventivo e generazione ordine materiale ·
               media periodo: <span className="font-semibold text-blue-700">{data.lead_time_avg_days.toFixed(1)} gg</span>
             </p>

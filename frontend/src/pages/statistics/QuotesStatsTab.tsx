@@ -19,7 +19,7 @@ function MarginChart({ data }: { data: Statistics['margin_monthly'] }) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Margine medio mensile</CardTitle>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Solo preventivi standard · media periodo:
           <span className="font-semibold ml-1" style={{ color }}>{avg.toFixed(1)}%</span>
         </p>
@@ -46,7 +46,7 @@ function HoursChart({ title, subtitle, data }: { title: string; subtitle: string
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{title}</CardTitle>
-        <p className="text-xs text-gray-500">{subtitle}</p>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? <EmptyChart /> : (
@@ -101,7 +101,7 @@ export default function QuotesStatsTab({ period }: { period: Period }) {
       {/* Filtri */}
       <div className="flex gap-3 flex-wrap items-end">
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Tipo</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo</label>
           <select className="h-9 rounded-md border bg-background px-2 text-sm" value={quoteType} onChange={e => setQuoteType(e.target.value as typeof quoteType)}>
             <option value="all">Tutti</option>
             <option value="standard">Standard</option>
@@ -109,7 +109,7 @@ export default function QuotesStatsTab({ period }: { period: Period }) {
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Cliente</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Cliente</label>
           <select className="h-9 rounded-md border bg-background px-2 text-sm min-w-[180px]" value={customerId} onChange={e => setCustomerId(e.target.value)}>
             <option value="">Tutti i clienti</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -129,7 +129,7 @@ export default function QuotesStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Trend mensile per tipo</CardTitle>
-            <p className="text-xs text-gray-500">€ preventivati, split Standard vs Stampi</p>
+            <p className="text-xs text-muted-foreground">€ preventivati, split Standard vs Stampi</p>
           </CardHeader>
           <CardContent>
             {data.trend_monthly.length === 0 ? <EmptyChart /> : (
@@ -151,7 +151,7 @@ export default function QuotesStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Top 10 clienti</CardTitle>
-            <p className="text-xs text-gray-500">Fatturato preventivato cumulato · click su barra per filtrare archivio</p>
+            <p className="text-xs text-muted-foreground">Fatturato preventivato cumulato · click su barra per filtrare archivio</p>
           </CardHeader>
           <CardContent>
             {data.top_customers.length === 0 ? <EmptyChart /> : (
@@ -176,7 +176,7 @@ export default function QuotesStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Distribuzione per categoria</CardTitle>
-            <p className="text-xs text-gray-500">Lettera nel codice preventivo (es. 042-26<strong>A</strong>_001)</p>
+            <p className="text-xs text-muted-foreground">Lettera nel codice preventivo (es. 042-26<strong>A</strong>_001)</p>
           </CardHeader>
           <CardContent>
             {data.by_category.length === 0 ? <EmptyChart /> : (

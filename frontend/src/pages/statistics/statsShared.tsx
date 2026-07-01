@@ -19,10 +19,10 @@ export function KpiCards({ items }: { items: Array<{ label: string; value: strin
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {items.map((it, i) => (
-        <div key={i} className="rounded-xl border bg-white p-4">
-          <div className="text-2xl font-bold text-gray-900 leading-none">{it.value}</div>
-          <div className="text-sm font-medium text-gray-600 mt-1">{it.label}</div>
-          {it.hint && <div className="text-xs text-gray-400 mt-0.5">{it.hint}</div>}
+        <div key={i} className="rounded-xl border bg-card p-4">
+          <div className="text-2xl font-bold text-foreground leading-none">{it.value}</div>
+          <div className="text-sm font-medium text-muted-foreground mt-1">{it.label}</div>
+          {it.hint && <div className="text-xs text-muted-foreground mt-0.5">{it.hint}</div>}
         </div>
       ))}
     </div>
@@ -30,12 +30,12 @@ export function KpiCards({ items }: { items: Array<{ label: string; value: strin
 }
 
 export function Loading() {
-  return <div className="flex items-center justify-center h-64 text-gray-500">Caricamento…</div>
+  return <div className="flex items-center justify-center h-64 text-muted-foreground">Caricamento…</div>
 }
 
 export function EmptyChart() {
   return (
-    <div className="h-[260px] flex items-center justify-center text-sm text-gray-400">
+    <div className="h-[260px] flex items-center justify-center text-sm text-muted-foreground">
       Nessun dato per questo periodo
     </div>
   )

@@ -60,3 +60,14 @@
     font-family: 'Inter', sans-serif;
   }
 }
+
+/* Recharts in dark: assi/griglia/tooltip leggibili senza toccare ogni grafico
+   (le barre/linee usano colori propri, restano invariate). */
+.dark .recharts-cartesian-grid line { stroke: hsl(var(--border)); }
+.dark .recharts-text { fill: hsl(var(--muted-foreground)); }
+.dark .recharts-default-tooltip {
+  background-color: hsl(var(--popover)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+.dark .recharts-default-tooltip .recharts-tooltip-item { color: hsl(var(--popover-foreground)) !important; }

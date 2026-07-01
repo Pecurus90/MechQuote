@@ -169,9 +169,9 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
 
       <div className="flex gap-4 items-end flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Cerca</label>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Cerca</label>
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               className="h-9 pl-8 pr-8 text-sm"
               placeholder="Codice preventivo o cliente"
@@ -179,14 +179,14 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
               onChange={e => setSearchInput(e.target.value)}
             />
             {searchInput && (
-              <button onClick={() => setSearchInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700" title="Cancella">
+              <button onClick={() => setSearchInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-gray-700" title="Cancella">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Anno</label>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Anno</label>
           <select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={selectedYear || ''}
@@ -198,7 +198,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         </div>
         {phase === 'active' && (
           <div>
-            <label className="text-sm font-medium text-gray-600 mb-1 block">Stato</label>
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Stato</label>
             <select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
@@ -213,7 +213,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
           </div>
         )}
         <div>
-          <label className="text-sm font-medium text-gray-600 mb-1 block">Tipo</label>
+          <label className="text-sm font-medium text-muted-foreground mb-1 block">Tipo</label>
           <select
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={typeFilter}
@@ -228,46 +228,46 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
       </div>
 
       {loading ? (
-        <div className="text-center p-8 text-gray-400">Caricamento...</div>
+        <div className="text-center p-8 text-muted-foreground">Caricamento...</div>
       ) : (
         <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
                   <th className="w-8 p-3"></th>
-                  <th className="text-left p-3 font-medium text-gray-600">N. Preventivo</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Cliente</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Data</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Stato</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Materiale</th>
-                  <th className="text-right p-3 font-medium text-gray-600">Totale</th>
-                  <th className="text-center p-3 font-medium text-gray-600">Azioni</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">N. Preventivo</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Cliente</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Data</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Stato</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Materiale</th>
+                  <th className="text-right p-3 font-medium text-muted-foreground">Totale</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Azioni</th>
                 </tr>
               </thead>
               <tbody>
                 {quotes.length === 0 ? (
-                  <tr><td colSpan={colSpan} className="p-6 text-center text-gray-400">Nessun preventivo trovato.</td></tr>
+                  <tr><td colSpan={colSpan} className="p-6 text-center text-muted-foreground">Nessun preventivo trovato.</td></tr>
                 ) : (
                   quotes.map(q => (
                     <Fragment key={q.id}>
-                    <tr className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/quotes/${q.id}`)}>
+                    <tr className="border-b hover:bg-muted cursor-pointer" onClick={() => navigate(`/quotes/${q.id}`)}>
                       <td className="p-3 text-center">
                         <button
                           onClick={e => { e.stopPropagation(); toggleExpand(q.id) }}
-                          className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
+                          className="p-0.5 rounded hover:bg-gray-200 text-muted-foreground hover:text-gray-700"
                           title="Mostra articoli e stato materiale"
                         >
                           {expandedId === q.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </button>
                       </td>
-                      <td className="p-3 font-mono font-medium text-blue-700">
+                      <td className="p-3 font-mono font-medium text-primary">
                         {q.quote_number}
                         {q.quote_type === 'die' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-sans">Stampo</span>}
                         {q.quote_type === 'commessa' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-sans">Commessa</span>}
                       </td>
                       <td className="p-3">{q.customer_name || '-'}</td>
-                      <td className="p-3 text-gray-500">{q.quote_date?.split('T')[0]}</td>
+                      <td className="p-3 text-muted-foreground">{q.quote_date?.split('T')[0]}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
                           {STATUS_LABELS[q.status] || q.status}
@@ -275,8 +275,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
                       </td>
                       <td className="p-3">
                         {q.material_status
-                          ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${MATERIAL_STATUS_COLORS[q.material_status] || 'bg-gray-100 text-gray-500'}`}>{MATERIAL_STATUS_LABELS[q.material_status] || q.material_status}</span>
-                          : <span className="text-xs text-gray-300">—</span>}
+                          ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${MATERIAL_STATUS_COLORS[q.material_status] || 'bg-muted text-muted-foreground'}`}>{MATERIAL_STATUS_LABELS[q.material_status] || q.material_status}</span>
+                          : <span className="text-xs text-muted-foreground/50">—</span>}
                       </td>
                       <td className="p-3 text-right font-medium">{quoteTotal(q).toFixed(2)} €</td>
                       <td className="p-3 text-center">
@@ -316,15 +316,15 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
                       </td>
                     </tr>
                     {expandedId === q.id && (
-                      <tr className="bg-gray-50/60">
+                      <tr className="bg-muted/60">
                         <td colSpan={colSpan} className="px-6 py-3">
                           {detailCache[q.id] === 'loading' || detailCache[q.id] === undefined ? (
-                            <div className="text-sm text-gray-400 py-2">Caricamento articoli...</div>
+                            <div className="text-sm text-muted-foreground py-2">Caricamento articoli...</div>
                           ) : (detailCache[q.id] as QuoteMaterialDetail).articles.length === 0 ? (
-                            <div className="text-sm text-gray-400 py-2">Nessun articolo in questo preventivo.</div>
+                            <div className="text-sm text-muted-foreground py-2">Nessun articolo in questo preventivo.</div>
                           ) : (
-                            <table className="w-full text-xs bg-white rounded border">
-                              <thead className="bg-gray-100 text-gray-500">
+                            <table className="w-full text-xs bg-card rounded border">
+                              <thead className="bg-muted text-muted-foreground">
                                 <tr>
                                   <th className="text-left p-2 font-medium">Codice</th>
                                   <th className="text-left p-2 font-medium">Materiale</th>
@@ -340,12 +340,12 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
                                   <tr key={a.part_id} className="border-t">
                                     <td className="p-2 font-mono">{a.part_code}{a.revision ? ` / ${a.revision}` : ''}</td>
                                     <td className="p-2">{a.material_name || '—'}</td>
-                                    <td className="p-2 text-gray-500">{a.family ? a.family.replace(/_/g, ' ') : '—'}</td>
-                                    <td className="p-2 text-gray-600">{a.dimensions}</td>
-                                    <td className="p-2 text-gray-600">{a.treatments.length ? a.treatments.join(', ') : '—'}</td>
+                                    <td className="p-2 text-muted-foreground">{a.family ? a.family.replace(/_/g, ' ') : '—'}</td>
+                                    <td className="p-2 text-muted-foreground">{a.dimensions}</td>
+                                    <td className="p-2 text-muted-foreground">{a.treatments.length ? a.treatments.join(', ') : '—'}</td>
                                     <td className="p-2">{a.supplier_name || '—'}</td>
                                     <td className="p-2">
-                                      <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${PART_STATE_COLORS[a.state] || 'bg-gray-100 text-gray-500'}`}>
+                                      <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${PART_STATE_COLORS[a.state] || 'bg-muted text-muted-foreground'}`}>
                                         {PART_STATE_LABELS[a.state] || a.state}
                                       </span>
                                     </td>
@@ -368,7 +368,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
 
       <div className="flex justify-center gap-2">
         {page > 1 && <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)}>← Precedente</Button>}
-        <span className="flex items-center px-4 text-sm text-gray-500">Pagina {page}</span>
+        <span className="flex items-center px-4 text-sm text-muted-foreground">Pagina {page}</span>
         {quotes.length >= pageSize && <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>}
       </div>
 

@@ -350,7 +350,7 @@ export default function QuoteEditor() {
   const isLocked = !['bozza', 'inviato', 'letto'].includes(quote.status) && !hasRole('admin')
 
   return (
-    <div className="flex flex-col h-full min-h-screen bg-gray-50">
+    <div className="flex flex-col h-full min-h-screen bg-background">
       <QuoteTopBar
         quote={quote}
         isLocked={isLocked}

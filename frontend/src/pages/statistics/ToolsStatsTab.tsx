@@ -42,14 +42,14 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
       {/* Filtri */}
       <div className="flex gap-3 flex-wrap items-end">
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Tipo utensile</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo utensile</label>
           <select className="h-9 rounded-md border bg-background px-2 text-sm min-w-[150px]" value={toolType} onChange={e => setToolType(e.target.value)}>
             <option value="">Tutti i tipi</option>
             {types.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Fornitore</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Fornitore</label>
           <select className="h-9 rounded-md border bg-background px-2 text-sm min-w-[150px]" value={supplier} onChange={e => setSupplier(e.target.value)}>
             <option value="">Tutti i fornitori</option>
             {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
@@ -68,7 +68,7 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><Wrench className="w-4 h-4" /> Trend ordini per mese</CardTitle>
-            <p className="text-xs text-gray-500">N. ordini utensili emessi mese su mese</p>
+            <p className="text-xs text-muted-foreground">N. ordini utensili emessi mese su mese</p>
           </CardHeader>
           <CardContent>
             {data.trend_monthly.length === 0 ? <EmptyChart /> : (
@@ -88,7 +88,7 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Quantità per tipo utensile</CardTitle>
-            <p className="text-xs text-gray-500">Pezzi ordinati per tipo nel periodo</p>
+            <p className="text-xs text-muted-foreground">Pezzi ordinati per tipo nel periodo</p>
           </CardHeader>
           <CardContent>
             {data.by_type.length === 0 ? <EmptyChart /> : (
@@ -110,7 +110,7 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Top fornitori utensili</CardTitle>
-            <p className="text-xs text-gray-500">N. righe ordine per fornitore (snapshot al momento dell'ordine)</p>
+            <p className="text-xs text-muted-foreground">N. righe ordine per fornitore (snapshot al momento dell'ordine)</p>
           </CardHeader>
           <CardContent>
             {data.top_suppliers.length === 0 ? <EmptyChart /> : (
@@ -130,7 +130,7 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Top 10 utensili più ordinati</CardTitle>
-            <p className="text-xs text-gray-500">Codice utensile + quantità cumulata nel periodo</p>
+            <p className="text-xs text-muted-foreground">Codice utensile + quantità cumulata nel periodo</p>
           </CardHeader>
           <CardContent>
             {data.top_tools.length === 0 ? <EmptyChart /> : (

@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
-import {
-  ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid,
-} from 'recharts'
-import { Wrench } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import type { ToolsStats } from '@/types'
-import { type Period, CATEGORY_COLORS, Loading, EmptyChart, KpiCards } from './statsShared'
+import {
+  type Period, Loading, KpiCards, TrendArea, RankBars,
+} from './statsShared'
 
 interface Named { id: number; name: string }
 
@@ -39,7 +37,6 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
 
   return (
     <div className="space-y-4">
-      {/* Filtri */}
       <div className="flex gap-3 flex-wrap items-end">
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo utensile</label>
@@ -57,7 +54,7 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
         </div>
       </div>
 
-      {/* KPI (solo quantità, nessun costo) */}
+      {/* solo quantità, nessun costo (scelta utente) */}
       <KpiCards items={[
         { label: 'Ordini utensili', value: String(data.orders_count) },
         { label: 'Quantità ordinata', value: String(data.total_quantity), hint: 'pezzi nel periodo' },
@@ -66,84 +63,31 @@ export default function ToolsStatsTab({ period }: { period: Period }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><Wrench className="w-4 h-4" /> Trend ordini per mese</CardTitle>
-            <p className="text-xs text-muted-foreground">N. ordini utensili emessi mese su mese</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Andamento ordini</CardTitle></CardHeader>
           <CardContent>
-            {data.trend_monthly.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.trend_monthly}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" fontSize={11} />
-                  <YAxis fontSize={11} allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#7c3aed" name="Ordini" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <TrendArea data={data.trend_monthly} xKey="month" idPrefix="t-trend"
+              series={[{ key: 'count', name: 'Ordini', color: '#a78bfa' }]} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Quantità per tipo utensile</CardTitle>
-            <p className="text-xs text-muted-foreground">Pezzi ordinati per tipo nel periodo</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Quantità per tipo</CardTitle></CardHeader>
           <CardContent>
-            {data.by_type.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.by_type} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" fontSize={11} allowDecimals={false} />
-                  <YAxis type="category" dataKey="label" fontSize={11} width={130} />
-                  <Tooltip />
-                  <Bar dataKey="quantity" name="Quantità">
-                    {data.by_type.map((_, i) => <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <RankBars data={data.by_type} labelKey="label" valueKey="quantity" unit="pz" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top fornitori utensili</CardTitle>
-            <p className="text-xs text-muted-foreground">N. righe ordine per fornitore (snapshot al momento dell'ordine)</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Top fornitori utensili</CardTitle></CardHeader>
           <CardContent>
-            {data.top_suppliers.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.top_suppliers} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" fontSize={11} allowDecimals={false} />
-                  <YAxis type="category" dataKey="supplier_name" fontSize={11} width={140} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#7c3aed" name="Righe" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <RankBars data={data.top_suppliers} labelKey="supplier_name" valueKey="count" unit="righe" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 10 utensili più ordinati</CardTitle>
-            <p className="text-xs text-muted-foreground">Codice utensile + quantità cumulata nel periodo</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Top 10 utensili più ordinati</CardTitle></CardHeader>
           <CardContent>
-            {data.top_tools.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={data.top_tools} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" fontSize={11} allowDecimals={false} />
-                  <YAxis type="category" dataKey="code" fontSize={11} width={140} />
-                  <Tooltip />
-                  <Bar dataKey="total_quantity" fill="#7c3aed" name="Quantità" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <RankBars data={data.top_tools} labelKey="code" valueKey="total_quantity" unit="pz" />
           </CardContent>
         </Card>
       </div>

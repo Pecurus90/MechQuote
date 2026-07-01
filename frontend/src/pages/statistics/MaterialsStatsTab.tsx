@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
-import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell,
-  XAxis, YAxis, Tooltip, CartesianGrid,
-} from 'recharts'
-import { Package } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import type { MaterialsStats } from '@/types'
 import { MATERIAL_FAMILIES } from '@/lib/materialFamilies'
-import { type Period, fmtEur, CATEGORY_COLORS, Loading, EmptyChart, KpiCards } from './statsShared'
+import {
+  type Period, fmtEur, Loading, KpiCards, TrendArea, RankBars,
+} from './statsShared'
 
 interface SupplierOpt { id: number; name: string }
+
+const eur = (v: number) => `€ ${fmtEur(v)}`
+const kEur = (v: number) => `${fmtEur(v / 1000)}k`
 
 export default function MaterialsStatsTab({ period }: { period: Period }) {
   const [data, setData] = useState<MaterialsStats | null>(null)
@@ -39,7 +39,6 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
 
   return (
     <div className="space-y-4">
-      {/* Filtri */}
       <div className="flex gap-3 flex-wrap items-end">
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Fornitore</label>
@@ -57,86 +56,51 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
         </div>
       </div>
 
-      {/* KPI */}
       <KpiCards items={[
-        { label: 'Costo materiale', value: `€ ${fmtEur(data.total_material_cost)}`, hint: 'grezzo ordinato nel periodo' },
+        { label: 'Costo materiale', value: eur(data.total_material_cost), hint: 'grezzo ordinato' },
         { label: 'Peso totale', value: `${fmtEur(data.total_weight_kg)} kg` },
-        { label: 'Spedizioni', value: `€ ${fmtEur(data.total_shipping)}` },
+        { label: 'Spedizioni', value: eur(data.total_shipping) },
         { label: 'Ordini', value: String(data.orders_count) },
       ]} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><Package className="w-4 h-4" /> Trend ordini per mese</CardTitle>
-            <p className="text-xs text-muted-foreground">N. ordini materiale emessi mese su mese</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Andamento ordini</CardTitle></CardHeader>
           <CardContent>
-            {data.trend_monthly.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.trend_monthly}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" fontSize={11} />
-                  <YAxis fontSize={11} allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#2563eb" name="Ordini" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <TrendArea data={data.trend_monthly} xKey="month" idPrefix="m-trend"
+              series={[{ key: 'count', name: 'Ordini', color: '#22d3ee' }]} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Costo materiale per fornitore</CardTitle>
-            <p className="text-xs text-muted-foreground">€ grezzo ordinato per fornitore nel periodo</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Lead time confermato → ordine</CardTitle></CardHeader>
           <CardContent>
-            {data.by_supplier.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.by_supplier} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" fontSize={11} tickFormatter={(v) => `${fmtEur(v / 1000)}k`} />
-                  <YAxis type="category" dataKey="supplier_name" fontSize={11} width={140} />
-                  <Tooltip formatter={(v: number) => `€ ${fmtEur(v)}`} />
-                  <Bar dataKey="material_cost" name="Costo materiale">
-                    {data.by_supplier.map((_, i) => <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <TrendArea data={data.lead_time_monthly} xKey="month" idPrefix="m-lt"
+              series={[{ key: 'avg_days', name: 'Giorni', color: '#a78bfa' }]}
+              yFmt={(v) => `${v}g`} tipFmt={(v) => `${v.toFixed(1)} giorni`} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top 10 materiali per costo</CardTitle>
-            <p className="text-xs text-muted-foreground">€ grezzo ordinato per materiale</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Costo per fornitore (€)</CardTitle></CardHeader>
           <CardContent>
-            {data.by_material.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.by_material} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis type="number" fontSize={11} tickFormatter={(v) => `${fmtEur(v / 1000)}k`} />
-                  <YAxis type="category" dataKey="material_name" fontSize={11} width={140} />
-                  <Tooltip formatter={(v: number) => `€ ${fmtEur(v)}`} />
-                  <Bar dataKey="material_cost" name="Costo">
-                    {data.by_material.map((_, i) => <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <RankBars data={data.by_supplier} labelKey="supplier_name" valueKey="material_cost" valueFmt={kEur} unit="€" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Top 10 materiali per costo (€)</CardTitle></CardHeader>
+          <CardContent>
+            <RankBars data={data.by_material} labelKey="material_name" valueKey="material_cost" valueFmt={kEur} unit="€" />
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Dettaglio per fornitore</CardTitle>
-            <p className="text-xs text-muted-foreground">Costo · peso · spedizioni · n° ordini</p>
-          </CardHeader>
+          <CardHeader className="pb-1"><CardTitle className="text-sm font-medium text-muted-foreground">Dettaglio per fornitore</CardTitle></CardHeader>
           <CardContent className="p-0">
-            {data.by_supplier.length === 0 ? <EmptyChart /> : (
+            {data.by_supplier.length === 0 ? (
+              <div className="h-24 flex items-center justify-center text-sm text-muted-foreground">Nessun dato</div>
+            ) : (
               <table className="w-full text-sm">
                 <thead className="bg-muted border-b text-xs text-muted-foreground">
                   <tr>
@@ -151,37 +115,14 @@ export default function MaterialsStatsTab({ period }: { period: Period }) {
                   {data.by_supplier.map((s, i) => (
                     <tr key={i} className="border-b last:border-0">
                       <td className="p-2">{s.supplier_name}</td>
-                      <td className="p-2 text-right font-mono">€ {fmtEur(s.material_cost)}</td>
+                      <td className="p-2 text-right font-mono">{eur(s.material_cost)}</td>
                       <td className="p-2 text-right font-mono">{fmtEur(s.weight_kg)} kg</td>
-                      <td className="p-2 text-right font-mono">€ {fmtEur(s.shipping_cost)}</td>
+                      <td className="p-2 text-right font-mono">{eur(s.shipping_cost)}</td>
                       <td className="p-2 text-right font-mono">{s.orders_count}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Lead time medio "confermato → ordine"</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Giorni medi tra conferma preventivo e generazione ordine materiale ·
-              media periodo: <span className="font-semibold text-primary">{data.lead_time_avg_days.toFixed(1)} gg</span>
-            </p>
-          </CardHeader>
-          <CardContent>
-            {data.lead_time_monthly.length === 0 ? <EmptyChart /> : (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={data.lead_time_monthly}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" fontSize={11} />
-                  <YAxis fontSize={11} tickFormatter={(v) => `${v}gg`} />
-                  <Tooltip formatter={(v: number) => `${v.toFixed(1)} giorni`} />
-                  <Line type="monotone" dataKey="avg_days" stroke="#2563eb" strokeWidth={2} name="Giorni medi" dot />
-                </LineChart>
-              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>

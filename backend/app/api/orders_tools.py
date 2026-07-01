@@ -1,41 +1,54 @@
-"""API ordini utensili: preview low-stock + crea ordine (snapshot) + storico + PDF.
+"""API ordini utensili: preview low-stock + crea ordine per fornitore + CSV.
 
-Analogo a `api/orders.py` per i materiali, ma per utensili:
+Un ordine utensili = UN fornitore: il gestionale tratta ogni fornitore come
+un ordine separato, quindi l'export genera un file CSV per fornitore.
+
 - Preview: stato CORRENTE degli utensili sotto-minimo, raggruppato per fornitore
-- Crea ordine: snapshot dello stato attuale → record ToolOrder + N items
+- Crea ordine: si sceglie un fornitore → snapshot dei suoi utensili sotto-minimo
+  → record ToolOrder + N items + notifica a ufficio tecnico/amministrazione
 - Storico: lista ToolOrder con conteggi
-- PDF: rigenera dal snapshot del record (storico stabile)
+- CSV: rigenera dal snapshot del record (storico stabile), nome per-fornitore
 """
-import asyncio
 import logging
-import os
+import re
 from collections import defaultdict
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.csv_import import csv_export_response
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
-from app.models import (
-    Tool, ToolOrder, ToolOrderItem, ToolSupplier, User,
-)
-from app.schemas import ToolOrderDetailOut, ToolOrderOut
+from app.models import Tool, ToolOrder, ToolOrderItem, User
+from app.schemas import ToolOrderCreate, ToolOrderDetailOut, ToolOrderOut
+from app.services.notifications import create_notification
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orders/tools", tags=["orders"])
 
 _can_tools = require_permission('tools')
 
+# Colonne del CSV ordine utensili (ordine fisso, allineato al gestionale).
+_CSV_COLUMNS = ['Codice', 'Tipo', 'Marca', 'Modello', 'Ø (mm)', 'Qtà da ordinare']
 
-def _low_stock_query(db: Session):
-    return db.query(Tool).options(joinedload(Tool.tool_supplier)).filter(
+
+def _low_stock_query(db: Session, supplier_id: Optional[int] = None):
+    q = db.query(Tool).options(joinedload(Tool.tool_supplier)).filter(
         Tool.active == True,  # noqa: E712
         Tool.quantity < Tool.minimum_quantity,
         Tool.minimum_quantity > 0,
-    ).order_by(Tool.code)
+    )
+    if supplier_id is not None:
+        q = q.filter(Tool.tool_supplier_id == supplier_id)
+    return q.order_by(Tool.code)
+
+
+def _sanitize_filename_part(name: Optional[str]) -> str:
+    """Rende un nome fornitore sicuro per un filename (accenti/spazi → `_`)."""
+    cleaned = re.sub(r'[^0-9A-Za-zÀ-ÿ]+', '_', (name or '').strip()).strip('_')
+    return cleaned or 'fornitore'
 
 
 @router.get("/stats")
@@ -80,14 +93,17 @@ def get_stats(db: Session = Depends(get_db), _=_can_tools):
 def preview_low_stock(db: Session = Depends(get_db), _=_can_tools):
     """Preview live: utensili sotto-minimo raggruppati per fornitore.
 
-    Niente side effect — pura read. Il frontend la usa per mostrare
-    cosa finirà nel PDF se l'utente clicca "Genera ordine".
+    Niente side effect — pura read. Il frontend la usa per far scegliere il
+    fornitore e mostrare cosa finirà nel CSV se si crea l'ordine.
+    `supplier_id` è `None` per il gruppo "Senza fornitore" (non ordinabile).
     """
     tools = _low_stock_query(db).all()
     grouped: dict = defaultdict(list)
+    names: dict = {}
     for t in tools:
-        name = t.tool_supplier.name if t.tool_supplier else 'Senza fornitore'
-        grouped[name].append({
+        sid = t.tool_supplier_id if t.tool_supplier else None
+        names[sid] = t.tool_supplier.name if t.tool_supplier else 'Senza fornitore'
+        grouped[sid].append({
             "tool_id": t.id,
             "code": t.code,
             "tool_type": t.tool_type,
@@ -99,8 +115,8 @@ def preview_low_stock(db: Session = Depends(get_db), _=_can_tools):
             "quantity_to_order": max(t.minimum_quantity - t.quantity, 1),
         })
     groups = [
-        {"supplier_name": name, "items": grouped[name]}
-        for name in sorted(grouped.keys(), key=lambda s: (s == 'Senza fornitore', s.lower()))
+        {"supplier_id": sid, "supplier_name": names[sid], "items": grouped[sid]}
+        for sid in sorted(grouped.keys(), key=lambda s: (s is None, names[s].lower()))
     ]
     return {
         "groups": groups,
@@ -118,6 +134,7 @@ def _order_to_out(order: ToolOrder) -> dict:
             "id": cb.id, "username": cb.username, "full_name": cb.full_name,
         } if cb else None,
         "triggered_by": order.triggered_by or 'manual',
+        "supplier_name": order.supplier_name,
         "item_count": len(order.items),
         "total_quantity": sum(it.quantity_to_order for it in order.items),
     }
@@ -125,29 +142,36 @@ def _order_to_out(order: ToolOrder) -> dict:
 
 @router.post("", response_model=ToolOrderOut)
 def create_tool_order(
+    payload: ToolOrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_tools,
 ):
-    """Crea un ToolOrder dallo stato attuale degli utensili low-stock.
+    """Crea un ToolOrder per un fornitore dallo stato attuale dei suoi utensili.
 
-    Snapshot dei dati (code, brand, supplier name, qty al momento) per
-    avere uno storico stabile: il PDF rigenerato in futuro rifletterà
-    sempre lo stato del momento dell'ordine.
+    Snapshot dei dati (code, brand, qty al momento) per uno storico stabile:
+    il CSV rigenerato in futuro rifletterà lo stato del momento dell'ordine.
+    Manda notifica a ufficio tecnico + amministrazione.
     """
-    tools = _low_stock_query(db).all()
+    tools = _low_stock_query(db, supplier_id=payload.supplier_id).all()
     if not tools:
-        raise HTTPException(status_code=400, detail="Nessun utensile sotto la quantità minima")
+        raise HTTPException(
+            status_code=400,
+            detail="Nessun utensile sotto la quantità minima per questo fornitore",
+        )
+
+    sup = tools[0].tool_supplier
+    sup_name = sup.name if sup else 'Senza fornitore'
 
     order = ToolOrder(
         created_by_user_id=current_user.id,
         triggered_by='manual',
+        supplier_name=sup_name,
     )
     db.add(order)
     db.flush()
 
     for t in tools:
-        sup_name = t.tool_supplier.name if t.tool_supplier else None
         qty_to_order = max(t.minimum_quantity - t.quantity, 1)
         db.add(ToolOrderItem(
             tool_order_id=order.id,
@@ -165,8 +189,21 @@ def create_tool_order(
 
     db.commit()
     db.refresh(order)
-    logger.info("Ordine utensili creato: id=%s by=%s items=%d",
-                order.id, current_user.username, len(tools))
+
+    actor_name = current_user.full_name or current_user.username
+    create_notification(
+        db,
+        type='tools_ordered',
+        title=f"Ordine utensili UO-{order.id:04d}",
+        body=f"{actor_name} ha creato un ordine utensili per {sup_name} "
+             f"({len(tools)} utensil{'e' if len(tools) == 1 else 'i'})",
+        created_by_user_id=current_user.id,
+        target_roles=['ufficio_tecnico', 'amministrazione'],
+        data={'order_id': order.id, 'supplier_name': sup_name},
+    )
+
+    logger.info("Ordine utensili creato: id=%s supplier=%s by=%s items=%d",
+                order.id, sup_name, current_user.username, len(tools))
     return _order_to_out(order)
 
 
@@ -179,8 +216,8 @@ def list_tool_orders(
 ):
     """Storico ordini utensili, ordine desc.
 
-    Filtro `q`: cerca su id ordine (UO-NNNN), username/full_name
-    creatore, codice utensile contenuto, nome fornitore snapshot.
+    Filtro `q`: cerca su id ordine (UO-NNNN), username/full_name creatore,
+    codice utensile contenuto, nome fornitore (dell'ordine o snapshot item).
     """
     query = db.query(ToolOrder).options(
         joinedload(ToolOrder.created_by),
@@ -201,6 +238,7 @@ def list_tool_orders(
             .outerjoin(User, User.id == ToolOrder.created_by_user_id)
         )
         conds = [
+            ToolOrder.supplier_name.ilike(like),
             ToolOrderItem.code_snapshot.ilike(like),
             ToolOrderItem.supplier_name_snapshot.ilike(like),
             User.username.ilike(like),
@@ -242,19 +280,31 @@ def get_tool_order_detail(order_id: int, db: Session = Depends(get_db), _=_can_t
     return base
 
 
-@router.get("/{order_id}/pdf")
-async def get_tool_order_pdf(
-    order_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _=_can_tools,
-):
-    """Rigenera il PDF dell'ordine dal suo snapshot."""
-    from app.api.tools_pdf import generate_tool_order_pdf
-    path = await asyncio.to_thread(generate_tool_order_pdf, order_id, db)
-    background_tasks.add_task(os.unlink, path)
-    return FileResponse(
-        path=path,
-        media_type='application/pdf',
-        filename=f"ordine_utensili_UO{order_id:04d}.pdf",
-    )
+@router.get("/{order_id}/csv")
+def get_tool_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_tools):
+    """Genera il CSV dell'ordine dal suo snapshot (un file per fornitore).
+
+    Nome file `AAAAMMGG_HHmm_<fornitore>.csv`: il gestionale importa un
+    ordine per fornitore. Formato `;` + UTF-8 con BOM (Excel italiano ok).
+    """
+    order = db.query(ToolOrder).options(
+        joinedload(ToolOrder.items)
+    ).filter(ToolOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+
+    rows = [
+        [
+            it.code_snapshot,
+            it.tool_type_snapshot or '',
+            it.brand_snapshot or '',
+            it.model_snapshot or '',
+            f"{it.diameter_snapshot:g}" if it.diameter_snapshot is not None else '',
+            it.quantity_to_order,
+        ]
+        for it in order.items
+    ]
+
+    ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"UO{order.id:04d}"
+    filename = f"{ts}_{_sanitize_filename_part(order.supplier_name)}.csv"
+    return csv_export_response(filename=filename, columns=_CSV_COLUMNS, rows=rows)

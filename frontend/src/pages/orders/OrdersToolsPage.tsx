@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Search, Wrench, FileDown, History, X, AlertTriangle } from 'lucide-react'
+import { Search, Wrench, FileDown, History, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
@@ -26,8 +26,10 @@ export default function OrdersToolsPage() {
   const [orders, setOrders] = useState<ToolOrder[]>([])
   const [creating, setCreating] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
   useEscapeKey(() => setShowHistory(false), showHistory)
+  useEscapeKey(() => setShowPicker(false), showPicker)
 
   const loadPreview = () => {
     api.get('/orders/tools/preview')
@@ -61,26 +63,33 @@ export default function OrdersToolsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historySearch])
 
-  const downloadPdf = async (orderId: number) => {
+  const downloadCsv = async (orderId: number) => {
     try {
-      const res = await api.get(`/orders/tools/${orderId}/pdf`, { responseType: 'blob' })
+      const res = await api.get(`/orders/tools/${orderId}/csv`, { responseType: 'blob' })
+      // Il backend nomina il file per-fornitore (AAAAMMGG_HHmm_fornitore.csv):
+      // lo leggo dall'header, con fallback prudente.
+      const cd = res.headers['content-disposition'] as string | undefined
+      const match = cd?.match(/filename="?([^"]+)"?/)
+      const filename = match ? match[1] : `ordine_utensili_UO${orderId.toString().padStart(4, '0')}.csv`
       const url = window.URL.createObjectURL(new Blob([res.data]))
       const a = document.createElement('a')
       a.href = url
-      a.download = `ordine_utensili_UO${orderId.toString().padStart(4, '0')}.pdf`
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       a.remove()
-    } catch { toast.error('Errore download PDF') }
+      window.URL.revokeObjectURL(url)
+    } catch { toast.error('Errore download CSV') }
   }
 
-  const createOrder = async () => {
+  const createOrder = async (supplierId: number, supplierName: string) => {
     setCreating(true)
     try {
-      const res = await api.post('/orders/tools')
+      const res = await api.post('/orders/tools', { supplier_id: supplierId })
       const order = res.data as ToolOrder
-      await downloadPdf(order.id)
-      toast.success(`Ordine UO-${String(order.id).padStart(4, '0')} creato — PDF scaricato`)
+      await downloadCsv(order.id)
+      toast.success(`Ordine UO-${String(order.id).padStart(4, '0')} creato per ${supplierName} — CSV scaricato`)
+      setShowPicker(false)
       loadPreview()
       loadOrders()
       loadStats()
@@ -93,6 +102,9 @@ export default function OrdersToolsPage() {
   }
 
   const hasItems = preview && preview.groups.length > 0
+  // Solo i gruppi con fornitore reale sono ordinabili (il "Senza fornitore"
+  // non può generare un ordine — nessun destinatario).
+  const orderableGroups = preview?.groups.filter(g => g.supplier_id != null) ?? []
 
   return (
     <StandardPage
@@ -100,18 +112,18 @@ export default function OrdersToolsPage() {
       color="violet"
       width="xl"
       title="Ordini utensili"
-      subtitle={`Utensili sotto quantità minima raggruppati per fornitore. "Esporta PDF" crea l'ordine (UO-NNNN nello storico).`}
+      subtitle={`Utensili sotto quantità minima raggruppati per fornitore. "Crea CSV" genera un ordine (UO-NNNN) e un file CSV per il fornitore scelto.`}
       actions={
         <div className="flex items-center gap-2 flex-wrap">
           <PrimaryCtaButton
             color="violet"
             size="sm"
-            onClick={createOrder}
-            disabled={creating || !hasItems}
-            title={hasItems ? 'Crea ordine + scarica PDF' : 'Nessun utensile sotto minimo'}
+            onClick={() => setShowPicker(true)}
+            disabled={creating || orderableGroups.length === 0}
+            title={orderableGroups.length > 0 ? 'Scegli il fornitore e crea l\'ordine CSV' : 'Nessun utensile sotto minimo'}
           >
             <FileDown className="w-4 h-4" />
-            {creating ? 'Genero...' : 'Esporta PDF ordine'}
+            Crea CSV ordine
           </PrimaryCtaButton>
           <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
             <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
@@ -216,6 +228,50 @@ export default function OrdersToolsPage() {
         </>
       )}
 
+      {/* Picker fornitore: scegli per chi creare l'ordine CSV */}
+      {showPicker && (
+        <div
+          className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPicker(false)}
+        >
+          <Card className="w-full max-w-lg max-h-[85vh] flex flex-col bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+              <h3 className="font-semibold flex items-center gap-2">
+                <FileDown className="w-4 h-4 text-violet-700" /> Crea CSV ordine — scegli il fornitore
+              </h3>
+              <button onClick={() => setShowPicker(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-3 space-y-2">
+              <p className="text-xs text-gray-500 px-1">
+                Ogni fornitore genera un ordine e un file CSV separati. Verrà inviata
+                notifica a ufficio tecnico e amministrazione.
+              </p>
+              {orderableGroups.map(g => {
+                const qty = g.items.reduce((s, it) => s + it.quantity_to_order, 0)
+                return (
+                  <button
+                    key={g.supplier_id}
+                    disabled={creating}
+                    onClick={() => createOrder(g.supplier_id as number, g.supplier_name)}
+                    className="w-full flex items-center justify-between gap-3 p-3 rounded-md border hover:border-violet-300 hover:bg-violet-50 disabled:opacity-50 text-left transition-colors"
+                  >
+                    <div>
+                      <div className="font-semibold text-sm text-gray-800">{g.supplier_name}</div>
+                      <div className="text-xs text-gray-500">
+                        {g.items.length} {g.items.length === 1 ? 'utensile' : 'utensili'} · {qty} pz da ordinare
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                  </button>
+                )
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Storico in popup */}
       {showHistory && (
         <div
@@ -235,7 +291,7 @@ export default function OrdersToolsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <Input
-                  placeholder="Cerca per numero ordine (UO-0001), codice utensile, fornitore, o creatore..."
+                  placeholder="Cerca per numero ordine (UO-0001), fornitore, codice utensile, o creatore..."
                   value={historySearch}
                   onChange={e => setHistorySearch(e.target.value)}
                   className="pl-9 h-9 text-sm"
@@ -247,17 +303,18 @@ export default function OrdersToolsPage() {
               <table className="table-fixed w-full text-sm">
                 <thead className="bg-gray-50 border-b sticky top-0">
                   <tr>
-                    <th className="text-left p-3 w-[14%] font-medium text-gray-600">Numero</th>
-                    <th className="text-left p-3 w-[22%] font-medium text-gray-600">Data</th>
-                    <th className="text-left p-3 w-[20%] font-medium text-gray-600">Creato da</th>
-                    <th className="text-left p-3 w-[10%] font-medium text-gray-600">Utensili</th>
-                    <th className="text-left p-3 w-[10%] font-medium text-gray-600">Qtà totale</th>
-                    <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
+                    <th className="text-left p-3 w-[13%] font-medium text-gray-600">Numero</th>
+                    <th className="text-left p-3 w-[19%] font-medium text-gray-600">Data</th>
+                    <th className="text-left p-3 w-[20%] font-medium text-gray-600">Fornitore</th>
+                    <th className="text-left p-3 w-[16%] font-medium text-gray-600">Creato da</th>
+                    <th className="text-left p-3 w-[9%] font-medium text-gray-600">Utensili</th>
+                    <th className="text-left p-3 w-[9%] font-medium text-gray-600">Qtà tot.</th>
+                    <th className="text-center p-3 w-[14%] font-medium text-gray-600">Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orders.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-gray-400">
+                    <tr><td colSpan={7} className="p-6 text-center text-gray-400">
                       {historySearch ? 'Nessun ordine corrisponde alla ricerca.' : 'Nessun ordine ancora.'}
                     </td></tr>
                   )}
@@ -265,12 +322,13 @@ export default function OrdersToolsPage() {
                     <tr key={o.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-mono text-blue-700">UO-{String(o.id).padStart(4, '0')}</td>
                       <td className="p-3 text-gray-600">{new Date(o.created_at).toLocaleString('it-IT')}</td>
-                      <td className="p-3">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
+                      <td className="p-3 text-gray-700 truncate">{o.supplier_name || '—'}</td>
+                      <td className="p-3 truncate">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
                       <td className="p-3 font-mono">{o.item_count}</td>
                       <td className="p-3 font-mono">{o.total_quantity} pz</td>
                       <td className="p-3 text-center">
-                        <Button size="sm" variant="outline" onClick={() => downloadPdf(o.id)}>
-                          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
+                        <Button size="sm" variant="outline" onClick={() => downloadCsv(o.id)}>
+                          <FileDown className="w-3.5 h-3.5 mr-1" /> CSV
                         </Button>
                       </td>
                     </tr>

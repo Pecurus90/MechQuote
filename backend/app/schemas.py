@@ -1117,11 +1117,16 @@ class ToolOrderItemOut(BaseModel):
         from_attributes = True
 
 
+class ToolOrderCreate(BaseModel):
+    supplier_id: int  # fornitore per cui generare l'ordine (un ordine = un fornitore)
+
+
 class ToolOrderOut(BaseModel):
     id: int
     created_at: datetime
     created_by: Optional[UserMinimal] = None
     triggered_by: str
+    supplier_name: Optional[str] = None
     item_count: int
     total_quantity: int
 

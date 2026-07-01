@@ -588,7 +588,7 @@ backend/app/
                    #           operations, workflow_templates, normalized_suppliers
                    #  Officina: officina
                    #  Orders: orders, orders_pdf, orders_tools
-                   #  Tools: tools, tools_pdf
+                   #  Tools: tools
                    #  EDM: edm
                    #  Sistema: auth, roles, users, company, dashboard, notifications, backup
   core/

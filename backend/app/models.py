@@ -749,12 +749,13 @@ class Tool(Base):
 
 
 class ToolOrder(Base):
-    """Ordine utensili (snapshot del momento in cui si è generato il PDF).
+    """Ordine utensili di UN fornitore (snapshot del momento di creazione).
 
-    A differenza di MaterialOrder, qui salviamo uno snapshot dei dati
-    (codice, marchio, fornitore, qty da ordinare) perché gli utensili
-    sono in continuo aggiornamento e il PDF storico deve riflettere
-    il momento esatto dell'ordine.
+    Un ordine = un fornitore: il gestionale tratta ogni fornitore come un
+    ordine separato, quindi l'export CSV genera un file per fornitore.
+    Salviamo uno snapshot dei dati (codice, marchio, qty da ordinare) perché
+    gli utensili sono in continuo aggiornamento e il CSV storico deve
+    riflettere il momento esatto dell'ordine.
     """
     __tablename__ = "tool_orders"
 
@@ -762,6 +763,7 @@ class ToolOrder(Base):
     created_at = Column(DateTime, server_default=func.now())
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     triggered_by = Column(String(20), default='manual')  # 'manual' | 'weekly_auto'
+    supplier_name = Column(String(100), nullable=True)   # fornitore dell'ordine (snapshot)
 
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     items = relationship(

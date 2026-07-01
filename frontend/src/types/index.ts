@@ -314,6 +314,7 @@ export interface ToolOrder {
   created_at: string
   created_by: UserMinimal | null
   triggered_by: string
+  supplier_name: string | null
   item_count: number
   total_quantity: number
 }
@@ -335,6 +336,7 @@ export interface ToolLowStockPreviewItem {
 }
 
 export interface ToolLowStockPreviewGroup {
+  supplier_id: number | null
   supplier_name: string
   items: ToolLowStockPreviewItem[]
 }

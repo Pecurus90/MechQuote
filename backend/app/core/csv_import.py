@@ -323,8 +323,58 @@ async def import_catalog_csv(
 
 
 # ---------------------------------------------------------------------------
-# Template scaricabile
+# Template + export scaricabili (formato identico all'engine di import)
 # ---------------------------------------------------------------------------
+
+def _csv_streaming_response(
+    *,
+    filename: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[Any]],
+) -> StreamingResponse:
+    """Cuore condiviso di template ed export: header + righe → CSV scaricabile.
+
+    `StreamingResponse` `text/csv; charset=utf-8` con
+    `Content-Disposition: attachment`. Encoding UTF-8 **con BOM** così Excel
+    italiano apre senza rompere gli accenti; delimiter `';'` come l'import.
+    Valori `None` resi come cella vuota.
+    """
+    buf = io.StringIO()
+    writer = csv.writer(
+        buf, delimiter=_DELIMITER, quotechar=_QUOTECHAR,
+        quoting=csv.QUOTE_MINIMAL,
+    )
+    writer.writerow(list(columns))
+    for row in rows:
+        writer.writerow(['' if c is None else c for c in row])
+
+    payload = '﻿' + buf.getvalue()  # BOM per Excel
+    return StreamingResponse(
+        iter([payload.encode('utf-8')]),
+        media_type='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            # Espone il nome file al JS anche cross-origin (il frontend legge
+            # il filename per-fornitore dall'header Content-Disposition).
+            'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+    )
+
+
+def csv_export_response(
+    *,
+    filename: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[Any]],
+) -> StreamingResponse:
+    """Esporta righe di dati reali come CSV scaricabile.
+
+    Gemello di `csv_template_response` ma per l'export (dati veri, non un
+    modello vuoto). Stesso formato `;` + UTF-8 con BOM: il file torna
+    reimportabile e Excel italiano lo apre senza rompere gli accenti.
+    """
+    return _csv_streaming_response(filename=filename, columns=columns, rows=rows)
+
 
 def csv_template_response(
     *,
@@ -347,18 +397,4 @@ def csv_template_response(
         Excel italiano apre direttamente senza rompere gli accenti.
         Stesso delimiter `';'` usato dall'engine di import.
     """
-    buf = io.StringIO()
-    writer = csv.writer(
-        buf, delimiter=_DELIMITER, quotechar=_QUOTECHAR,
-        quoting=csv.QUOTE_MINIMAL,
-    )
-    writer.writerow(list(columns))
-    for row in examples:
-        writer.writerow(list(row))
-
-    payload = '\ufeff' + buf.getvalue()  # BOM per Excel
-    return StreamingResponse(
-        iter([payload.encode('utf-8')]),
-        media_type='text/csv; charset=utf-8',
-        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
-    )
+    return _csv_streaming_response(filename=filename, columns=columns, rows=examples)

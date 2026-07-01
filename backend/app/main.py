@@ -743,6 +743,10 @@ def _run_migrations():
          "active BOOLEAN DEFAULT 1, "
          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
         "CREATE INDEX IF NOT EXISTS idx_normalized_items_supplier ON normalized_items(supplier_id)",
+
+        # ═══ Ordine utensili per-fornitore: colonna fornitore sullo storico ═══
+        # Un ToolOrder ora riguarda un solo fornitore (export CSV per fornitore).
+        "ALTER TABLE tool_orders ADD COLUMN supplier_name VARCHAR(100)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

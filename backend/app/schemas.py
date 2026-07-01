@@ -754,12 +754,35 @@ class StatsLeadTimePoint(BaseModel):
     avg_days: float
 
 
+class StatsMaterialSupplierRow(BaseModel):
+    """Aggregato costi/kg/spedizione per fornitore grezzo (tab Materiali)."""
+    supplier_name: str
+    material_cost: float
+    weight_kg: float
+    shipping_cost: float
+    orders_count: int
+
+
+class StatsMaterialRow(BaseModel):
+    """Aggregato costi/kg per materiale (tab Materiali)."""
+    material_name: str
+    material_cost: float
+    weight_kg: float
+    lines: int                                      # quante righe (parti) ordinate
+
+
 class MaterialsStatsOut(BaseModel):
     period: str
+    total_material_cost: float = 0.0                # € grezzo ordinato nel periodo
+    total_weight_kg: float = 0.0
+    total_shipping: float = 0.0                     # € spedizioni (una per ordine/fornitore)
+    orders_count: int = 0
     trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
     top_suppliers: List[StatsSupplierRow]           # top 10 fornitori materiale
     lead_time_avg_days: float                       # media periodo
     lead_time_monthly: List[StatsLeadTimePoint]     # trend per mese
+    by_supplier: List[StatsMaterialSupplierRow] = []
+    by_material: List[StatsMaterialRow] = []
 
 
 # ─── Statistics: tab Utensili ─────────────────────────────────────────────
@@ -769,11 +792,21 @@ class StatsToolRow(BaseModel):
     total_quantity: int
 
 
+class StatsToolTypeRow(BaseModel):
+    """Quantità ordinata per tipo utensile (tab Utensili, solo quantità)."""
+    label: str
+    quantity: int
+
+
 class ToolsStatsOut(BaseModel):
     period: str
+    orders_count: int = 0                           # n° ordini utensili nel periodo
+    total_quantity: int = 0                         # Σ quantità ordinata
+    distinct_tools: int = 0                         # utensili distinti ordinati
     trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
     top_suppliers: List[StatsSupplierRow]           # top 10 fornitori utensili
     top_tools: List[StatsToolRow]                   # top 10 utensili più ordinati
+    by_type: List[StatsToolTypeRow] = []            # quantità per tipo utensile
 
 
 class DashboardQuoteRow(BaseModel):

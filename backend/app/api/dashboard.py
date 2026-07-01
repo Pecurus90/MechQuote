@@ -5,6 +5,7 @@ tutti i Quote+Part+Phase in memoria. Per N preventivi × M parti × P fasi
 passa da O(N×M×P) row idratate in Python a O(1) lato DB. La differenza
 si sente da ~500 preventivi in poi.
 """
+from collections import defaultdict
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session, joinedload
@@ -15,12 +16,15 @@ from fastapi import HTTPException
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
-from app.models import Quote, Part, User, Notification, NotificationRead
+from app.models import (
+    Quote, Part, Material, QuoteSupplierOrder, User, Notification, NotificationRead,
+)
 from app.schemas import (
     DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow,
     StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
     StatsHoursRow, MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
-    StatsLeadTimePoint, StatsToolRow,
+    StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
+    StatsMaterialSupplierRow, StatsMaterialRow,
 )
 from app.api.notifications import serialize_notification
 
@@ -438,11 +442,14 @@ def get_statistics(
 @router.get("/dashboard/statistics/orders-materials", response_model=MaterialsStatsOut)
 def get_materials_stats(
     period: str = 'year',
+    supplier_id: Optional[int] = None,
+    family: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
 ):
-    """3 dataset per il tab Materiali della pagina /statistics."""
+    """Dataset per il tab Materiali. Filtri opzionali: `supplier_id`, `family`
+    (applicati a KPI costi/kg e ai breakdown per fornitore/materiale)."""
     date_from, date_to = _period_range(period)
     where_mo = []
     params: dict = {}
@@ -523,23 +530,130 @@ def get_materials_stats(
         for r in rows_lt
     ]
 
+    # 4. Costi/kg/spedizioni + breakdown per fornitore e per materiale (spec 19).
+    # Aggregazione in Python dalle coppie quote_supplier_orders del periodo,
+    # riusando _estimate_weight_kg. Filtri supplier_id/family applicati qui.
+    from app.api.orders import _estimate_weight_kg
+    from app.services.material_status import part_needs_ordering
+
+    qso_q = db.query(QuoteSupplierOrder)
+    if date_from is not None:
+        qso_q = qso_q.filter(QuoteSupplierOrder.ordered_at >= date_from)
+    if date_to is not None:
+        qso_q = qso_q.filter(func.date(QuoteSupplierOrder.ordered_at) <= date_to)
+    if supplier_id is not None:
+        qso_q = qso_q.filter(QuoteSupplierOrder.material_supplier_id == supplier_id)
+    qsos = qso_q.all()
+
+    quote_ids = {r.quote_id for r in qsos}
+    parts_by_quote: dict = defaultdict(list)
+    if quote_ids:
+        parts = db.query(Part).options(
+            joinedload(Part.material).joinedload(Material.material_supplier)
+        ).filter(Part.quote_id.in_(quote_ids)).all()
+        for p in parts:
+            parts_by_quote[p.quote_id].append(p)
+
+    sup_agg: dict = {}
+    mat_agg: dict = {}
+    for qso in qsos:
+        for p in parts_by_quote.get(qso.quote_id, []):
+            if not part_needs_ordering(p) or not p.material:
+                continue
+            if p.material.supplier_id != qso.material_supplier_id:
+                continue
+            if family and (p.material.family or '') != family:
+                continue
+            cost = (p.material_cost or 0.0) * (p.quantity or 1)
+            kg = _estimate_weight_kg(p)
+            sup = p.material.material_supplier
+            s = sup_agg.setdefault(qso.material_supplier_id, {
+                'name': sup.name if sup else 'Senza fornitore', 'cost': 0.0, 'kg': 0.0,
+            })
+            s['cost'] += cost
+            s['kg'] += kg
+            m = mat_agg.setdefault(p.material_id, {
+                'name': p.material.name, 'cost': 0.0, 'kg': 0.0, 'lines': 0,
+            })
+            m['cost'] += cost
+            m['kg'] += kg
+            m['lines'] += 1
+
+    # Spedizioni + n° ordini per fornitore (una spedizione per MaterialOrder).
+    ship_where = list(where_mo)
+    ship_params = dict(params)
+    if supplier_id is not None:
+        ship_where.append("mo.material_supplier_id = :supplier_id")
+        ship_params['supplier_id'] = supplier_id
+    ship_filter = (' WHERE ' + ' AND '.join(ship_where)) if ship_where else ''
+    ship_rows = db.execute(text(
+        f"""
+        SELECT mo.material_supplier_id AS sid,
+               COALESCE(SUM(ms.shipping_cost), 0) AS shipping,
+               COUNT(*) AS n
+        FROM material_orders mo
+        JOIN material_suppliers ms ON ms.id = mo.material_supplier_id
+        {ship_filter}
+        GROUP BY mo.material_supplier_id
+        """
+    ), ship_params).all()
+    ship_by_sid = {r.sid: (float(r.shipping or 0), int(r.n)) for r in ship_rows}
+
+    by_supplier = []
+    for sid, s in sup_agg.items():
+        shipping, n_ord = ship_by_sid.get(sid, (0.0, 0))
+        by_supplier.append(StatsMaterialSupplierRow(
+            supplier_name=s['name'],
+            material_cost=round(s['cost'], 2),
+            weight_kg=round(s['kg'], 2),
+            shipping_cost=round(shipping, 2),
+            orders_count=n_ord,
+        ))
+    by_supplier.sort(key=lambda r: r.material_cost, reverse=True)
+
+    by_material = [
+        StatsMaterialRow(
+            material_name=m['name'],
+            material_cost=round(m['cost'], 2),
+            weight_kg=round(m['kg'], 2),
+            lines=m['lines'],
+        )
+        for m in mat_agg.values()
+    ]
+    by_material.sort(key=lambda r: r.material_cost, reverse=True)
+    by_material = by_material[:10]
+
+    total_material_cost = round(sum(s['cost'] for s in sup_agg.values()), 2)
+    total_weight_kg = round(sum(s['kg'] for s in sup_agg.values()), 2)
+    total_shipping = round(sum(sh for sh, _ in ship_by_sid.values()), 2)
+    orders_count = sum(n for _, n in ship_by_sid.values())
+
     return MaterialsStatsOut(
         period=period,
+        total_material_cost=total_material_cost,
+        total_weight_kg=total_weight_kg,
+        total_shipping=total_shipping,
+        orders_count=orders_count,
         trend_monthly=trend,
         top_suppliers=top_suppliers,
         lead_time_avg_days=round(lead_time_avg, 2),
         lead_time_monthly=lead_time_monthly,
+        by_supplier=by_supplier,
+        by_material=by_material,
     )
 
 
 @router.get("/dashboard/statistics/tools", response_model=ToolsStatsOut)
 def get_tools_stats(
     period: str = 'year',
+    tool_type: Optional[str] = None,
+    supplier: Optional[str] = None,     # nome fornitore (snapshot)
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
 ):
-    """3 dataset per il tab Utensili della pagina /statistics."""
+    """Dataset per il tab Utensili (solo quantità, nessun costo). Filtri
+    opzionali: `tool_type`, `supplier` (nome snapshot)."""
     date_from, date_to = _period_range(period)
     where = []
     params: dict = {}
@@ -598,11 +712,59 @@ def get_tools_stats(
     ), params).all()
     top_tools = [StatsToolRow(code=r.code, total_quantity=int(r.qty or 0)) for r in rows_tools]
 
+    # 4. KPI + quantità per tipo (solo quantità, spec 19). Filtri opzionali
+    # tool_type/supplier applicati a livello item.
+    item_where = []
+    item_params: dict = {}
+    if date_from is not None:
+        item_where.append("toord.created_at >= :date_from")
+        item_params['date_from'] = date_from
+    if date_to is not None:
+        item_where.append("toord.created_at < date(:date_to, '+1 day')")
+        item_params['date_to'] = date_to
+    if tool_type:
+        item_where.append("toi.tool_type_snapshot = :tool_type")
+        item_params['tool_type'] = tool_type
+    if supplier:
+        item_where.append("toi.supplier_name_snapshot = :supplier")
+        item_params['supplier'] = supplier
+    item_filter = (' WHERE ' + ' AND '.join(item_where)) if item_where else ''
+
+    kpi = db.execute(text(
+        f"""
+        SELECT COUNT(DISTINCT toord.id) AS orders,
+               COALESCE(SUM(toi.quantity_to_order), 0) AS qty,
+               COUNT(DISTINCT toi.tool_id) AS distinct_tools
+        FROM tool_order_items toi
+        JOIN tool_orders toord ON toord.id = toi.tool_order_id
+        {item_filter}
+        """
+    ), item_params).first()
+
+    rows_type = db.execute(text(
+        f"""
+        SELECT COALESCE(toi.tool_type_snapshot, 'Senza tipo') AS label,
+               COALESCE(SUM(toi.quantity_to_order), 0) AS qty
+        FROM tool_order_items toi
+        JOIN tool_orders toord ON toord.id = toi.tool_order_id
+        {item_filter}
+        GROUP BY label
+        HAVING qty > 0
+        ORDER BY qty DESC
+        LIMIT 20
+        """
+    ), item_params).all()
+    by_type = [StatsToolTypeRow(label=r.label or '—', quantity=int(r.qty or 0)) for r in rows_type]
+
     return ToolsStatsOut(
         period=period,
+        orders_count=int(kpi.orders or 0) if kpi else 0,
+        total_quantity=int(kpi.qty or 0) if kpi else 0,
+        distinct_tools=int(kpi.distinct_tools or 0) if kpi else 0,
         trend_monthly=trend,
         top_suppliers=top_suppliers,
         top_tools=top_tools,
+        by_type=by_type,
     )
 
 

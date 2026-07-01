@@ -215,7 +215,7 @@ def get_workflow_stats(
 
     has_confirm = 'quotes.confirm' in getattr(current_user, '_permissions', [])
     to_review = (
-        db.query(func.count(Quote.id)).filter(Quote.status == 'inviato').scalar() or 0
+        db.query(func.count(Quote.id)).filter(Quote.status.in_(['inviato', 'letto'])).scalar() or 0
     ) if has_confirm else 0
 
     return WorkflowStats(
@@ -844,8 +844,27 @@ def get_to_review(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
     ).filter(
-        Quote.status == 'inviato',
+        Quote.status.in_(['inviato', 'letto']),
     ).order_by(Quote.submitted_at.desc().nullslast()).limit(limit).all()
+    return [_quote_to_row(q) for q in quotes]
+
+
+@router.get("/dashboard/awaiting-materials", response_model=List[DashboardQuoteRow])
+def get_awaiting_materials(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+    limit: int = 10,
+):
+    """Preventivi confermati in attesa di ordine materiale (spec 18/19):
+    status 'confermato' con materiale non ancora totalmente evaso."""
+    quotes = db.query(Quote).options(
+        joinedload(Quote.parts),
+        joinedload(Quote.submitted_by),
+    ).filter(
+        Quote.status == 'confermato',
+        Quote.material_ordered_at.is_(None),
+    ).order_by(Quote.confirmed_at.desc().nullslast()).limit(limit).all()
     return [_quote_to_row(q) for q in quotes]
 
 

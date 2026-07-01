@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Send, FileText, Inbox, BarChart3 } from 'lucide-react'
+import { Plus, Send, FileText, Inbox, BarChart3, Package } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import type { DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
@@ -16,7 +16,7 @@ import { StatusChips, QuoteListSection, ActivityCard } from './DashboardLists'
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
-  const canReview = hasPermission('quotes.complete')
+  const canReview = hasPermission('quotes.confirm')
   const canTools = hasPermission('tools')
   const canOrderMaterials = hasPermission('orders.materials')
   const [alerts, setAlerts] = useState<AlertCounts>({
@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [myDrafts, setMyDrafts] = useState<DashboardQuoteRow[]>([])
   const [myPending, setMyPending] = useState<DashboardQuoteRow[]>([])
   const [toReview, setToReview] = useState<DashboardQuoteRow[]>([])
+  const [awaitingMaterials, setAwaitingMaterials] = useState<DashboardQuoteRow[]>([])
   const [activity, setActivity] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -42,10 +43,13 @@ export default function DashboardPage() {
       api.get('/dashboard/my-quotes', { params: { status: 'inviato' } }),
       api.get('/dashboard/activity'),
     ]
-    if (canReview) calls.push(api.get('/dashboard/to-review'))
+    if (canReview) {
+      calls.push(api.get('/dashboard/to-review'))
+      calls.push(api.get('/dashboard/awaiting-materials'))
+    }
 
     Promise.all(calls).then((results) => {
-      const [kpiR, monthlyR, statsR, draftsR, pendingR, actR, reviewR] = results as { data: unknown }[]
+      const [kpiR, monthlyR, statsR, draftsR, pendingR, actR, reviewR, awaitingR] = results as { data: unknown }[]
       setKpi(kpiR.data as DashboardKPI)
       setMonthly(monthlyR.data as MonthlyData[])
       setStats(statsR.data as WorkflowStats)
@@ -53,6 +57,7 @@ export default function DashboardPage() {
       setMyPending(pendingR.data as DashboardQuoteRow[])
       setActivity(actR.data as Notification[])
       if (reviewR) setToReview(reviewR.data as DashboardQuoteRow[])
+      if (awaitingR) setAwaitingMaterials(awaitingR.data as DashboardQuoteRow[])
     }).catch(() => {
       toast.error('Errore nel caricamento dashboard')
     }).finally(() => setLoading(false))
@@ -81,7 +86,9 @@ export default function DashboardPage() {
         </PrimaryCtaButton>
       }
     >
-      <StatusChips stats={stats} onClick={(status) => navigate(`/quotes/archive?status=${status}`)} />
+      <StatusChips stats={stats} onClick={(status) => navigate(
+        status === 'completo' ? '/quotes/archive' : `/quotes/active?status=${status}`
+      )} />
       <AlertPanel
         alerts={alerts}
         canTools={canTools}
@@ -112,11 +119,22 @@ export default function DashboardPage() {
           />
           {canReview && (
             <QuoteListSection
-              title="Da leggere"
+              title="Da confermare"
               count={stats.to_review_count}
               rows={toReview}
-              emptyText="Niente da leggere"
+              emptyText="Niente da confermare (inviati e letti compaiono qui)"
               icon={<Inbox className="w-4 h-4 text-blue-500" />}
+              onClick={(id) => navigate(`/quotes/${id}`)}
+              showSubmitter
+            />
+          )}
+          {canReview && (
+            <QuoteListSection
+              title="Confermati in attesa materiale"
+              count={awaitingMaterials.length}
+              rows={awaitingMaterials}
+              emptyText="Nessun confermato in attesa di ordine materiale"
+              icon={<Package className="w-4 h-4 text-violet-500" />}
               onClick={(id) => navigate(`/quotes/${id}`)}
               showSubmitter
             />

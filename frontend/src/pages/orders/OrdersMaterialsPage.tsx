@@ -38,7 +38,7 @@ export default function OrdersMaterialsPage() {
   const [search, setSearch] = useState('')
   const [aggregate, setAggregate] = useState<MaterialAggregateResult | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
-  const [exporting, setExporting] = useState(false)
+  const [creatingSupplierId, setCreatingSupplierId] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
   const [stats, setStats] = useState<MaterialsStats | null>(null)
@@ -138,18 +138,42 @@ export default function OrdersMaterialsPage() {
       document.body.appendChild(a)
       a.click()
       a.remove()
+      window.URL.revokeObjectURL(url)
     } catch { toast.error('Errore nel download del PDF') }
   }
 
-  const exportOrder = async () => {
-    if (selectedIds.size === 0) { toast.error('Seleziona almeno un preventivo'); return }
-    setExporting(true)
+  const downloadCsv = async (orderId: number) => {
     try {
-      const res = await api.post('/orders/materials', { quote_ids: Array.from(selectedIds) })
+      const res = await api.get(`/orders/materials/${orderId}/csv`, { responseType: 'blob' })
+      // Il backend nomina il file per-fornitore (AAAAMMGG_HHmm_fornitore.csv).
+      const cd = res.headers['content-disposition'] as string | undefined
+      const match = cd?.match(/filename="?([^"]+)"?/)
+      const filename = match ? match[1] : `ordine_materiali_${orderId.toString().padStart(4, '0')}.csv`
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nel download del CSV')
+    }
+  }
+
+  const createSupplierOrder = async (supplierId: number, supplierName: string) => {
+    if (selectedIds.size === 0) { toast.error('Seleziona almeno un preventivo'); return }
+    setCreatingSupplierId(supplierId)
+    try {
+      const res = await api.post('/orders/materials', {
+        quote_ids: Array.from(selectedIds),
+        material_supplier_id: supplierId,
+      })
       const order = res.data as MaterialOrder
-      await downloadPdf(order.id)
-      toast.success(`Ordine #${order.id} creato — PDF scaricato, notifica inviata`)
-      setSelectedIds(new Set())
+      await downloadCsv(order.id)
+      toast.success(`Ordine MO-${String(order.id).padStart(4, '0')} creato per ${supplierName} — CSV scaricato`)
       loadQuotes()
       loadOrders()
       loadStats()
@@ -157,7 +181,7 @@ export default function OrdersMaterialsPage() {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
     } finally {
-      setExporting(false)
+      setCreatingSupplierId(null)
     }
   }
 
@@ -208,6 +232,7 @@ export default function OrdersMaterialsPage() {
           search={historySearch}
           onSearchChange={setHistorySearch}
           onDownloadPdf={downloadPdf}
+          onDownloadCsv={downloadCsv}
           onClose={() => setShowHistory(false)}
         />
       )}
@@ -302,8 +327,8 @@ export default function OrdersMaterialsPage() {
           selectedCount={selectedIds.size}
           totalQty={totalQty}
           totalWeight={totalWeight}
-          exporting={exporting}
-          onExport={exportOrder}
+          creatingSupplierId={creatingSupplierId}
+          onCreateSupplierOrder={createSupplierOrder}
         />
       </div>
     </StandardPage>

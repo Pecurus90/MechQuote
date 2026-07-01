@@ -598,6 +598,11 @@ class MaterialOrder(Base):
     id = Column(Integer, primary_key=True)
     created_at = Column(DateTime, server_default=func.now())
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Spec 18: un ordine materiale = UN fornitore (come gli utensili). Snapshot
+    # del nome + FK per filtrare l'aggregato in CSV/PDF. NULL sugli ordini
+    # storici pre-spec18 (retro-compatibile).
+    material_supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
+    supplier_name = Column(String(100), nullable=True)
 
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     quotes = relationship(

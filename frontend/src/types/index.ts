@@ -205,6 +205,7 @@ export interface MaterialOrder {
   id: number
   created_at: string
   created_by: UserMinimal | null
+  supplier_name: string | null
   quote_count: number
   quote_numbers: string[]
 }

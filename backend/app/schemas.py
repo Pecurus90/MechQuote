@@ -899,6 +899,10 @@ class DxfAnalysisOut(BaseModel):
 
 class MaterialOrderCreate(BaseModel):
     quote_ids: List[int] = Field(min_length=1)
+    # Spec 18: creare l'ordine è per-fornitore. Opzionale nello schema perché
+    # /aggregate (preview) usa lo stesso modello e non lo richiede; l'endpoint
+    # di creazione lo esige.
+    material_supplier_id: Optional[int] = None
 
 
 class MaterialOrderOut(BaseModel):
@@ -906,6 +910,7 @@ class MaterialOrderOut(BaseModel):
     id: int
     created_at: datetime
     created_by: Optional[UserMinimal] = None
+    supplier_name: Optional[str] = None
     quote_count: int
     quote_numbers: List[str] = []
 

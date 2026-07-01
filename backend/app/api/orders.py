@@ -29,17 +29,24 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.csv_import import csv_export_response, sanitize_filename_part
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
 from app.models import (
-    CompanySettings, MaterialOrder, MaterialOrderQuote,
-    Part, Quote, User,
+    CompanySettings, MaterialOrder, MaterialOrderQuote, MaterialSupplier,
+    Part, Quote, QuoteSupplierOrder, User,
 )
 from app.schemas import (
     MaterialAggregateOut, MaterialAggregateBySupplier, MaterialItemAggregated,
     MaterialOrderCreate, MaterialOrderOut, QuoteOut,
 )
+from app.services.material_status import (
+    MAT_TOTALMENTE_EVASO, part_needs_ordering, quote_material_status,
+)
 from app.services.notifications import create_notification
+
+# Colonne CSV ordine materiali (dimensioni in una sola cella testo).
+_MAT_CSV_COLUMNS = ['Materiale', 'Dimensioni', 'Quantità (pz)']
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orders/materials", tags=["orders"])
@@ -181,6 +188,60 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
     return MaterialAggregateOut(groups=groups)
 
 
+# ─── Evasione per fornitore (spec 18) ───────────────────────────────────────
+
+def _supplier_order_data(quote_ids: List[int], supplier_id: int, db: Session):
+    """Per un fornitore: preventivi coinvolti + righe CSV aggregate.
+
+    Considera solo le parti "da ordinare" (materiale reale, non conto lavoro,
+    non da magazzino) il cui materiale ha `supplier_id`. Ritorna
+    `(set(quote_id coinvolti), [[materiale, dimensioni, qty], ...])`.
+    """
+    parts = db.query(Part).options(joinedload(Part.material)).filter(
+        Part.quote_id.in_(quote_ids)
+    ).all()
+    involved: set = set()
+    aggr: Dict[Tuple, Dict[str, Any]] = {}
+    for p in parts:
+        if not part_needs_ordering(p):
+            continue
+        if not p.material or p.material.supplier_id != supplier_id:
+            continue
+        involved.add(p.quote_id)
+        key = (p.material_id, _dim_signature(p))
+        slot = aggr.setdefault(key, {'name': p.material.name, 'dim': _format_dim(p), 'qty': 0})
+        slot['qty'] += (p.quantity or 1)
+    rows = [
+        [s['name'], s['dim'], s['qty']]
+        for s in sorted(aggr.values(), key=lambda s: (s['name'], s['dim']))
+    ]
+    return involved, rows
+
+
+def _refresh_quote_material_flag(quote: Quote, db: Session, actor_id: int) -> None:
+    """Ricalcola il flag legacy `material_ordered_at` dallo stato materiale.
+
+    Ponte di compatibilità finché la dashboard (Blocco 4) non legge lo stato
+    derivato: il flag = "materiale totalmente evaso". Partial/non ordinato →
+    flag azzerato (il preventivo resta "da ordinare" e selezionabile).
+    """
+    parts = db.query(Part).options(joinedload(Part.material)).filter(
+        Part.quote_id == quote.id
+    ).all()
+    ordered = {
+        r.material_supplier_id for r in db.query(QuoteSupplierOrder).filter(
+            QuoteSupplierOrder.quote_id == quote.id
+        ).all()
+    }
+    if quote_material_status(parts, ordered) == MAT_TOTALMENTE_EVASO:
+        if quote.material_ordered_at is None:
+            quote.material_ordered_at = utc_now()
+            quote.material_ordered_by_user_id = actor_id
+    else:
+        quote.material_ordered_at = None
+        quote.material_ordered_by_user_id = None
+
+
 # ─── Endpoints ──────────────────────────────────────────────────────────────
 
 @router.get("/stats")
@@ -265,48 +326,91 @@ def create_order(
     current_user: User = Depends(get_current_user),
     _=_can_orders,
 ):
-    """Crea un MaterialOrder + marca i quote + manda notifica.
+    """Crea un ordine materiali PER FORNITORE (spec 18).
 
-    Il PDF si scarica separatamente via GET /{id}/pdf (così se serve il
-    download mancante per qualche errore di rete, l'utente può ripetere
-    senza generare un nuovo MaterialOrder).
+    Dai preventivi selezionati prende le parti da ordinare del fornitore
+    scelto, marca le coppie (preventivo, fornitore) come ordinate, ricalcola
+    lo stato materiale e notifica. Idempotente: i preventivi già ordinati per
+    quel fornitore vengono saltati; se sono tutti già ordinati → 400.
+    Il CSV/PDF si scaricano separatamente via GET /{id}/csv | /{id}/pdf.
     """
-    # Verifica che i quote esistano
+    if payload.material_supplier_id is None:
+        raise HTTPException(status_code=400, detail="Fornitore mancante per l'ordine")
+    supplier = db.query(MaterialSupplier).filter(
+        MaterialSupplier.id == payload.material_supplier_id
+    ).first()
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Fornitore non trovato")
+
     quotes = db.query(Quote).filter(Quote.id.in_(payload.quote_ids)).all()
-    if len(quotes) != len(payload.quote_ids):
+    if len(quotes) != len(set(payload.quote_ids)):
         raise HTTPException(status_code=400, detail="Uno o più preventivi non esistono")
+    quote_by_id = {q.id: q for q in quotes}
+
+    involved, _rows = _supplier_order_data(payload.quote_ids, supplier.id, db)
+    if not involved:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nessun materiale da ordinare per {supplier.name} nei preventivi selezionati",
+        )
+
+    # Salta i preventivi già ordinati per questo fornitore (idempotenza).
+    existing = {
+        r.quote_id for r in db.query(QuoteSupplierOrder).filter(
+            QuoteSupplierOrder.material_supplier_id == supplier.id,
+            QuoteSupplierOrder.quote_id.in_(list(involved)),
+        ).all()
+    }
+    new_ids = involved - existing
+    if not new_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Materiale già ordinato per {supplier.name} in questi preventivi",
+        )
 
     now = utc_now()
-    order = MaterialOrder(created_by_user_id=current_user.id)
+    order = MaterialOrder(
+        created_by_user_id=current_user.id,
+        material_supplier_id=supplier.id,
+        supplier_name=supplier.name,
+    )
     db.add(order)
     db.flush()
 
-    for q in quotes:
-        db.add(MaterialOrderQuote(material_order_id=order.id, quote_id=q.id))
-        q.material_ordered_at = now
-        q.material_ordered_by_user_id = current_user.id
+    for qid in new_ids:
+        db.add(MaterialOrderQuote(material_order_id=order.id, quote_id=qid))
+        db.add(QuoteSupplierOrder(
+            quote_id=qid,
+            material_supplier_id=supplier.id,
+            material_order_id=order.id,
+            ordered_at=now,
+            ordered_by_user_id=current_user.id,
+        ))
+    db.flush()
+
+    for qid in new_ids:
+        _refresh_quote_material_flag(quote_by_id[qid], db, current_user.id)
 
     db.commit()
     db.refresh(order)
 
-    # Notifica ufficio tecnico + amministrazione
     actor_name = current_user.full_name or current_user.username
-    quote_numbers = [q.quote_number for q in quotes]
-    quote_list = ', '.join(quote_numbers[:5])
-    if len(quote_numbers) > 5:
-        quote_list += f" e altri {len(quote_numbers) - 5}"
+    nums = sorted(quote_by_id[qid].quote_number for qid in new_ids)
+    quote_list = ', '.join(nums[:5])
+    if len(nums) > 5:
+        quote_list += f" e altri {len(nums) - 5}"
     create_notification(
         db,
         type='materials_ordered',
-        title=f"Ordine materiali #{order.id}",
-        body=f"{actor_name} ha ordinato il materiale per {len(quotes)} preventivi: {quote_list}",
+        title=f"Ordine materiali MO-{order.id:04d}",
+        body=f"{actor_name} ha creato l'ordine materiali per {supplier.name} (prev. {quote_list})",
         created_by_user_id=current_user.id,
         target_roles=['ufficio_tecnico', 'amministrazione'],
-        data={'order_id': order.id, 'quote_ids': payload.quote_ids},
+        data={'order_id': order.id, 'material_supplier_id': supplier.id},
     )
 
-    logger.info("Ordine materiali creato: id=%s by=%s n_quotes=%d",
-                order.id, current_user.username, len(quotes))
+    logger.info("Ordine materiali creato: id=%s supplier=%s by=%s n_quotes=%d",
+                order.id, supplier.name, current_user.username, len(new_ids))
 
     return _order_to_out(order, db)
 
@@ -387,6 +491,32 @@ async def get_order_pdf(
     )
 
 
+@router.get("/{order_id}/csv")
+def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
+    """CSV dell'ordine materiali di quel fornitore (un file = un ordine gestionale).
+
+    Nome file `AAAAMMGG_HHmm_<fornitore>.csv`, formato `;` + UTF-8/BOM. Le
+    righe sono ri-aggregate dai preventivi dell'ordine per il suo fornitore
+    (ri-scarico idempotente: nessun side effect).
+    """
+    order = db.query(MaterialOrder).options(joinedload(MaterialOrder.quotes)).filter(
+        MaterialOrder.id == order_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+    if order.material_supplier_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Ordine storico senza fornitore: CSV non disponibile (usa il PDF)",
+        )
+
+    quote_ids = [q.id for q in order.quotes]
+    _involved, rows = _supplier_order_data(quote_ids, order.material_supplier_id, db)
+    ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"MO{order.id:04d}"
+    filename = f"{ts}_{sanitize_filename_part(order.supplier_name)}.csv"
+    return csv_export_response(filename=filename, columns=_MAT_CSV_COLUMNS, rows=rows)
+
+
 @router.delete("/quote-flag/{quote_id}")
 def remove_quote_flag(
     quote_id: int,
@@ -423,6 +553,7 @@ def _order_to_out(order: MaterialOrder, db: Session) -> MaterialOrderOut:
         id=order.id,
         created_at=order.created_at,
         created_by={'id': cb.id, 'username': cb.username, 'full_name': cb.full_name} if cb else None,
+        supplier_name=order.supplier_name,
         quote_count=len(order.quotes),
         quote_numbers=quote_numbers,
     )

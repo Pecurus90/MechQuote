@@ -10,10 +10,11 @@ interface Props {
   search: string
   onSearchChange: (v: string) => void
   onDownloadPdf: (orderId: number) => void
+  onDownloadCsv: (orderId: number) => void
   onClose: () => void
 }
 
-export default function OrderHistoryModal({ orders, search, onSearchChange, onDownloadPdf, onClose }: Props) {
+export default function OrderHistoryModal({ orders, search, onSearchChange, onDownloadPdf, onDownloadCsv, onClose }: Props) {
   useEscapeKey(onClose, true)
   return (
     <div
@@ -45,17 +46,18 @@ export default function OrderHistoryModal({ orders, search, onSearchChange, onDo
           <table className="table-fixed w-full text-sm">
             <thead className="bg-gray-50 border-b sticky top-0">
               <tr>
-                <th className="text-left p-3 w-[14%] font-medium text-gray-600">Numero</th>
-                <th className="text-left p-3 w-[22%] font-medium text-gray-600">Data</th>
-                <th className="text-left p-3 w-[20%] font-medium text-gray-600">Creato da</th>
-                <th className="text-left p-3 w-[8%] font-medium text-gray-600">Quote</th>
+                <th className="text-left p-3 w-[12%] font-medium text-gray-600">Numero</th>
+                <th className="text-left p-3 w-[17%] font-medium text-gray-600">Data</th>
+                <th className="text-left p-3 w-[16%] font-medium text-gray-600">Fornitore</th>
+                <th className="text-left p-3 w-[15%] font-medium text-gray-600">Creato da</th>
+                <th className="text-left p-3 w-[7%] font-medium text-gray-600">Prev.</th>
                 <th className="text-left p-3 font-medium text-gray-600">Preventivi</th>
-                <th className="text-center p-3 w-[12%] font-medium text-gray-600">Azioni</th>
+                <th className="text-center p-3 w-[16%] font-medium text-gray-600">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 && (
-                <tr><td colSpan={6} className="p-6 text-center text-gray-400">
+                <tr><td colSpan={7} className="p-6 text-center text-gray-400">
                   {search ? 'Nessun ordine corrisponde alla ricerca.' : 'Nessun ordine ancora.'}
                 </td></tr>
               )}
@@ -63,12 +65,16 @@ export default function OrderHistoryModal({ orders, search, onSearchChange, onDo
                 <tr key={o.id} className="border-b hover:bg-gray-50">
                   <td className="p-3 font-mono text-blue-700">MO-{String(o.id).padStart(4, '0')}</td>
                   <td className="p-3 text-gray-600">{new Date(o.created_at).toLocaleString('it-IT')}</td>
-                  <td className="p-3">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
+                  <td className="p-3 text-gray-700 truncate">{o.supplier_name || '—'}</td>
+                  <td className="p-3 truncate">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
                   <td className="p-3 font-mono text-center">{o.quote_count}</td>
                   <td className="p-3 text-xs text-gray-500 font-mono truncate">
                     {o.quote_numbers.slice(0, 3).join(', ')}{o.quote_numbers.length > 3 && ` +${o.quote_numbers.length - 3}`}
                   </td>
-                  <td className="p-3 text-center">
+                  <td className="p-3 text-center whitespace-nowrap">
+                    <Button size="sm" variant="outline" onClick={() => onDownloadCsv(o.id)} className="mr-1">
+                      <FileDown className="w-3.5 h-3.5 mr-1" /> CSV
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => onDownloadPdf(o.id)}>
                       <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
                     </Button>

@@ -760,6 +760,10 @@ def _run_migrations():
          "ordered_by_user_id INTEGER REFERENCES users(id), "
          "UNIQUE(quote_id, material_supplier_id))"),
         "CREATE INDEX IF NOT EXISTS idx_quote_supplier_orders_quote ON quote_supplier_orders(quote_id)",
+
+        # ═══ Spec 18 — ordine materiale per fornitore (come utensili) ═══
+        "ALTER TABLE material_orders ADD COLUMN material_supplier_id INTEGER REFERENCES material_suppliers(id)",
+        "ALTER TABLE material_orders ADD COLUMN supplier_name VARCHAR(100)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

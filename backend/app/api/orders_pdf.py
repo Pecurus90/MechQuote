@@ -167,6 +167,11 @@ def generate_order_pdf(order_id: int, db: Session) -> str:
 
     quote_ids = [q.id for q in order.quotes]
     aggregate = aggregate_materials(quote_ids, db)
+    # Spec 18: l'ordine è per-fornitore → mostra solo il suo gruppo.
+    if order.material_supplier_id is not None:
+        aggregate.groups = [
+            g for g in aggregate.groups if g.supplier_id == order.material_supplier_id
+        ]
 
     cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
     co_name = (cs.name if cs and cs.name else 'Fratelli Dalla Via')

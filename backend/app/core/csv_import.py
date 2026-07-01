@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional, Sequence, Tuple
 
@@ -325,6 +326,16 @@ async def import_catalog_csv(
 # ---------------------------------------------------------------------------
 # Template + export scaricabili (formato identico all'engine di import)
 # ---------------------------------------------------------------------------
+
+def sanitize_filename_part(name: Optional[str]) -> str:
+    """Rende un nome (es. fornitore) sicuro per un filename.
+
+    Accenti preservati, spazi/punteggiatura → `_`, fallback 'fornitore'.
+    Usato per i CSV per-fornitore (ordini utensili e materiali).
+    """
+    cleaned = re.sub(r'[^0-9A-Za-zÀ-ÿ]+', '_', (name or '').strip()).strip('_')
+    return cleaned or 'fornitore'
+
 
 def _csv_streaming_response(
     *,

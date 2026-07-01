@@ -10,7 +10,6 @@ un ordine separato, quindi l'export genera un file CSV per fornitore.
 - CSV: rigenera dal snapshot del record (storico stabile), nome per-fornitore
 """
 import logging
-import re
 from collections import defaultdict
 from typing import List, Optional
 
@@ -18,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.csv_import import csv_export_response
+from app.core.csv_import import csv_export_response, sanitize_filename_part
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
 from app.models import Tool, ToolOrder, ToolOrderItem, User
@@ -43,12 +42,6 @@ def _low_stock_query(db: Session, supplier_id: Optional[int] = None):
     if supplier_id is not None:
         q = q.filter(Tool.tool_supplier_id == supplier_id)
     return q.order_by(Tool.code)
-
-
-def _sanitize_filename_part(name: Optional[str]) -> str:
-    """Rende un nome fornitore sicuro per un filename (accenti/spazi → `_`)."""
-    cleaned = re.sub(r'[^0-9A-Za-zÀ-ÿ]+', '_', (name or '').strip()).strip('_')
-    return cleaned or 'fornitore'
 
 
 @router.get("/stats")
@@ -306,5 +299,5 @@ def get_tool_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_tool
     ]
 
     ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"UO{order.id:04d}"
-    filename = f"{ts}_{_sanitize_filename_part(order.supplier_name)}.csv"
+    filename = f"{ts}_{sanitize_filename_part(order.supplier_name)}.csv"
     return csv_export_response(filename=filename, columns=_CSV_COLUMNS, rows=rows)

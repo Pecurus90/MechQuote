@@ -187,6 +187,7 @@ def _quote_to_row(q: Quote) -> DashboardQuoteRow:
         quote_number=q.quote_number,
         customer_name=q.customer_name,
         status=q.status,
+        quote_type=q.quote_type,
         quote_date=q.quote_date,
         total_price=round(total, 2),
         submitted_at=q.submitted_at,

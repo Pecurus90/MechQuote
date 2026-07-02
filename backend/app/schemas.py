@@ -824,6 +824,7 @@ class DashboardQuoteRow(BaseModel):
     quote_number: str
     customer_name: Optional[str] = None
     status: str
+    quote_type: Optional[str] = None
     quote_date: Optional[date] = None
     total_price: float
     submitted_at: Optional[datetime] = None

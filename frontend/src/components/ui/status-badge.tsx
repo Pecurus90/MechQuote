@@ -3,7 +3,7 @@
 // (/15) + testo pieno del colore-stato + pallino bg-current.
 import { STATUS_LABELS } from '@/lib/constants'
 
-const QUOTE_STATE_CLASS: Record<string, string> = {
+export const QUOTE_STATE_CLASS: Record<string, string> = {
   bozza:      'bg-state-bozza/15 text-state-bozza',
   inviato:    'bg-state-inviato/15 text-state-inviato',
   letto:      'bg-state-letto/15 text-state-letto',
@@ -18,6 +18,21 @@ export function StatusBadge({ status, className = '' }: { status: string; classN
       <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
       {STATUS_LABELS[status] ?? status}
     </span>
+  )
+}
+
+// Chip stato con conteggio (dashboard "Preventivi per stato").
+export function StatusChip({ status, count, onClick }: { status: string; count: number; onClick?: () => void }) {
+  const cls = QUOTE_STATE_CLASS[status] ?? 'bg-muted text-muted-foreground'
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full pl-2 pr-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${cls}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+      {STATUS_LABELS[status] ?? status}
+      <span className="font-mono font-semibold">{count}</span>
+    </button>
   )
 }
 

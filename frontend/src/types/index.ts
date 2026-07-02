@@ -371,6 +371,8 @@ export interface WorkflowStats {
   my_drafts_count: number
   my_pending_count: number
   to_review_count: number
+  standard_count: number
+  die_count: number
 }
 
 export interface DashboardQuoteRow {
@@ -378,6 +380,7 @@ export interface DashboardQuoteRow {
   quote_number: string
   customer_name: string | null
   status: string
+  quote_type?: string | null
   quote_date: string | null
   total_price: number
   submitted_at?: string | null
@@ -555,6 +558,8 @@ export interface MonthlyData {
   margin: number    // margine = prezzo - costo
   material: number  // costo materiali (grezzo + delivery + taglio)
   labor: number     // costo lavorazioni (escluso trattamenti)
+  created_count: number    // preventivi creati nel mese
+  confirmed_count: number  // preventivi confermati nel mese
 }
 
 // ─── Role / User / Settings server-side ─────────────────────────────────────

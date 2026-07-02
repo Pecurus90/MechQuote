@@ -38,6 +38,25 @@ const num = (v: number | null | undefined): string => (v == null ? '' : String(v
 const stripHrc = (v: string | null | undefined): string =>
   (v ?? '').replace(/\s*HRC\s*$/i, '').trim()
 
+// Definito fuori dal componente: se stesse dentro, ogni render lo tratterebbe
+// come un componente nuovo e rimonterebbe gli Input, facendo perdere il focus
+// a ogni battitura (l'utente doveva ri-cliccare a ogni cifra).
+const PrePostRow = ({ label, prePost }: {
+  label: string
+  prePost: {
+    preValue: string; postValue: string
+    onPre: (v: string) => void; onPost: (v: string) => void
+  }
+}) => (
+  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+    <label className="text-sm font-medium">{label}</label>
+    <Input type="number" step="0.001" className="w-28" placeholder="pre"
+      value={prePost.preValue} onChange={e => prePost.onPre(e.target.value)} />
+    <Input type="number" step="0.001" className="w-28" placeholder="post"
+      value={prePost.postValue} onChange={e => prePost.onPost(e.target.value)} />
+  </div>
+)
+
 const fromResult = (r: HeatTreatmentResult | null): FormState => ({
   material: r?.material ?? '',
   shape: r?.shape ?? 'tondo',
@@ -119,17 +138,12 @@ export default function TempraFormModal({
     }
   }
 
-  const PrePostRow = ({ label, preKey, postKey }: {
-    label: string; preKey: keyof FormState; postKey: keyof FormState
-  }) => (
-    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-      <label className="text-sm font-medium">{label}</label>
-      <Input type="number" step="0.001" className="w-28" placeholder="pre"
-        value={form[preKey] as string} onChange={e => set(preKey, e.target.value)} />
-      <Input type="number" step="0.001" className="w-28" placeholder="post"
-        value={form[postKey] as string} onChange={e => set(postKey, e.target.value)} />
-    </div>
-  )
+  const prePost = (preKey: keyof FormState, postKey: keyof FormState) => ({
+    preValue: form[preKey] as string,
+    postValue: form[postKey] as string,
+    onPre: (v: string) => set(preKey, v),
+    onPost: (v: string) => set(postKey, v),
+  })
 
   const isRound = form.shape === 'tondo'
 
@@ -201,16 +215,16 @@ export default function TempraFormModal({
             <div className="space-y-2">
               {isRound ? (
                 <>
-                  <PrePostRow label="Ø esterno" preKey="outer_dia_pre_mm" postKey="outer_dia_post_mm" />
-                  <PrePostRow label="Ø interno" preKey="inner_dia_pre_mm" postKey="inner_dia_post_mm" />
+                  <PrePostRow label="Ø esterno" prePost={prePost('outer_dia_pre_mm', 'outer_dia_post_mm')} />
+                  <PrePostRow label="Ø interno" prePost={prePost('inner_dia_pre_mm', 'inner_dia_post_mm')} />
                 </>
               ) : (
                 <>
-                  <PrePostRow label="Larghezza" preKey="width_pre_mm" postKey="width_post_mm" />
-                  <PrePostRow label="Altezza" preKey="height_pre_mm" postKey="height_post_mm" />
+                  <PrePostRow label="Larghezza" prePost={prePost('width_pre_mm', 'width_post_mm')} />
+                  <PrePostRow label="Altezza" prePost={prePost('height_pre_mm', 'height_post_mm')} />
                 </>
               )}
-              <PrePostRow label="Lunghezza" preKey="length_pre_mm" postKey="length_post_mm" />
+              <PrePostRow label="Lunghezza" prePost={prePost('length_pre_mm', 'length_post_mm')} />
             </div>
           </div>
 

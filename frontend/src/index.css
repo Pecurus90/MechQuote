@@ -1,56 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Design system MechQuote (handoff 2026-07-02): token HSL dual-theme.
+   Superfici grigio neutro freddo; blu solo come colore d'azione; colori di
+   stato/semantici dedicati. I token *-foreground/popover/secondary/accent/
+   destructive sono mantenuti per compatibilità coi primitivi shadcn esistenti. */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 20% 99%;
+    --foreground: 220 18% 16%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 18% 16%;
+    --card-muted: 220 20% 98%;        /* header tabella, fondi tenui */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 220 18% 16%;
+    --muted: 220 16% 95%;
+    --muted-foreground: 220 10% 44%;
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 220 18% 16%;
+    --accent: 220 16% 95%;
+    --accent-foreground: 220 18% 16%;
+    --border: 220 14% 89%;
+    --input: 220 14% 84%;
+    --sidebar: 220 20% 98%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 221 83% 53%;
+    --radius: 0.85rem;
+    --destructive: 0 74% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Stati preventivo (bozza → inviato → letto → confermato → completo) */
+    --state-bozza: 220 9% 46%;
+    --state-inviato: 214 90% 52%;
+    --state-letto: 33 92% 47%;
+    --state-confermato: 262 78% 56%;
+    --state-completo: 142 66% 38%;
+
+    /* Semantici (KPI, stato materiale) */
+    --success: 142 66% 38%;
+    --warning: 33 92% 45%;
+    --danger: 0 74% 50%;
+    --info: 214 90% 52%;
+    --confirmed: 262 78% 56%;
   }
 
-  /* Tema scuro (spec 20): grigio scuro neutro (dark mode "classica"). Le
-     superfici usano hue freddo 240 a saturazione minima (~4-6%): stessi
-     livelli di luminosità di prima, tolto il tinta blu. Restano colorati solo
-     gli accenti: --primary/--ring (blu brand, bottoni/focus) e --destructive
-     (rosso). Attivo quando <html class="dark"> — gestito da lib/theme.tsx. */
   .dark {
-    --background: 240 6% 11%;
-    --foreground: 0 0% 96%;
-    --card: 240 5% 15%;
-    --card-foreground: 0 0% 96%;
-    --popover: 240 5% 15%;
-    --popover-foreground: 0 0% 96%;
+    --background: 220 9% 9%;
+    --foreground: 210 16% 90%;
+    --card: 220 8% 12%;
+    --card-foreground: 210 16% 90%;
+    --card-muted: 220 8% 14%;
+    --popover: 220 8% 12%;
+    --popover-foreground: 210 16% 90%;
+    --muted: 220 7% 17%;
+    --muted-foreground: 220 9% 60%;
+    --secondary: 220 7% 17%;
+    --secondary-foreground: 210 16% 90%;
+    --accent: 220 7% 17%;
+    --accent-foreground: 210 16% 90%;
+    --border: 220 7% 21%;
+    --input: 220 7% 26%;
+    --sidebar: 220 9% 11%;
     --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4% 20%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 240 4% 18%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 4% 24%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 63% 45%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 24%;
-    --input: 240 4% 24%;
+    --primary-foreground: 0 0% 100%;
     --ring: 217 91% 60%;
+    --destructive: 0 78% 63%;
+    --destructive-foreground: 0 0% 100%;
+
+    --state-bozza: 220 9% 62%;
+    --state-inviato: 213 93% 66%;
+    --state-letto: 36 96% 56%;
+    --state-confermato: 263 84% 72%;
+    --state-completo: 142 58% 52%;
+
+    --success: 142 58% 52%;
+    --warning: 36 96% 56%;
+    --danger: 0 78% 63%;
+    --info: 213 93% 66%;
+    --confirmed: 263 84% 72%;
   }
 
   * {
@@ -60,12 +91,11 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: 'Inter', sans-serif;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
   }
 }
 
-/* Recharts in dark: assi/griglia/tooltip leggibili senza toccare ogni grafico
-   (le barre/linee usano colori propri, restano invariate). */
+/* Recharts in dark: assi/griglia/tooltip leggibili senza toccare ogni grafico. */
 .dark .recharts-cartesian-grid line { stroke: hsl(var(--border)); }
 .dark .recharts-text { fill: hsl(var(--muted-foreground)); }
 .dark .recharts-default-tooltip {

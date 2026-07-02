@@ -11,6 +11,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+      },
       colors: {
         // Mappatura colori semantici → CSS variables (pattern shadcn/ui).
         // I componenti che usano bg-card/text-foreground/ecc. si adattano al tema.
@@ -19,7 +23,21 @@ export default {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+          muted: 'hsl(var(--card-muted))',
         },
+        sidebar: 'hsl(var(--sidebar))',
+        // Stati preventivo + semantici (handoff): con <alpha-value> per
+        // supportare i modificatori /alpha (es. bg-state-inviato/15).
+        'state-bozza': 'hsl(var(--state-bozza) / <alpha-value>)',
+        'state-inviato': 'hsl(var(--state-inviato) / <alpha-value>)',
+        'state-letto': 'hsl(var(--state-letto) / <alpha-value>)',
+        'state-confermato': 'hsl(var(--state-confermato) / <alpha-value>)',
+        'state-completo': 'hsl(var(--state-completo) / <alpha-value>)',
+        success: 'hsl(var(--success) / <alpha-value>)',
+        warning: 'hsl(var(--warning) / <alpha-value>)',
+        danger: 'hsl(var(--danger) / <alpha-value>)',
+        info: 'hsl(var(--info) / <alpha-value>)',
+        confirmed: 'hsl(var(--confirmed) / <alpha-value>)',
         popover: {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',

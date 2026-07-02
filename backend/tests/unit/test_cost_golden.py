@@ -30,7 +30,7 @@ from app.services.calculation import (
     _raw_volume_dm3,
 )
 from app.services.costing.primitives import (
-    phase_cost, part_totals, quote_total, quote_total_die,
+    phase_cost, part_totals, quote_total, quote_total_die, treatment_cost_per_part,
 )
 
 
@@ -179,16 +179,12 @@ def test_treatment_cost_kg(case):
     my_w = (inp['finished_weight_kg'] or 0) * max(inp['qty'], 1)
     sib_w = sum((s['finishedWeightKg'] or 0) * max(s['qty'], 1) for s in inp.get('siblings', []))
     batch_w = my_w + sib_w
-    below = inp['minimum_weight_kg'] and batch_w < inp['minimum_weight_kg']
-    if below:
-        total_batch_cost = inp['minimum_cost'] or 0
-    else:
-        total_batch_cost = (inp['cost_per_kg'] or 0) * batch_w
-    if batch_w > 0:
-        my_share = total_batch_cost * my_w / batch_w
-    else:
-        my_share = 0
-    result = my_share / max(inp['qty'], 1)
+    result = treatment_cost_per_part(
+        cost_unit='kg', cost_per_kg=inp['cost_per_kg'], cost_per_dm3=inp['cost_per_dm3'],
+        minimum_weight_kg=inp['minimum_weight_kg'], minimum_cost=inp['minimum_cost'],
+        batch_weight_kg=batch_w, batch_volume_dm3=0.0,
+        my_weight_kg=my_w, my_volume_dm3=0.0, qty=inp['qty'],
+    )
     assert abs(result - case['expected_variable_cost_per_part']) < EUR
 
 
@@ -219,20 +215,14 @@ def test_treatment_cost_dm3(case):
             raw_diameter_mm=inp.get('raw_diameter_mm'),
         )
         part_vol_single = _raw_volume_dm3(fake_part)
-    part_vol_qty = part_vol_single * inp['qty']
-    batch_v = part_vol_qty  # no siblings
-    # Soglia: peso del batch
+    part_vol_qty = part_vol_single * inp['qty']       # no siblings → my = batch
     batch_w = (inp['finished_weight_kg'] or 0) * inp['qty']
-    below = inp['minimum_weight_kg'] and batch_w < inp['minimum_weight_kg']
-    if below:
-        total_batch_cost = inp['minimum_cost'] or 0
-    else:
-        total_batch_cost = (inp['cost_per_dm3'] or 0) * batch_v
-    if batch_v > 0:
-        part_share = total_batch_cost * part_vol_qty / batch_v
-    else:
-        part_share = 0
-    result = part_share / max(inp['qty'], 1)
+    result = treatment_cost_per_part(
+        cost_unit='dm3', cost_per_kg=inp['cost_per_kg'], cost_per_dm3=inp['cost_per_dm3'],
+        minimum_weight_kg=inp['minimum_weight_kg'], minimum_cost=inp['minimum_cost'],
+        batch_weight_kg=batch_w, batch_volume_dm3=part_vol_qty,
+        my_weight_kg=batch_w, my_volume_dm3=part_vol_qty, qty=inp['qty'],
+    )
     assert abs(result - case['expected_variable_cost_per_part']) < EUR
 
 

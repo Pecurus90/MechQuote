@@ -72,6 +72,37 @@ def part_totals(
     return total_cost, unit_price, total_price
 
 
+def treatment_cost_per_part(
+    *,
+    cost_unit: Optional[str],
+    cost_per_kg: Optional[float],
+    cost_per_dm3: Optional[float],
+    minimum_weight_kg: Optional[float],
+    minimum_cost: Optional[float],
+    batch_weight_kg: float,
+    batch_volume_dm3: float,
+    my_weight_kg: float,
+    my_volume_dm3: float,
+    qty: int,
+) -> float:
+    """Costo trattamento per pezzo. Gemello di `quoteCalc.calcTreatmentCost`.
+
+    La soglia è SEMPRE sul peso del batch (capacità del forno), anche per i
+    trattamenti €/dm³. Il costo del batch è distribuito proporzionalmente al
+    peso (€/kg) o al volume (€/dm³) della parte. `my_weight_kg`/`my_volume_dm3`
+    includono già qty; il risultato è per pezzo. Le aggregazioni del batch
+    (somma su tutte le parti dello stesso gruppo) le fa il chiamante.
+    """
+    below = bool(minimum_weight_kg and minimum_weight_kg > 0 and batch_weight_kg < minimum_weight_kg)
+    if (cost_unit or 'kg') == 'dm3':
+        total = (minimum_cost or 0.0) if below else (cost_per_dm3 or 0.0) * batch_volume_dm3
+        share = total * my_volume_dm3 / batch_volume_dm3 if batch_volume_dm3 > 0 else 0.0
+    else:
+        total = (minimum_cost or 0.0) if below else (cost_per_kg or 0.0) * batch_weight_kg
+        share = total * my_weight_kg / batch_weight_kg if batch_weight_kg > 0 else 0.0
+    return round4(share / max(qty, 1))
+
+
 def quote_total(
     *,
     parts_total_price_sum: float,

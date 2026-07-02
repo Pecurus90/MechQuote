@@ -9,7 +9,9 @@ from app.models import (
     DieSpec, DieNormalizedItem, DieSettings, DieDimensionBracket,
 )
 from app.core.quote_types import is_die
-from app.services.costing.primitives import round4 as _round4, phase_cost, part_totals
+from app.services.costing.primitives import (
+    round4 as _round4, phase_cost, part_totals, treatment_cost_per_part,
+)
 
 
 def _raw_weight_kg(part: Part) -> float:
@@ -269,11 +271,6 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     treatment_shipping: Dict[int, float] = defaultdict(float)
     material_shipping: Dict[int, float] = defaultdict(float)
 
-    # Conta parti per gruppo (fallback per edge case con peso 0).
-    treatment_batch_n: Dict[Tuple[int, Optional[int]], int] = defaultdict(int)
-    treatment_shipping_n: Dict[int, int] = defaultdict(int)
-    material_shipping_n: Dict[int, int] = defaultdict(int)
-
     # Conta parti material_from_stock: la spedizione magazzino (stock_ship)
     # va distribuita tra le parti che ne usufruiscono (1 prelievo dal
     # magazzino diviso, coerente con gli altri supplier).
@@ -304,7 +301,6 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 and not p.customer_supplied_material
                 and not p.material_from_stock):
             material_shipping[p.material.supplier_id] += raw_w
-            material_shipping_n[p.material.supplier_id] += 1
         if p.material_from_stock and not p.customer_supplied_material:
             n_from_stock += 1
         # Volume parte (dm³) × qty — usato da trattamenti con cost_unit='dm3'.
@@ -318,11 +314,9 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                 batch_key = (ph.treatment_id, p.material_id)
                 treatment_batch[batch_key] += finished_w
                 treatment_batch_volume[batch_key] += part_vol_dm3
-                treatment_batch_n[batch_key] += 1
                 if ph.treatment.supplier_id:
                     # Spedizione trattamento: per supplier_id (1 viaggio).
                     treatment_shipping[ph.treatment.supplier_id] += finished_w
-                    treatment_shipping_n[ph.treatment.supplier_id] += 1
 
     # ─── Calcolo per ogni parte ──────────────────────────────────────────
     for part in parts:
@@ -397,44 +391,23 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             if phase.treatment_id and phase.treatment:
                 t = phase.treatment
                 batch_key = (phase.treatment_id, part.material_id)
-                batch_w = treatment_batch.get(batch_key, 0.0)
-                n_grp = treatment_batch_n.get(batch_key, 1)
-
-                # Soglia: sempre confrontata sul peso (kg) del batch, anche
-                # per trattamenti €/dm³ — la soglia è capacità del forno.
-                below_threshold = (
-                    t.minimum_weight_kg and t.minimum_weight_kg > 0
-                    and batch_w < t.minimum_weight_kg
+                # Formula pura in costing.primitives.treatment_cost_per_part
+                # (soglia sul peso del batch; distribuzione per peso €/kg o
+                # volume €/dm³). Le aggregazioni del batch sono pre-calcolate
+                # sopra. batch_w=0 → quota 0 (stato invalido temporaneo: peso
+                # non compilato; il frontend mostra warning rosso).
+                phase.variable_cost_per_part = treatment_cost_per_part(
+                    cost_unit=t.cost_unit,
+                    cost_per_kg=t.cost_per_kg,
+                    cost_per_dm3=t.cost_per_dm3,
+                    minimum_weight_kg=t.minimum_weight_kg,
+                    minimum_cost=t.minimum_cost,
+                    batch_weight_kg=treatment_batch.get(batch_key, 0.0),
+                    batch_volume_dm3=treatment_batch_volume.get(batch_key, 0.0),
+                    my_weight_kg=finished_weight,
+                    my_volume_dm3=_raw_volume_dm3(part) * qty,
+                    qty=qty,
                 )
-
-                # Modulo Stampi: trattamenti €/dm³ (nitrurazione, ecc) calcolano
-                # sul VOLUME del batch invece che sul peso. La quota part_share
-                # è proporzionale al volume del singolo pezzo.
-                if (t.cost_unit or 'kg') == 'dm3':
-                    batch_v = treatment_batch_volume.get(batch_key, 0.0)
-                    total_batch_cost = (
-                        (t.minimum_cost or 0.0) if below_threshold
-                        else (t.cost_per_dm3 or 0.0) * batch_v
-                    )
-                    part_vol = _raw_volume_dm3(part) * qty
-                    if batch_v > 0:
-                        part_share = total_batch_cost * part_vol / batch_v
-                    else:
-                        part_share = 0.0
-                else:
-                    total_batch_cost = (
-                        (t.minimum_cost or 0.0) if below_threshold
-                        else (t.cost_per_kg or 0.0) * batch_w
-                    )
-                    if batch_w > 0:
-                        part_share = total_batch_cost * finished_weight / batch_w
-                    else:
-                        # batch_w=0 → tutte le parti del gruppo hanno peso 0:
-                        # stato invalido temporaneo (treatment selezionato ma peso
-                        # finito non compilato). Frontend mostra warning rosso sul
-                        # campo peso. Costo a 0 in attesa che l'utente compili.
-                        part_share = 0.0
-                phase.variable_cost_per_part = _round4(part_share / qty)
 
                 # Spedizione trattamento: quota proporzionale al peso PEZZO
                 # FINITO della parte. Formula: quota = shipping × fw / Σfw.

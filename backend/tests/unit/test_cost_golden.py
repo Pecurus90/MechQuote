@@ -29,6 +29,9 @@ from app.services.calculation import (
     _compute_edm_hours_pure,
     _raw_volume_dm3,
 )
+from app.services.costing.primitives import (
+    phase_cost, part_totals, quote_total, quote_total_die,
+)
 
 
 # ─── Caricamento JSON ───────────────────────────────────────────────────────
@@ -62,11 +65,10 @@ def _xfail_if_known_bug(case: dict, reason_prefix: str = "") -> None:
 def test_calc_phase(case):
     """calcPhase: setup amortizzato / qty + cycle × work_rate + fixed/qty + variable."""
     inp = case['input']
-    cost = (
-        (inp['setup_hours'] or 0) * inp['setup_rate'] / inp['qty']
-        + (inp['cycle_hours_per_part'] or 0) * inp['work_rate']
-        + (inp['fixed_cost'] or 0) / inp['qty']
-        + (inp['variable_cost_per_part'] or 0)
+    cost = phase_cost(
+        setup_hours=inp['setup_hours'], cycle_hours_per_part=inp['cycle_hours_per_part'],
+        fixed_cost=inp['fixed_cost'], variable_cost_per_part=inp['variable_cost_per_part'],
+        work_rate=inp['work_rate'], setup_rate=inp['setup_rate'], qty=inp['qty'],
     )
     assert abs(cost - case['expected_calculated_cost']) < EUR
 
@@ -127,16 +129,15 @@ def test_part_totals(case):
     """
     _xfail_if_known_bug(case)
     inp = case['input']
-    total_cost = round(
-        (inp['material_cost'] or 0) + (inp['delivery_per_piece'] or 0)
-        + (inp['cutting_per_piece'] or 0) + (inp['phase_total'] or 0),
-        4,
+    total_cost, unit_price, total_price = part_totals(
+        material_cost=inp['material_cost'],
+        delivery_per_piece=inp['delivery_per_piece'] or 0,
+        cutting_per_piece=inp['cutting_per_piece'] or 0,
+        phase_total=inp['phase_total'] or 0,
+        minimum_price=inp['minimum_price'],
+        margin_percent=inp['margin_percent'],
+        qty=inp['quantity'],
     )
-    qty = inp['quantity']
-    margin = inp['margin_percent']
-    base = max(total_cost, inp['minimum_price'] or 0) * (1 + margin / 100)
-    unit_price = round(base, 4)
-    total_price = round(base * qty, 2)
     assert abs(total_price - case['expected_total_price']) < EUR
     if 'expected_unit_price' in case:
         assert abs(unit_price - case['expected_unit_price']) < EUR
@@ -147,23 +148,26 @@ def test_part_totals(case):
 @pytest.mark.parametrize("case", CASES['calc_quote_total_standard'], ids=lambda c: c['id'])
 def test_quote_total_standard(case):
     inp = case['input']
-    sub = inp['parts_total_price_sum']
-    after = sub + inp['transport_cost'] + inp['packaging_cost']
-    discount = after * (inp['global_discount_percent'] / 100)
-    total = round(after - discount, 2)
+    total = quote_total(
+        parts_total_price_sum=inp['parts_total_price_sum'],
+        transport_cost=inp['transport_cost'],
+        packaging_cost=inp['packaging_cost'],
+        global_discount_percent=inp['global_discount_percent'],
+    )
     assert abs(total - case['expected_quote_total']) < EUR
 
 
 @pytest.mark.parametrize("case", CASES['calc_quote_total_die'], ids=lambda c: c['id'])
 def test_quote_total_die(case):
     inp = case['input']
-    eff_mat   = inp['override_material']    if inp['override_material']    is not None else inp['cost_material']
-    eff_norm  = inp['override_normalized']  if inp['override_normalized']  is not None else inp['cost_normalized']
-    eff_mach  = inp['override_machining']   if inp['override_machining']   is not None else inp['cost_machining']
-    eff_acc   = inp['override_accessories'] if inp['override_accessories'] is not None else inp['cost_accessories']
-    industrial = eff_mat + eff_norm + eff_mach + eff_acc
-    with_margin = industrial * (1 + inp['global_margin_percent'] / 100)
-    final = round(with_margin * (1 - inp['global_discount_percent'] / 100), 2)
+    final = quote_total_die(
+        cost_material=inp['cost_material'], cost_normalized=inp['cost_normalized'],
+        cost_machining=inp['cost_machining'], cost_accessories=inp['cost_accessories'],
+        override_material=inp['override_material'], override_normalized=inp['override_normalized'],
+        override_machining=inp['override_machining'], override_accessories=inp['override_accessories'],
+        global_margin_percent=inp['global_margin_percent'],
+        global_discount_percent=inp['global_discount_percent'],
+    )
     assert abs(final - case['expected_quote_total']) < EUR
 
 

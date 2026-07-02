@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.core.quote_types import is_die
 from app.core.security import require_any_permission
+from app.services.costing.primitives import quote_total, quote_total_die
 from app.models import (
     Quote, Part, ManufacturingPhase, Material, CompanySettings,
     DieSpec, DieNormalizedItem,
@@ -706,8 +707,15 @@ def _render_totals(parts, quote: Quote, cur: str) -> str:
     packaging = quote.packaging_cost or 0
     discount_pct = quote.global_discount_percent or 0
     after_extras = subtotal + transport + packaging
-    discount_amount = round(after_extras * discount_pct / 100, 2)
-    total = round(after_extras - discount_amount, 2)
+    discount_amount = round(after_extras * discount_pct / 100, 2)  # solo per la riga di display
+    # Totale dalla primitiva unica (gemello dell'anteprima frontend): sconto
+    # sottratto non arrotondato, un solo round finale.
+    total = quote_total(
+        parts_total_price_sum=subtotal,
+        transport_cost=transport,
+        packaging_cost=packaging,
+        global_discount_percent=discount_pct,
+    )
 
     rows = [f'<div class="summary-row"><span>Subtotale parti</span><span class="val">{_fmt_eur(subtotal)} {cur}</span></div>']
     if transport:
@@ -775,7 +783,15 @@ def _render_die_quote(quote: Quote, spec: DieSpec, parts, items, cur: str) -> st
 
     industrial = eff_material + eff_normalized + eff_machining + eff_accessories
     with_margin = industrial * (1 + margin / 100)
-    final_price = with_margin * (1 - discount / 100)
+    # Totale finale dalla primitiva unica (gemello del ramo die di calcQuoteTotal):
+    # arrotondato a 2 (prima non lo era → poteva divergere dall'anteprima).
+    final_price = quote_total_die(
+        cost_material=spec.cost_material, cost_normalized=spec.cost_normalized,
+        cost_machining=spec.cost_machining, cost_accessories=spec.cost_accessories,
+        override_material=spec.override_material, override_normalized=spec.override_normalized,
+        override_machining=spec.override_machining, override_accessories=spec.override_accessories,
+        global_margin_percent=margin, global_discount_percent=discount,
+    )
 
     def _override_marker(override) -> str:
         return ' <span style="color:#d97706;font-size:9px;">[manuale]</span>' if override is not None else ''

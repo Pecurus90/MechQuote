@@ -203,6 +203,11 @@ def get_workflow_stats(
     by_status_rows = db.query(Quote.status, func.count(Quote.id)).group_by(Quote.status).all()
     by_status = {status: cnt for status, cnt in by_status_rows}
 
+    # Split standard vs stampi (die) per il sottotitolo "Standard N · Stampi N".
+    total_all = sum(by_status.values())
+    die_count = db.query(func.count(Quote.id)).filter(Quote.quote_type == 'die').scalar() or 0
+    standard_count = total_all - die_count
+
     my_drafts = db.query(func.count(Quote.id)).filter(
         Quote.created_by_user_id == current_user.id,
         Quote.status == 'bozza',
@@ -223,6 +228,8 @@ def get_workflow_stats(
         my_drafts_count=my_drafts,
         my_pending_count=my_pending,
         to_review_count=to_review,
+        standard_count=standard_count,
+        die_count=die_count,
     )
 
 
@@ -915,12 +922,29 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
 
     labor_by_key = {(int(r.y), int(r.m)): float(r.labor or 0.0) for r in labor_rows}
 
+    # Conteggi preventivi per mese: creati (per quote_date), confermati (per
+    # confirmed_at). Alimentano il grafico Andamento (linee creati/confermati).
+    created_rows = db.execute(text(
+        "SELECT CAST(strftime('%Y', quote_date) AS INTEGER) AS y, "
+        "CAST(strftime('%m', quote_date) AS INTEGER) AS m, COUNT(*) AS n "
+        "FROM quotes WHERE quote_date IS NOT NULL GROUP BY y, m"
+    )).fetchall()
+    confirmed_rows = db.execute(text(
+        "SELECT CAST(strftime('%Y', confirmed_at) AS INTEGER) AS y, "
+        "CAST(strftime('%m', confirmed_at) AS INTEGER) AS m, COUNT(*) AS n "
+        "FROM quotes WHERE confirmed_at IS NOT NULL GROUP BY y, m"
+    )).fetchall()
+    created_by_key = {(int(r.y), int(r.m)): int(r.n) for r in created_rows}
+    confirmed_by_key = {(int(r.y), int(r.m)): int(r.n) for r in confirmed_rows}
+    value_by_key = {(int(r.y), int(r.m)): r for r in materials_rows}
+
+    all_keys = sorted(set(value_by_key) | set(created_by_key) | set(confirmed_by_key))
     out: List[MonthlyData] = []
-    for r in materials_rows:
-        y, m = int(r.y), int(r.m)
-        value = float(r.value or 0.0)
-        cost_total = float(r.cost_total or 0.0)
-        material = float(r.material or 0.0)
+    for (y, m) in all_keys:
+        r = value_by_key.get((y, m))
+        value = float(r.value or 0.0) if r else 0.0
+        cost_total = float(r.cost_total or 0.0) if r else 0.0
+        material = float(r.material or 0.0) if r else 0.0
         labor = labor_by_key.get((y, m), 0.0)
         out.append(MonthlyData(
             month=f"{y}-{m:02d}",
@@ -929,5 +953,7 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
             margin=round(value - cost_total, 2),
             material=round(material, 2),
             labor=round(labor, 2),
+            created_count=created_by_key.get((y, m), 0),
+            confirmed_count=confirmed_by_key.get((y, m), 0),
         ))
     return out

@@ -688,6 +688,8 @@ class MonthlyData(BaseModel):
     margin: float    # somma (price - cost_total)
     material: float  # somma costi materiali (grezzo + delivery + taglio)
     labor: float     # somma calculated_cost delle fasi non-treatment
+    created_count: int = 0    # preventivi creati nel mese (per quote_date)
+    confirmed_count: int = 0  # preventivi confermati nel mese (per confirmed_at)
 
 
 class WorkflowStats(BaseModel):
@@ -695,6 +697,8 @@ class WorkflowStats(BaseModel):
     my_drafts_count: int
     my_pending_count: int
     to_review_count: int
+    standard_count: int = 0   # preventivi standard (single/commessa/NULL)
+    die_count: int = 0        # preventivi stampo
 
 
 # ─── Statistics page (StatisticsOut) ──────────────────────────────────────

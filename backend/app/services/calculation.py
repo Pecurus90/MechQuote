@@ -1,4 +1,3 @@
-import math
 from collections import defaultdict
 from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
@@ -11,93 +10,10 @@ from app.models import (
 from app.core.quote_types import is_die
 from app.services.costing.primitives import (
     round4 as _round4, phase_cost, part_totals, treatment_cost_per_part,
+    material_cost as _compute_material_cost,
+    raw_volume_dm3 as _raw_volume_dm3,
+    raw_weight_kg as _raw_weight_kg,
 )
-
-
-def _raw_weight_kg(part: Part) -> float:
-    """Peso del grezzo (kg) di una singola unità della parte.
-
-    Usato per distribuire la spedizione del fornitore materiale (la materia
-    prima viaggia come grezzo, non come pezzo finito). 0 se mancano dimensioni
-    o densità materiale: in quel caso il chiamante fa fallback a distribuzione
-    equa per numero di parti.
-    """
-    if not part.material:
-        return 0.0
-    density = part.material.density_kg_dm3 or 0
-    if not density:
-        return 0.0
-    if part.raw_diameter_mm:
-        r = part.raw_diameter_mm / 2
-        l = part.raw_z_mm or 0
-        if not r or not l:
-            return 0.0
-        vol_dm3 = (math.pi * r * r * l) / 1_000_000
-        return vol_dm3 * density
-    x = part.raw_x_mm or 0
-    y = part.raw_y_mm or 0
-    z = part.raw_z_mm or 0
-    if not x or not y or not z:
-        return 0.0
-    vol_dm3 = (x * y * z) / 1_000_000
-    return vol_dm3 * density
-
-
-def _raw_volume_dm3(part: Part) -> float:
-    """Volume del grezzo (dm³) di una singola unità della parte.
-
-    Cilindro se `raw_diameter_mm` è valorizzato (formula π × r² × L),
-    prismatico altrimenti (raw_x × raw_y × raw_z). 0 se dati insufficienti.
-    Usato dai trattamenti con `cost_unit='dm3'` per il volume del batch.
-    """
-    if part.raw_diameter_mm:
-        r = part.raw_diameter_mm / 2
-        l = part.raw_z_mm or 0
-        if not r or not l:
-            return 0.0
-        return (math.pi * r * r * l) / 1_000_000
-    x = part.raw_x_mm or 0
-    y = part.raw_y_mm or 0
-    z = part.raw_z_mm or 0
-    if not x or not y or not z:
-        return 0.0
-    return (x * y * z) / 1_000_000
-
-
-def _compute_material_cost(part: Part, material: Optional[Material]) -> Optional[float]:
-    """Costo materiale grezzo per pezzo (€) calcolato da volume × densità × €/kg × scrap.
-
-    Gemello DRY di frontend/src/lib/quoteCalc.ts calcMaterialCost — devono restare
-    identici. Modalità:
-      - tondo: raw_diameter_mm + raw_z_mm (lunghezza barra)
-      - prismatico: raw_x_mm × raw_y_mm × raw_z_mm
-
-    Ritorna None quando i dati sono insufficienti (no material, dimensioni mancanti):
-    in quel caso il chiamante mantiene il valore già salvato.
-    """
-    if not material:
-        return None
-    scrap = 1 + (material.default_scrap_percent or 10) / 100
-    density = material.density_kg_dm3 or 0
-    cost_per_kg = material.cost_per_kg or 0
-
-    if part.raw_diameter_mm:
-        r = part.raw_diameter_mm / 2
-        l = part.raw_z_mm or 0
-        if not r or not l:
-            return None
-        vol_dm3 = (math.pi * r * r * l) / 1_000_000
-        kg = vol_dm3 * density
-        return round(kg * cost_per_kg * scrap, 2)
-
-    x = part.raw_x_mm or 0
-    y = part.raw_y_mm or 0
-    z = part.raw_z_mm or 0
-    if not x or not y or not z:
-        return None
-    vol_dm3 = (x * y * z) / 1_000_000
-    kg = vol_dm3 * density
-    return round(kg * cost_per_kg * scrap, 2)
 
 
 def _compute_edm_hours_pure(

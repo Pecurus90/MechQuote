@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
+from app.core.quote_types import is_die, QUOTE_TYPE_DIE
 from app.models import (
     Quote, Part, PartFile, DieSpec, DieTemplate,
     DieNormalizedItem, DieSettings,
@@ -142,7 +143,7 @@ def create_die_quote(
 
     quote = Quote(
         quote_number=data.quote_number,
-        quote_type='die',
+        quote_type=QUOTE_TYPE_DIE,
         customer_id=data.customer_id,
         customer_name=data.customer_name,
         customer_reference=data.customer_reference,
@@ -207,7 +208,7 @@ def get_die_quote(
     current_user: User = Depends(get_current_user),
 ):
     quote = _load_quote(quote_id, db)
-    if not quote or quote.quote_type != 'die':
+    if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     return quote
 
@@ -221,7 +222,7 @@ def update_die_spec(
     _=_can_write,
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
-    if not quote or quote.quote_type != 'die':
+    if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     ensure_editable(quote, current_user)
     spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
@@ -243,7 +244,7 @@ def recalculate_endpoint(
     _=_can_write,
 ):
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
-    if not quote or quote.quote_type != 'die':
+    if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     ensure_editable(quote, current_user)
     recalculate_die_quote(quote_id, db)
@@ -263,7 +264,7 @@ def clone_die_quote(
     Copia spec + piastre. Status reset a 'bozza'. Costi snapshot ricalcolati.
     """
     src = _load_quote(quote_id, db)
-    if not src or src.quote_type != 'die':
+    if not src or not is_die(src):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
 
     # Determina suffisso revisione successivo: scansiona quote_number tipo
@@ -283,7 +284,7 @@ def clone_die_quote(
 
     new_quote = Quote(
         quote_number=new_number,
-        quote_type='die',
+        quote_type=QUOTE_TYPE_DIE,
         customer_id=src.customer_id,
         customer_name=src.customer_name,
         customer_reference=src.customer_reference,
@@ -373,7 +374,7 @@ def apply_template(
     del template. La BoM normalizzati (Sprint C) viene aggiunta in modalità
     skip-if-exists: l'utente non perde gli item già editati manualmente."""
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
-    if not quote or quote.quote_type != 'die':
+    if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     ensure_editable(quote, current_user)
     template = db.query(DieTemplate).options(
@@ -413,7 +414,7 @@ def _find_similar_quotes(
     Stats calcolate sui matches che hanno popolato `sold_price`/`actual_cost`.
     """
     others_query = db.query(Quote).options(joinedload(Quote.die_spec)).filter(
-        Quote.quote_type == 'die',
+        Quote.quote_type == QUOTE_TYPE_DIE,
     )
     if exclude_quote_id is not None:
         others_query = others_query.filter(Quote.id != exclude_quote_id)

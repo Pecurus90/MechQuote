@@ -5,6 +5,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
+from app.core.quote_types import is_die
 from app.models import Quote, DieNormalizedItem, User
 from app.schemas import (
     DieNormalizedItemCreate, DieNormalizedItemUpdate, DieNormalizedItemOut,
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/dies", tags=["dies"])
 
 def _die_quote_or_404(quote_id: int, db: Session) -> Quote:
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
-    if not quote or quote.quote_type != 'die':
+    if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     return quote
 

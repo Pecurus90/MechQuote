@@ -21,6 +21,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import utc_now
+from app.core.quote_types import is_die
 from app.models import Part, Quote, QuoteSupplierOrder
 from app.services import material_status as ms
 
@@ -68,7 +69,7 @@ def material_is_resolved(db: Session, quote: Quote) -> bool:
     Stampi: sempre risolto (materiale fuori scope). Preventivi normali:
     materiale totalmente evaso o non necessario.
     """
-    if quote.quote_type == "die":
+    if is_die(quote):
         return True
     return quote_material_status(db, quote) in (
         ms.MAT_TOTALMENTE_EVASO, ms.MAT_NON_NECESSARIO,

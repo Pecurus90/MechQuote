@@ -13,6 +13,7 @@ from app.models import (
     CompanySettings, DieNormalizedItem,
 )
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
+from app.core.quote_types import is_die
 from app.services import quote_workflow as wf
 from app.services.calculation import recalculate_part
 from app.services.notifications import create_notification
@@ -222,7 +223,7 @@ def update_quote_status(
     db.commit()
     # Notifica chi può completare (admin + amministrazione)
     sender_name = current_user.full_name or current_user.username
-    type_label = 'stampo ' if quote.quote_type == 'die' else ''
+    type_label = 'stampo ' if is_die(quote) else ''
     create_notification(
         db,
         type='quote_submitted',
@@ -247,7 +248,7 @@ def notify_quote_completed(db: Session, quote: Quote, actor_user: User) -> None:
     if not target:
         return
     actor = actor_user.full_name or actor_user.username
-    type_label = 'stampo ' if quote.quote_type == 'die' else ''
+    type_label = 'stampo ' if is_die(quote) else ''
     create_notification(
         db,
         type='quote_completed',

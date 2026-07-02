@@ -31,6 +31,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
+from app.core.quote_types import is_die
 from app.core.security import require_any_permission
 from app.models import (
     Quote, Part, ManufacturingPhase, Material, CompanySettings,
@@ -962,7 +963,7 @@ def generate_quote_pdf(quote_id: int, db: Session) -> str:
 
     # Modulo Stampi: branch dedicato. Salta tutto il rendering standard
     # (parti × fasi × totali) e usa il layout L1-L7 specifico.
-    if quote.quote_type == 'die':
+    if is_die(quote):
         spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
         norm_items = db.query(DieNormalizedItem).options(
             joinedload(DieNormalizedItem.supplier)

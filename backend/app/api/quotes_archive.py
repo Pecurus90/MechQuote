@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from app.api.orders import _format_dim
 from app.core.database import get_db
+from app.core.quote_types import is_die
 from app.core.security import require_any_permission, get_current_user
 from app.models import (
     ManufacturingPhase, Material, Part, Quote, QuoteSupplierOrder, User,
@@ -120,7 +121,7 @@ def list_archive(
         for qid, sid in rows:
             ordered_map.setdefault(qid, set()).add(sid)
     for r in results:
-        if r.quote_type == 'die':
+        if is_die(r):
             r.material_status = None
         else:
             r.material_status = quote_material_status(r.parts, ordered_map.get(r.id, set()))

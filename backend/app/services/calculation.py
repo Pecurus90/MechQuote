@@ -8,6 +8,7 @@ from app.models import (
     CompanySettings,
     DieSpec, DieNormalizedItem, DieSettings, DieDimensionBracket,
 )
+from app.core.quote_types import is_die
 
 
 def _round4(x: float) -> float:
@@ -240,7 +241,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         # Caso edge: preventivo senza parti. Per quote_type='die' calcoliamo
         # comunque L2/L3/L4/L5 (lavorazioni + accessori + override matita)
         # così l'utente vede una stima anche prima di aggiungere le piastre.
-        if quote.quote_type == 'die':
+        if is_die(quote):
             _recalculate_die_levels(quote, [], db)
             db.commit()
         return
@@ -257,7 +258,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     # Override manuale preservato: solo se raw_x_mm/raw_y_mm sono NULL
     # auto-popoliamo dal castello. Qualsiasi valore esplicito (incluso 0)
     # rappresenta una scelta utente da rispettare.
-    if quote.quote_type == 'die':
+    if is_die(quote):
         spec = db.query(DieSpec).filter(DieSpec.quote_id == quote_id).first()
         if spec:
             castle_x, castle_y = _compute_castle_dimensions(spec)
@@ -506,7 +507,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
 
     # Modulo Stampi: dopo aver ricalcolato L1 (materiali piastre per Part),
     # aggrega L2-L5 nello snapshot DieSpec. La commit finale è sotto.
-    if quote.quote_type == 'die':
+    if is_die(quote):
         _recalculate_die_levels(quote, parts, db)
 
     db.commit()

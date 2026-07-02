@@ -9,21 +9,7 @@ from app.models import (
     DieSpec, DieNormalizedItem, DieSettings, DieDimensionBracket,
 )
 from app.core.quote_types import is_die
-
-
-def _round4(x: float) -> float:
-    """Arrotonda a 4 decimali half-away-from-zero (gemello Math.round JS).
-
-    Python `round()` usa banker's rounding (half-to-even): 0.5 → 0, 1.5 → 2.
-    Math.round() in V8/Chromium usa half-away-from-zero: 0.5 → 1, 1.5 → 2.
-    Per allineare il backend al frontend (DRY hard rule cost engine), usiamo
-    questa utility ovunque si arrotondi a 4 decimali per il preview UI.
-    Per i totali a 2 decimali (unit_price, total_price) la differenza è sotto
-    la sensibilità monetaria, restano `round(x, 2)`.
-    """
-    if x >= 0:
-        return int(x * 10000 + 0.5) / 10000
-    return -int(-x * 10000 + 0.5) / 10000
+from app.services.costing.primitives import round4 as _round4, phase_cost, part_totals
 
 
 def _raw_weight_kg(part: Part) -> float:
@@ -465,45 +451,46 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
                         ship_share = 0.0
                     phase.fixed_cost = _round4(ship_share)
 
-            # Rate split (Sprint 12).
+            # Rate split (Sprint 12): work_rate = override ?? machine.hourly_rate,
+            # con guardia `or 0.0` (macchina senza tariffa → 0, gemello del
+            # frontend `?? 0`: evita crash se hourly_rate è NULL). setup_rate =
+            # machine.setup_hourly_rate ?? work_rate. La formula pura sta in
+            # costing.primitives.phase_cost (divisor = qty, is_shared rimosso).
             work_rate = phase.hourly_rate_override
             if work_rate is None:
                 work_rate = phase.machine.hourly_rate if phase.machine else 0.0
+            work_rate = work_rate or 0.0
             if phase.machine and phase.machine.setup_hourly_rate is not None:
                 setup_rate = phase.machine.setup_hourly_rate
             else:
                 setup_rate = work_rate
 
-            # divisor = qty della singola parte. is_shared rimosso (era
-            # ambiguo: il setup di una parte non viene amortizzato sulle altre
-            # parti che non condividono la macchina). Per fasi treatment il
-            # fixed_cost è già "quota di parte" (distribuito sopra).
-            divisor = qty
-
-            cost_per_piece = (
-                (phase.setup_hours or 0.0) * setup_rate / divisor
-                + (phase.cycle_hours_per_part or 0.0) * work_rate
-                + (phase.fixed_cost or 0.0) / divisor
-                + (phase.variable_cost_per_part or 0.0)
+            phase.calculated_cost = phase_cost(
+                setup_hours=phase.setup_hours,
+                cycle_hours_per_part=phase.cycle_hours_per_part,
+                fixed_cost=phase.fixed_cost,
+                variable_cost_per_part=phase.variable_cost_per_part,
+                work_rate=work_rate,
+                setup_rate=setup_rate,
+                qty=qty,
             )
-            phase.calculated_cost = _round4(cost_per_piece)
             phase_total_per_piece += phase.calculated_cost
 
         margin = part.margin_percent
         if margin is None:
             margin = quote.global_margin_percent if quote else 20.0
 
-        part.total_cost = round(
-            (part.material_cost or 0.0) + delivery_per_piece + cutting_per_piece + phase_total_per_piece, 4
+        # Totali parte: formula pura in costing.primitives.part_totals
+        # (C4: niente doppio arrotondamento; gemello di quoteCalc.calcPartTotals).
+        part.total_cost, part.unit_price, part.total_price = part_totals(
+            material_cost=part.material_cost,
+            delivery_per_piece=delivery_per_piece,
+            cutting_per_piece=cutting_per_piece,
+            phase_total=phase_total_per_piece,
+            minimum_price=part.minimum_price,
+            margin_percent=margin,
+            qty=qty,
         )
-
-        minimum = part.minimum_price or 0.0
-        # C4: niente doppio arrotondamento. base a piena precisione,
-        # unit_price a 4 decimali (per visualizzazione), total_price
-        # arrotondato a 2 dal valore esatto (NON da unit_price già arrotondato).
-        base = max(part.total_cost, minimum) * (1 + margin / 100)
-        part.unit_price = round(base, 4)
-        part.total_price = round(base * qty, 2)
 
     # Modulo Stampi: dopo aver ricalcolato L1 (materiali piastre per Part),
     # aggrega L2-L5 nello snapshot DieSpec. La commit finale è sotto.

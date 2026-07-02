@@ -360,7 +360,6 @@ export interface ActivityRow {
   title: string
   body: string | null
   data: Record<string, unknown>
-  requires_action: boolean
   created_at: string | null
   created_by: UserMinimal | null
   read_at: string | null

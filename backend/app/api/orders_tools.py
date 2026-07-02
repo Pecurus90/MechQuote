@@ -192,7 +192,7 @@ def create_tool_order(
              f"({len(tools)} utensil{'e' if len(tools) == 1 else 'i'})",
         created_by_user_id=current_user.id,
         target_roles=['ufficio_tecnico', 'amministrazione'],
-        data={'order_id': order.id, 'supplier_name': sup_name},
+        data={'order_id': order.id, 'supplier_name': sup_name, 'navigate_to': '/orders/history'},
     )
 
     logger.info("Ordine utensili creato: id=%s supplier=%s by=%s items=%d",

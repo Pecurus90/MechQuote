@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { X, Check, Bell, Trash2 } from 'lucide-react'
+import { X, Check, CheckCheck, Bell, Trash2 } from 'lucide-react'
 import type { Notification } from '@/lib/useNotifications'
 import { timeAgo } from '@/lib/timeAgo'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -13,15 +13,16 @@ interface Props {
   loading: boolean
   onRefresh: () => void
   onMarkRead: (id: number) => void
-  onMarkConfirmed: (id: number) => void
+  onMarkAllRead: () => void
   onClearRead: () => void
 }
 
 export default function NotificationPanel({
-  open, onClose, items, loading, onRefresh, onMarkRead, onMarkConfirmed, onClearRead,
+  open, onClose, items, loading, onRefresh, onMarkRead, onMarkAllRead, onClearRead,
 }: Props) {
   const navigate = useNavigate()
   const readCount = items.filter(n => n.read_at).length
+  const unreadCount = items.filter(n => !n.read_at).length
   const [confirmClear, setConfirmClear] = useState(false)
 
   const handleClearRead = () => {
@@ -45,6 +46,13 @@ export default function NotificationPanel({
     if (typeof quoteId === 'number') {
       navigate(`/quotes/${quoteId}`)
       onClose()
+      return
+    }
+    // Fallback: navigazione esplicita dichiarata dalla notifica (ordini, scorte…)
+    const navTo = n.data?.navigate_to
+    if (typeof navTo === 'string' && navTo.startsWith('/')) {
+      navigate(navTo)
+      onClose()
     }
   }
 
@@ -58,6 +66,16 @@ export default function NotificationPanel({
             <h2 className="font-semibold text-foreground">Notifiche</h2>
           </div>
           <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <button
+                onClick={onMarkAllRead}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+                title="Segna tutte come lette"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                Segna lette
+              </button>
+            )}
             {readCount > 0 && (
               <button
                 onClick={handleClearRead}
@@ -106,14 +124,6 @@ export default function NotificationPanel({
                         </p>
                         {n.body && <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>}
                         <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(n.created_at)}</p>
-                        {n.requires_action && !confirmed && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onMarkConfirmed(n.id) }}
-                            className="mt-2 text-xs px-2 py-1 rounded border border-green-300 text-green-700 hover:bg-green-50"
-                          >
-                            Fatto ✓
-                          </button>
-                        )}
                       </div>
                     </div>
                   </li>

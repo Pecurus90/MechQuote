@@ -453,7 +453,7 @@ def create_order(
         body=f"{actor_name} ha creato l'ordine materiali per {supplier.name} (prev. {quote_list})",
         created_by_user_id=current_user.id,
         target_roles=['ufficio_tecnico', 'amministrazione'],
-        data={'order_id': order.id, 'material_supplier_id': supplier.id},
+        data={'order_id': order.id, 'material_supplier_id': supplier.id, 'navigate_to': '/orders/history'},
     )
 
     logger.info("Ordine materiali creato: id=%s supplier=%s by=%s n_quotes=%d",

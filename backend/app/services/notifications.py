@@ -20,7 +20,6 @@ def create_notification(
     created_by_user_id: Optional[int] = None,
     target_roles: Optional[list[str]] = None,
     target_user_id: Optional[int] = None,
-    requires_action: bool = False,
     data: Optional[dict] = None,
 ) -> Optional[Notification]:
     """Create and persist a notification.
@@ -48,7 +47,6 @@ def create_notification(
         target_roles=target_roles or [],
         target_user_id=target_user_id,
         target_quote_id=target_quote_id,
-        requires_action=requires_action,
     )
     db.add(notification)
     try:

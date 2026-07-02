@@ -8,7 +8,6 @@ export interface Notification {
   title: string
   body: string | null
   data: Record<string, unknown>
-  requires_action: boolean
   created_at: string | null
   read_at: string | null
   confirmed_at: string | null
@@ -51,10 +50,10 @@ export function useNotifications() {
     fetchCount()
   }, [fetchCount])
 
-  const markConfirmed = useCallback(async (id: number) => {
-    await api.post(`/notifications/${id}/confirm`)
+  const markAllRead = useCallback(async () => {
+    await api.post('/notifications/read-all')
     const now = new Date().toISOString()
-    setItems(prev => prev.map(n => n.id === id ? { ...n, read_at: n.read_at ?? now, confirmed_at: now } : n))
+    setItems(prev => prev.map(n => n.read_at ? n : { ...n, read_at: now }))
     fetchCount()
   }, [fetchCount])
 
@@ -73,5 +72,5 @@ export function useNotifications() {
     }
   }, [enabled, fetchCount])
 
-  return { enabled, unreadCount, items, loading, fetchList, markRead, markConfirmed, clearRead }
+  return { enabled, unreadCount, items, loading, fetchList, markRead, markAllRead, clearRead }
 }

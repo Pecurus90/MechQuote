@@ -33,7 +33,6 @@ def _serialize_with_actor(n: Notification, read: Optional[NotificationRead]) -> 
         "title": n.title,
         "body": n.body,
         "data": n.data_json or {},
-        "requires_action": bool(n.requires_action),
         "created_at": n.created_at.isoformat() if n.created_at else None,
         "created_by": actor,
         "read_at": read.read_at.isoformat() if read and read.read_at else None,

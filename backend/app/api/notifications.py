@@ -52,7 +52,6 @@ def serialize_notification(n: Notification, read: Optional[NotificationRead]) ->
         "title": n.title,
         "body": n.body,
         "data": n.data_json or {},
-        "requires_action": bool(n.requires_action),
         "created_at": n.created_at.isoformat() if n.created_at else None,
         "read_at": read.read_at.isoformat() if read and read.read_at else None,
         "confirmed_at": read.confirmed_at.isoformat() if read and read.confirmed_at else None,
@@ -150,30 +149,30 @@ def clear_read(
     return {"cleared": len(read_ids)}
 
 
-@router.post("/{notification_id}/confirm")
-def mark_confirmed(
-    notification_id: int,
+@router.post("/read-all")
+def mark_all_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
 ):
-    notification = db.query(Notification).filter(Notification.id == notification_id).first()
-    if not notification:
-        raise HTTPException(status_code=404, detail="Notifica non trovata")
-    if not notification.requires_action:
-        raise HTTPException(status_code=400, detail="La notifica non richiede azione")
-    if not _is_target(notification, current_user):
-        raise HTTPException(status_code=403, detail="Non sei destinatario di questa notifica")
-    read = db.query(NotificationRead).filter(
-        NotificationRead.notification_id == notification_id,
-        NotificationRead.user_id == current_user.id,
-    ).first()
-    if not read:
-        read = NotificationRead(notification_id=notification_id, user_id=current_user.id)
-        db.add(read)
+    """Segna lette tutte le notifiche visibili non ancora lette per l'utente."""
+    items = _user_notifications(db, current_user)
+    unread_ids = [it["id"] for it in items if not it["read_at"]]
+    if not unread_ids:
+        return {"marked": 0}
+    existing = {
+        r.notification_id: r for r in db.query(NotificationRead).filter(
+            NotificationRead.user_id == current_user.id,
+            NotificationRead.notification_id.in_(unread_ids),
+        ).all()
+    }
     now = utc_now()
-    if not read.read_at:
-        read.read_at = now
-    read.confirmed_at = now
+    for nid in unread_ids:
+        r = existing.get(nid)
+        if not r:
+            r = NotificationRead(notification_id=nid, user_id=current_user.id)
+            db.add(r)
+        if not r.read_at:
+            r.read_at = now
     db.commit()
-    return {"ok": True}
+    return {"marked": len(unread_ids)}

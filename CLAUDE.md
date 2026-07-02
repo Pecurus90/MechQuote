@@ -199,25 +199,33 @@ Vale anche se "ho appena fatto un commit" — il commit git non protegge il DB S
 
 I ruoli sono creabili dall'UI (`Impostazioni → Sistema → Ruoli e Permessi`). I **permessi** sono chiavi fisse nel codice (`backend/app/core/permissions.py` → `PERMISSION_KEYS`). L'assegnazione permessi→ruoli è in `role_permissions` (DB), modificabile dall'UI.
 
-Chiavi attuali (`PERMISSION_KEYS`):
+Chiavi (`PERMISSION_KEYS`):
 - `dashboard` · `quotes.create` · `quotes.archive` · `quotes.pdf`
 - `quotes.send` (chi può "Invia per revisione")
-- `quotes.complete` (chi marca completato aprendo)
+- `quotes.confirm` (conferma preventivo — amministrazione)
 - `quotes.view_all` (vede tutti i preventivi, non solo i propri)
+- `quotes.edit_locked` (modifica/annulla-conferma su preventivi bloccati confermati/completi; default **solo admin**)
+- `quotes.delete` (elimina preventivi di chiunque; il creatore può sempre i propri; default **solo admin**)
 - `customers` · `settings` (catalogo) · `company` (dati azienda)
 - `users` · `backup` · `notifications`
-- `orders.materials` (Ordini materiali — lista + PDF)
-- `tools` (Gestione utensili **e** ordini utensili — copertura voluta)
+- `orders.materials` (Ordini materiali — lista + PDF + storico + sblocco flag)
+- `orders.tools` (Ordini utensili — crea + CSV + elimina)
+- `tools` (Anagrafica/catalogo utensili — **NON** gli ordini utensili)
 - `officina` (Officina — lettura documenti / reference / calcolatori)
-- `officina.write` (Officina — upload + modifica)
+- `officina.write` (Officina — upload/modifica documenti **e** gestione categorie)
 - `dies.create` · `dies.archive` · `dies.pdf` · `dies.settings` (modulo Preventivatore Stampi)
 
-### Regola di gating
+### Regola di gating (modello dinamico)
 
-**Mai usare `roles=['admin']` per gating se esiste un permesso equivalente.** Il sistema è dinamico: l'admin può ridefinire chi accede a cosa senza redeploy.
+**Ogni capacità protetta = una chiave permesso. Mai `role == 'admin'` nella logica di business.** L'admin è semplicemente un ruolo che possiede tutte le chiavi, delegabili dall'UI senza redeploy. Le azioni un tempo admin-only sono ora permessi: `quotes.edit_locked` (modifica/annulla-conferma su bloccati), `quotes.delete` (eliminazione), sblocco flag materiale su `orders.materials`.
+
+**Uniche 2 eccezioni strutturali hardcoded** (intenzionali, non replicare il pattern altrove): l'anti-lockout in `security.py` e "solo un admin può creare/modificare altri admin" in `auth.py`.
 
 ### Anti-lockout
-Se il ruolo dell'utente non esiste in `roles` ma è `admin` (slug), `get_current_user` gli assegna comunque tutti i `PERMISSION_KEYS`. Garantisce di non chiudersi fuori.
+`get_current_user` carica i permessi da `role_permissions`. Se il ruolo dell'utente **non esiste** nella tabella `roles` ma lo slug è `admin`, gli assegna comunque tutti i `PERMISSION_KEYS` (salva-vita). ⚠️ Se invece il ruolo `admin` **esiste** in DB (caso normale), i suoi permessi vengono letti dal DB: **ogni chiave nuova va assegnata all'admin via migration `role_permissions`** — l'anti-lockout NON copre questo caso.
+
+### Sessione / token
+`access_token_expire_minutes = 0` → il token di login **non scade** (nessun claim `exp`): scelta per strumento interno. Un valore `> 0` (o un `expires_delta` esplicito) riattiva la scadenza. Per un deploy pubblico impostarlo > 0.
 
 ### Bootstrap primo admin
 

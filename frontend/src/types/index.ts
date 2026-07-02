@@ -832,6 +832,8 @@ export interface DieNormalizedItem {
   unit_price: number
   notes?: string | null
   supplier?: NormalizedSupplier | null
+  // D1: provenienza dal catalogo NormalizedItem (snapshot). null = testo libero.
+  normalized_item_id?: number | null
 }
 
 export interface DieSettings {

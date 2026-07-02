@@ -15,7 +15,7 @@ import { computeDiePreviewCosts, estimateDiePlateHours } from '@/lib/dieCalc'
 import type {
   Quote, DieSpec, DieNormalizedItem, NormalizedSupplier, Material, Treatment,
   DieDifficulty, Part, DieSettings, DieDimensionBracket,
-  EdmConfig, EdmCutSpeed, CuttingCycle, Machine,
+  EdmConfig, EdmCutSpeed, CuttingCycle, Machine, NormalizedItem,
 } from '@/types'
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -41,6 +41,7 @@ export default function DieQuoteEditor() {
   const [spec, setSpec] = useState<DieSpec | null>(null)
   const [parts, setParts] = useState<Part[]>([])
   const [normalizedItems, setNormalizedItems] = useState<DieNormalizedItem[]>([])
+  const [catalogItems, setCatalogItems] = useState<NormalizedItem[]>([])  // D1: catalogo normalizzati
   const [suppliers, setSuppliers] = useState<NormalizedSupplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [treatments, setTreatments] = useState<Treatment[]>([])
@@ -96,7 +97,7 @@ export default function DieQuoteEditor() {
       // e /treatments NON sono filtrati: /machines è lookup automatico per le
       // tariffe (stessa logica del 2D), /treatments è oggi stato non usato
       // qui dentro (resta caricato per non rimuovere strato esistente).
-      const [ni, mats, treats, sups, ds, bs, sim, ecfg, esp, cyc, mch] = await Promise.allSettled([
+      const [ni, mats, treats, sups, ds, bs, sim, ecfg, esp, cyc, mch, cat] = await Promise.allSettled([
         api.get(`/dies/${id}/normalized-items`),
         api.get('/materials?active=true'),
         api.get('/treatments'),
@@ -108,8 +109,10 @@ export default function DieQuoteEditor() {
         api.get('/edm-cut-speeds'),
         api.get('/cutting-cycles'),
         api.get('/machines'),
+        api.get('/normalized-items?active=true'),  // D1: catalogo per autocomplete
       ])
       if (ni.status === 'fulfilled') setNormalizedItems(ni.value.data)
+      if (cat.status === 'fulfilled') setCatalogItems(cat.value.data)
       if (mats.status === 'fulfilled') setMaterials(mats.value.data)
       if (treats.status === 'fulfilled') setTreatments(treats.value.data)
       if (sups.status === 'fulfilled') setSuppliers(sups.value.data)
@@ -226,6 +229,25 @@ export default function DieQuoteEditor() {
       await load()
     } catch (e) {
       toast.error(getApiErrorDetail(e, 'Errore aggiunta normalizzato'))
+    }
+  }
+
+  // D1: aggiunge una riga pescando dal catalogo NormalizedItem. Snapshot: i
+  // valori (descrizione/fornitore/prezzo) vengono copiati e restano editabili;
+  // normalized_item_id traccia la provenienza.
+  const addFromCatalog = async (ci: NormalizedItem) => {
+    try {
+      await api.post(`/dies/${id}/normalized-items`, {
+        description: ci.description,
+        quantity: 1,
+        unit_price: ci.unit_price ?? 0,
+        normalized_supplier_id: ci.supplier_id ?? null,
+        normalized_item_id: ci.id,
+      })
+      await load()
+      toast.success(`Aggiunto dal catalogo: ${ci.code}`)
+    } catch (e) {
+      toast.error(getApiErrorDetail(e, 'Errore aggiunta dal catalogo'))
     }
   }
 
@@ -674,7 +696,28 @@ export default function DieQuoteEditor() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Normalizzati ({normalizedItems.length})</CardTitle>
-                {editable && canWrite && <Button size="sm" onClick={addNormalizedItem}>+ Aggiungi</Button>}
+                {editable && canWrite && (
+                  <div className="flex items-center gap-2">
+                    {catalogItems.length > 0 && (
+                      <select
+                        className="h-8 rounded-md border border-input bg-background px-2 text-sm max-w-56"
+                        value=""
+                        title="Aggiungi una voce dal catalogo normalizzati"
+                        onChange={e => {
+                          const cid = Number(e.target.value)
+                          const ci = catalogItems.find(c => c.id === cid)
+                          if (ci) addFromCatalog(ci)
+                        }}
+                      >
+                        <option value="">+ dal catalogo…</option>
+                        {catalogItems.map(c => (
+                          <option key={c.id} value={c.id}>{c.code} — {c.description}</option>
+                        ))}
+                      </select>
+                    )}
+                    <Button size="sm" onClick={addNormalizedItem}>+ Aggiungi</Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>

@@ -1,8 +1,7 @@
 // Container che raggruppa gli strumenti di amministrazione in 3 tab.
 import { useState } from 'react'
-import { Shield } from 'lucide-react'
 
-import StandardPage from '@/components/layout/StandardPage'
+import PageContainer from '@/components/ui/page-container'
 import UsersPage from './UsersPage'
 import RolesPage from './RolesPage'
 import BackupSettingsPage from './BackupSettingsPage'
@@ -19,13 +18,7 @@ export default function SystemSettingsPage() {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
-    <StandardPage
-      icon={Shield}
-      color="gray"
-      title="Sistema"
-      subtitle="Amministrazione: utenti, permessi e backup"
-      width="xl"
-    >
+    <PageContainer width="xl">
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -45,6 +38,6 @@ export default function SystemSettingsPage() {
         {tab === 'roles' && <RolesPage />}
         {tab === 'backup' && <BackupSettingsPage />}
       </div>
-    </StandardPage>
+    </PageContainer>
   )
 }

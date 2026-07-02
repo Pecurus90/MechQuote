@@ -1,9 +1,8 @@
 // Container che raggruppa il catalogo di produzione in 4 tab:
 // Lavorazioni / Trattamenti / Centri di costo (macchine) / Template flusso.
 import { useState } from 'react'
-import { Factory } from 'lucide-react'
 
-import StandardPage from '@/components/layout/StandardPage'
+import PageContainer from '@/components/ui/page-container'
 import OperationsPage from './OperationsPage'
 import TreatmentsPage from './TreatmentsPage'
 import MachinesPage from './MachinesPage'
@@ -22,13 +21,7 @@ export default function CatalogSettingsPage() {
   const [tab, setTab] = useState<Tab>('operations')
 
   return (
-    <StandardPage
-      icon={Factory}
-      color="indigo"
-      title="Lavorazioni & Macchine"
-      subtitle="Catalogo di produzione: cosa si fa, dove si fa, in che sequenza"
-      width="xl"
-    >
+    <PageContainer width="xl">
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -49,6 +42,6 @@ export default function CatalogSettingsPage() {
         {tab === 'machines' && <MachinesPage />}
         {tab === 'workflows' && <WorkflowTemplatesPage />}
       </div>
-    </StandardPage>
+    </PageContainer>
   )
 }

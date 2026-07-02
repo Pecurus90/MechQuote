@@ -1,9 +1,8 @@
 // Container che raggruppa le 4 pagine fornitori in tab interni.
 // Le pagine atomiche restano file separati e si auto-gestiscono il padding/header.
 import { useState } from 'react'
-import { Truck } from 'lucide-react'
 
-import StandardPage from '@/components/layout/StandardPage'
+import PageContainer from '@/components/ui/page-container'
 import MaterialSuppliersPage from './MaterialSuppliersPage'
 import TreatmentSuppliersPage from './TreatmentSuppliersPage'
 import ToolSuppliersPage from './ToolSuppliersPage'
@@ -22,13 +21,7 @@ export default function SuppliersSettingsPage() {
   const [tab, setTab] = useState<Tab>('materials')
 
   return (
-    <StandardPage
-      icon={Truck}
-      color="blue"
-      title="Fornitori"
-      subtitle="Anagrafiche fornitori divise per tipologia"
-      width="xl"
-    >
+    <PageContainer width="xl">
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -49,6 +42,6 @@ export default function SuppliersSettingsPage() {
         {tab === 'tools' && <ToolSuppliersPage />}
         {tab === 'normalized' && <NormalizedSuppliersPage />}
       </div>
-    </StandardPage>
+    </PageContainer>
   )
 }

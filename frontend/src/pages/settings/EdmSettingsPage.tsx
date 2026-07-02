@@ -1,8 +1,7 @@
 // Container che raggruppa le 4 pagine Wire EDM in tab interni.
 import { useState } from 'react'
-import { Zap } from 'lucide-react'
 
-import StandardPage from '@/components/layout/StandardPage'
+import PageContainer from '@/components/ui/page-container'
 import EdmConfigPage from './edm/EdmConfigPage'
 import EdmSpeedsPage from './edm/EdmSpeedsPage'
 import CuttingCyclesPage from './edm/CuttingCyclesPage'
@@ -21,13 +20,7 @@ export default function EdmSettingsPage() {
   const [tab, setTab] = useState<Tab>('config')
 
   return (
-    <StandardPage
-      icon={Zap}
-      color="amber"
-      title="Wire EDM"
-      subtitle="Configurazione elettroerosione a filo"
-      width="xl"
-    >
+    <PageContainer width="xl">
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -48,6 +41,6 @@ export default function EdmSettingsPage() {
         {tab === 'cycles' && <CuttingCyclesPage />}
         {tab === 'drilling' && <DrillingTimesPage />}
       </div>
-    </StandardPage>
+    </PageContainer>
   )
 }

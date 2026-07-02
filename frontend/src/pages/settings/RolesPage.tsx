@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
-import { Plus, Trash2, Check, X, ShieldCheck } from 'lucide-react'
+import { Plus, Trash2, Check, X, Minus, ShieldCheck } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
@@ -25,14 +25,18 @@ const colorClass = (color: string) =>
 
 const emptyNew = () => ({ name: '', label: '', color: 'gray' })
 
+interface PermItem { key: string; label: string }
+interface PermGroup { group: string; items: PermItem[] }
+
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
-  const [permissions, setPermissions] = useState<Record<string, string>>({})
+  const [groups, setGroups] = useState<PermGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [newRole, setNewRole] = useState(emptyNew())
   const [pendingDelete, setPendingDelete] = useState<Role | null>(null)
-  const [toggling, setToggling] = useState<string | null>(null)  // "roleId:key"
+  const [toggling, setToggling] = useState<string | null>(null)       // "roleId:key"
+  const [togglingGroup, setTogglingGroup] = useState<string | null>(null)  // "roleId:group"
 
   useEffect(() => { load() }, [])
 
@@ -41,10 +45,10 @@ export default function RolesPage() {
     try {
       const [rolesRes, permsRes] = await Promise.all([
         api.get('/roles'),
-        api.get('/permissions'),
+        api.get('/permissions/grouped'),
       ])
       setRoles(rolesRes.data)
-      setPermissions(permsRes.data)
+      setGroups(permsRes.data)
     } finally {
       setLoading(false)
     }
@@ -61,6 +65,27 @@ export default function RolesPage() {
       toast.error('Errore nel salvataggio del permesso')
     } finally {
       setToggling(null)
+    }
+  }
+
+  // Toggle di gruppo: se tutte le chiavi del gruppo sono attive per il ruolo le
+  // spegne, altrimenti le accende tutte (una sola chiamata bulk).
+  const toggleGroup = async (roleId: number, group: PermGroup) => {
+    const gid = `${roleId}:${group.group}`
+    if (togglingGroup === gid) return
+    const role = roles.find(r => r.id === roleId)
+    if (!role) return
+    const keys = group.items.map(i => i.key)
+    const perms = role.permissions ?? []
+    const value = !keys.every(k => perms.includes(k))
+    setTogglingGroup(gid)
+    try {
+      const res = await api.patch(`/roles/${roleId}/permissions`, { keys, value })
+      setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: res.data.permissions } : r))
+    } catch {
+      toast.error('Errore nel salvataggio del gruppo')
+    } finally {
+      setTogglingGroup(null)
     }
   }
 
@@ -94,8 +119,6 @@ export default function RolesPage() {
       toast.error(msg ?? 'Errore: il ruolo potrebbe essere in uso')
     }
   }
-
-  const permKeys = Object.keys(permissions)
 
   return (
     <StandardPage
@@ -192,35 +215,74 @@ export default function RolesPage() {
                 </tr>
               </thead>
               <tbody>
-                {permKeys.map(key => (
-                  <tr key={key} className="border-b last:border-0 hover:bg-muted">
-                    <td className="px-4 py-2.5">
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{permissions[key]}</p>
-                        <p className="text-[10px] text-muted-foreground font-mono">{key}</p>
-                      </div>
-                    </td>
-                    {roles.map(role => {
-                      const checked = (role.permissions ?? []).includes(key)
-                      const tid = `${role.id}:${key}`
-                      return (
-                        <td key={role.id} className="px-4 py-2.5 text-center">
-                          <button
-                            onClick={() => togglePermission(role.id, key)}
-                            disabled={toggling === tid}
-                            className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
-                              checked
-                                ? 'bg-blue-500 border-blue-500 text-white'
-                                : 'border-gray-300 hover:border-blue-400'
-                            } ${toggling === tid ? 'opacity-50' : ''}`}
-                          >
-                            {checked && <Check className="w-3 h-3" />}
-                          </button>
+                {groups.map(group => {
+                  const keys = group.items.map(i => i.key)
+                  return (
+                    <Fragment key={group.group}>
+                      {/* Riga intestazione gruppo + toggle "tutto il gruppo" per ruolo */}
+                      <tr className="bg-muted/60 border-b border-t">
+                        <td className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {group.group}
                         </td>
-                      )
-                    })}
-                  </tr>
-                ))}
+                        {roles.map(role => {
+                          const perms = role.permissions ?? []
+                          const onCount = keys.filter(k => perms.includes(k)).length
+                          const allOn = onCount === keys.length && keys.length > 0
+                          const some = onCount > 0 && !allOn
+                          const gid = `${role.id}:${group.group}`
+                          return (
+                            <td key={role.id} className="px-4 py-1.5 text-center">
+                              <button
+                                onClick={() => toggleGroup(role.id, group)}
+                                disabled={togglingGroup === gid}
+                                title={allOn ? 'Disattiva tutto il gruppo' : 'Attiva tutto il gruppo'}
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
+                                  allOn
+                                    ? 'bg-blue-500 border-blue-500 text-white'
+                                    : some
+                                      ? 'bg-blue-100 border-blue-400 text-blue-600'
+                                      : 'border-gray-300 hover:border-blue-400'
+                                } ${togglingGroup === gid ? 'opacity-50' : ''}`}
+                              >
+                                {allOn ? <Check className="w-3 h-3" /> : some ? <Minus className="w-3 h-3" /> : null}
+                              </button>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                      {/* Righe delle singole chiavi del gruppo */}
+                      {group.items.map(item => (
+                        <tr key={item.key} className="border-b last:border-0 hover:bg-muted">
+                          <td className="px-4 py-2.5 pl-8">
+                            <div>
+                              <p className="text-xs font-medium text-foreground">{item.label}</p>
+                              <p className="text-[10px] text-muted-foreground font-mono">{item.key}</p>
+                            </div>
+                          </td>
+                          {roles.map(role => {
+                            const checked = (role.permissions ?? []).includes(item.key)
+                            const tid = `${role.id}:${item.key}`
+                            return (
+                              <td key={role.id} className="px-4 py-2.5 text-center">
+                                <button
+                                  onClick={() => togglePermission(role.id, item.key)}
+                                  disabled={toggling === tid}
+                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
+                                    checked
+                                      ? 'bg-blue-500 border-blue-500 text-white'
+                                      : 'border-gray-300 hover:border-blue-400'
+                                  } ${toggling === tid ? 'opacity-50' : ''}`}
+                                >
+                                  {checked && <Check className="w-3 h-3" />}
+                                </button>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </CardContent>

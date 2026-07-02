@@ -154,6 +154,12 @@ class RoleOut(BaseModel):
         from_attributes = True
 
 
+class RolePermissionsBulk(BaseModel):
+    """Set/unset in blocco più chiavi permesso per un ruolo (toggle di gruppo)."""
+    keys: List[str]
+    value: bool
+
+
 # --- ManufacturingPhase (defined before PartOut) ---
 class PhaseBase(BaseModel):
     sequence_number: Optional[int] = 10

@@ -25,6 +25,23 @@ PERMISSION_KEYS: dict[str, str] = {
     "officina.write": "Officina — upload/modifica documenti e contenuti",
 }
 
+# Raggruppamento per dominio delle chiavi, usato SOLO per presentare la pagina
+# Ruoli e Permessi in sezioni leggibili (matrice ruoli×permessi). L'ordine e i
+# gruppi non incidono sulla logica di gating. Ogni chiave nuova andrebbe aggiunta
+# qui al gruppo giusto; se dimenticata, l'endpoint /permissions/grouped la mette
+# comunque in un gruppo "Altro" così non sparisce dalla UI.
+PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
+    ("Dashboard", ["dashboard"]),
+    ("Preventivi", [
+        "quotes.create", "quotes.send", "quotes.confirm", "quotes.view_all",
+        "quotes.pdf", "quotes.archive", "quotes.edit_locked", "quotes.delete",
+    ]),
+    ("Preventivatore Stampi", ["dies.create", "dies.archive", "dies.pdf", "dies.settings"]),
+    ("Ordini", ["orders.materials", "orders.tools"]),
+    ("Officina & Utensili", ["officina", "officina.write", "tools"]),
+    ("Impostazioni & Sistema", ["settings", "customers", "company", "users", "backup", "notifications"]),
+]
+
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "admin": list(PERMISSION_KEYS.keys()),
     "ufficio_tecnico": [

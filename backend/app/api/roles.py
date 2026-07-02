@@ -4,9 +4,9 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.core.permissions import PERMISSION_KEYS
+from app.core.permissions import PERMISSION_KEYS, PERMISSION_GROUPS
 from app.models import Role, RolePermission
-from app.schemas import RoleCreate, RoleUpdate, RoleOut
+from app.schemas import RoleCreate, RoleUpdate, RoleOut, RolePermissionsBulk
 
 router = APIRouter(prefix="/api/roles", tags=["roles"])
 permissions_router = APIRouter(prefix="/api/permissions", tags=["permissions"])
@@ -28,6 +28,27 @@ def _role_to_out(role: Role) -> dict:
 def list_permission_keys():
     """Return all known permission keys with their labels."""
     return PERMISSION_KEYS
+
+
+@permissions_router.get("/grouped")
+def list_permission_groups():
+    """Permessi raggruppati per dominio, ordinati, per la pagina Ruoli e Permessi.
+
+    Forma: `[{"group": label, "items": [{"key", "label"}]}]`. Le chiavi non
+    incluse in PERMISSION_GROUPS finiscono in un gruppo "Altro" (difesa contro
+    una chiave nuova dimenticata: non deve sparire dalla UI).
+    """
+    grouped = []
+    seen: set[str] = set()
+    for label, keys in PERMISSION_GROUPS:
+        items = [{"key": k, "label": PERMISSION_KEYS[k]} for k in keys if k in PERMISSION_KEYS]
+        seen.update(i["key"] for i in items)
+        if items:
+            grouped.append({"group": label, "items": items})
+    leftover = [{"key": k, "label": v} for k, v in PERMISSION_KEYS.items() if k not in seen]
+    if leftover:
+        grouped.append({"group": "Altro", "items": leftover})
+    return grouped
 
 
 @router.get("", response_model=List[RoleOut])
@@ -73,6 +94,26 @@ def delete_role(role_id: int, db: Session = Depends(get_db), _=_admin):
     db.delete(role)
     db.commit()
     return {"ok": True}
+
+
+@router.patch("/{role_id}/permissions", response_model=RoleOut)
+def set_permissions_bulk(role_id: int, data: RolePermissionsBulk, db: Session = Depends(get_db), _=_admin):
+    """Accende/spegne in blocco più chiavi per un ruolo (toggle di gruppo)."""
+    invalid = [k for k in data.keys if k not in PERMISSION_KEYS]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Chiavi non valide: {', '.join(invalid)}")
+    role = db.query(Role).options(joinedload(Role.permissions)).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Ruolo non trovato")
+    existing = {p.permission_key: p for p in role.permissions}
+    for k in data.keys:
+        if data.value and k not in existing:
+            db.add(RolePermission(role_id=role_id, permission_key=k))
+        elif not data.value and k in existing:
+            db.delete(existing[k])
+    db.commit()
+    db.refresh(role)
+    return _role_to_out(role)
 
 
 @router.patch("/{role_id}/permissions/{key}", response_model=RoleOut)

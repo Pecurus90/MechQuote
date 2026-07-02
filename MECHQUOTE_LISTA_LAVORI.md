@@ -48,6 +48,54 @@ assorbiti nei temi corrispondenti.
 
 ---
 
+## 📋 C — Import ordine materiale (manuale + tabella SolidWorks) — SOSPESO (2026-07-02)
+
+Feature concordata con l'utente il 2026-07-02, **sospesa su sua richiesta**
+(da riprendere). Design deciso; manca solo un dato per il parser CSV.
+
+**Cosa deve fare.** La pagina *Ordini materiali* avrà **due modalità**:
+1. **Da preventivi** (già esistente): seleziona preventivi → aggrega per
+   fornitore → ordine.
+2. **Manuale** (nuova): righe inserite a mano con i campi **materiale** (scelto
+   dalla lista Materiali), **codice articolo**, **forma** (tondo/quadro),
+   **dimensioni**, **quantità**, con "+ aggiungi voce" (multi-riga). Più un
+   pulsante "**Importa da CSV SolidWorks**" che popola le righe.
+
+Entrambe le modalità producono un **ordine salvato**, editabile, esportabile in
+CSV (formato di B: `Materiale · Forma · Dimensioni · Riferimento · Quantità`) e
+presente nello **storico** (ri-scaricabile).
+
+**Materiali (find-or-create + popup).** Nell'import CSV, ogni materiale della
+tabella viene cercato a catalogo con `find_by_name` (helper di D2); se esiste si
+aggancia, se **manca** si apre un **popup** per crearlo (poi disponibile in
+tutta l'app). Nella modalità manuale il materiale si sceglie dalla lista → già
+agganciato (popup non necessario).
+
+**Come spezzarla:**
+- **C1 — Modalità manuale** (costruibile subito, nessun blocco):
+  - **C1.1** modello: nuova tabella `MaterialOrderItem` (righe manuali:
+    `material_id` FK opzionale, nome materiale snapshot, forma, dimensioni,
+    riferimento, quantità) + `MaterialOrder.source` ('manual' | 'quotes');
+    migration idempotente.
+  - **C1.2** backend: endpoint crea-ordine-manuale da righe; export CSV che usa
+    le righe manuali se presenti, altrimenti l'aggregazione da preventivi;
+    storico che mostra anche gli ordini manuali.
+  - **C1.3** frontend: modalità "Manuale" nella pagina ordini materiali
+    (tabella righe: dropdown materiale + forma + dimensioni + qty + aggiungi/
+    rimuovi) → crea ordine → CSV.
+- **C2 — "Importa da CSV SolidWorks"** (BLOCCATO): il pulsante che parsa il CSV
+  e riempie le righe, con match+popup per i materiali mancanti.
+  **⛔ Serve prima un esempio reale del CSV SolidWorks dell'utente**
+  (intestazioni + 1-2 righe): senza, il parser è indovinato. Riusa il motore
+  `app.core.csv_import` per il parsing.
+
+**Riuso:** motore `csv_import` (parsing), `catalog_protect.find_by_name` (D2,
+match), formato CSV output (B). **Nota audit:** oggi NON esiste alcun import "da
+tabella SolidWorks" nei preventivi (l'unico import da file è il wizard DXF 2D,
+che sono disegni, non distinte base) → C è greenfield.
+
+---
+
 ## ⭐ PROSSIMA SESSIONE — DA FARE SUBITO (aggiornato 2026-06-30)
 
 **1. Pulizia file/doc obsoleti** ← la prima cosa da fare.

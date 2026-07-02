@@ -26,27 +26,30 @@
     --radius: 0.5rem;
   }
 
-  /* Tema scuro (spec 20): slate-900 morbido + blu primario. Attivo quando
-     <html class="dark"> — gestito da lib/theme.tsx. */
+  /* Tema scuro (spec 20): grigio scuro neutro (dark mode "classica"). Le
+     superfici usano hue freddo 240 a saturazione minima (~4-6%): stessi
+     livelli di luminosità di prima, tolto il tinta blu. Restano colorati solo
+     gli accenti: --primary/--ring (blu brand, bottoni/focus) e --destructive
+     (rosso). Attivo quando <html class="dark"> — gestito da lib/theme.tsx. */
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 96%;
-    --card: 222 41% 15%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 41% 15%;
-    --popover-foreground: 210 40% 96%;
+    --background: 240 6% 11%;
+    --foreground: 0 0% 96%;
+    --card: 240 5% 15%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 5% 15%;
+    --popover-foreground: 0 0% 96%;
     --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217 33% 20%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 24%;
-    --accent-foreground: 210 40% 98%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4% 20%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 4% 18%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 24%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 63% 45%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 25% 24%;
-    --input: 217 25% 24%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 24%;
+    --input: 240 4% 24%;
     --ring: 217 91% 60%;
   }
 

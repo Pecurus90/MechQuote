@@ -1,5 +1,10 @@
 # Frontend Components
 
+> ⚠️ **DOC OBSOLETO** (CLAUDE.md §12). L'elenco componenti qui sotto è quello
+> originale e non riflette più il frontend attuale. Per la struttura vera vedi
+> `frontend/src/` (pagine in `pages/`, componenti in `components/`) e la §10
+> di `CLAUDE.md`. Mantenuto come storico.
+
 ## Layout
 
 Components:

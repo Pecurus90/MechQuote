@@ -1,6 +1,13 @@
 # Spec 14 — Workflow stati, Notifiche, Permessi dinamici, Dashboard attività
 
-> Documento di riferimento allineato con il codice corrente. Aggiornare se cambia comportamento.
+> ⚠️ **DOC OBSOLETO — DRIFT** (CLAUDE.md §12). Questo documento descrive il
+> **vecchio** modello: workflow a 3 stati e permessi come `quotes.complete` +
+> colonna `admin`. Il codice attuale ha **5 stati**
+> (`bozza→inviato→letto→confermato→completo`) e permessi ridisegnati
+> (`quotes.confirm`, `quotes.edit_locked`, `quotes.delete`, `orders.tools`,
+> `tools`=catalogo, `officina`/`officina.write`, `dies.*`). Fonti autoritative:
+> **`CLAUDE.md` §3 (permessi) e §4 (workflow stati)** + **`docs/specs/18`**
+> (disegno dei 5 stati). Mantenuto come storico.
 
 ---
 

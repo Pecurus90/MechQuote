@@ -630,14 +630,13 @@ def remove_quote_flag(
     current_user: User = Depends(get_current_user),
     _=_can_orders,
 ):
-    """Admin-only: rimuove il flag material_ordered da un preventivo (errore umano).
+    """Rimuove il flag material_ordered da un preventivo (errore umano).
 
-    NON rimuove il MaterialOrder che lo aveva incluso: l'ordine resta nello
-    storico (è un documento di lavoro fatto in passato). Solo il flag sul
+    Gated su 'orders.materials' (chi gestisce gli ordini corregge i propri
+    errori). NON rimuove il MaterialOrder che lo aveva incluso: l'ordine resta
+    nello storico (è un documento di lavoro fatto in passato). Solo il flag sul
     Quote viene resettato così quel preventivo torna selezionabile.
     """
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Solo admin può rimuovere il flag ordine")
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")

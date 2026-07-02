@@ -53,15 +53,17 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
 
 
 def ensure_editable(quote: Quote, current_user: User) -> None:
-    """Modificabile fino a 'letto'; bloccato dalla Conferma (admin esente).
+    """Modificabile fino a 'letto'; bloccato dalla Conferma.
 
     Spec 18: si modifica in bozza/inviato/letto, poi la Conferma manuale di
-    amministrazione blocca (confermato/completo). Esportata per parts.py /
-    phases.py — mutare parti o fasi è modificare il preventivo.
+    amministrazione blocca (confermato/completo). Chi ha 'quotes.edit_locked'
+    (default: solo admin) può modificare anche i preventivi bloccati.
+    Esportata per parts.py / phases.py — mutare parti o fasi è modificare il
+    preventivo.
     """
     if wf.is_editable(quote.status):
         return
-    if current_user.role == 'admin':
+    if 'quotes.edit_locked' in getattr(current_user, '_permissions', []):
         return
     raise HTTPException(
         status_code=403,
@@ -346,13 +348,15 @@ def unconfirm_quote(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin: annulla la conferma (confermato/completo → letto).
+    """Annulla la conferma (confermato/completo → letto).
 
-    Azzera le coppie (preventivo, fornitore) ordinate — l'ordine resta nello
-    storico ma il materiale va riordinato — e sblocca la modifica.
+    Riservato a chi ha 'quotes.edit_locked' (default: solo admin): è la stessa
+    capacità di intervenire su un preventivo bloccato. Azzera le coppie
+    (preventivo, fornitore) ordinate — l'ordine resta nello storico ma il
+    materiale va riordinato — e sblocca la modifica.
     """
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Solo admin può annullare la conferma")
+    if 'quotes.edit_locked' not in getattr(current_user, '_permissions', []):
+        raise HTTPException(status_code=403, detail="Permesso negato: serve 'Modifica preventivi bloccati'")
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
@@ -441,15 +445,15 @@ def delete_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
-    is_admin = current_user.role == 'admin'
+    can_delete = 'quotes.delete' in getattr(current_user, '_permissions', [])
     is_creator = (
         quote.created_by_user_id is not None
         and quote.created_by_user_id == current_user.id
     )
-    if not (is_admin or is_creator):
+    if not (can_delete or is_creator):
         raise HTTPException(
             status_code=403,
-            detail="Solo il creatore del preventivo o un admin possono eliminarlo",
+            detail="Solo il creatore del preventivo o chi ha il permesso di eliminazione possono eliminarlo",
         )
     # Cancella prima le notifiche legate al quote (FK target_quote_id non ha CASCADE su SQLite).
     # SQLite ricicla gli id, quindi notifiche orfane causerebbero IntegrityError sul UNIQUE INDEX

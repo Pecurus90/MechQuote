@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/officina", tags=["officina"])
 
 _can_read = require_permission('officina')
 _can_write = require_permission('officina.write')
-_can_admin_categories = require_permission('users')  # admin-only per gestire tassonomia
+_can_admin_categories = require_permission('officina.write')  # chi modifica i contenuti officina gestisce la tassonomia
 
 UPLOAD_DIR = "uploads/officina"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB, coerente con PartFile

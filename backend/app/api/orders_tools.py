@@ -27,7 +27,7 @@ from app.services.notifications import create_notification
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orders/tools", tags=["orders"])
 
-_can_tools = require_permission('tools')
+_can_orders_tools = require_permission('orders.tools')
 
 # Colonne del CSV ordine utensili (ordine fisso, allineato al gestionale).
 _CSV_COLUMNS = ['Codice', 'Tipo', 'Marca', 'Modello', 'Ø (mm)', 'Qtà da ordinare']
@@ -45,7 +45,7 @@ def _low_stock_query(db: Session, supplier_id: Optional[int] = None):
 
 
 @router.get("/stats")
-def get_stats(db: Session = Depends(get_db), _=_can_tools):
+def get_stats(db: Session = Depends(get_db), _=_can_orders_tools):
     """KPI mini-dashboard per /orders/tools.
 
     - `low_stock`: utensili sotto-minimo (= preview pronto)
@@ -83,7 +83,7 @@ def get_stats(db: Session = Depends(get_db), _=_can_tools):
 
 
 @router.get("/preview")
-def preview_low_stock(db: Session = Depends(get_db), _=_can_tools):
+def preview_low_stock(db: Session = Depends(get_db), _=_can_orders_tools):
     """Preview live: utensili sotto-minimo raggruppati per fornitore.
 
     Niente side effect — pura read. Il frontend la usa per far scegliere il
@@ -138,7 +138,7 @@ def create_tool_order(
     payload: ToolOrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _=_can_tools,
+    _=_can_orders_tools,
 ):
     """Crea un ToolOrder per un fornitore dallo stato attuale dei suoi utensili.
 
@@ -205,7 +205,7 @@ def list_tool_orders(
     q: Optional[str] = None,
     limit: int = 50,
     db: Session = Depends(get_db),
-    _=_can_tools,
+    _=_can_orders_tools,
 ):
     """Storico ordini utensili, ordine desc.
 
@@ -246,7 +246,7 @@ def list_tool_orders(
 
 
 @router.get("/{order_id}", response_model=ToolOrderDetailOut)
-def get_tool_order_detail(order_id: int, db: Session = Depends(get_db), _=_can_tools):
+def get_tool_order_detail(order_id: int, db: Session = Depends(get_db), _=_can_orders_tools):
     order = db.query(ToolOrder).options(
         joinedload(ToolOrder.created_by),
         joinedload(ToolOrder.items),
@@ -274,7 +274,7 @@ def get_tool_order_detail(order_id: int, db: Session = Depends(get_db), _=_can_t
 
 
 @router.delete("/{order_id}")
-def delete_tool_order(order_id: int, db: Session = Depends(get_db), _=_can_tools):
+def delete_tool_order(order_id: int, db: Session = Depends(get_db), _=_can_orders_tools):
     """Cancella un ordine utensili dallo storico.
 
     L'ordine è uno snapshot puro (nessun flag vivo sugli utensili): la
@@ -291,7 +291,7 @@ def delete_tool_order(order_id: int, db: Session = Depends(get_db), _=_can_tools
 
 
 @router.get("/{order_id}/csv")
-def get_tool_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_tools):
+def get_tool_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders_tools):
     """Genera il CSV dell'ordine dal suo snapshot (un file per fornitore).
 
     Nome file `AAAAMMGG_HHmm_<fornitore>.csv`: il gestionale importa un

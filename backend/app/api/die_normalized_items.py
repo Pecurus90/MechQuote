@@ -6,7 +6,7 @@ from typing import List
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.core.quote_types import is_die
-from app.models import Quote, DieNormalizedItem, User
+from app.models import Quote, DieNormalizedItem, NormalizedItem, User
 from app.schemas import (
     DieNormalizedItemCreate, DieNormalizedItemUpdate, DieNormalizedItemOut,
 )
@@ -23,6 +23,13 @@ def _die_quote_or_404(quote_id: int, db: Session) -> Quote:
     if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
     return quote
+
+
+def _validate_catalog_ref(normalized_item_id, db: Session) -> None:
+    """D1: se la riga dichiara una provenienza dal catalogo, la voce deve esistere."""
+    if normalized_item_id is not None:
+        if not db.query(NormalizedItem).filter(NormalizedItem.id == normalized_item_id).first():
+            raise HTTPException(status_code=400, detail="Voce normalizzata (catalogo) non trovata")
 
 
 @router.get("/{quote_id}/normalized-items", response_model=List[DieNormalizedItemOut])
@@ -47,6 +54,7 @@ def add_item(
 ):
     quote = _die_quote_or_404(quote_id, db)
     ensure_editable(quote, current_user)
+    _validate_catalog_ref(data.normalized_item_id, db)
     item = DieNormalizedItem(quote_id=quote_id, **data.model_dump())
     db.add(item)
     db.commit()
@@ -74,6 +82,7 @@ def update_item(
     ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Normalizzato non trovato")
+    _validate_catalog_ref(data.normalized_item_id, db)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(item, k, v)
     db.commit()

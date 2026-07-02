@@ -20,7 +20,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import NormalizedItem
+from app.core.catalog_protect import block_if_in_use
+from app.models import NormalizedItem, DieNormalizedItem, DieTemplateNormalized
 from app.schemas import (
     NormalizedItemCreate, NormalizedItemOut, NormalizedItemUpdate,
 )
@@ -134,12 +135,17 @@ def delete_item(item_id: int, db: Session = Depends(get_db), _=_can_settings):
     item = db.query(NormalizedItem).filter(NormalizedItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Normalizzato non trovato")
-    # NOTA (Step 4-5): quando arriveranno le FK opzionali da
-    # DieTemplateNormalized e DieNormalizedItem verso normalized_items,
-    # qui andrà aggiunto block_if_in_use() — vedi pattern in
-    # app.core.catalog_protect. Oggi nessuna FK in arrivo, cancellazione
-    # diretta. SQLite non enforce FK di default; quando le FK ci saranno,
-    # lasciare la cancellazione cieca creerebbe riferimenti orfani.
+    # D1: ora le FK opzionali esistono → blocca la cancellazione se la voce è
+    # referenziata (da righe preventivo o template). Anche se i valori sono
+    # snapshot (copiati), evita FK orfane e avvisa l'utente. Per ritirare una
+    # voce ancora in uso si usa il flag `active`.
+    block_if_in_use(
+        db, f"Voce normalizzata '{item.code}'",
+        (DieNormalizedItem, DieNormalizedItem.normalized_item_id == item.id,
+         "riga di preventivo", "righe di preventivo"),
+        (DieTemplateNormalized, DieTemplateNormalized.normalized_item_id == item.id,
+         "riga di template", "righe di template"),
+    )
     db.delete(item)
     db.commit()
     return {"ok": True}

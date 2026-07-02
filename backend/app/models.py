@@ -1042,9 +1042,14 @@ class DieNormalizedItem(Base):
     quantity = Column(Integer, default=1)
     unit_price = Column(Float, default=0.0)
     notes = Column(Text)
+    # D1: origine dal catalogo NormalizedItem (snapshot Opzione A: description/
+    # supplier/unit_price restano copiati e indipendenti). NULL = riga a testo
+    # libero (retro-compatibile con le righe esistenti).
+    normalized_item_id = Column(Integer, ForeignKey("normalized_items.id"), nullable=True)
 
     quote = relationship("Quote", back_populates="die_normalized_items")
     supplier = relationship("NormalizedSupplier")
+    normalized_item = relationship("NormalizedItem")
 
 
 class DieSettings(Base):
@@ -1231,9 +1236,12 @@ class DieTemplateNormalized(Base):
     quantity_formula = Column(String(100), default="1")
     unit_price_default = Column(Float, default=0.0)
     sort_order = Column(Integer, default=0)
+    # D1: origine dal catalogo NormalizedItem (snapshot al collegamento).
+    normalized_item_id = Column(Integer, ForeignKey("normalized_items.id"), nullable=True)
 
     template = relationship("DieTemplate", back_populates="normalized_items")
     supplier = relationship("NormalizedSupplier")
+    normalized_item = relationship("NormalizedItem")
 
 
 # ─── Event listeners ────────────────────────────────────────────────────────

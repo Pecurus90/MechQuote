@@ -1405,6 +1405,8 @@ class DieNormalizedItemBase(BaseModel):
     quantity: int = Field(default=1, ge=1)
     unit_price: float = Field(default=0.0, ge=0)
     notes: Optional[str] = None
+    # D1: provenienza dal catalogo NormalizedItem (snapshot). NULL = testo libero.
+    normalized_item_id: Optional[int] = Field(default=None, ge=1)
 
 
 class DieNormalizedItemCreate(DieNormalizedItemBase):
@@ -1533,6 +1535,8 @@ class DieTemplateNormalizedBase(BaseModel):
     quantity_formula: str = Field(default="1", max_length=100)
     unit_price_default: float = Field(default=0.0, ge=0)
     sort_order: int = Field(default=0, ge=0)
+    # D1: provenienza dal catalogo NormalizedItem (snapshot). NULL = testo libero.
+    normalized_item_id: Optional[int] = Field(default=None, ge=1)
 
 
 class DieTemplateNormalizedCreate(DieTemplateNormalizedBase):

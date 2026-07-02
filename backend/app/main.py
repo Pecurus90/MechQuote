@@ -793,6 +793,10 @@ def _run_migrations():
         # officina.write. Il catalogo utensili 'tools' lo ha già.
         "DELETE FROM role_permissions WHERE permission_key IN ('quotes.archive','quotes.pdf','notifications') AND role_id IN (SELECT id FROM roles WHERE name='officina')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name = 'officina' AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='officina.write')",
+
+        # ═══ D1 (2026-07-02): collega NormalizedItem (FK opzionale, snapshot) ═══
+        "ALTER TABLE die_normalized_items ADD COLUMN normalized_item_id INTEGER REFERENCES normalized_items(id)",
+        "ALTER TABLE die_template_normalized ADD COLUMN normalized_item_id INTEGER REFERENCES normalized_items(id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

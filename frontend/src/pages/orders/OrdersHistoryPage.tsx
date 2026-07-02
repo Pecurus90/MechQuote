@@ -30,7 +30,7 @@ async function downloadBlob(url: string, fallbackName: string) {
 export default function OrdersHistoryPage() {
   const { hasPermission } = useAuth()
   const canMaterials = hasPermission('orders.materials')
-  const canTools = hasPermission('tools')
+  const canTools = hasPermission('orders.tools')
 
   const [tab, setTab] = useState<Tab>(canMaterials ? 'materials' : 'tools')
   const [search, setSearch] = useState('')

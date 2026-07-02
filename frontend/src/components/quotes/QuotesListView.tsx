@@ -33,9 +33,9 @@ const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'confermato'] as const
 
 export default function QuotesListView({ phase, title, subtitle, icon, showQuickActions = false }: Props) {
   const navigate = useNavigate()
-  const { user, hasRole, hasPermission } = useAuth()
-  const isAdmin = hasRole('admin')
-  const canDelete = (q: Quote) => isAdmin || (q.created_by_user_id != null && q.created_by_user_id === user?.id)
+  const { user, hasPermission } = useAuth()
+  const canDeleteAny = hasPermission('quotes.delete')
+  const canDelete = (q: Quote) => canDeleteAny || (q.created_by_user_id != null && q.created_by_user_id === user?.id)
   const canConfirm = hasPermission('quotes.confirm')
   const canPdf = hasPermission('quotes.pdf')
 

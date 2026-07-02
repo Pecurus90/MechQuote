@@ -16,12 +16,12 @@ interface Props {
  *  Annulla conferma. Condiviso tra QuoteEditor e DieQuoteEditor — è il cuore
  *  del ciclo di vita, un solo punto per le chiamate API. */
 export default function QuoteStatusActions({ quote, onChanged }: Props) {
-  const { hasPermission, hasRole } = useAuth()
+  const { hasPermission } = useAuth()
   const [busy, setBusy] = useState(false)
   const [confirmUnconfirm, setConfirmUnconfirm] = useState(false)
 
   const canConfirm = hasPermission('quotes.confirm')
-  const isAdmin = hasRole('admin')
+  const canEditLocked = hasPermission('quotes.edit_locked')
   const st = quote.status
 
   const call = async (path: string, okMsg: string) => {
@@ -37,7 +37,7 @@ export default function QuoteStatusActions({ quote, onChanged }: Props) {
   }
 
   const canReview = canConfirm && (st === 'inviato' || st === 'letto')
-  const showUnconfirm = isAdmin && (st === 'confermato' || st === 'completo')
+  const showUnconfirm = canEditLocked && (st === 'confermato' || st === 'completo')
   if (!canReview && !showUnconfirm) return null
 
   return (

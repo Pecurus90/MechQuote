@@ -16,7 +16,7 @@ import type { OfficinaCategory } from '@/types'
 export default function OfficinaHub() {
   const { hasPermission } = useAuth()
   const canRead = hasPermission('officina')
-  const canManageCategories = hasPermission('users')  // admin-only
+  const canManageCategories = hasPermission('officina.write')
 
   const [categories, setCategories] = useState<OfficinaCategory[]>([])
   const [showForm, setShowForm] = useState(false)

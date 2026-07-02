@@ -32,7 +32,7 @@ const PLATE_ROLE_LABELS: Record<string, string> = {
 
 export default function DieQuoteEditor() {
   const { id } = useParams<{ id: string }>()
-  const { hasPermission, hasRole } = useAuth()
+  const { hasPermission } = useAuth()
   const canWrite = hasPermission('dies.create')
   const canSubmit = hasPermission('quotes.send')
   const canPdf = hasPermission('quotes.pdf') || hasPermission('dies.pdf')
@@ -177,7 +177,7 @@ export default function DieQuoteEditor() {
   }
 
   // Spec 18: modificabile in bozza/inviato/letto; bloccato dalla Conferma (admin esente).
-  const editable = ['bozza', 'inviato', 'letto'].includes(quote.status) || hasRole('admin')
+  const editable = ['bozza', 'inviato', 'letto'].includes(quote.status) || hasPermission('quotes.edit_locked')
 
   // ─── Local mutators (state-only, mark dirty) ────────────────────────────
   const setSpecLocal = (patch: Partial<DieSpec>) => {

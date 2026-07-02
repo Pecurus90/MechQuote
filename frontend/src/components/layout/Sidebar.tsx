@@ -50,6 +50,7 @@ export default function Sidebar() {
   const canUsers = hasPermission('users')
   const canBackup = hasPermission('backup')
   const canOrdersMaterials = hasPermission('orders.materials')
+  const canOrdersTools = hasPermission('orders.tools')
 
   const showCatalog = canSettings
   const showAziendaSection = canCompany
@@ -141,7 +142,7 @@ export default function Sidebar() {
         </div>
 
         {/* ─── Ordini (collapsible) ─── */}
-        {canOrdersMaterials && (
+        {(canOrdersMaterials || canOrdersTools) && (
           <div className="pt-1">
             <button
               onClick={() => setOrdersOpen(o => !o)}
@@ -158,14 +159,18 @@ export default function Sidebar() {
             </button>
             {ordersOpen && (
               <div className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5">
-                <NavLink to="/orders/materials" className={({ isActive }) => navLinkClass(isActive, true)}>
-                  <Package className="w-3.5 h-3.5 shrink-0" />
-                  <span>Ordini materiali</span>
-                </NavLink>
-                <NavLink to="/orders/tools" className={({ isActive }) => navLinkClass(isActive, true)}>
-                  <Wrench className="w-3.5 h-3.5 shrink-0" />
-                  <span>Ordini utensili</span>
-                </NavLink>
+                {canOrdersMaterials && (
+                  <NavLink to="/orders/materials" className={({ isActive }) => navLinkClass(isActive, true)}>
+                    <Package className="w-3.5 h-3.5 shrink-0" />
+                    <span>Ordini materiali</span>
+                  </NavLink>
+                )}
+                {canOrdersTools && (
+                  <NavLink to="/orders/tools" className={({ isActive }) => navLinkClass(isActive, true)}>
+                    <Wrench className="w-3.5 h-3.5 shrink-0" />
+                    <span>Ordini utensili</span>
+                  </NavLink>
+                )}
                 <NavLink to="/orders/history" className={({ isActive }) => navLinkClass(isActive, true)}>
                   <History className="w-3.5 h-3.5 shrink-0" />
                   <span>Storico ordini</span>

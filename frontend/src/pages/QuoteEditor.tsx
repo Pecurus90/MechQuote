@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 export default function QuoteEditor() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
-  const { hasPermission, hasRole } = useAuth()
+  const { hasPermission } = useAuth()
   const isNew = !id
 
   const [quote, setQuote] = useState<Quote | null>(null)
@@ -347,7 +347,7 @@ export default function QuoteEditor() {
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   // Spec 18: modificabile in bozza/inviato/letto; bloccato dalla Conferma.
-  const isLocked = !['bozza', 'inviato', 'letto'].includes(quote.status) && !hasRole('admin')
+  const isLocked = !['bozza', 'inviato', 'letto'].includes(quote.status) && !hasPermission('quotes.edit_locked')
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-background">

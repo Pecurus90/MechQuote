@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import (
     WorkflowTemplate, WorkflowTemplateStep,
-    Machine, ManufacturingPhase, Part, Operation,
+    ManufacturingPhase, Part, Operation,
 )
 from app.schemas import (
     WorkflowTemplateCreate, WorkflowTemplateUpdate, WorkflowTemplateOut,

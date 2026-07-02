@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import require_permission, require_any_permission, get_current_user
+from app.core.security import require_any_permission, get_current_user
 from app.models import ManufacturingPhase, Part, Quote, User
 from app.schemas import PhaseCreate, PhaseUpdate, PhaseOut
 from app.services.calculation import recalculate_part

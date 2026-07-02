@@ -609,7 +609,7 @@ backend/app/
     config.py      # Settings env-driven (SECRET_KEY, DATABASE_URL, ALLOWED_ORIGINS)
     database.py    # engine, SessionLocal, Base
     permissions.py # PERMISSION_KEYS + DEFAULT_ROLE_PERMISSIONS
-    security.py    # JWT, get_current_user (carica permissions[]), require_role, require_permission
+    security.py    # JWT, get_current_user (carica permissions[]), require_permission, require_any_permission
     catalog_protect.py # block_if_in_use helper per DELETE su tabelle catalog
     csv_import.py     # motore import CSV cataloghi (engine + template + parse_decimal_it)
   models.py        # SQLAlchemy ORM, single source of truth schema DB

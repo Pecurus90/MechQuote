@@ -10,7 +10,7 @@ from app.models import (
     ManufacturingPhase, Material, Part, Quote, QuoteSupplierOrder, User,
 )
 from app.schemas import (
-    ArchiveQuoteOut, ArticleMaterialRow, QuoteMaterialDetailOut, QuoteOut,
+    ArchiveQuoteOut, ArticleMaterialRow, QuoteMaterialDetailOut,
 )
 from app.services.material_status import (
     part_material_state, quote_material_status,

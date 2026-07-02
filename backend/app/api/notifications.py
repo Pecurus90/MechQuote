@@ -1,7 +1,7 @@
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, utc_now

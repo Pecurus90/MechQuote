@@ -12,7 +12,6 @@ Struttura output:
 - Footer: nome azienda + "Generato da MechQuote"
 """
 import tempfile
-from typing import List
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload

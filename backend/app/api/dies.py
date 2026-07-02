@@ -26,8 +26,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import (
-    Quote, Part, PartFile, DieSpec, DieTemplate, DieTemplatePlate,
-    DieTemplateNormalized, DieNormalizedItem, DieSettings,
+    Quote, Part, PartFile, DieSpec, DieTemplate,
+    DieNormalizedItem, DieSettings,
     CompanySettings, User,
 )
 from app.schemas import (

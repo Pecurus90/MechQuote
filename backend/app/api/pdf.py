@@ -31,7 +31,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.security import require_permission, require_any_permission
+from app.core.security import require_any_permission
 from app.models import (
     Quote, Part, ManufacturingPhase, Material, CompanySettings,
     DieSpec, DieNormalizedItem,

@@ -28,8 +28,26 @@
   hardcode `role=='admin'` dalla logica (ora permessi delegabili); ruolo
   `officina` ristretto a officina + officina.write + tools; **token di login
   senza scadenza**. Fonte: `CLAUDE.md §3`.
+- **Motore di calcolo unificato (tema E)**: tutte le formule pure del cost
+  engine (materiale, fase, totali parte, **totale preventivo** standard+stampo,
+  trattamento, round4) ora vivono in `backend/app/services/costing/primitives.py`
+  = fonte unica; `recalculate_quote` e `pdf.py` le compongono. Registro
+  `core/quote_types.py` (`is_die`/`is_standard`) al posto delle magic-string.
+  Corretti bug: tariffa NULL→crash, 2 divergenze totale PDF↔anteprima.
+- **Cataloghi "tutto collegato" (tema D)**: `NormalizedItem` prima orfano ora
+  agganciato alle righe stampo (FK snapshot + `block_if_in_use`, autocomplete
+  "dal catalogo"); **anti-doppioni** su 7 cataloghi (nome unico case-insensitive
+  + indice UNIQUE + messaggio 400). Manca: policy Customer (D4), tempra/attributi
+  utensile (D5), import ordine materiale (tema C, **sospeso** — vedi lista lavori).
+- **Rete di test**: unit backend 128 passed + parità cost-engine BE↔FE completa
+  (i golden chiamano il codice reale, coperto anche `dieCalc`/`calcPhase`);
+  restano 2 fallimenti preesistenti in `test_dxf_parser` (ezdxf/pyparsing, non
+  correlati). Notifiche riviste (click-through, segna-tutte-lette, rimosso flusso
+  "richiede azione" morto). Codice morto rimosso (import inutilizzati, dict
+  contatori).
 - **Piano di lavoro corrente** (14 temi in 6 fasi) in testa a
-  `MECHQUOTE_LISTA_LAVORI.md`.
+  `MECHQUOTE_LISTA_LAVORI.md`; avanzamento: Fasi 0-1-2-3 fatte, Fase 4 con E✅ e
+  D parziale (D1/D2✅).
 
 ---
 

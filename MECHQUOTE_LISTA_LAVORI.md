@@ -24,22 +24,22 @@ grande lista di richieste in 14 temi su 6 fasi. È la **cornice corrente**: i
 blocchi A/B/C e i cantieri qui sotto restano validi come dettaglio e vengono
 assorbiti nei temi corrispondenti.
 
-- **Fase 0** — N: aggiornare roadmap/doc + pulizia doc obsoleti · L1: audit
-  read-only codice morto / colonne DB inutili. *(N in corso: allineati
-  CLAUDE.md §3/§4, RIFERIMENTO §0, questo file.)*
+- **Fase 0** ✅ **COMPLETA** — N: doc allineati + spec obsolete retrocesse · L1:
+  audit read-only codice morto / colonne DB.
 - **Fase 1** ✅ **COMPLETA** — A: dark mode grigio · B: nuovo CSV ordine
   materiale · H: layout impostazioni unificato · J: permessi/utenti/ruoli
-  ridisegnati (commit `951ef6f`→`4a0863d`).
-- **Fase 2** — K1: test sui percorsi critici (motore preventivi/stampi, API,
-  permessi) *(= Blocco B3)*.
-- **Fase 3** — L2: rimozione codice morto (colonne DB mai DROP) · I: revisione
-  notifiche.
-- **Fase 4** — E: motore di calcolo univoco (backend autoritativo) *(= B2 +
-  spec 17 F2)* · F: modularizzazione a mini-app *(spec 17)* · D: cataloghi
-  single-source + anti-doppioni.
-- **Fase 5** — C: import CSV ordine materiale · G: riscrittura stampi *(= P2/P3
-  + cantiere stampi)*.
-- **Fase 6** — M: ottimizzazione *(= Blocco C performance)* · K2: copertura
+  ridisegnati (+ pagina Ruoli raggruppata).
+- **Fase 2** ✅ **COMPLETA** — K1: test permessi/auth + parità cost-engine BE↔FE
+  completa (golden→codice reale, incl. dieCalc/calcPhase).
+- **Fase 3** ✅ **COMPLETA** — L2: rimozione codice morto · I: revisione notifiche.
+- **Fase 4** — 🟢 **E FATTO** (motore unico in `costing/primitives.py`) · 🟡 **D
+  parziale**: D1 collega NormalizedItem ✅, D2 anti-doppioni ✅; restano D4 (policy
+  Customer), D5 (tempra/attributi utensile), + micro (autocomplete normalizzati
+  nei template) · ⏳ **F** modularizzazione a mini-app *(spec 17)*.
+- **Fase 5** — ⏳ **C** import ordine materiale (manuale + CSV SolidWorks):
+  **DOCUMENTATO E SOSPESO** (vedi sez. "📋 C" sotto) · ⏳ **G** riscrittura stampi
+  *(= P2/P3 + cantiere stampi)*.
+- **Fase 6** — ⏳ **M** ottimizzazione *(= Blocco C performance)* · **K2** copertura
   test estesa + bug hunting.
 
 > Nota: questo piano non cancella i Blocchi A/B/C — il **Blocco A** (messa in

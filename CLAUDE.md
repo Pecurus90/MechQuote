@@ -376,12 +376,18 @@ Regole:
 
 ### Cost engine (DRY hard rule)
 
+**Nucleo unico backend (tema E, 2026-07-02)**: tutte le formule pure vivono in
+`backend/app/services/costing/primitives.py` (`material_cost`, `phase_cost`,
+`part_totals`, `treatment_cost_per_part`, `quote_total`, `quote_total_die`,
+`round4`). `recalculate_quote/part` (`services/calculation.py`) e `pdf.py` le
+**compongono**: è la fonte autoritativa. I golden test le chiamano direttamente.
+
 **Una sola formula, copie da tenere identiche su backend e frontend**:
-- Backend: `backend/app/services/calculation.py` `recalculate_part(part_id, db)` — autoritativo
-- Frontend: `frontend/src/components/quotes/PhaseEditor.tsx` `calcPhase()` + `frontend/src/lib/quoteCalc.ts` `calcPartTotals()` — preview live
+- Backend: `costing/primitives.py` (via `calculation.recalculate_part`) — autoritativo
+- Frontend: `frontend/src/components/quotes/PhaseEditor.tsx` `calcPhase()` + `frontend/src/lib/quoteCalc.ts` (`calcPartTotals`/`calcPhaseCost`/`calcQuoteTotal`) — preview live, protetto da parità golden
 
 **Material cost** (gemello DRY, devono restare identici):
-- Backend: `backend/app/services/calculation.py` `_compute_material_cost(part, material)`
+- Backend: `costing/primitives.py` `material_cost(part, material)` (re-export come `_compute_material_cost` in calculation.py)
 - Frontend: `frontend/src/lib/quoteCalc.ts` `calcMaterialCost(part, material)`
 Backend ricalcola al `recalculate_part` se `part.material_id` + dimensioni grezzo presenti.
 
@@ -615,7 +621,8 @@ backend/app/
   models.py        # SQLAlchemy ORM, single source of truth schema DB
   schemas.py       # Pydantic Base/Create/Update/Out
   services/
-    calculation.py # recalculate_part — cost engine autoritativo
+    costing/       # nucleo costi (tema E): primitives.py = formule pure (fonte unica)
+    calculation.py # recalculate_part/quote — compone i primitives (orchestrazione DB)
     dxf_parser.py  # parse_dxf — analisi DXF in-memory per wizard 2D
     notifications.py # create_notification helper generico
   main.py          # startup, _run_migrations, _seed_categories/_seed_roles/_seed_edm_defaults, router register

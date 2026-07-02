@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Shield } from 'lucide-react'
 
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import UsersPage from './UsersPage'
 import RolesPage from './RolesPage'
 import BackupSettingsPage from './BackupSettingsPage'
@@ -19,17 +19,13 @@ export default function SystemSettingsPage() {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
-    <PageContainer width="xl">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-muted text-foreground flex items-center justify-center">
-          <Shield className="w-5 h-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Sistema</h1>
-          <p className="text-xs text-muted-foreground">Amministrazione: utenti, permessi e backup</p>
-        </div>
-      </div>
-
+    <StandardPage
+      icon={Shield}
+      color="gray"
+      title="Sistema"
+      subtitle="Amministrazione: utenti, permessi e backup"
+      width="xl"
+    >
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -49,6 +45,6 @@ export default function SystemSettingsPage() {
         {tab === 'roles' && <RolesPage />}
         {tab === 'backup' && <BackupSettingsPage />}
       </div>
-    </PageContainer>
+    </StandardPage>
   )
 }

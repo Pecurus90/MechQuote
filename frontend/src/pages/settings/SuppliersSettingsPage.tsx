@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Truck } from 'lucide-react'
 
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import MaterialSuppliersPage from './MaterialSuppliersPage'
 import TreatmentSuppliersPage from './TreatmentSuppliersPage'
 import ToolSuppliersPage from './ToolSuppliersPage'
@@ -22,17 +22,13 @@ export default function SuppliersSettingsPage() {
   const [tab, setTab] = useState<Tab>('materials')
 
   return (
-    <PageContainer width="xl">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
-          <Truck className="w-5 h-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Fornitori</h1>
-          <p className="text-xs text-muted-foreground">Anagrafiche fornitori divise per tipologia</p>
-        </div>
-      </div>
-
+    <StandardPage
+      icon={Truck}
+      color="blue"
+      title="Fornitori"
+      subtitle="Anagrafiche fornitori divise per tipologia"
+      width="xl"
+    >
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -53,6 +49,6 @@ export default function SuppliersSettingsPage() {
         {tab === 'tools' && <ToolSuppliersPage />}
         {tab === 'normalized' && <NormalizedSuppliersPage />}
       </div>
-    </PageContainer>
+    </StandardPage>
   )
 }

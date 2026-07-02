@@ -134,7 +134,7 @@ export default function EdmSpeedsPage() {
     <StandardPage
       icon={Gauge}
       color="amber"
-      width="full"
+      width="xl"
       title="Velocità di taglio Wire EDM"
       subtitle="Avanzamento filo (mm/min) per famiglia materiale × altezza. Le passate derivano dai fattori in Parametri globali."
       actions={

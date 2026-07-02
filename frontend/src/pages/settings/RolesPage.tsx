@@ -4,9 +4,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Trash2, Check, X, ShieldCheck } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Role } from '@/types'
@@ -99,20 +98,20 @@ export default function RolesPage() {
   const permKeys = Object.keys(permissions)
 
   return (
-    <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={ShieldCheck}
-        color="gray"
-        title="Ruoli e Permessi"
-        subtitle="Configura i permessi per ogni ruolo — salvato al click"
-        action={
+    <StandardPage
+      icon={ShieldCheck}
+      color="gray"
+      title="Ruoli e Permessi"
+      subtitle="Configura i permessi per ogni ruolo — salvato al click"
+      width="xl"
+      actions={
           !showNew ? (
             <PrimaryCtaButton color="gray" size="sm" onClick={() => setShowNew(true)}>
               <Plus className="w-4 h-4" /> Nuovo Ruolo
             </PrimaryCtaButton>
           ) : undefined
-        }
-      />
+      }
+    >
 
       {/* New role form */}
       {showNew && (
@@ -234,6 +233,6 @@ export default function RolesPage() {
         onConfirm={confirmDeleteRole}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

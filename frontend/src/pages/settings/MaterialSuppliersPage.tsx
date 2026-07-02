@@ -8,9 +8,8 @@ import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import type { MaterialSupplier } from '@/types'
 
 interface FormState {
@@ -141,13 +140,13 @@ export default function MaterialSuppliersPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Box}
-        color="blue"
-        title="Fornitori materiali"
-        subtitle="Chi vende il materiale grezzo (con spese spedizione e taglio)."
-        action={
+    <StandardPage
+      icon={Box}
+      color="blue"
+      title="Fornitori materiali"
+      subtitle="Chi vende il materiale grezzo (con spese spedizione e taglio)."
+      width="lg"
+      actions={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
               <input
@@ -182,7 +181,7 @@ export default function MaterialSuppliersPage() {
             </PrimaryCtaButton>
           </div>
         }
-      />
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -280,6 +279,6 @@ export default function MaterialSuppliersPage() {
         onConfirm={confirmDel}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import { useAuth } from '@/lib/auth'
 import type {
   DieSettings, DieDimensionBracket, DieTemplate, DieTemplatePlate,
@@ -33,17 +33,13 @@ export default function DiesSettingsPage() {
   const [tab, setTab] = useState<Tab>('tariffe')
 
   return (
-    <PageContainer width="xl">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
-          <Hammer className="w-5 h-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Impostazioni Stampi</h1>
-          <p className="text-xs text-muted-foreground">Tariffe, fasce piastra e template per il modulo Preventivatore Stampi</p>
-        </div>
-      </div>
-
+    <StandardPage
+      icon={Hammer}
+      color="rose"
+      title="Impostazioni Stampi"
+      subtitle="Tariffe, fasce piastra e template per il modulo Preventivatore Stampi"
+      width="xl"
+    >
       <div className="flex gap-2 border-b">
         {(['tariffe', 'fasce', 'template'] as Tab[]).map(t => (
           <button
@@ -63,7 +59,7 @@ export default function DiesSettingsPage() {
       {tab === 'tariffe' && <TariffeTab canWrite={canWrite} />}
       {tab === 'fasce' && <FasceTab canWrite={canWrite} />}
       {tab === 'template' && <TemplatesTab canWrite={canWrite} />}
-    </PageContainer>
+    </StandardPage>
   )
 }
 

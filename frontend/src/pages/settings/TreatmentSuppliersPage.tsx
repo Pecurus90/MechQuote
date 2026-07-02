@@ -8,9 +8,8 @@ import { toast } from 'sonner'
 import { parseDecimal } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import type { Supplier } from '@/types'
 
 interface FormState {
@@ -144,13 +143,13 @@ export default function TreatmentSuppliersPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Ruler}
-        color="orange"
-        title="Fornitori trattamenti"
-        subtitle="Fornitori esterni per trattamenti termici/superficiali e lavorazioni in conto terzi."
-        action={
+    <StandardPage
+      icon={Ruler}
+      color="orange"
+      title="Fornitori trattamenti"
+      subtitle="Fornitori esterni per trattamenti termici/superficiali e lavorazioni in conto terzi."
+      width="lg"
+      actions={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
               <input
@@ -185,7 +184,7 @@ export default function TreatmentSuppliersPage() {
             </PrimaryCtaButton>
           </div>
         }
-      />
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -285,6 +284,6 @@ export default function TreatmentSuppliersPage() {
         onConfirm={confirmDel}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

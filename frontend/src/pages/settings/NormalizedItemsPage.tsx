@@ -98,7 +98,7 @@ export default function NormalizedItemsPage() {
     <StandardPage
       icon={Package}
       color="sky"
-      width="md"
+      width="lg"
       title="Catalogo normalizzati"
       subtitle={`${items.length} voci in catalogo (viti, cuscinetti, molle, colonne, boccole, spine...).`}
       actions={

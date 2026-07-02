@@ -58,7 +58,7 @@ export default function EdmConfigPage() {
     <StandardPage
       icon={SlidersHorizontal}
       color="amber"
-      width="md"
+      width="lg"
       title="Parametri Wire EDM"
       subtitle="Costanti globali del calcolo: fattori di velocità per tipo di passata e tempo pierce di default."
       actions={

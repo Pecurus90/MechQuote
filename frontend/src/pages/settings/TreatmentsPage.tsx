@@ -84,7 +84,7 @@ export default function TreatmentsPage() {
     <StandardPage
       icon={Ruler}
       color="orange"
-      width="full"
+      width="xl"
       title="Trattamenti"
       subtitle="Trattamenti termici/superficiali con tariffa €/kg o €/dm³ e fornitori associati"
     >

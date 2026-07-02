@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search, Upload, Users } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -105,13 +104,13 @@ export default function CustomersPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={Users}
-        color="emerald"
-        title="Clienti"
-        subtitle={`${customers.length} clienti in anagrafica`}
-        action={
+    <StandardPage
+      icon={Users}
+      color="emerald"
+      title="Clienti"
+      subtitle={`${customers.length} clienti in anagrafica`}
+      width="xl"
+      actions={
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -141,8 +140,8 @@ export default function CustomersPage() {
               <Plus className="w-4 h-4" /> Nuovo Cliente
             </PrimaryCtaButton>
           </div>
-        }
-      />
+      }
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -239,6 +238,6 @@ export default function CustomersPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

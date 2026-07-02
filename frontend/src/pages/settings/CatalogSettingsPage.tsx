@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Factory } from 'lucide-react'
 
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import OperationsPage from './OperationsPage'
 import TreatmentsPage from './TreatmentsPage'
 import MachinesPage from './MachinesPage'
@@ -22,17 +22,13 @@ export default function CatalogSettingsPage() {
   const [tab, setTab] = useState<Tab>('operations')
 
   return (
-    <PageContainer width="xl">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
-          <Factory className="w-5 h-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Lavorazioni & Macchine</h1>
-          <p className="text-xs text-muted-foreground">Catalogo di produzione: cosa si fa, dove si fa, in che sequenza</p>
-        </div>
-      </div>
-
+    <StandardPage
+      icon={Factory}
+      color="indigo"
+      title="Lavorazioni & Macchine"
+      subtitle="Catalogo di produzione: cosa si fa, dove si fa, in che sequenza"
+      width="xl"
+    >
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -53,6 +49,6 @@ export default function CatalogSettingsPage() {
         {tab === 'machines' && <MachinesPage />}
         {tab === 'workflows' && <WorkflowTemplatesPage />}
       </div>
-    </PageContainer>
+    </StandardPage>
   )
 }

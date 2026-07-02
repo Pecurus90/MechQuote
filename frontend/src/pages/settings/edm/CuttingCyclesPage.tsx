@@ -105,7 +105,7 @@ export default function CuttingCyclesPage() {
     <StandardPage
       icon={Zap}
       color="amber"
-      width="full"
+      width="xl"
       title="Cicli di taglio"
       subtitle='Template sequenze di passate. Es. "Standard 1+3" = 1 sgrossatura + 3 finiture, applicati alla fase Wire EDM.'
       actions={

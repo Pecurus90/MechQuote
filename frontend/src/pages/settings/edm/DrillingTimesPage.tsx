@@ -119,7 +119,7 @@ export default function DrillingTimesPage() {
     <StandardPage
       icon={Drill}
       color="amber"
-      width="full"
+      width="xl"
       title="Velocità di foratura"
       subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Lookup discreto su diametro."
       actions={

@@ -4,9 +4,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { Plus, Pencil, Trash2, Check, X, Search, Tag } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { Category } from '@/types'
@@ -67,13 +66,13 @@ export default function QuoteCategoriesPage() {
   )
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Tag}
-        color="violet"
-        title="Categorie Preventivo"
-        subtitle="La lettera appare nel codice preventivo (es. 240-26A_001)"
-        action={
+    <StandardPage
+      icon={Tag}
+      color="violet"
+      title="Categorie Preventivo"
+      subtitle="La lettera appare nel codice preventivo (es. 240-26A_001)"
+      width="lg"
+      actions={
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -84,7 +83,7 @@ export default function QuoteCategoriesPage() {
             </PrimaryCtaButton>
           </div>
         }
-      />
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -190,6 +189,6 @@ export default function QuoteCategoriesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

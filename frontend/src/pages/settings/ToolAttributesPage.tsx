@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Check, X, Wrench } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -204,14 +203,14 @@ function AttributeTable({ section }: { section: Section }) {
 
 export default function ToolAttributesPage() {
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Wrench}
-        color="violet"
-        title="Attributi utensili"
-        subtitle="Valori usati nei dropdown del catalogo utensili. Aggiungere/rimuovere voci qui non modifica gli utensili esistenti."
-      />
+    <StandardPage
+      icon={Wrench}
+      color="violet"
+      title="Attributi utensili"
+      subtitle="Valori usati nei dropdown del catalogo utensili. Aggiungere/rimuovere voci qui non modifica gli utensili esistenti."
+      width="lg"
+    >
       {SECTIONS.map(s => <AttributeTable key={s.key} section={s} />)}
-    </PageContainer>
+    </StandardPage>
   )
 }

@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search, Layers, Upload, Download } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -115,13 +114,13 @@ export default function OperationsPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Layers}
-        color="indigo"
-        title="Lavorazioni"
-        subtitle="Catalogo libero. L'autocalc EDM si attiva sulle fasi con macchina Wire EDM, indipendentemente dal nome."
-        action={
+    <StandardPage
+      icon={Layers}
+      color="indigo"
+      title="Lavorazioni"
+      subtitle="Catalogo libero. L'autocalc EDM si attiva sulle fasi con macchina Wire EDM, indipendentemente dal nome."
+      width="lg"
+      actions={
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -151,7 +150,7 @@ export default function OperationsPage() {
             </PrimaryCtaButton>
           </div>
         }
-      />
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -214,6 +213,6 @@ export default function OperationsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

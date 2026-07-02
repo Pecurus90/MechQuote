@@ -7,9 +7,8 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import type { ToolSupplier } from '@/types'
 
 interface FormState {
@@ -135,13 +134,13 @@ export default function ToolSuppliersPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Wrench}
-        color="violet"
-        title="Fornitori utensili"
-        subtitle="Elenco fornitori di utensili (separato dai fornitori di trattamenti)."
-        action={
+    <StandardPage
+      icon={Wrench}
+      color="violet"
+      title="Fornitori utensili"
+      subtitle="Elenco fornitori di utensili (separato dai fornitori di trattamenti)."
+      width="lg"
+      actions={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
               <input
@@ -176,7 +175,7 @@ export default function ToolSuppliersPage() {
             </PrimaryCtaButton>
           </div>
         }
-      />
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -275,6 +274,6 @@ export default function ToolSuppliersPage() {
         onConfirm={confirmDel}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

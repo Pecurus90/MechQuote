@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Download, Upload, FileJson, Database } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -64,13 +63,13 @@ export default function BackupSettingsPage() {
   }
 
   return (
-    <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={Database}
-        color="gray"
-        title="Backup e Ripristino"
-        subtitle="Esporta tutto il DB come JSON e reimporta da un file di backup"
-      />
+    <StandardPage
+      icon={Database}
+      color="gray"
+      title="Backup e Ripristino"
+      subtitle="Esporta tutto il DB come JSON e reimporta da un file di backup"
+      width="xl"
+    >
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -115,6 +114,6 @@ export default function BackupSettingsPage() {
         onConfirm={doImport}
         onCancel={() => setPendingImportFile(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

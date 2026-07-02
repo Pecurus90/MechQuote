@@ -138,7 +138,7 @@ export default function UsersPage() {
     <StandardPage
       icon={UserCog}
       color="gray"
-      width="full"
+      width="xl"
       title="Gestione Utenti"
       subtitle="Crea e gestisci gli account di accesso"
       actions={

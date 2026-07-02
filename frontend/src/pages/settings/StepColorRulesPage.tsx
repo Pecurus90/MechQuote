@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search, Palette } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -68,24 +67,24 @@ export default function StepColorRulesPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer>
-      <SettingsPageHeader
-        icon={Palette}
-        color="orange"
-        title="Regole Colori STEP"
-        subtitle="Mappa colore→fase per import 3D STEP (dormiente in attesa di feature import)"
-        action={
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
-            </div>
-            <PrimaryCtaButton color="orange" size="sm" onClick={() => resetForm(true)}>
-              <Plus className="w-4 h-4" /> Nuova
-            </PrimaryCtaButton>
+    <StandardPage
+      icon={Palette}
+      color="orange"
+      title="Regole Colori STEP"
+      subtitle="Mappa colore→fase per import 3D STEP (dormiente in attesa di feature import)"
+      width="lg"
+      actions={
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input placeholder="Cerca..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48" />
           </div>
-        }
-      />
+          <PrimaryCtaButton color="orange" size="sm" onClick={() => resetForm(true)}>
+            <Plus className="w-4 h-4" /> Nuova
+          </PrimaryCtaButton>
+        </div>
+      }
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -180,6 +179,6 @@ export default function StepColorRulesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

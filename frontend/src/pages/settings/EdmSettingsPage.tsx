@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Zap } from 'lucide-react'
 
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import EdmConfigPage from './edm/EdmConfigPage'
 import EdmSpeedsPage from './edm/EdmSpeedsPage'
 import CuttingCyclesPage from './edm/CuttingCyclesPage'
@@ -21,17 +21,13 @@ export default function EdmSettingsPage() {
   const [tab, setTab] = useState<Tab>('config')
 
   return (
-    <PageContainer width="xl">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-          <Zap className="w-5 h-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold">Wire EDM</h1>
-          <p className="text-xs text-muted-foreground">Configurazione elettroerosione a filo</p>
-        </div>
-      </div>
-
+    <StandardPage
+      icon={Zap}
+      color="amber"
+      title="Wire EDM"
+      subtitle="Configurazione elettroerosione a filo"
+      width="xl"
+    >
       <div className="flex gap-2 border-b overflow-x-auto">
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
@@ -52,6 +48,6 @@ export default function EdmSettingsPage() {
         {tab === 'cycles' && <CuttingCyclesPage />}
         {tab === 'drilling' && <DrillingTimesPage />}
       </div>
-    </PageContainer>
+    </StandardPage>
   )
 }

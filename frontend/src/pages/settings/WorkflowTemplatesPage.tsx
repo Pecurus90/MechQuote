@@ -150,7 +150,7 @@ export default function WorkflowTemplatesPage() {
     <StandardPage
       icon={Workflow}
       color="indigo"
-      width="full"
+      width="xl"
       title="Template flusso"
       subtitle="Sequenze (Macchina + Lavorazione) applicate in un colpo al preventivo. L'apply genera le fasi pre-popolate."
       actions={

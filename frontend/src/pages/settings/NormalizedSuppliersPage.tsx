@@ -7,9 +7,8 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import type { NormalizedSupplier } from '@/types'
 
 interface FormState {
@@ -90,13 +89,13 @@ export default function NormalizedSuppliersPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="md">
-      <SettingsPageHeader
-        icon={Cog}
-        color="sky"
-        title="Fornitori normalizzati"
-        subtitle="Fornitori di componenti standard: viti, bulloni, cuscinetti, dadi, rondelle, guarnizioni, raccordi (es. Bossard, Würth, Misumi)."
-        action={
+    <StandardPage
+      icon={Cog}
+      color="sky"
+      title="Fornitori normalizzati"
+      subtitle="Fornitori di componenti standard: viti, bulloni, cuscinetti, dadi, rondelle, guarnizioni, raccordi (es. Bossard, Würth, Misumi)."
+      width="lg"
+      actions={
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
               <input
@@ -112,7 +111,7 @@ export default function NormalizedSuppliersPage() {
             </PrimaryCtaButton>
           </div>
         }
-      />
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -212,6 +211,6 @@ export default function NormalizedSuppliersPage() {
         onConfirm={confirmDel}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

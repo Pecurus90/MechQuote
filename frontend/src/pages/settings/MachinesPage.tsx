@@ -3,9 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Pencil, Trash2, Save, X, Search, Cog, Upload, Download } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
@@ -135,13 +134,13 @@ export default function MachinesPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Caricamento...</div>
 
   return (
-    <PageContainer width="full">
-      <SettingsPageHeader
-        icon={Cog}
-        color="indigo"
-        title="Centri di costo"
-        subtitle="Macchine e postazioni con tariffa €/h e setup"
-        action={
+    <StandardPage
+      icon={Cog}
+      color="indigo"
+      title="Centri di costo"
+      subtitle="Macchine e postazioni con tariffa €/h e setup"
+      width="xl"
+      actions={
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -170,8 +169,8 @@ export default function MachinesPage() {
               <Plus className="w-4 h-4" /> Nuovo
             </PrimaryCtaButton>
           </div>
-        }
-      />
+      }
+    >
 
       <Card>
         <CardContent className="p-0">
@@ -265,6 +264,6 @@ export default function MachinesPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

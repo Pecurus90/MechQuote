@@ -46,8 +46,10 @@ from app.services.material_status import (
 )
 from app.services.notifications import create_notification
 
-# Colonne CSV ordine materiali (dimensioni in una sola cella testo).
-_MAT_CSV_COLUMNS = ['Materiale', 'Dimensioni', 'Quantità (pz)']
+# Colonne CSV ordine materiali. Il "codice articolo" per il gestionale è il
+# materiale stesso; forma e dimensioni sono colonne separate; il riferimento è
+# la commessa (numero preventivo) — una riga per commessa.
+_MAT_CSV_COLUMNS = ['Materiale', 'Forma', 'Dimensioni', 'Riferimento', 'Quantità']
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orders/materials", tags=["orders"])
@@ -81,6 +83,25 @@ def _format_dim(part: Part) -> str:
         return f"Tondo Ø{part.raw_diameter_mm:g} mm"
     if part.raw_x_mm and part.raw_y_mm and part.raw_z_mm:
         return f"Prismatico {part.raw_x_mm:g} × {part.raw_y_mm:g} × {part.raw_z_mm:g} mm"
+    return "—"
+
+
+def _shape_label(part: Part) -> str:
+    """Forma del grezzo per il CSV ordine: Tondo / Prismatico."""
+    if part.raw_diameter_mm:
+        return "Tondo"
+    if part.raw_x_mm and part.raw_y_mm and part.raw_z_mm:
+        return "Prismatico"
+    return "—"
+
+
+def _dims_only(part: Part) -> str:
+    """Dimensioni grezzo senza la parola-forma (colonna separata nel CSV)."""
+    if part.raw_diameter_mm:
+        l = part.raw_z_mm or 0
+        return f"Ø{part.raw_diameter_mm:g} × {l:g} mm" if l else f"Ø{part.raw_diameter_mm:g} mm"
+    if part.raw_x_mm and part.raw_y_mm and part.raw_z_mm:
+        return f"{part.raw_x_mm:g} × {part.raw_y_mm:g} × {part.raw_z_mm:g} mm"
     return "—"
 
 
@@ -192,15 +213,19 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
 # ─── Evasione per fornitore (spec 18) ───────────────────────────────────────
 
 def _supplier_order_data(quote_ids: List[int], supplier_id: int, db: Session):
-    """Per un fornitore: preventivi coinvolti + righe CSV aggregate.
+    """Per un fornitore: preventivi coinvolti + righe CSV (una per commessa).
 
     Considera solo le parti "da ordinare" (materiale reale, non conto lavoro,
-    non da magazzino) il cui materiale ha `supplier_id`. Ritorna
-    `(set(quote_id coinvolti), [[materiale, dimensioni, qty], ...])`.
+    non da magazzino) il cui materiale ha `supplier_id`. Le righe sono una per
+    commessa: parti con stesso materiale+dimensioni nello STESSO preventivo si
+    sommano; lo stesso materiale su preventivi diversi resta su righe distinte
+    (il riferimento è singolo). Ritorna `(set(quote_id coinvolti),
+    [[materiale, forma, dimensioni, riferimento, qty], ...])`.
     """
-    parts = db.query(Part).options(joinedload(Part.material)).filter(
-        Part.quote_id.in_(quote_ids)
-    ).all()
+    parts = db.query(Part).options(
+        joinedload(Part.material),
+        joinedload(Part.quote),
+    ).filter(Part.quote_id.in_(quote_ids)).all()
     involved: set = set()
     aggr: Dict[Tuple, Dict[str, Any]] = {}
     for p in parts:
@@ -209,12 +234,18 @@ def _supplier_order_data(quote_ids: List[int], supplier_id: int, db: Session):
         if not p.material or p.material.supplier_id != supplier_id:
             continue
         involved.add(p.quote_id)
-        key = (p.material_id, _dim_signature(p))
-        slot = aggr.setdefault(key, {'name': p.material.name, 'dim': _format_dim(p), 'qty': 0})
+        key = (p.material_id, _dim_signature(p), p.quote_id)
+        slot = aggr.setdefault(key, {
+            'name': p.material.name,
+            'forma': _shape_label(p),
+            'dim': _dims_only(p),
+            'ref': p.quote.quote_number if p.quote else '',
+            'qty': 0,
+        })
         slot['qty'] += (p.quantity or 1)
     rows = [
-        [s['name'], s['dim'], s['qty']]
-        for s in sorted(aggr.values(), key=lambda s: (s['name'], s['dim']))
+        [s['name'], s['forma'], s['dim'], s['ref'], s['qty']]
+        for s in sorted(aggr.values(), key=lambda s: (s['name'], s['dim'], s['ref']))
     ]
     return involved, rows
 

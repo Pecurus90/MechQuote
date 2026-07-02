@@ -21,6 +21,7 @@ import ActivityPage from '@/pages/dashboard/ActivityPage'
 import StatisticsPage from '@/pages/statistics/StatisticsPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
 import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
+import OrdersHistoryPage from '@/pages/orders/OrdersHistoryPage'
 import ToolsPage from '@/pages/tools/ToolsPage'
 import OfficinaHub from '@/pages/officina/OfficinaHub'
 import OfficinaDocumentsPage from '@/pages/officina/documenti/DocumentsPage'
@@ -38,10 +39,13 @@ function ProtectedRoute({
   children,
   roles,
   permission,
+  anyPermission,
 }: {
   children: React.ReactNode
   roles?: UserRole[]
   permission?: string
+  // Accesso se l'utente ha ALMENO UNO di questi permessi (OR).
+  anyPermission?: string[]
 }) {
   const { user, loading, hasPermission } = useAuth()
 
@@ -49,6 +53,7 @@ function ProtectedRoute({
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   if (permission && !hasPermission(permission)) return <Navigate to="/" replace />
+  if (anyPermission && !anyPermission.some(hasPermission)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -68,6 +73,7 @@ function AppRoutes() {
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
         <Route path="orders/tools" element={<ProtectedRoute permission="tools"><OrdersToolsPage /></ProtectedRoute>} />
+        <Route path="orders/history" element={<ProtectedRoute anyPermission={["orders.materials", "tools"]}><OrdersHistoryPage /></ProtectedRoute>} />
         <Route path="tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />
         <Route path="officina" element={<ProtectedRoute permission="officina"><OfficinaHub /></ProtectedRoute>} />
         <Route path="officina/documenti" element={<ProtectedRoute permission="officina"><OfficinaDocumentsPage /></ProtectedRoute>} />

@@ -273,6 +273,23 @@ def get_tool_order_detail(order_id: int, db: Session = Depends(get_db), _=_can_t
     return base
 
 
+@router.delete("/{order_id}")
+def delete_tool_order(order_id: int, db: Session = Depends(get_db), _=_can_tools):
+    """Cancella un ordine utensili dallo storico.
+
+    L'ordine è uno snapshot puro (nessun flag vivo sugli utensili): la
+    cancellazione rimuove il record e i suoi item in cascade, senza altri
+    effetti collaterali.
+    """
+    order = db.query(ToolOrder).filter(ToolOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+    db.delete(order)  # cascade all, delete-orphan sugli item
+    db.commit()
+    logger.info("Ordine utensili eliminato: id=%s", order_id)
+    return {"ok": True}
+
+
 @router.get("/{order_id}/csv")
 def get_tool_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_tools):
     """Genera il CSV dell'ordine dal suo snapshot (un file per fornitore).

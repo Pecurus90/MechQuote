@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Search, Package, History } from 'lucide-react'
+import { Search, Package } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { STATUS_LABELS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
 import KpiBar from '@/components/ui/kpi-bar'
-import OrderHistoryModal from './OrderHistoryModal'
 import AggregatePreview from './AggregatePreview'
 import type {
   MaterialAggregateResult, MaterialOrder, QuoteListItem,
@@ -33,7 +31,6 @@ const STATUS_OPTIONS = [
 
 export default function OrdersMaterialsPage() {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
-  const [orders, setOrders] = useState<MaterialOrder[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [statusFilter, setStatusFilter] = useState('confermato')
   const [onlyUnordered, setOnlyUnordered] = useState(true)
@@ -41,8 +38,6 @@ export default function OrdersMaterialsPage() {
   const [aggregate, setAggregate] = useState<MaterialAggregateResult | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [creatingSupplierId, setCreatingSupplierId] = useState<number | null>(null)
-  const [showHistory, setShowHistory] = useState(false)
-  const [historySearch, setHistorySearch] = useState('')
   const [stats, setStats] = useState<MaterialsStats | null>(null)
 
   const loadStats = () => {
@@ -64,27 +59,10 @@ export default function OrdersMaterialsPage() {
       .catch(() => toast.error('Errore nel caricamento dei preventivi'))
   }
 
-  const loadOrders = (term = historySearch) => {
-    const params = new URLSearchParams()
-    if (term.trim()) params.set('q', term.trim())
-    api.get(`/orders/materials?${params}`)
-      .then(r => setOrders(r.data))
-      .catch(() => toast.error('Errore nel caricamento dello storico'))
-  }
-
   useEffect(() => { loadQuotes() }, [statusFilter, onlyUnordered])
-  useEffect(() => { loadOrders() }, [])
   useEffect(() => { loadStats() }, [])
 
-  // Debounce ricerca storico: loadOrders fuori dalle deps (effect deve
-  // firare solo su historySearch, non quando loadOrders cambia per closure).
-  useEffect(() => {
-    const t = setTimeout(() => loadOrders(historySearch), 250)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historySearch])
-
-  // Search con debounce minimo: stesso pattern del debounce sopra.
+  // Search con debounce minimo.
   useEffect(() => {
     const t = setTimeout(loadQuotes, 200)
     return () => clearTimeout(t)
@@ -130,20 +108,6 @@ export default function OrdersMaterialsPage() {
     ) ?? 0,
     [aggregate])
 
-  const downloadPdf = async (orderId: number) => {
-    try {
-      const res = await api.get(`/orders/materials/${orderId}/pdf`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `ordine_materiali_${orderId.toString().padStart(4, '0')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-    } catch { toast.error('Errore nel download del PDF') }
-  }
-
   const downloadCsv = async (orderId: number) => {
     try {
       const res = await api.get(`/orders/materials/${orderId}/csv`, { responseType: 'blob' })
@@ -177,7 +141,6 @@ export default function OrdersMaterialsPage() {
       await downloadCsv(order.id)
       toast.success(`Ordine MO-${String(order.id).padStart(4, '0')} creato per ${supplierName} — CSV scaricato`)
       loadQuotes()
-      loadOrders()
       loadStats()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
@@ -194,11 +157,6 @@ export default function OrdersMaterialsPage() {
       width="xl"
       title="Ordini materiali"
       subtitle='Seleziona preventivi e genera un PDF lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
-      actions={
-        <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
-          <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-        </Button>
-      }
     >
 
       {stats && (
@@ -226,17 +184,6 @@ export default function OrdersMaterialsPage() {
             color: 'gray',
           },
         ]} />
-      )}
-
-      {showHistory && (
-        <OrderHistoryModal
-          orders={orders}
-          search={historySearch}
-          onSearchChange={setHistorySearch}
-          onDownloadPdf={downloadPdf}
-          onDownloadCsv={downloadCsv}
-          onClose={() => setShowHistory(false)}
-        />
       )}
 
       {/* Nuovo ordine: lista preventivi */}

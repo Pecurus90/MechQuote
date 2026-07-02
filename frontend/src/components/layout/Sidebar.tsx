@@ -5,7 +5,7 @@ import {
   Box, Building2, ClipboardList,
   Tag, Users, ChevronDown, ChevronRight, LogOut, Bell, Settings,
   Zap, Package, ShoppingCart, Wrench, Hammer,
-  Truck, Factory, Shield, Sun, Moon,
+  Truck, Factory, Shield, Sun, Moon, History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -165,6 +165,10 @@ export default function Sidebar() {
                 <NavLink to="/orders/tools" className={({ isActive }) => navLinkClass(isActive, true)}>
                   <Wrench className="w-3.5 h-3.5 shrink-0" />
                   <span>Ordini utensili</span>
+                </NavLink>
+                <NavLink to="/orders/history" className={({ isActive }) => navLinkClass(isActive, true)}>
+                  <History className="w-3.5 h-3.5 shrink-0" />
+                  <span>Storico ordini</span>
                 </NavLink>
               </div>
             )}

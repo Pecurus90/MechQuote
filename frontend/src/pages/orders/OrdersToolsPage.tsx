@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Search, Wrench, FileDown, History, X, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Wrench, FileDown, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
@@ -23,12 +21,8 @@ interface ToolsStats {
 export default function OrdersToolsPage() {
   const [preview, setPreview] = useState<ToolLowStockPreview | null>(null)
   const [stats, setStats] = useState<ToolsStats | null>(null)
-  const [orders, setOrders] = useState<ToolOrder[]>([])
   const [creating, setCreating] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
-  const [historySearch, setHistorySearch] = useState('')
-  useEscapeKey(() => setShowHistory(false), showHistory)
   useEscapeKey(() => setShowPicker(false), showPicker)
 
   const loadPreview = () => {
@@ -43,25 +37,8 @@ export default function OrdersToolsPage() {
       .catch(() => undefined)
   }
 
-  const loadOrders = (term = historySearch) => {
-    const params = new URLSearchParams()
-    if (term.trim()) params.set('q', term.trim())
-    api.get(`/orders/tools?${params}`)
-      .then(r => setOrders(r.data))
-      .catch(() => toast.error('Errore caricamento storico'))
-  }
-
   useEffect(() => { loadPreview() }, [])
-  useEffect(() => { loadOrders() }, [])
   useEffect(() => { loadStats() }, [])
-
-  // Debounce ricerca storico: loadOrders fuori dalle deps (effect deve
-  // firare solo su historySearch, non quando loadOrders cambia per closure).
-  useEffect(() => {
-    const t = setTimeout(() => loadOrders(historySearch), 250)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historySearch])
 
   const downloadCsv = async (orderId: number) => {
     try {
@@ -91,7 +68,6 @@ export default function OrdersToolsPage() {
       toast.success(`Ordine UO-${String(order.id).padStart(4, '0')} creato per ${supplierName} — CSV scaricato`)
       setShowPicker(false)
       loadPreview()
-      loadOrders()
       loadStats()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
@@ -114,21 +90,16 @@ export default function OrdersToolsPage() {
       title="Ordini utensili"
       subtitle={`Utensili sotto quantità minima raggruppati per fornitore. "Crea CSV" genera un ordine (UO-NNNN) e un file CSV per il fornitore scelto.`}
       actions={
-        <div className="flex items-center gap-2 flex-wrap">
-          <PrimaryCtaButton
-            color="violet"
-            size="sm"
-            onClick={() => setShowPicker(true)}
-            disabled={creating || orderableGroups.length === 0}
-            title={orderableGroups.length > 0 ? 'Scegli il fornitore e crea l\'ordine CSV' : 'Nessun utensile sotto minimo'}
-          >
-            <FileDown className="w-4 h-4" />
-            Crea CSV ordine
-          </PrimaryCtaButton>
-          <Button variant="outline" size="sm" onClick={() => setShowHistory(s => !s)}>
-            <History className="w-4 h-4 mr-1" /> Storico {orders.length > 0 && `(${orders.length})`}
-          </Button>
-        </div>
+        <PrimaryCtaButton
+          color="violet"
+          size="sm"
+          onClick={() => setShowPicker(true)}
+          disabled={creating || orderableGroups.length === 0}
+          title={orderableGroups.length > 0 ? 'Scegli il fornitore e crea l\'ordine CSV' : 'Nessun utensile sotto minimo'}
+        >
+          <FileDown className="w-4 h-4" />
+          Crea CSV ordine
+        </PrimaryCtaButton>
       }
     >
 
@@ -267,77 +238,6 @@ export default function OrdersToolsPage() {
                   </button>
                 )
               })}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Storico in popup */}
-      {showHistory && (
-        <div
-          className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setShowHistory(false)}
-        >
-          <Card className="w-full max-w-4xl max-h-[85vh] flex flex-col bg-card shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
-              <h3 className="font-semibold flex items-center gap-2">
-                <History className="w-4 h-4 text-primary" /> Storico ordini utensili
-              </h3>
-              <button onClick={() => setShowHistory(false)} className="p-1 hover:bg-muted rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 border-b shrink-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  placeholder="Cerca per numero ordine (UO-0001), fornitore, codice utensile, o creatore..."
-                  value={historySearch}
-                  onChange={e => setHistorySearch(e.target.value)}
-                  className="pl-9 h-9 text-sm"
-                  autoFocus
-                />
-              </div>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              <table className="table-fixed w-full text-sm">
-                <thead className="bg-muted border-b sticky top-0">
-                  <tr>
-                    <th className="text-left p-3 w-[13%] font-medium text-muted-foreground">Numero</th>
-                    <th className="text-left p-3 w-[19%] font-medium text-muted-foreground">Data</th>
-                    <th className="text-left p-3 w-[20%] font-medium text-muted-foreground">Fornitore</th>
-                    <th className="text-left p-3 w-[16%] font-medium text-muted-foreground">Creato da</th>
-                    <th className="text-left p-3 w-[9%] font-medium text-muted-foreground">Utensili</th>
-                    <th className="text-left p-3 w-[9%] font-medium text-muted-foreground">Qtà tot.</th>
-                    <th className="text-center p-3 w-[14%] font-medium text-muted-foreground">Azioni</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.length === 0 && (
-                    <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">
-                      {historySearch ? 'Nessun ordine corrisponde alla ricerca.' : 'Nessun ordine ancora.'}
-                    </td></tr>
-                  )}
-                  {orders.map(o => (
-                    <tr key={o.id} className="border-b hover:bg-muted">
-                      <td className="p-3 font-mono text-primary">UO-{String(o.id).padStart(4, '0')}</td>
-                      <td className="p-3 text-muted-foreground">{new Date(o.created_at).toLocaleString('it-IT')}</td>
-                      <td className="p-3 text-foreground truncate">{o.supplier_name || '—'}</td>
-                      <td className="p-3 truncate">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
-                      <td className="p-3 font-mono">{o.item_count}</td>
-                      <td className="p-3 font-mono">{o.total_quantity} pz</td>
-                      <td className="p-3 text-center">
-                        <Button size="sm" variant="outline" onClick={() => downloadCsv(o.id)}>
-                          <FileDown className="w-3.5 h-3.5 mr-1" /> CSV
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-5 py-2 border-t text-xs text-muted-foreground shrink-0">
-              {orders.length} ordin{orders.length === 1 ? 'e' : 'i'} mostrat{orders.length === 1 ? 'o' : 'i'}
             </div>
           </Card>
         </div>

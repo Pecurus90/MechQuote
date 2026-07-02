@@ -534,6 +534,64 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     return csv_export_response(filename=filename, columns=_MAT_CSV_COLUMNS, rows=rows)
 
 
+@router.delete("/{order_id}")
+def delete_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_orders,
+):
+    """Cancella un ordine materiali dallo storico (reversibile).
+
+    Per ogni preventivo dell'ordine:
+    - se NON è `completo` (stato terminale): rimuove le sue righe di evasione
+      legate a questo ordine e ricalcola il flag → torna "da ordinare" e
+      riselezionabile;
+    - se è `completo`: mantiene l'evasione ma la scollega dall'ordine
+      (`material_order_id = NULL`) per non riaprire uno stato terminale né
+      lasciare riferimenti pendenti.
+    Poi elimina le righe di join e il record dell'ordine. Risponde con il
+    riepilogo (`reverted` / `kept_completed`) per l'avviso lato UI.
+    """
+    order = db.query(MaterialOrder).options(joinedload(MaterialOrder.quotes)).filter(
+        MaterialOrder.id == order_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+
+    quotes = list(order.quotes)
+    reverted: List[str] = []
+    kept_completed: List[str] = []
+    for q in quotes:
+        base = db.query(QuoteSupplierOrder).filter(
+            QuoteSupplierOrder.material_order_id == order.id,
+            QuoteSupplierOrder.quote_id == q.id,
+        )
+        if q.status == wf.STATUS_COMPLETO:
+            base.update({QuoteSupplierOrder.material_order_id: None}, synchronize_session=False)
+            kept_completed.append(q.quote_number)
+        else:
+            base.delete(synchronize_session=False)
+            reverted.append(q.quote_number)
+
+    # Le righe di join material_order_quotes vengono rimosse da SQLAlchemy con
+    # la cancellazione dell'ordine (relazione m2m): NON eliminarle a mano, o il
+    # unit-of-work prova a ricancellarle → StaleDataError.
+    db.delete(order)
+    db.flush()
+
+    # Ricalcolo il flag solo per i preventivi ripristinati (dopo aver rimosso
+    # le evasioni: la query dentro l'helper vede lo stato aggiornato).
+    for q in quotes:
+        if q.status != wf.STATUS_COMPLETO:
+            _refresh_quote_material_flag(q, db, current_user.id)
+
+    db.commit()
+    logger.info("Ordine materiali eliminato: id=%s by=%s reverted=%d kept_completed=%d",
+                order_id, current_user.username, len(reverted), len(kept_completed))
+    return {"ok": True, "reverted": reverted, "kept_completed": kept_completed}
+
+
 @router.delete("/quote-flag/{quote_id}")
 def remove_quote_flag(
     quote_id: int,

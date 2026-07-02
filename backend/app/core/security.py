@@ -16,8 +16,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
-    expire = now + (expires_delta if expires_delta else timedelta(minutes=settings.access_token_expire_minutes))
-    to_encode.update({"exp": expire})
+    # Scadenza opzionale: se non è passato un delta esplicito e
+    # access_token_expire_minutes <= 0, il token NON scade (nessun claim exp).
+    if expires_delta is not None:
+        to_encode.update({"exp": now + expires_delta})
+    elif settings.access_token_expire_minutes > 0:
+        to_encode.update({"exp": now + timedelta(minutes=settings.access_token_expire_minutes)})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 

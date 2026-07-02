@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./mechquote.db"
     secret_key: str = _INSECURE_DEFAULT_KEY
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440
+    # 0 = token senza scadenza (una volta loggati non serve rifare il login).
+    # Scelta per tool interno; per un deploy pubblico valutare un valore > 0.
+    access_token_expire_minutes: int = 0
 
     class Config:
         env_file = ".env"

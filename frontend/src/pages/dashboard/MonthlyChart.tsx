@@ -28,9 +28,10 @@ export default function MonthlyChart({ data }: { data: MonthlyData[] }) {
   const cfg = METRIC_CONFIG[metric]
 
   // Colori grafico (recharts non legge le CSS variables → li scelgo per tema).
+  // Palette allineata al design handoff (grigio neutro freddo).
   const chartColors = theme === 'dark'
-    ? { grid: '#2b3648', tick: '#93a1b5', tooltipBg: '#1a2334', tooltipBorder: '#2b3648', tooltipText: '#eef2f8' }
-    : { grid: '#f0f0f0', tick: '#6b7280', tooltipBg: '#ffffff', tooltipBorder: '#e5e7eb', tooltipText: '#111827' }
+    ? { grid: 'hsl(220 7% 24%)', tick: 'hsl(220 9% 62%)', tooltipBg: 'hsl(220 8% 14%)', tooltipBorder: 'hsl(220 7% 24%)', tooltipText: 'hsl(210 16% 90%)' }
+    : { grid: 'hsl(220 14% 90%)', tick: 'hsl(220 10% 46%)', tooltipBg: 'hsl(0 0% 100%)', tooltipBorder: 'hsl(220 14% 89%)', tooltipText: 'hsl(220 18% 16%)' }
 
   return (
     <Card>
@@ -51,8 +52,8 @@ export default function MonthlyChart({ data }: { data: MonthlyData[] }) {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={formatted} margin={{ top: 5, right: 20, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: chartColors.tick }} stroke={chartColors.grid} />
-              <YAxis tick={{ fontSize: 11, fill: chartColors.tick }} stroke={chartColors.grid} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: chartColors.tick, fontFamily: '"IBM Plex Mono", monospace' }} stroke={chartColors.grid} />
+              <YAxis tick={{ fontSize: 11, fill: chartColors.tick, fontFamily: '"IBM Plex Mono", monospace' }} stroke={chartColors.grid} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 formatter={(v: number) => [`${fmtEur(v)} €`, cfg.label]}
                 contentStyle={{

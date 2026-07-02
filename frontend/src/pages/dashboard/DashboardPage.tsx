@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
-import { Plus, Send, FileText, Inbox, BarChart3, Package, ClipboardList, CheckCircle2, Wrench, type LucideIcon } from 'lucide-react'
+import { Plus, Send, FileText, Inbox, LayoutDashboard, Package, ClipboardList, CheckCircle2, Wrench } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { KpiCard } from '@/components/ui/kpi-card'
 import type { MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { useAuth } from '@/lib/auth'
@@ -16,24 +16,11 @@ import { QuoteListSection, ActivityCard } from './DashboardLists'
 
 interface AlertCounts { low_stock_tools: number; stale_submitted: number; to_order_materials: number }
 
-// Card KPI con gradiente d'impatto (spec 20, riferimento CRM).
-function KpiCard({ label, value, hint, icon: Icon, gradient, onClick }: {
-  label: string; value: number; hint?: string; icon: LucideIcon; gradient: string; onClick: () => void
-}) {
-  return (
-    <button onClick={onClick} className={`text-left rounded-xl p-4 text-white shadow-sm bg-gradient-to-br ${gradient} hover:shadow-md transition-shadow`}>
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-white/90">{label}</span>
-        <Icon className="w-5 h-5 text-white/80" />
-      </div>
-      <div className="text-3xl font-bold mt-2 leading-none">{value}</div>
-      {hint && <div className="text-xs text-white/80 mt-1">{hint}</div>}
-    </button>
-  )
-}
-
-const STATUS_CHART_COLORS: Record<string, string> = {
-  bozza: '#9ca3af', inviato: '#f59e0b', letto: '#0ea5e9', confermato: '#8b5cf6', completo: '#22c55e',
+// Ordine + colore barra per i 5 stati preventivo (token design system).
+const STATE_ORDER = ['bozza', 'inviato', 'letto', 'confermato', 'completo'] as const
+const STATE_BAR: Record<string, string> = {
+  bozza: 'bg-state-bozza', inviato: 'bg-state-inviato', letto: 'bg-state-letto',
+  confermato: 'bg-state-confermato', completo: 'bg-state-completo',
 }
 
 export default function DashboardPage() {
@@ -90,13 +77,12 @@ export default function DashboardPage() {
 
   const bs = stats.by_status
   const activeCount = (bs.bozza ?? 0) + (bs.inviato ?? 0) + (bs.letto ?? 0) + (bs.confermato ?? 0)
-  const statusPie = Object.entries(bs)
-    .filter(([k, v]) => v > 0 && STATUS_CHART_COLORS[k])
-    .map(([k, v]) => ({ name: STATUS_LABELS[k] || k, value: v, color: STATUS_CHART_COLORS[k] }))
+  const totalCount = STATE_ORDER.reduce((s, k) => s + (bs[k] ?? 0), 0)
+  const maxCount = Math.max(1, ...STATE_ORDER.map(k => bs[k] ?? 0))
 
   return (
     <StandardPage
-      icon={BarChart3}
+      icon={LayoutDashboard}
       color="blue"
       width="xl"
       title="Dashboard"
@@ -107,33 +93,29 @@ export default function DashboardPage() {
         </PrimaryCtaButton>
       }
     >
-      {/* FASCIA 1 — KPI headline con gradiente */}
+      {/* KPI bar — card con barra accento + valore mono (design system) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {canArchive && (
           <KpiCard label="Preventivi attivi" value={activeCount} hint="in lavorazione"
-            icon={ClipboardList} gradient="from-indigo-500 to-violet-600"
-            onClick={() => navigate('/quotes/active')} />
+            icon={ClipboardList} tone="info" onClick={() => navigate('/quotes/active')} />
         )}
         {canReview && (
           <KpiCard label="Da confermare" value={stats.to_review_count} hint="inviati + letti"
-            icon={Inbox} gradient="from-cyan-500 to-blue-600"
-            onClick={() => navigate('/quotes/active?status=inviato')} />
+            icon={Inbox} tone="confirmed" onClick={() => navigate('/quotes/active?status=inviato')} />
         )}
         {(canReview || canOrderMaterials) && (
           <KpiCard label="In attesa materiale" value={alerts.to_order_materials} hint="confermati da ordinare"
-            icon={Package} gradient="from-fuchsia-500 to-pink-600"
-            onClick={() => navigate('/orders/materials')} />
+            icon={Package} tone="danger" onClick={() => navigate('/orders/materials')} />
         )}
         {canTools && (
           <KpiCard label="Utensili sotto minimo" value={alerts.low_stock_tools} hint="da riordinare"
-            icon={Wrench} gradient="from-amber-500 to-orange-600"
-            onClick={() => navigate('/orders/tools')} />
+            icon={Wrench} tone="warning" onClick={() => navigate('/orders/tools')} />
         )}
       </div>
 
-      {/* FASCIA 2 — lavoro + grafici (sx) · attività + stati (dx) */}
+      {/* lavoro + grafici (sx) · stati + attività (dx) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-5 min-w-0">
           {monthly.length > 0 && <MonthlyChart data={monthly} />}
 
           {canQuote && (
@@ -148,7 +130,7 @@ export default function DashboardPage() {
             <QuoteListSection
               title="I miei inviati" count={stats.my_pending_count} rows={myPending}
               emptyText="Nessun preventivo inviato in attesa"
-              icon={<Send className="w-4 h-4 text-amber-500" />}
+              icon={<Send className="w-4 h-4 text-state-letto" />}
               onClick={(id) => navigate(`/quotes/${id}`)}
             />
           )}
@@ -156,7 +138,7 @@ export default function DashboardPage() {
             <QuoteListSection
               title="Da confermare" count={stats.to_review_count} rows={toReview}
               emptyText="Niente da confermare (inviati e letti compaiono qui)"
-              icon={<Inbox className="w-4 h-4 text-blue-500" />}
+              icon={<Inbox className="w-4 h-4 text-state-inviato" />}
               onClick={(id) => navigate(`/quotes/${id}`)}
               showSubmitter
             />
@@ -165,33 +147,43 @@ export default function DashboardPage() {
             <QuoteListSection
               title="Confermati in attesa materiale" count={awaitingMaterials.length} rows={awaitingMaterials}
               emptyText="Nessun confermato in attesa di ordine materiale"
-              icon={<CheckCircle2 className="w-4 h-4 text-violet-500" />}
+              icon={<CheckCircle2 className="w-4 h-4 text-state-confermato" />}
               onClick={(id) => navigate(`/quotes/${id}`)}
               showSubmitter
             />
           )}
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 min-w-0">
+          {/* Preventivi per stato — barre orizzontali cliccabili (token stato) */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex-row items-center justify-between">
               <CardTitle className="text-base">Preventivi per stato</CardTitle>
+              <span className="text-[11px] text-muted-foreground font-mono">Totale {totalCount}</span>
             </CardHeader>
-            <CardContent>
-              {statusPie.length === 0 ? (
-                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">Nessun preventivo</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={statusPie} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                      outerRadius={80} innerRadius={45} paddingAngle={2}
-                      label={(d: { name: string; value: number }) => `${d.name} (${d.value})`}>
-                      {statusPie.map((e, i) => <Cell key={i} fill={e.color} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
+            <CardContent className="space-y-2.5">
+              {totalCount === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">Nessun preventivo</div>
+              ) : STATE_ORDER.map(s => {
+                const n = bs[s] ?? 0
+                const pct = Math.round((n / maxCount) * 100)
+                return (
+                  <button
+                    key={s}
+                    onClick={() => navigate(`/quotes/active?status=${s}`)}
+                    className="w-full flex items-center gap-3 group"
+                    title={`Apri ${STATUS_LABELS[s] ?? s}`}
+                  >
+                    <span className="w-[74px] shrink-0 text-left text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                      {STATUS_LABELS[s] ?? s}
+                    </span>
+                    <span className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
+                      <span className={`block h-full rounded-full ${STATE_BAR[s]}`} style={{ width: `${pct}%` }} />
+                    </span>
+                    <span className="w-7 text-right text-xs font-mono font-semibold text-foreground">{n}</span>
+                  </button>
+                )
+              })}
             </CardContent>
           </Card>
 

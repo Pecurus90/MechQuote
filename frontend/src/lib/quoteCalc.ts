@@ -113,6 +113,31 @@ export function calcMaterialCost(part: Part, material: Material | undefined): nu
   return Math.round(kg * (material.cost_per_kg || 0) * scrap * 100) / 100
 }
 
+/** Costo per pezzo di una fase, formula pura (rate già risolte).
+ *
+ * Gemello DRY del backend `services/calculation.py recalculate_part` e della
+ * parte setup di `PartCard.tsx`. Le tariffe sono passate già risolte:
+ * `work_rate` = override ?? machine.hourly_rate; `setup_rate` =
+ * machine.setup_hourly_rate ?? work_rate. `divisor = qty` (is_shared rimosso).
+ */
+export function calcPhaseCost(input: {
+  setup_hours?: number | null
+  cycle_hours_per_part?: number | null
+  fixed_cost?: number | null
+  variable_cost_per_part?: number | null
+  work_rate: number
+  setup_rate: number
+  qty: number
+}): number {
+  const divisor = input.qty
+  const cost =
+    (input.setup_hours || 0) * input.setup_rate / divisor +
+    (input.cycle_hours_per_part || 0) * input.work_rate +
+    (input.fixed_cost || 0) / divisor +
+    (input.variable_cost_per_part || 0)
+  return Math.round(cost * 10000) / 10000
+}
+
 export function calcPartTotals(
   part: Part,
   globalMargin: number,

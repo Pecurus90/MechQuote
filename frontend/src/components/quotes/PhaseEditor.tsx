@@ -7,7 +7,7 @@ import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
 import { buildCatalogOptions } from '@/lib/catalogSelect'
-import { calcTreatmentCost } from '@/lib/quoteCalc'
+import { calcTreatmentCost, calcPhaseCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
 import EdmPhaseFields from '@/components/quotes/EdmPhaseFields'
 
@@ -70,19 +70,24 @@ interface Props {
 // (oggi `description` è solo etichetta libera dell'utente).
 
 function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): Phase {
-  // Gemello DRY di backend/services/calculation.py recalculate_part (Sprint 12).
-  // setup costa diversamente dalla lavorazione: setup_rate da Machine.setup_hourly_rate,
-  // fallback a hourly_rate se NULL. hourly_rate_override agisce SOLO sul ciclo.
+  // La formula pura vive in quoteCalc.calcPhaseCost (gemello DRY di
+  // backend/services/calculation.py recalculate_part). Qui si risolvono solo
+  // le tariffe dalla macchina: setup_rate da Machine.setup_hourly_rate (fallback
+  // a hourly_rate se NULL); hourly_rate_override agisce SOLO sul ciclo.
+  void nParts  // parità di firma col backend; is_shared rimosso, divisor = qty
   const machine = machines.find(m => m.id === phase.machine_id)
   const workRate = phase.hourly_rate_override ?? machine?.hourly_rate ?? 0
   const setupRate = (machine?.setup_hourly_rate != null) ? machine.setup_hourly_rate : workRate
-  const divisor = qty  // is_shared rimosso, divisor sempre = qty della parte
-  const cost =
-    (phase.setup_hours || 0) * setupRate / divisor +
-    (phase.cycle_hours_per_part || 0) * workRate +
-    (phase.fixed_cost || 0) / divisor +
-    (phase.variable_cost_per_part || 0)
-  return { ...phase, calculated_cost: Math.round(cost * 10000) / 10000 }
+  const calculated_cost = calcPhaseCost({
+    setup_hours: phase.setup_hours,
+    cycle_hours_per_part: phase.cycle_hours_per_part,
+    fixed_cost: phase.fixed_cost,
+    variable_cost_per_part: phase.variable_cost_per_part,
+    work_rate: workRate,
+    setup_rate: setupRate,
+    qty,
+  })
+  return { ...phase, calculated_cost }
 }
 
 export default function PhaseEditor({ partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [], finishedWeightKg, siblings = [], partRawZmm, partRawXmm, partRawYmm, partRawDiameterMm, partDxfFileId, partHasRawStock, onReload, readOnly = false, onChange }: Props) {

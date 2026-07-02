@@ -20,6 +20,7 @@ import {
   calcTreatmentCost,
   calcPartTotals,
   calcQuoteTotal,
+  calcPhaseCost,
 } from '../../src/lib/quoteCalc'
 import type { Material, Treatment, Part, Quote, CompanySettings } from '../../src/types'
 
@@ -32,6 +33,25 @@ const EUR = CASES._meta.tolerance_eur as number
 function failsUntilFrontend(c: any): string | null {
   return c.fails_until_frontend ?? c.fails_until ?? null
 }
+
+// ─── calc_phase — parità formula costo fase (la più fragile: 3 copie) ─────
+
+describe('calcPhaseCost', () => {
+  for (const c of CASES.calc_phase) {
+    it(`${c.id}: ${c.name ?? ''}`, () => {
+      const result = calcPhaseCost({
+        setup_hours: c.input.setup_hours,
+        cycle_hours_per_part: c.input.cycle_hours_per_part,
+        fixed_cost: c.input.fixed_cost,
+        variable_cost_per_part: c.input.variable_cost_per_part,
+        work_rate: c.input.work_rate,
+        setup_rate: c.input.setup_rate,
+        qty: c.input.qty,
+      })
+      expect(Math.abs(result - c.expected_calculated_cost)).toBeLessThan(EUR)
+    })
+  }
+})
 
 // ─── calc_material_cost — prismatico ──────────────────────────────────────
 

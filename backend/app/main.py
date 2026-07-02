@@ -797,6 +797,17 @@ def _run_migrations():
         # ═══ D1 (2026-07-02): collega NormalizedItem (FK opzionale, snapshot) ═══
         "ALTER TABLE die_normalized_items ADD COLUMN normalized_item_id INTEGER REFERENCES normalized_items(id)",
         "ALTER TABLE die_template_normalized ADD COLUMN normalized_item_id INTEGER REFERENCES normalized_items(id)",
+
+        # ═══ D2 (2026-07-02): anti-doppioni cataloghi — indice UNIQUE su nome
+        # (case-insensitive + trimmed). Garanzia hard su ogni via di scrittura;
+        # gli endpoint danno anche un messaggio 400 chiaro (check_duplicate_name).
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_materials_name ON materials(lower(trim(name)))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_machines_name ON machines(lower(trim(name)))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_treatments_name ON treatments(lower(trim(name)))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_material_suppliers_name ON material_suppliers(lower(trim(name)))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_suppliers_name ON suppliers(lower(trim(name)))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_normalized_suppliers_name ON normalized_suppliers(lower(trim(name)))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_tool_suppliers_name ON tool_suppliers(lower(trim(name)))",
     ]
     with engine.connect() as conn:
         for sql in migrations:

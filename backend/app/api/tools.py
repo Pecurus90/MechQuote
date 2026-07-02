@@ -14,6 +14,7 @@ from app.core.csv_import import (
     CsvImportConfig, CsvRowSkip,
     csv_template_response, import_catalog_csv, parse_decimal_it,
 )
+from app.core.catalog_protect import check_duplicate_name
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
 from app.models import (
@@ -41,6 +42,7 @@ def list_tool_suppliers(db: Session = Depends(get_db), _=_can_tools):
 
 @router.post("/suppliers", response_model=ToolSupplierOut)
 def create_tool_supplier(data: ToolSupplierCreate, db: Session = Depends(get_db), _=_can_tools):
+    check_duplicate_name(db, ToolSupplier, data.name, label="fornitore utensili")
     sup = ToolSupplier(**data.model_dump())
     db.add(sup)
     db.commit()
@@ -53,6 +55,8 @@ def update_tool_supplier(sid: int, data: ToolSupplierUpdate, db: Session = Depen
     sup = db.query(ToolSupplier).filter(ToolSupplier.id == sid).first()
     if not sup:
         raise HTTPException(status_code=404, detail="Fornitore non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, ToolSupplier, data.name, label="fornitore utensili", exclude_id=sid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(sup, k, v)
     db.commit()

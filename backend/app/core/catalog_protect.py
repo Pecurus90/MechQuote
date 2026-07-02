@@ -11,9 +11,10 @@ Senza questo check le DELETE silenziose lasciavano orfani (su SQLite le
 FK non sono enforced di default) o alzavano `IntegrityError` generici e
 opachi lato frontend.
 """
-from typing import Tuple, Type
+from typing import Optional, Tuple, Type
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement
 
@@ -47,4 +48,39 @@ def block_if_in_use(db: Session, label: str, *checks: CatalogCheck) -> None:
         raise HTTPException(
             status_code=400,
             detail=f"{label} in uso da {' e '.join(blocks)} — riassegnali prima",
+        )
+
+
+def find_by_name(db: Session, model: Type[Base], name: str, name_col: str = "name"):
+    """Cerca una voce catalog per nome, case-insensitive + trimmed.
+
+    Ritorna la prima riga che matcha `LOWER(TRIM(col)) == LOWER(TRIM(name))`, o
+    None. Riusato dall'anti-doppioni (D2) e dal find-or-create dell'import (D3).
+    """
+    if name is None:
+        return None
+    col = getattr(model, name_col)
+    key = name.strip().lower()
+    return db.query(model).filter(func.lower(func.trim(col)) == key).first()
+
+
+def check_duplicate_name(
+    db: Session,
+    model: Type[Base],
+    name: str,
+    *,
+    label: str,
+    name_col: str = "name",
+    exclude_id: Optional[int] = None,
+) -> None:
+    """Solleva HTTP 400 se esiste già una voce con lo stesso nome (case-insensitive).
+
+    `exclude_id`: id della voce che si sta aggiornando (per non auto-bloccarsi).
+    `label`: es. "materiale", "macchina" — usato nel messaggio all'utente.
+    """
+    existing = find_by_name(db, model, name, name_col)
+    if existing is not None and getattr(existing, "id", None) != exclude_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Esiste già un/una {label} con questo nome ('{name.strip()}')",
         )

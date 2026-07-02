@@ -11,7 +11,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.catalog_protect import block_if_in_use
+from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import NormalizedSupplier, OfficinaDocument
@@ -40,6 +40,7 @@ def list_normalized_suppliers(
 
 @router.post("", response_model=NormalizedSupplierOut, dependencies=[_can_write])
 def create_normalized_supplier(data: NormalizedSupplierCreate, db: Session = Depends(get_db)):
+    check_duplicate_name(db, NormalizedSupplier, data.name, label="fornitore normalizzato")
     sup = NormalizedSupplier(**data.model_dump())
     db.add(sup)
     db.commit()
@@ -52,6 +53,8 @@ def update_normalized_supplier(sid: int, data: NormalizedSupplierUpdate, db: Ses
     sup = db.query(NormalizedSupplier).filter(NormalizedSupplier.id == sid).first()
     if not sup:
         raise HTTPException(404, "Fornitore normalizzati non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, NormalizedSupplier, data.name, label="fornitore normalizzato", exclude_id=sid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(sup, k, v)
     db.commit()

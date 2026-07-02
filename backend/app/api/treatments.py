@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
-from app.core.catalog_protect import block_if_in_use
+from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.csv_import import (
     CsvImportConfig, CsvRowSkip,
     csv_template_response, import_catalog_csv, parse_decimal_it,
@@ -38,6 +38,7 @@ def list_suppliers(
 
 @router.post("/suppliers", response_model=SupplierOut, dependencies=[require_permission('settings')])
 def create_supplier(data: SupplierCreate, db: Session = Depends(get_db)):
+    check_duplicate_name(db, Supplier, data.name, label="fornitore esterno")
     s = Supplier(**data.model_dump())
     db.add(s)
     db.commit()
@@ -50,6 +51,8 @@ def update_supplier(sid: int, data: SupplierUpdate, db: Session = Depends(get_db
     s = db.query(Supplier).filter(Supplier.id == sid).first()
     if not s:
         raise HTTPException(404, "Fornitore trattamenti non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, Supplier, data.name, label="fornitore esterno", exclude_id=sid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(s, k, v)
     db.commit()
@@ -152,6 +155,7 @@ def list_treatments(
 
 @router.post("/treatments", response_model=TreatmentOut, dependencies=[require_permission('settings')])
 def create_treatment(data: TreatmentCreate, db: Session = Depends(get_db)):
+    check_duplicate_name(db, Treatment, data.name, label="trattamento")
     t = Treatment(**data.model_dump())
     db.add(t)
     db.commit()
@@ -163,6 +167,8 @@ def update_treatment(tid: int, data: TreatmentUpdate, db: Session = Depends(get_
     t = db.query(Treatment).filter(Treatment.id == tid).first()
     if not t:
         raise HTTPException(404, "Trattamento non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, Treatment, data.name, label="trattamento", exclude_id=tid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(t, k, v)
     db.commit()

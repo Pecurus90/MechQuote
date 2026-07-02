@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
-from app.core.catalog_protect import block_if_in_use
+from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.csv_import import (
     CsvImportConfig, CsvRowSkip,
     csv_template_response, import_catalog_csv, parse_decimal_it,
@@ -38,6 +38,7 @@ def list_material_suppliers(db: Session = Depends(get_db)):
 
 @router.post("/material-suppliers", response_model=MaterialSupplierOut, dependencies=[require_permission('settings')])
 def create_material_supplier(data: MaterialSupplierCreate, db: Session = Depends(get_db)):
+    check_duplicate_name(db, MaterialSupplier, data.name, label="fornitore grezzo")
     s = MaterialSupplier(**data.model_dump())
     db.add(s)
     db.commit()
@@ -50,6 +51,8 @@ def update_material_supplier(sid: int, data: MaterialSupplierUpdate, db: Session
     s = db.query(MaterialSupplier).filter(MaterialSupplier.id == sid).first()
     if not s:
         raise HTTPException(404, "Fornitore materiali non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, MaterialSupplier, data.name, label="fornitore grezzo", exclude_id=sid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(s, k, v)
     db.commit()
@@ -153,6 +156,7 @@ def list_materials(
 
 @router.post("/materials", response_model=MaterialOut, dependencies=[require_permission('settings')])
 def create_material(data: MaterialCreate, db: Session = Depends(get_db)):
+    check_duplicate_name(db, Material, data.name, label="materiale")
     m = Material(**data.model_dump())
     db.add(m)
     db.commit()
@@ -164,6 +168,8 @@ def update_material(mid: int, data: MaterialUpdate, db: Session = Depends(get_db
     m = db.query(Material).filter(Material.id == mid).first()
     if not m:
         raise HTTPException(404, "Materiale non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, Material, data.name, label="materiale", exclude_id=mid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(m, k, v)
     db.commit()

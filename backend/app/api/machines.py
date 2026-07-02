@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.core.catalog_protect import block_if_in_use
+from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.csv_import import (
     CsvImportConfig, CsvRowSkip,
     csv_template_response, import_catalog_csv, parse_decimal_it,
@@ -34,6 +34,7 @@ def list_machines(
 
 @router.post("/machines", response_model=MachineOut, dependencies=[require_permission('settings')])
 def create_machine(data: MachineCreate, db: Session = Depends(get_db)):
+    check_duplicate_name(db, Machine, data.name, label="macchina/centro di costo")
     m = Machine(**data.model_dump())
     db.add(m)
     db.commit()
@@ -46,6 +47,8 @@ def update_machine(mid: int, data: MachineUpdate, db: Session = Depends(get_db))
     m = db.query(Machine).filter(Machine.id == mid).first()
     if not m:
         raise HTTPException(404, "Centro di costo non trovato")
+    if data.name is not None:
+        check_duplicate_name(db, Machine, data.name, label="macchina/centro di costo", exclude_id=mid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(m, k, v)
     db.commit()

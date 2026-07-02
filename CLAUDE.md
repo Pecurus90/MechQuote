@@ -354,19 +354,25 @@ Niente `version_id_col` sui modelli: update concorrenti producono **lost update 
 > lavoro pianificato — vedi `MECHQUOTE_LISTA_LAVORI.md`, Blocco B. Finché non
 > è fatto, l'uso in contemporanea sullo stesso preventivo non è sicuro.
 
-### Workflow stati preventivo (interno, 3 stati)
+### Workflow stati preventivo (interno, 5 stati — spec 18)
+
+Fonte autoritativa: `backend/app/services/quote_workflow.py`.
 
 ```
-bozza ──[quotes.send]──> inviato ──[GET con quotes.complete]──> completato
-                          │                                      │
-                          └─> notifica a admin+amministrazione    └─> notifica al creatore (1-a-1)
+bozza ──[quotes.send]──> inviato ──[apertura ammin.]──> letto ──[quotes.confirm]──> confermato ──[materiale risolto]──> completo
+                          └─> notifica a admin+amministrazione                       (blocca modifica)               (auto)
 ```
 
 Regole:
-- `bozza`: editabile da chi ha `quotes.create`
-- `inviato`/`completato`: lock per tutti tranne `admin` (`ensure_editable()` in `quotes.py`)
-- `completato` è terminale (niente ritorno via UI)
-- Eliminazione preventivo: solo creatore (`Quote.created_by_user_id == current_user.id`) o admin
+- `bozza` / `inviato` / `letto`: **modificabili** (`is_editable`), da chi ha `quotes.create`.
+- `inviato → letto`: automatico quando amministrazione apre un `inviato`.
+- `letto → confermato`: click manuale di chi ha `quotes.confirm`; da qui il preventivo è **bloccato**.
+- `confermato → completo`: automatico quando il materiale è risolto (evaso o non necessario); gli Stampi (`die`) sono sempre risolti → conferma = completo.
+- **Modifica di un preventivo bloccato** (`confermato`/`completo`): serve `quotes.edit_locked` (`ensure_editable()` in `quotes.py`; default solo admin).
+- **Annulla conferma** (`confermato`/`completo` → `letto`): serve `quotes.edit_locked`; azzera le evasioni materiale (ordini restano nello storico).
+- **Eliminazione preventivo**: il creatore (`Quote.created_by_user_id`) o chi ha `quotes.delete`.
+
+> ⚠️ Vecchio modello a 3 stati (`bozza/inviato/completato` con `quotes.complete`): **rimosso**. Non esiste più `quotes.complete` (era → `quotes.confirm`).
 
 ### Cost engine (DRY hard rule)
 

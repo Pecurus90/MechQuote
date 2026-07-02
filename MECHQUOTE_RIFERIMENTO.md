@@ -12,9 +12,28 @@
 
 ---
 
-## 0. Sintesi rapida (aggiornata al 2026-06-04)
+## 0. Sintesi rapida (aggiornata al 2026-07-02)
 
-Per non doverlo desumere ogni volta, lo stato del progetto in due righe:
+**Aggiornamento 2026-07-02 — sessione UI + permessi** (tutto su `main`):
+- **Dark mode** a grigio neutro (tolte le tinte blu); accenti brand invariati.
+- **Storico ordini**: nuova pagina unica (materiali + utensili) con recupero
+  CSV/PDF ed **eliminazione** ordini; tolti i due "Storico" dalle pagine ordini.
+- **CSV ordine materiale**: nuovo formato a 5 colonne
+  (materiale / forma / dimensioni / riferimento / quantità), una riga per commessa.
+- **Pagine impostazioni**: tutte unificate su `StandardPage`, due sole larghezze
+  (`lg` form/cataloghi semplici, `xl` tabelle/hub); rimossa la doppia intestazione
+  negli hub a tab.
+- **Modello permessi ridisegnato (tema J)**: nuove chiavi `quotes.edit_locked`,
+  `quotes.delete`, `orders.tools` (split da `tools` = catalogo); eliminati gli
+  hardcode `role=='admin'` dalla logica (ora permessi delegabili); ruolo
+  `officina` ristretto a officina + officina.write + tools; **token di login
+  senza scadenza**. Fonte: `CLAUDE.md §3`.
+- **Piano di lavoro corrente** (14 temi in 6 fasi) in testa a
+  `MECHQUOTE_LISTA_LAVORI.md`.
+
+---
+
+Stato precedente (fotografia 2026-06-04):
 
 - **Blocco A (messa in sicurezza)**: A1, A4, A5, A6, A7 fatti sul PC di
   sviluppo. **A2, A3** restano da fare sul server in azienda. **A8, A9**:

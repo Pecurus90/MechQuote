@@ -17,6 +17,37 @@
 
 ---
 
+## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)
+
+Ordine di esecuzione approvato dall'utente il 2026-07-02, che accorpa una
+grande lista di richieste in 14 temi su 6 fasi. È la **cornice corrente**: i
+blocchi A/B/C e i cantieri qui sotto restano validi come dettaglio e vengono
+assorbiti nei temi corrispondenti.
+
+- **Fase 0** — N: aggiornare roadmap/doc + pulizia doc obsoleti · L1: audit
+  read-only codice morto / colonne DB inutili. *(N in corso: allineati
+  CLAUDE.md §3/§4, RIFERIMENTO §0, questo file.)*
+- **Fase 1** ✅ **COMPLETA** — A: dark mode grigio · B: nuovo CSV ordine
+  materiale · H: layout impostazioni unificato · J: permessi/utenti/ruoli
+  ridisegnati (commit `951ef6f`→`4a0863d`).
+- **Fase 2** — K1: test sui percorsi critici (motore preventivi/stampi, API,
+  permessi) *(= Blocco B3)*.
+- **Fase 3** — L2: rimozione codice morto (colonne DB mai DROP) · I: revisione
+  notifiche.
+- **Fase 4** — E: motore di calcolo univoco (backend autoritativo) *(= B2 +
+  spec 17 F2)* · F: modularizzazione a mini-app *(spec 17)* · D: cataloghi
+  single-source + anti-doppioni.
+- **Fase 5** — C: import CSV ordine materiale · G: riscrittura stampi *(= P2/P3
+  + cantiere stampi)*.
+- **Fase 6** — M: ottimizzazione *(= Blocco C performance)* · K2: copertura
+  test estesa + bug hunting.
+
+> Nota: questo piano non cancella i Blocchi A/B/C — il **Blocco A** (messa in
+> sicurezza server) resta prerequisito prima di dati reali in produzione, in
+> parallelo/prima delle fasi qui sopra.
+
+---
+
 ## ⭐ PROSSIMA SESSIONE — DA FARE SUBITO (aggiornato 2026-06-30)
 
 **1. Pulizia file/doc obsoleti** ← la prima cosa da fare.

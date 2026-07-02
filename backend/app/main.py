@@ -777,6 +777,22 @@ def _run_migrations():
         # Opzione B (deciso con l'utente): nessun preventivo reale in DB → mappo
         # gli eventuali 'completato' legacy a 'letto' per coerenza coi nuovi stati.
         "UPDATE quotes SET status = 'letto' WHERE status = 'completato'",
+
+        # ═══ Tema J (2026-07-02): modello permessi esteso ═══
+        # Chiavi nuove edit_locked/delete (solo admin) + orders.tools (split da
+        # 'tools'). NB: il ruolo admin esiste in DB → get_current_user legge
+        # role_permissions, l'anti-lockout NON scatta: le chiavi nuove vanno
+        # inserite anche per admin, qui.
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.edit_locked' FROM roles WHERE name = 'admin' AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='quotes.edit_locked')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.delete' FROM roles WHERE name = 'admin' AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='quotes.delete')",
+        # orders.tools (ordini utensili) separato da 'tools' (catalogo): lo
+        # prendono i ruoli che gestiscono ordini, NON officina.
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'orders.tools' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='orders.tools')",
+        # Ruolo officina ridefinito: solo officina + officina.write + tools.
+        # Tolgo preventivi e notifiche (mirato al solo ruolo officina), aggiungo
+        # officina.write. Il catalogo utensili 'tools' lo ha già.
+        "DELETE FROM role_permissions WHERE permission_key IN ('quotes.archive','quotes.pdf','notifications') AND role_id IN (SELECT id FROM roles WHERE name='officina')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name = 'officina' AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='officina.write')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

@@ -6,6 +6,8 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.send":   "Invia preventivo per revisione",
     "quotes.confirm": "Conferma preventivo (amministrazione)",
     "quotes.view_all": "Vede tutti i preventivi (non solo i propri)",
+    "quotes.edit_locked": "Modifica preventivi bloccati (confermati/completi)",
+    "quotes.delete": "Elimina preventivi (di chiunque)",
     "dies.create":     "Crea/modifica preventivi stampi",
     "dies.archive":    "Archivio preventivi stampi",
     "dies.pdf":        "Scarica PDF preventivo stampo",
@@ -17,7 +19,8 @@ PERMISSION_KEYS: dict[str, str] = {
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",
     "orders.materials": "Ordini materiali (lista + PDF)",
-    "tools": "Gestione utensili e ordini utensili",
+    "orders.tools": "Ordini utensili (crea + CSV + elimina)",
+    "tools": "Anagrafica/catalogo utensili",
     "officina":       "Officina — lettura documenti, tabelle reference, calcolatori",
     "officina.write": "Officina — upload/modifica documenti e contenuti",
 }
@@ -27,16 +30,18 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "ufficio_tecnico": [
         "dashboard", "quotes.create", "quotes.archive", "quotes.pdf",
         "quotes.send", "customers", "notifications", "orders.materials",
-        "tools", "officina", "officina.write",
+        "tools", "orders.tools", "officina", "officina.write",
         "dies.create", "dies.archive", "dies.pdf",
     ],
+    # Officina: solo la sua area + catalogo utensili. Nessun preventivo,
+    # nessun ordine (materiali/utensili), niente dashboard né notifiche.
     "officina": [
-        "quotes.archive", "quotes.pdf", "notifications", "tools", "officina",
+        "officina", "officina.write", "tools",
     ],
     "amministrazione": [
         "dashboard", "quotes.archive", "quotes.pdf", "quotes.view_all",
-        "quotes.confirm", "notifications", "orders.materials", "tools",
-        "officina", "officina.write",
+        "quotes.confirm", "notifications", "orders.materials",
+        "tools", "orders.tools", "officina", "officina.write",
         "dies.archive", "dies.pdf",
     ],
 }

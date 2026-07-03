@@ -1,69 +1,96 @@
+// src/components/quotes/QuoteBottomBar.tsx
 import { Input } from '@/components/ui/input'
-import { parseDecimal } from '@/lib/decimalInput'
-import type { Quote } from '@/types'
 
 interface Props {
-  quote: Quote
-  isLocked: boolean
-  /** Subtotale parti (somma di total_price). Mostrato sopra il totale finale
-   *  solo se ci sono extras (trasporto/imballaggio/sconto > 0). */
-  partsSubtotal: number
+  nParts: number
+  /** Valori editabili (stringhe controllate; autosave on-blur nel container). */
+  transport: string
+  packaging: string
+  discountPercent: string
+  /** Derivati, già calcolati dal container. */
+  subtotal?: number
   total: number
-  hasExtras: boolean
-  /** Updater funzionale del quote: permette al footer di toccare solo
-   *  transport_cost / packaging_cost / global_discount_percent senza vedere
-   *  il setter completo della page. */
-  onChange: (updates: Partial<Quote>) => void
-  /** Save su blur — gli onChange sono solo locali (preview live). */
-  onBlur: () => void
+  locked: boolean
+  onChange: (field: 'transport' | 'packaging' | 'discountPercent', val: string) => void
+  onBlur?: (field: 'transport' | 'packaging' | 'discountPercent') => void
 }
 
-/** Footer dell'editor preventivo: trasporto / imballaggio / sconto + totale
- *  finale. Estratto da QuoteEditor; comportamento invariato.
- */
-export default function QuoteBottomBar({
-  quote, isLocked, partsSubtotal, total, hasExtras, onChange, onBlur,
-}: Props) {
+const eur0 = (v: number): string =>
+  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
+
+const eurField =
+  'h-[34px] w-[88px] rounded-[8px] border-input bg-background pl-6 pr-2.5 font-mono text-[13px]'
+
+export function QuoteBottomBar(props: Props) {
+  const { nParts, transport, packaging, discountPercent, subtotal, total, locked, onChange, onBlur } =
+    props
+
   return (
-    <div className="bg-card border-t px-6 py-3">
-      <fieldset disabled={isLocked} className="border-0 p-0 m-0 disabled:opacity-90">
-      <div className="flex items-center gap-4 flex-wrap">
-        <span className="text-sm text-muted-foreground">{quote.parts.length} parti</span>
-        <span className="text-sm text-muted-foreground">|</span>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Trasporto</span>
-          <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-20 text-xs"
-            value={quote.transport_cost}
-            onChange={e => onChange({ transport_cost: parseDecimal(e.target.value) || 0 })}
-            onBlur={onBlur} />
-          <span className="text-xs text-muted-foreground">€</span>
+    <div className="flex flex-none items-center gap-[22px] border-t border-border bg-card px-[22px] py-3">
+      <span className="text-[13px] font-medium text-muted-foreground">{nParts} parti</span>
+
+      <fieldset
+        disabled={locked}
+        className="flex items-center gap-[22px] disabled:opacity-60"
+      >
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">Trasporto</label>
+          <div className="relative">
+            <span className="absolute left-2.5 top-2 font-mono text-[13px] text-muted-foreground">
+              €
+            </span>
+            <Input
+              value={transport}
+              onChange={(e) => onChange('transport', e.target.value)}
+              onBlur={() => onBlur?.('transport')}
+              className={eurField}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Imballag.</span>
-          <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-20 text-xs"
-            value={quote.packaging_cost}
-            onChange={e => onChange({ packaging_cost: parseDecimal(e.target.value) || 0 })}
-            onBlur={onBlur} />
-          <span className="text-xs text-muted-foreground">€</span>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">Imballaggio</label>
+          <div className="relative">
+            <span className="absolute left-2.5 top-2 font-mono text-[13px] text-muted-foreground">
+              €
+            </span>
+            <Input
+              value={packaging}
+              onChange={(e) => onChange('packaging', e.target.value)}
+              onBlur={() => onBlur?.('packaging')}
+              className={eurField}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Sconto</span>
-          <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={100} step={0.5} className="h-7 w-16 text-xs"
-            value={quote.global_discount_percent}
-            onChange={e => onChange({ global_discount_percent: parseDecimal(e.target.value) || 0 })}
-            onBlur={onBlur} />
-          <span className="text-xs text-muted-foreground">%</span>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">Sconto</label>
+          <div className="relative">
+            <Input
+              value={discountPercent}
+              onChange={(e) => onChange('discountPercent', e.target.value)}
+              onBlur={() => onBlur?.('discountPercent')}
+              className="h-[34px] w-[72px] rounded-[8px] border-input bg-background pl-2.5 pr-6 font-mono text-[13px]"
+            />
+            <span className="absolute right-2.5 top-2 font-mono text-[13px] text-muted-foreground">
+              %
+            </span>
+          </div>
         </div>
-        <div className="flex-1" />
-        <div className="text-right">
-          {hasExtras && (
-            <span className="text-xs text-muted-foreground block">Subtotale: {partsSubtotal.toFixed(2)} €</span>
-          )}
-          <span className="text-xs text-muted-foreground uppercase tracking-wide block">Totale Preventivo</span>
-          <span className="text-2xl font-bold text-primary">{total.toFixed(2)} €</span>
+      </fieldset>
+
+      <span className="flex-1" />
+
+      {subtotal != null && (
+        <div className="mr-1 text-right">
+          <span className="text-xs text-muted-foreground">Subtotale </span>
+          <span className="font-mono text-sm font-semibold text-foreground">{eur0(subtotal)}</span>
+        </div>
+      )}
+      <div className="text-right">
+        <div className="mb-px text-[11px] font-medium text-muted-foreground">Totale Preventivo</div>
+        <div className="font-mono text-[26px] font-bold leading-none tracking-[-0.01em] text-foreground">
+          {eur0(total)}
         </div>
       </div>
-      </fieldset>
     </div>
   )
 }

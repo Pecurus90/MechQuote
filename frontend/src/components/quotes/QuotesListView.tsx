@@ -1,42 +1,40 @@
-import { Fragment, useEffect, useState } from 'react'
+// Container liste preventivi: fetch + filtri + azioni + permessi + dettaglio
+// materiale espandibile. La grafica è nella vista presentazionale
+// (pages/quotes/QuotesListView, importata come QuotesListTable). Firma props
+// invariata → QuotesActivePage / QuoteArchivePage non cambiano.
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import type { QuoteListItem as Quote, QuoteMaterialDetail } from '@/types'
 import api from '@/lib/api'
-import { FileText, FileDown, Plus, Trash2, Search, X, CheckCircle2, ChevronRight, ChevronDown } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
-import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
-import { STATUS_LABELS, STATUS_COLORS } from '@/lib/constants'
-import {
-  MATERIAL_STATUS_LABELS, MATERIAL_STATUS_COLORS,
-  PART_STATE_LABELS, PART_STATE_COLORS,
-} from '@/lib/materialStatus'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
+import PageContainer from '@/components/ui/page-container'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import { PART_STATE_LABELS, PART_STATE_COLORS } from '@/lib/materialStatus'
+import type { QuoteListItem as Quote, QuoteMaterialDetail } from '@/types'
+import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
+import type { ArticleMaterialRow } from '@/components/quotes/QuoteArticleRows'
+import {
+  QuotesListView as QuotesListTable,
+  type QuotesListRow, type ListFilters, type SelectOption,
+} from '@/pages/quotes/QuotesListView'
 
 interface Props {
   phase: 'active' | 'completed'
   title: string
   subtitle: string
   icon: LucideIcon
-  /** Azioni rapide (Conferma con mini-dialog + PDF) — solo "Preventivi in corso". */
+  /** Azioni rapide (Conferma + PDF) — solo "Preventivi in corso". */
   showQuickActions?: boolean
 }
 
-// Stati sotto-filtrabili per fase (spec 18).
 const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'confermato'] as const
 
 export default function QuotesListView({ phase, title, subtitle, icon, showQuickActions = false }: Props) {
   const navigate = useNavigate()
   const { user, hasPermission } = useAuth()
   const canDeleteAny = hasPermission('quotes.delete')
-  const canDelete = (q: Quote) => canDeleteAny || (q.created_by_user_id != null && q.created_by_user_id === user?.id)
-  const canConfirm = hasPermission('quotes.confirm')
+  const canConfirmPerm = hasPermission('quotes.confirm')
   const canPdf = hasPermission('quotes.pdf')
 
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -48,7 +46,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     phase === 'active' && (ACTIVE_STATUSES as readonly string[]).includes(initialStatus ?? '')
       ? (initialStatus as string) : 'all'
   )
-  const [typeFilter, setTypeFilter] = useState<'all' | 'single' | 'commessa' | 'die'>('all')
+  const [typeFilter, setTypeFilter] = useState<ListFilters['type']>('all')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -61,9 +59,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [detailCache, setDetailCache] = useState<Record<number, QuoteMaterialDetail | 'loading'>>({})
 
-  useEffect(() => {
-    api.get('/quotes/years').then(res => setYears(res.data))
-  }, [])
+  useEffect(() => { api.get('/quotes/years').then(res => setYears(res.data)).catch(() => {}) }, [])
 
   useEffect(() => {
     const t = setTimeout(() => { setSearchQuery(searchInput.trim()); setPage(1) }, 300)
@@ -82,10 +78,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     if (searchQuery) params.q = searchQuery
     if (typeFilter !== 'all') params.quote_type = typeFilter
     if (statusFilter !== 'all') params.status = statusFilter
-    api.get('/quotes/archive', { params }).then(res => {
-      setQuotes(res.data)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    api.get('/quotes/archive', { params }).then(res => { setQuotes(res.data); setLoading(false) }).catch(() => setLoading(false))
   }
 
   const toggleExpand = (id: number) => {
@@ -104,26 +97,16 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
 
   const handleDelete = async (id: number) => {
     setDeleting(true)
-    try {
-      await api.delete(`/quotes/${id}`)
-      setConfirmDeleteId(null)
-      toast.success('Preventivo eliminato')
-      loadQuotes()
-    } catch { toast.error('Errore nell\'eliminazione') }
+    try { await api.delete(`/quotes/${id}`); setConfirmDeleteId(null); toast.success('Preventivo eliminato'); loadQuotes() }
+    catch { toast.error("Errore nell'eliminazione") }
     finally { setDeleting(false) }
   }
 
   const doConfirm = async (id: number) => {
     setConfirming(true)
-    try {
-      await api.post(`/quotes/${id}/confirm`)
-      setConfirmQuoteId(null)
-      toast.success('Preventivo confermato')
-      loadQuotes()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nella conferma')
-    } finally { setConfirming(false) }
+    try { await api.post(`/quotes/${id}/confirm`); setConfirmQuoteId(null); toast.success('Preventivo confermato'); loadQuotes() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nella conferma') }
+    finally { setConfirming(false) }
   }
 
   const downloadPdf = async (q: Quote) => {
@@ -132,14 +115,12 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
       const prefix = q.quote_type === 'die' ? 'preventivo_stampo' : 'preventivo'
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
       const a = document.createElement('a')
-      a.href = url
-      a.download = `${prefix}_${q.quote_number}.pdf`
-      document.body.appendChild(a); a.click(); a.remove()
-      window.URL.revokeObjectURL(url)
+      a.href = url; a.download = `${prefix}_${q.quote_number}.pdf`
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
     } catch { toast.error('Errore nella generazione del PDF') }
   }
 
-  const quoteTotal = (q: Quote) => {
+  const quoteTotal = (q: Quote): number => {
     if (q.quote_type === 'die' && q.die_spec) {
       const ind = q.die_spec.cost_industrial || 0
       const margin = q.global_margin_percent || 0
@@ -149,236 +130,96 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     return q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
   }
 
-  const confirmingQuote = quotes.find(q => q.id === confirmDeleteId)
+  // ─── props presentazionali ───────────────────────────────────────────────
+  const rows: QuotesListRow[] = quotes.map(q => ({
+    ...q,
+    total_price: quoteTotal(q),
+    materialStatus: q.material_status ? (q.material_status as MaterialStatus) : undefined,
+  }))
+
+  const detail = expandedId != null ? detailCache[expandedId] : undefined
+  const articleRows: ArticleMaterialRow[] = (detail && detail !== 'loading')
+    ? detail.articles.map(a => ({
+        partId: a.part_id,
+        partCode: a.part_code,
+        revision: a.revision,
+        materialCode: a.material_name ?? '—',
+        materialFamily: a.family ? a.family.replace(/_/g, ' ') : null,
+        dimensions: a.dimensions,
+        treatments: a.treatments,
+        statusLabel: PART_STATE_LABELS[a.state] ?? a.state,
+        statusClass: PART_STATE_COLORS[a.state] ?? 'bg-muted text-muted-foreground',
+        supplierName: a.supplier_name,
+      }))
+    : []
+
+  const filters: ListFilters = { search: searchInput, year: selectedYear ? String(selectedYear) : '', status: statusFilter, type: typeFilter }
+  const onFilterChange = <K extends keyof ListFilters>(key: K, val: ListFilters[K]) => {
+    if (key === 'search') { setSearchInput(val as string); return }
+    setPage(1)
+    if (key === 'year') setSelectedYear(val ? Number(val) : null)
+    else if (key === 'status') setStatusFilter(val as string)
+    else if (key === 'type') setTypeFilter(val as ListFilters['type'])
+  }
+
+  const yearOptions: SelectOption[] = [{ value: '', label: 'Tutti gli anni' }, ...years.map(y => ({ value: String(y), label: String(y) }))]
+  const statusOptions: SelectOption[] = phase === 'active'
+    ? [
+        { value: 'all', label: 'Tutti' },
+        { value: 'bozza', label: 'Bozza' },
+        { value: 'inviato', label: 'Inviato' },
+        { value: 'letto', label: 'Letto' },
+        { value: 'confermato', label: 'Confermato' },
+      ]
+    : [{ value: 'all', label: 'Tutti' }]
+
+  const quoteToDelete = quotes.find(q => q.id === confirmDeleteId)
   const quoteToConfirm = quotes.find(q => q.id === confirmQuoteId)
-  const colSpan = 8
 
   return (
     <PageContainer width="xl">
-      <SettingsPageHeader
-        icon={icon}
-        color="blue"
+      <QuotesListTable
         title={title}
+        icon={icon}
         subtitle={subtitle}
-        action={
-          <PrimaryCtaButton color="blue" onClick={() => navigate('/quotes/new')}>
-            <Plus className="w-4 h-4" /> Nuovo Preventivo
-          </PrimaryCtaButton>
+        onNew={() => navigate('/quotes/new')}
+        rows={rows}
+        emptyText={loading ? 'Caricamento…' : 'Nessun preventivo corrisponde ai filtri.'}
+        expandedId={expandedId}
+        onToggleExpand={toggleExpand}
+        articleRows={articleRows}
+        filters={filters}
+        onFilterChange={onFilterChange}
+        years={yearOptions}
+        statusOptions={statusOptions}
+        onOpen={(id) => navigate(`/quotes/${id}`)}
+        onConfirm={showQuickActions && canConfirmPerm ? (id) => setConfirmQuoteId(id) : undefined}
+        canConfirm={(r) => r.status === 'inviato' || r.status === 'letto'}
+        onPdf={showQuickActions && canPdf ? (id) => { const q = quotes.find(x => x.id === id); if (q) downloadPdf(q) } : undefined}
+        onDelete={(id) => setConfirmDeleteId(id)}
+        canDelete={(r) => canDeleteAny || (r.created_by_user_id != null && r.created_by_user_id === user?.id)}
+        pagination={
+          <>
+            <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="rounded-[8px] border border-border bg-card px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40">
+              ← Precedente
+            </button>
+            <span className="text-[13px] text-muted-foreground">Pagina {page}</span>
+            <button type="button" disabled={quotes.length < pageSize} onClick={() => setPage(p => p + 1)}
+              className="rounded-[8px] border border-border bg-card px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40">
+              Successiva →
+            </button>
+          </>
         }
       />
 
-      <div className="flex gap-4 items-end flex-wrap">
-        <div className="flex-1 min-w-[240px]">
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Cerca</label>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <Input
-              className="h-9 pl-8 pr-8 text-sm"
-              placeholder="Codice preventivo o cliente"
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-            />
-            {searchInput && (
-              <button onClick={() => setSearchInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" title="Cancella">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Anno</label>
-          <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            value={selectedYear || ''}
-            onChange={e => { setPage(1); setSelectedYear(e.target.value ? Number(e.target.value) : null) }}
-          >
-            <option value="">Tutti gli anni</option>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        {phase === 'active' && (
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1 block">Stato</label>
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={statusFilter}
-              onChange={e => { setPage(1); setStatusFilter(e.target.value) }}
-            >
-              <option value="all">Tutti</option>
-              <option value="bozza">Bozza</option>
-              <option value="inviato">Inviato</option>
-              <option value="letto">Letto</option>
-              <option value="confermato">Confermato</option>
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-1 block">Tipo</label>
-          <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            value={typeFilter}
-            onChange={e => { setPage(1); setTypeFilter(e.target.value as typeof typeFilter) }}
-          >
-            <option value="all">Tutti</option>
-            <option value="single">Singolo</option>
-            <option value="commessa">Commessa</option>
-            <option value="die">Stampi</option>
-          </select>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center p-8 text-muted-foreground">Caricamento...</div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-muted border-b">
-                <tr>
-                  <th className="w-8 p-3"></th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">N. Preventivo</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Cliente</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Data</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Stato</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Materiale</th>
-                  <th className="text-right p-3 font-medium text-muted-foreground">Totale</th>
-                  <th className="text-center p-3 font-medium text-muted-foreground">Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotes.length === 0 ? (
-                  <tr><td colSpan={colSpan} className="p-6 text-center text-muted-foreground">Nessun preventivo trovato.</td></tr>
-                ) : (
-                  quotes.map(q => (
-                    <Fragment key={q.id}>
-                    <tr className="border-b hover:bg-muted cursor-pointer" onClick={() => navigate(`/quotes/${q.id}`)}>
-                      <td className="p-3 text-center">
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleExpand(q.id) }}
-                          className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                          title="Mostra articoli e stato materiale"
-                        >
-                          {expandedId === q.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                        </button>
-                      </td>
-                      <td className="p-3 font-mono font-medium text-primary">
-                        {q.quote_number}
-                        {q.quote_type === 'die' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-sans">Stampo</span>}
-                        {q.quote_type === 'commessa' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-sans">Commessa</span>}
-                      </td>
-                      <td className="p-3">{q.customer_name || '-'}</td>
-                      <td className="p-3 text-muted-foreground">{q.quote_date?.split('T')[0]}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[q.status] || STATUS_COLORS.bozza}`}>
-                          {STATUS_LABELS[q.status] || q.status}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {q.material_status
-                          ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${MATERIAL_STATUS_COLORS[q.material_status] || 'bg-muted text-muted-foreground'}`}>{MATERIAL_STATUS_LABELS[q.material_status] || q.material_status}</span>
-                          : <span className="text-xs text-muted-foreground/50">—</span>}
-                      </td>
-                      <td className="p-3 text-right font-medium">{quoteTotal(q).toFixed(2)} €</td>
-                      <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); navigate(`/quotes/${q.id}`) }}>
-                            <FileText className="w-3.5 h-3.5 mr-1" /> Apri
-                          </Button>
-                          {showQuickActions && canConfirm && (q.status === 'inviato' || q.status === 'letto') && (
-                            <Button
-                              variant="outline" size="sm"
-                              className="text-violet-700 border-violet-200 hover:bg-violet-50"
-                              onClick={e => { e.stopPropagation(); setConfirmQuoteId(q.id) }}
-                              title="Conferma preventivo"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Conferma
-                            </Button>
-                          )}
-                          {showQuickActions && canPdf && (
-                            <Button
-                              variant="outline" size="sm"
-                              onClick={e => { e.stopPropagation(); downloadPdf(q) }}
-                              title="Genera PDF"
-                            >
-                              <FileDown className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          {canDelete(q) && (
-                            <Button
-                              variant="outline" size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
-                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(q.id) }}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {expandedId === q.id && (
-                      <tr className="bg-muted/60">
-                        <td colSpan={colSpan} className="px-6 py-3">
-                          {detailCache[q.id] === 'loading' || detailCache[q.id] === undefined ? (
-                            <div className="text-sm text-muted-foreground py-2">Caricamento articoli...</div>
-                          ) : (detailCache[q.id] as QuoteMaterialDetail).articles.length === 0 ? (
-                            <div className="text-sm text-muted-foreground py-2">Nessun articolo in questo preventivo.</div>
-                          ) : (
-                            <table className="w-full text-xs bg-card rounded border">
-                              <thead className="bg-muted text-muted-foreground">
-                                <tr>
-                                  <th className="text-left p-2 font-medium">Codice</th>
-                                  <th className="text-left p-2 font-medium">Materiale</th>
-                                  <th className="text-left p-2 font-medium">Tipo</th>
-                                  <th className="text-left p-2 font-medium">Misure</th>
-                                  <th className="text-left p-2 font-medium">Trattamenti termici</th>
-                                  <th className="text-left p-2 font-medium">Fornitore</th>
-                                  <th className="text-left p-2 font-medium">Stato</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(detailCache[q.id] as QuoteMaterialDetail).articles.map(a => (
-                                  <tr key={a.part_id} className="border-t">
-                                    <td className="p-2 font-mono">{a.part_code}{a.revision ? ` / ${a.revision}` : ''}</td>
-                                    <td className="p-2">{a.material_name || '—'}</td>
-                                    <td className="p-2 text-muted-foreground">{a.family ? a.family.replace(/_/g, ' ') : '—'}</td>
-                                    <td className="p-2 text-muted-foreground">{a.dimensions}</td>
-                                    <td className="p-2 text-muted-foreground">{a.treatments.length ? a.treatments.join(', ') : '—'}</td>
-                                    <td className="p-2">{a.supplier_name || '—'}</td>
-                                    <td className="p-2">
-                                      <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${PART_STATE_COLORS[a.state] || 'bg-muted text-muted-foreground'}`}>
-                                        {PART_STATE_LABELS[a.state] || a.state}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                    </Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex justify-center gap-2">
-        {page > 1 && <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)}>← Precedente</Button>}
-        <span className="flex items-center px-4 text-sm text-muted-foreground">Pagina {page}</span>
-        {quotes.length >= pageSize && <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>}
-      </div>
-
       <ConfirmDialog
-        open={confirmDeleteId !== null && !!confirmingQuote}
+        open={confirmDeleteId !== null && !!quoteToDelete}
         title="Elimina preventivo"
         description={
-          confirmingQuote
-            ? `Eliminare il preventivo ${confirmingQuote.quote_number}` +
-              (confirmingQuote.customer_name ? ` (${confirmingQuote.customer_name})` : '') +
+          quoteToDelete
+            ? `Eliminare il preventivo ${quoteToDelete.quote_number}` +
+              (quoteToDelete.customer_name ? ` (${quoteToDelete.customer_name})` : '') +
               `? Verranno cancellate anche tutte le parti e fasi associate. Azione non reversibile.`
             : undefined
         }

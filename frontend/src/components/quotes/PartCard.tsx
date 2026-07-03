@@ -1,33 +1,22 @@
 import { useState, useEffect } from 'react'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { X } from 'lucide-react'
 import PhaseEditor from '@/components/quotes/PhaseEditor'
 import { calcMaterialCost, calcTreatmentCost } from '@/lib/quoteCalc'
-import { fmtUnitPrice } from '@/lib/utils'
 import { parseDecimal } from '@/lib/decimalInput'
 import api from '@/lib/api'
 import { buildCatalogOptions } from '@/lib/catalogSelect'
 import type { Part, Material, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import { toast } from 'sonner'
+import { PartCardView, type PartCardValue, type PartField, type RawType, type SelectOption } from '@/components/quotes/PartCardView'
+import { PartCostSummary } from '@/components/quotes/PartCostSummary'
+
+// Container della PartCard: mantiene TUTTA la logica materiale/grezzo/
+// trattamento e il breakdown costi (gemello DRY di calculation.py). La grafica
+// è in PartCardView + PartCostSummary (design handoff). Il PhaseEditor esistente
+// resta nello slot (verrà sostituito in D2).
 
 type StockType = 'none' | 'round' | 'square'
-
-const IconRound = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
-    <ellipse cx="12" cy="7" rx="9" ry="3.5" />
-    <path d="M3 7v10c0 1.93 4.03 3.5 9 3.5s9-1.57 9-3.5V7" />
-  </svg>
-)
-
-const IconSquare = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
-    <path d="M4 6h12v12H4z" />
-    <path d="M8 2h12v12" />
-    <path d="M16 2l4 4M16 14l4-4M4 18l4 4M20 14v-8" />
-  </svg>
-)
-
+const RAW_TO_STOCK: Record<RawType, StockType> = { '': 'none', tondo: 'round', quadro: 'square' }
+const STOCK_TO_RAW: Record<StockType, RawType> = { none: '', round: 'tondo', square: 'quadro' }
 
 interface Props {
   part: Part
@@ -37,10 +26,7 @@ interface Props {
   treatments?: Treatment[]
   nParts?: number
   globalMarginPercent: number
-  /** Altre parti del quote (per aggregazioni preview live: vedi PhaseEditor). */
   siblings?: Part[]
-  /** CompanySettings — usato per override shipping/cutting quando
-   *  `part.material_from_stock=true`. */
   companySettings?: CompanySettings | null
   readOnly?: boolean
   onUpdate: (updates: Partial<Part>) => void
@@ -49,86 +35,91 @@ interface Props {
   onReload?: () => void
 }
 
-export default function PartCard({ part, machines, materials, suppliers = [], treatments = [], nParts = 1, globalMarginPercent, siblings = [], companySettings, readOnly = false, onUpdate, onSave, onPhasesChange, onReload }: Props) {
+export default function PartCard({
+  part, machines, materials, suppliers = [], treatments = [], nParts = 1,
+  globalMarginPercent, siblings = [], companySettings, readOnly = false,
+  onUpdate, onSave, onPhasesChange, onReload,
+}: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
   const inferStockType = (p: Part): StockType =>
     p.raw_diameter_mm ? 'round' : (p.raw_x_mm || p.raw_y_mm) ? 'square' : 'none'
-
   const [stockType, setStockType] = useState<StockType>(() => inferStockType(part))
-
   useEffect(() => { setStockType(inferStockType(part)) }, [part.id])
 
-  const handleMaterialChange = (matId: number | undefined) => {
+  // ─── material / stock / dims ───────────────────────────────────────────────
+  const applyMaterial = (matId: number | undefined) => {
     const material = materials.find(m => m.id === matId)
     const matCost = calcMaterialCost({ ...part, material_id: matId }, material)
-    // NON settare material_delivery_cost qui: il backend lo ricalcola
-    // proporzionale al peso grezzo dopo il save (vedi calculation.py
-    // recalculate_quote). Settarlo come "shipping intero" mostrava un
-    // valore sbagliato in preview che poi "scompariva" dopo il save.
     onUpdate({ material_id: matId, material_cost: matCost })
+    onSave({ material_id: matId, material_cost: matCost })
   }
-
-  const handleStockTypeChange = (type: StockType) => {
+  const applyStockType = (type: StockType) => {
     setStockType(type)
-    // pulisce i campi dimensione non pertinenti
     const material = materials.find(m => m.id === part.material_id)
     const cleared = type === 'round'
       ? { raw_x_mm: undefined, raw_y_mm: undefined }
       : type === 'square'
         ? { raw_diameter_mm: undefined }
         : { raw_x_mm: undefined, raw_y_mm: undefined, raw_z_mm: undefined, raw_diameter_mm: undefined }
-    const updated = { ...part, ...cleared }
-    const matCost = calcMaterialCost(updated, material)
+    const matCost = calcMaterialCost({ ...part, ...cleared }, material)
     onUpdate({ ...cleared, material_cost: matCost } as Partial<Part>)
+    onSave({ ...cleared, material_cost: matCost } as Partial<Part>)
   }
-
-  const handleDimChange = (field: keyof Part, value: number) => {
-    const updated = { ...part, [field]: value }
+  const changeDim = (field: keyof Part, value: number) => {
     const material = materials.find(m => m.id === part.material_id)
-    const matCost = calcMaterialCost(updated, material)
+    const matCost = calcMaterialCost({ ...part, [field]: value }, material)
     onUpdate({ [field]: value, material_cost: matCost } as Partial<Part>)
   }
+  const applyProvenance = (v: string) => {
+    const updates = { customer_supplied_material: v === 'cl', material_from_stock: v === 'stock' }
+    onUpdate(updates); onSave(updates)
+  }
 
+  const treatmentPhase = part.phases.find(p => p.treatment_id != null)
+  const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
+  const needsFinishedWeight = !!treatmentPhase && !part.finished_weight_kg
+
+  const handleTreatmentSelect = async (treatmentId: number | undefined) => {
+    if (!part.id) return
+    const t = treatments.find(t => t.id === treatmentId)
+    try {
+      if (!treatmentId || !t) {
+        if (treatmentPhase?.id) { await api.delete(`/phases/${treatmentPhase.id}`); await onReload?.(); toast.success('Trattamento rimosso') }
+        return
+      }
+      const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1, [], {
+        raw_x_mm: part.raw_x_mm, raw_y_mm: part.raw_y_mm, raw_z_mm: part.raw_z_mm, raw_diameter_mm: part.raw_diameter_mm,
+      })
+      const payload = {
+        phase_type: '', description: t.name, treatment_id: treatmentId, supplier_id: t.supplier_id ?? undefined,
+        variable_cost_per_part: varCost, sequence_number: 99, setup_hours: 0, cycle_hours_per_part: 0,
+        fixed_cost: t.supplier?.shipping_cost ?? 0,
+      }
+      if (treatmentPhase?.id) await api.put(`/phases/${treatmentPhase.id}`, payload)
+      else await api.post(`/parts/${part.id}/phases`, payload)
+      await onReload?.(); toast.success('Trattamento salvato')
+    } catch { toast.error('Errore nel salvataggio del trattamento') }
+  }
+
+  // ─── breakdown costi (gemello DRY calculation.py) ──────────────────────────
   const workPhaseCost = part.phases.filter(p => !p.treatment_id).reduce((s, p) => s + p.calculated_cost, 0)
   const treatmentPhaseCost = part.phases.filter(p => p.treatment_id != null).reduce((s, p) => s + p.calculated_cost, 0)
-  const phaseCost = workPhaseCost + treatmentPhaseCost
-
-  // Breakdown lavorazioni: somma di cui setup vs ciclo (Sprint 12 cost engine split).
-  // Replica la stessa formula di PhaseEditor.calcPhase per coerenza DRY.
-  const qtyDiv = (part.quantity || 1)
+  const qtyDiv = part.quantity || 1
   const workSetupTotal = part.phases.filter(p => !p.treatment_id).reduce((s, p) => {
     const machine = machines.find(m => m.id === p.machine_id)
     const workRate = p.hourly_rate_override ?? machine?.hourly_rate ?? 0
     const setupRate = (machine?.setup_hourly_rate != null) ? machine.setup_hourly_rate : workRate
-    const divisor = qtyDiv  // is_shared rimosso
-    return s + (p.setup_hours || 0) * setupRate / divisor
+    return s + (p.setup_hours || 0) * setupRate / qtyDiv
   }, 0)
-  const workCycleTotal = workPhaseCost - workSetupTotal  // tutto il resto delle lavorazioni
+  const workCycleTotal = workPhaseCost - workSetupTotal
 
-  const treatmentPhase = part.phases.find(p => p.treatment_id != null)
-  const selectedTreatment = treatments.find(t => t.id === treatmentPhase?.treatment_id)
-  // Validazione visiva: se c'è un trattamento selezionato il peso pezzo
-  // finito è obbligatorio (regola di business — il backend calcola costo
-  // batch e quota spedizione trattamento sul peso finito; senza, vanno a 0).
-  const needsFinishedWeight = !!treatmentPhase && !part.finished_weight_kg
-
-  // Branch shipping/cutting — gemello DRY di backend calculation.py
-  // recalculate_quote (3 stati mutex: normale / conto lavoro / a magazzino).
-  let deliveryPerPiece: number
-  let cuttingPerPiece: number
-  let materialTotal: number
+  let deliveryPerPiece: number, cuttingPerPiece: number, materialTotal: number
   if (part.customer_supplied_material) {
     deliveryPerPiece = 0; cuttingPerPiece = 0; materialTotal = 0
   } else if (part.material_from_stock && companySettings) {
-    // C3: stock_shipping spalmato su tutte le parti from_stock del preventivo.
-    // siblings non include self → conto self + siblings (stessa condizione del
-    // backend: material_from_stock && !customer_supplied_material).
-    const fromStockCount = 1 + siblings.filter(
-      s => s.material_from_stock && !s.customer_supplied_material
-    ).length
-    deliveryPerPiece = (companySettings.stock_shipping_cost || 0)
-      / Math.max(fromStockCount, 1) / (part.quantity || 1)
+    const fromStockCount = 1 + siblings.filter(s => s.material_from_stock && !s.customer_supplied_material).length
+    deliveryPerPiece = (companySettings.stock_shipping_cost || 0) / Math.max(fromStockCount, 1) / (part.quantity || 1)
     cuttingPerPiece = companySettings.stock_cutting_cost_per_part || 0
     materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
   } else {
@@ -138,436 +129,143 @@ export default function PartCard({ part, machines, materials, suppliers = [], tr
   }
   const treatmentShippingPerPiece = (treatmentPhase?.fixed_cost ?? 0) / (part.quantity || 1)
 
-  const handleTreatmentSelect = async (treatmentId: number | undefined) => {
-    if (!part.id) return
-    const t = treatments.find(t => t.id === treatmentId)
-    try {
-      if (!treatmentId || !t) {
-        if (treatmentPhase?.id) {
-          await api.delete(`/phases/${treatmentPhase.id}`)
-          // await su onReload: garantisce che il setQuote dal GET /quotes/{id}
-          // sia completato PRIMA di tornare al chiamante. Senza, il refresh
-          // delle quote di shipping aggregata sulle siblings arrivava in
-          // ritardo e l'utente doveva cliccare "da qualche parte" per vederlo.
-          await onReload?.()
-          toast.success('Trattamento rimosso')
-        }
-        return
-      }
-      const varCost = calcTreatmentCost(t, part.finished_weight_kg, part.quantity || 1, [], {
-        raw_x_mm: part.raw_x_mm, raw_y_mm: part.raw_y_mm,
-        raw_z_mm: part.raw_z_mm, raw_diameter_mm: part.raw_diameter_mm,
-      })
-      const payload = {
-        phase_type: '',  // legacy column NOT NULL — la fase trattamento è identificata da treatment_id
-        description: t.name,
-        treatment_id: treatmentId,
-        supplier_id: t.supplier_id ?? undefined,
-        variable_cost_per_part: varCost,
-        sequence_number: 99,
-        setup_hours: 0,
-        cycle_hours_per_part: 0,
-        fixed_cost: t.supplier?.shipping_cost ?? 0,
-      }
-      if (treatmentPhase?.id) {
-        await api.put(`/phases/${treatmentPhase.id}`, payload)
-      } else {
-        await api.post(`/parts/${part.id}/phases`, payload)
-      }
-      // Vedi commento su await sopra: backend ricalcola TUTTE le parti
-      // (recalculate_quote aggrega shipping per supplier_id), il GET successivo
-      // restituisce le siblings con phase.fixed_cost aggiornato. await
-      // garantisce che il setQuote arrivi prima di rilasciare il controllo.
-      await onReload?.()
-      toast.success('Trattamento salvato')
-    } catch (e) {toast.error('Errore nel salvataggio del trattamento') }
+  // ─── raw weight label ──────────────────────────────────────────────────────
+  let rawWeightLabel: string | undefined
+  if (selectedMaterial) {
+    if (stockType === 'round' && part.raw_diameter_mm && part.raw_z_mm) {
+      const r = part.raw_diameter_mm / 2
+      const kg = (Math.PI * r * r * part.raw_z_mm) / 1_000_000 * selectedMaterial.density_kg_dm3
+      rawWeightLabel = `${kg.toFixed(3).replace('.', ',')} kg`
+    } else if (stockType === 'square' && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm) {
+      const kg = (part.raw_x_mm * part.raw_y_mm * part.raw_z_mm) / 1_000_000 * selectedMaterial.density_kg_dm3
+      rawWeightLabel = `${kg.toFixed(3).replace('.', ',')} kg`
+    }
   }
 
+  // ─── options ───────────────────────────────────────────────────────────────
+  const materialOpts: SelectOption[] = [
+    { value: '', label: 'Seleziona materiale…' },
+    ...buildCatalogOptions(materials, part.material_id, part.material, m => `${m.name} (${m.family})`).map(o => ({ value: String(o.value), label: o.label })),
+  ]
+  const provenanceOpts: SelectOption[] = [
+    { value: 'normal', label: 'Fornitore abituale' },
+    { value: 'cl', label: 'Conto lavoro (cliente)' },
+    { value: 'stock', label: 'A magazzino' },
+  ]
+  const treatmentOpts: SelectOption[] = [
+    { value: '', label: 'Nessun trattamento' },
+    ...buildCatalogOptions([...treatments].sort((a, b) => a.name.localeCompare(b.name, 'it')), treatmentPhase?.treatment_id, treatmentPhase?.treatment, t => t.name).map(o => ({ value: String(o.value), label: o.label })),
+  ]
+
+  // ─── value + handlers ──────────────────────────────────────────────────────
+  const value: PartCardValue = {
+    description: part.description ?? '',
+    revision: part.revision ?? '',
+    quantity: String(part.quantity ?? ''),
+    materialId: part.material_id ? String(part.material_id) : '',
+    rawType: STOCK_TO_RAW[stockType],
+    provenance: part.customer_supplied_material ? 'cl' : part.material_from_stock ? 'stock' : 'normal',
+    diameter: part.raw_diameter_mm != null ? String(part.raw_diameter_mm) : '',
+    length: part.raw_z_mm != null ? String(part.raw_z_mm) : '',
+    rawX: part.raw_x_mm != null ? String(part.raw_x_mm) : '',
+    rawY: part.raw_y_mm != null ? String(part.raw_y_mm) : '',
+    rawZ: part.raw_z_mm != null ? String(part.raw_z_mm) : '',
+    materialCost: String(part.material_cost ?? ''),
+    materialShipping: part.material_delivery_cost != null ? String(part.material_delivery_cost) : '',
+    finishedWeight: part.finished_weight_kg != null ? String(part.finished_weight_kg) : '',
+    treatmentId: treatmentPhase?.treatment_id ? String(treatmentPhase.treatment_id) : '',
+  }
+
+  const onFieldChange = (field: PartField, val: string) => {
+    switch (field) {
+      case 'description': onUpdate({ description: val }); break
+      case 'revision': onUpdate({ revision: val }); break
+      case 'quantity': onUpdate({ quantity: parseInt(val, 10) || 1 }); break
+      case 'materialId': applyMaterial(val ? Number(val) : undefined); break
+      case 'rawType': applyStockType(RAW_TO_STOCK[val as RawType]); break
+      case 'provenance': applyProvenance(val); break
+      case 'diameter': changeDim('raw_diameter_mm', parseDecimal(val) || 0); break
+      case 'length': changeDim('raw_z_mm', parseDecimal(val) || 0); break
+      case 'rawX': changeDim('raw_x_mm', parseDecimal(val) || 0); break
+      case 'rawY': changeDim('raw_y_mm', parseDecimal(val) || 0); break
+      case 'rawZ': changeDim('raw_z_mm', parseDecimal(val) || 0); break
+      case 'materialCost': onUpdate({ material_cost: parseDecimal(val) || 0 }); break
+      case 'materialShipping': onUpdate({ material_delivery_cost: val === '' ? undefined : parseDecimal(val) || 0 }); break
+      case 'finishedWeight': onUpdate({ finished_weight_kg: val === '' ? undefined : parseDecimal(val) || 0 }); break
+      case 'treatmentId': handleTreatmentSelect(val ? Number(val) : undefined); break
+    }
+  }
+  // Salvataggio on-blur solo per i campi testo/numero; i select salvano in onChange.
+  const onFieldBlur = (field: PartField) => {
+    if (['materialId', 'rawType', 'provenance', 'treatmentId'].includes(field)) return
+    onSave()
+  }
+
+  const contextLabel = nParts > 1 ? `di ${nParts} parti` : undefined
+
   return (
-    <fieldset disabled={readOnly} className="space-y-3 border-0 p-0 m-0 disabled:opacity-90">
-      {/* Header compatto: dati parte + materiale in due righe */}
-      <Card>
-        <CardContent className="pt-4 pb-3 space-y-3">
-          {/* Riga 1: identificativi */}
-          <div className="flex items-end gap-3">
-            <div className="w-44 shrink-0">
-              <label className="text-xs font-medium text-muted-foreground">Codice Parte</label>
-              <Input className="mt-1 h-8 font-mono text-sm" value={part.part_code ?? ''}
-                onChange={e => onUpdate({ part_code: e.target.value })}
-                onBlur={() => onSave()} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs font-medium text-muted-foreground">Descrizione</label>
-              <Input className="mt-1 h-8 text-sm" value={part.description ?? ''}
-                onChange={e => onUpdate({ description: e.target.value })}
-                onBlur={() => onSave()} placeholder="Descrizione del pezzo" />
-            </div>
-            <div className="w-16 shrink-0">
-              <label className="text-xs font-medium text-muted-foreground">Rev.</label>
-              <Input className="mt-1 h-8 text-sm" value={part.revision ?? ''}
-                onChange={e => onUpdate({ revision: e.target.value })}
-                onBlur={() => onSave()} />
-            </div>
-            <div className="w-20 shrink-0">
-              <label className="text-xs font-medium text-muted-foreground">Qtà</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" min={1} className="mt-1 h-8 text-sm"
-                value={part.quantity}
-                onChange={e => onUpdate({ quantity: parseInt(e.target.value) || 1 })}
-                onBlur={() => onSave()} />
-            </div>
-          </div>
-
-          {/* Riga A: Materiale + Toggle grezzo */}
-          <div className="flex items-end gap-3">
-            <div className="flex-1 min-w-0">
-              <label className="text-xs font-medium text-muted-foreground">Materiale</label>
-              <select
-                className="mt-1 flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                value={part.material_id || ''}
-                onChange={e => handleMaterialChange(Number(e.target.value) || undefined)}
-                onBlur={() => onSave()}
-              >
-                <option value="">Seleziona materiale...</option>
-                {buildCatalogOptions(
-                  materials,
-                  part.material_id,
-                  part.material,
-                  m => `${m.name} (${m.family})`,
-                ).map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="shrink-0">
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Grezzo</label>
-              <div className="flex gap-1">
-                {([
-                  { type: 'none' as StockType, label: '—' },
-                  { type: 'round' as StockType, icon: <IconRound /> },
-                  { type: 'square' as StockType, icon: <IconSquare /> },
-                ]).map(opt => (
-                  <button
-                    key={opt.type}
-                    type="button"
-                    onClick={() => { handleStockTypeChange(opt.type); onSave() }}
-                    className={`h-8 px-2.5 rounded-md border text-sm flex items-center gap-1 transition-colors ${
-                      stockType === opt.type
-                        ? 'border-blue-600 bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:border-gray-300'
-                    }`}
-                  >
-                    {opt.icon ?? opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="shrink-0 pb-1">
-              <label className="text-xs font-medium text-muted-foreground flex flex-col gap-0.5">
-                <span title="Provenienza materiale. 'A magazzino' usa gli override shipping/cutting impostati in Dati Azienda.">
-                  Provenienza
-                </span>
-                <select
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                  value={
-                    part.customer_supplied_material ? 'cl'
-                    : part.material_from_stock ? 'stock'
-                    : 'normal'
-                  }
-                  onChange={e => {
-                    const v = e.target.value
-                    const updates = {
-                      customer_supplied_material: v === 'cl',
-                      material_from_stock: v === 'stock',
-                    }
-                    onUpdate(updates)
-                    onSave(updates)
-                  }}
-                  disabled={readOnly}
-                >
-                  <option value="normal">Fornitore abituale</option>
-                  <option value="cl">Conto lavoro (cliente)</option>
-                  <option value="stock">A magazzino</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          {/* Riga B: Dimensioni grezzo (condizionale) */}
-          {stockType === 'round' && (
-            <div className="flex items-end gap-3">
-              <div className="shrink-0">
-                <label className="text-xs font-medium text-muted-foreground">Ø (mm)</label>
-                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
-                  value={part.raw_diameter_mm ?? ''}
-                  onChange={e => handleDimChange('raw_diameter_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={() => onSave()} />
-              </div>
-              <div className="shrink-0">
-                <label className="text-xs font-medium text-muted-foreground">Lungh. (mm)</label>
-                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-24 text-sm"
-                  value={part.raw_z_mm ?? ''}
-                  onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={() => onSave()} />
-              </div>
-              {selectedMaterial && part.raw_diameter_mm && part.raw_z_mm && (
-                <p className="text-xs text-muted-foreground pb-2 whitespace-nowrap">
-                  {(() => {
-                    const r = part.raw_diameter_mm! / 2
-                    const kg = (Math.PI * r * r * part.raw_z_mm!) / 1_000_000 * selectedMaterial.density_kg_dm3
-                    return `~${kg.toFixed(3)} kg grezzo`
-                  })()}
-                </p>
-              )}
-            </div>
-          )}
-
-          {stockType === 'square' && (
-            <div className="flex items-end gap-3">
-              <div className="shrink-0">
-                <label className="text-xs font-medium text-muted-foreground">X (mm)</label>
-                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
-                  value={part.raw_x_mm ?? ''}
-                  onChange={e => handleDimChange('raw_x_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={() => onSave()} />
-              </div>
-              <div className="shrink-0">
-                <label className="text-xs font-medium text-muted-foreground">Y (mm)</label>
-                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
-                  value={part.raw_y_mm ?? ''}
-                  onChange={e => handleDimChange('raw_y_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={() => onSave()} />
-              </div>
-              <div className="shrink-0">
-                <label className="text-xs font-medium text-muted-foreground">Z (mm)</label>
-                <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.1} className="mt-1 h-8 w-20 text-sm"
-                  value={part.raw_z_mm ?? ''}
-                  onChange={e => handleDimChange('raw_z_mm', parseDecimal(e.target.value) || 0)}
-                  onBlur={() => onSave()} />
-              </div>
-              {selectedMaterial && part.raw_x_mm && part.raw_y_mm && part.raw_z_mm && (
-                <p className="text-xs text-muted-foreground pb-2 whitespace-nowrap">
-                  {((part.raw_x_mm * part.raw_y_mm * part.raw_z_mm) / 1_000_000 * selectedMaterial.density_kg_dm3).toFixed(3)} kg grezzo
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Avviso UX: materiale selezionato ma dimensioni grezzo a zero
-              → cost engine calcola material_cost = 0 silenziosamente.
-              Bloccare un PUT sarebbe troppo aggressivo (l'utente potrebbe
-              compilare in 2 step), preferiamo segnalare visivamente. */}
-          {selectedMaterial && !part.raw_diameter_mm && !part.raw_x_mm && !part.raw_y_mm && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              ⚠ Materiale selezionato ma dimensioni grezzo non impostate → costo materiale = 0 €
-            </p>
-          )}
-
-          {/* Riga C: Costi — grid fisso, nessun wrap */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Costo mat. (€)</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.01} className="mt-1 h-8 text-sm"
-                value={part.material_cost}
-                onChange={e => onUpdate({ material_cost: parseDecimal(e.target.value) || 0 })}
-                onBlur={() => onSave()} />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Spediz. mat. (€)</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.5} className="mt-1 h-8 text-sm"
-                value={part.material_delivery_cost ?? ''}
-                placeholder="—"
-                onChange={e => onUpdate({ material_delivery_cost: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
-                onBlur={() => onSave()} />
-            </div>
-            <div>
-              <label className={`text-xs font-medium ${needsFinishedWeight ? 'text-red-600' : 'text-muted-foreground'}`}>
-                Peso finito (kg){needsFinishedWeight && <span className="ml-1">*</span>}
-              </label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={0.001}
-                className={`mt-1 h-8 text-sm ${needsFinishedWeight ? 'border-red-400 bg-red-50 focus-visible:ring-red-400' : ''}`}
-                value={part.finished_weight_kg ?? ''}
-                placeholder={needsFinishedWeight ? 'obbligatorio' : '—'}
-                onChange={e => onUpdate({ finished_weight_kg: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0 })}
-                onBlur={() => onSave()} />
-              {needsFinishedWeight && (
-                <p className="mt-1 text-[11px] text-red-600">
-                  ⚠ Compila il peso: serve per costo e spedizione del trattamento.
-                </p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Trattamento termico */}
-      {treatments.length > 0 && (
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Trattamento termico</p>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <select
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  value={treatmentPhase?.treatment_id || ''}
-                  onChange={e => handleTreatmentSelect(Number(e.target.value) || undefined)}
-                >
-                  <option value="">Nessun trattamento</option>
-                  {buildCatalogOptions(
-                    [...treatments].sort((a, b) => a.name.localeCompare(b.name, 'it')),
-                    treatmentPhase?.treatment_id,
-                    treatmentPhase?.treatment,
-                    t => t.name,
-                  ).map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              {selectedTreatment && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleTreatmentSelect(undefined)}
-                    className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-            </div>
-            {selectedTreatment && !part.material_id && (
-              <p className="text-[11px] text-red-600 mt-1.5">
-                ⚠ Seleziona prima il materiale: il batch del fornitore è separato per materiale.
-              </p>
-            )}
-            {selectedTreatment && part.material_id && !part.finished_weight_kg && (
-              <p className="text-[11px] text-amber-600 mt-1.5">⚠ Imposta il peso finito per calcolare il costo trattamento.</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Fasi + riepilogo costi affiancati */}
-      <div className="flex gap-3 items-start">
-        <div className="flex-1 min-w-0">
-          <PhaseEditor
-            partId={part.id}
-            partMaterialId={part.material_id}
-            phases={part.phases}
-            quantity={part.quantity}
-            nParts={nParts}
-            machines={machines}
-            suppliers={suppliers}
-            treatments={treatments}
-            finishedWeightKg={part.finished_weight_kg}
-            siblings={siblings}
-            partRawZmm={part.raw_z_mm}
-            partRawXmm={part.raw_x_mm ?? undefined}
-            partRawYmm={part.raw_y_mm ?? undefined}
-            partRawDiameterMm={part.raw_diameter_mm ?? undefined}
-            partDxfFileId={part.files?.find(f => f.file_type === 'dxf')?.id}
-            partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
-            onReload={onReload}
-            readOnly={readOnly}
-            onChange={onPhasesChange}
-          />
-        </div>
-
-        {/* Riepilogo costi (sticky) */}
-        <div className="w-52 shrink-0 sticky top-4">
-          <Card className="border-blue-200 bg-primary/10">
-            <CardContent className="pt-4 pb-4">
-              <div className="space-y-1 text-sm">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Costo per pezzo</p>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Materiale</span>
-                  <span>{materialTotal.toFixed(2)} €</span>
-                </div>
-                {deliveryPerPiece > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
-                    <span>di cui spedizione</span>
-                    <span>{deliveryPerPiece.toFixed(2)} €</span>
-                  </div>
-                )}
-                {cuttingPerPiece > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
-                    <span>di cui taglio</span>
-                    <span>{cuttingPerPiece.toFixed(2)} €</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Lavorazioni</span>
-                  <span>{workPhaseCost.toFixed(2)} €</span>
-                </div>
-                {workSetupTotal > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
-                    <span>di cui attrezzaggi</span>
-                    <span>{workSetupTotal.toFixed(2)} €</span>
-                  </div>
-                )}
-                {workCycleTotal > 0 && (
-                  <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
-                    <span>di cui lavorazione</span>
-                    <span>{workCycleTotal.toFixed(2)} €</span>
-                  </div>
-                )}
-                {treatmentPhaseCost > 0 && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Trattamenti</span>
-                      <span>{treatmentPhaseCost.toFixed(2)} €</span>
-                    </div>
-                    {treatmentShippingPerPiece > 0 && (
-                      <div className="flex justify-between pl-3 text-[11px] text-muted-foreground">
-                        <span>di cui spedizione</span>
-                        <span>{treatmentShippingPerPiece.toFixed(2)} €</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="flex justify-between font-medium border-t border-blue-200 pt-1.5 mt-1.5">
-                  <span>Costo/pz</span>
-                  <span>{part.total_cost.toFixed(2)} €</span>
-                </div>
-
-                <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-2">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Margine (%)</label>
-                    <Input onFocus={e => e.currentTarget.select()} type="number" min={0} max={500} step={1} className="h-7 w-full text-xs mt-0.5"
-                      value={part.margin_percent ?? globalMarginPercent}
-                      onChange={e => onUpdate({ margin_percent: parseDecimal(e.target.value) || 0 })}
-                      onBlur={() => onSave()} />
-                    <p className="text-[10px] text-muted-foreground mt-0.5">default: {globalMarginPercent}%</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Prezzo minimo (€)</label>
-                    <Input onFocus={e => e.currentTarget.select()} type="number" min={0} step={1} className="h-7 w-full text-xs mt-0.5"
-                      value={part.minimum_price ?? ''}
-                      placeholder="—"
-                      onChange={e => onUpdate({
-                        minimum_price: e.target.value === '' ? undefined : parseDecimal(e.target.value) || 0,
-                      })}
-                      onBlur={() => onSave()} />
-                    {part.minimum_price && part.total_cost < part.minimum_price && (
-                      <p className="text-[10px] text-amber-600 mt-0.5">⚠ minimo attivo</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-blue-200 pt-2.5 mt-2.5 space-y-1">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Prezzo/pz</span>
-                    <span>{fmtUnitPrice(part.unit_price)} €</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-primary text-base pt-0.5">
-                    <span>× {part.quantity}</span>
-                    <span>{part.total_price.toFixed(2)} €</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </fieldset>
+    <PartCardView
+      partCode={part.part_code}
+      title={part.description || 'Parte'}
+      contextLabel={contextLabel}
+      value={value}
+      rawWeightLabel={rawWeightLabel}
+      weightRequired={needsFinishedWeight}
+      locked={readOnly}
+      materials={materialOpts}
+      provenances={provenanceOpts}
+      treatments={treatmentOpts}
+      onChange={onFieldChange}
+      onBlur={onFieldBlur}
+      onClearTreatment={() => handleTreatmentSelect(undefined)}
+      phaseEditor={
+        <PhaseEditor
+          partId={part.id}
+          partMaterialId={part.material_id}
+          phases={part.phases}
+          quantity={part.quantity}
+          nParts={nParts}
+          machines={machines}
+          suppliers={suppliers}
+          treatments={treatments}
+          finishedWeightKg={part.finished_weight_kg}
+          siblings={siblings}
+          partRawZmm={part.raw_z_mm}
+          partRawXmm={part.raw_x_mm ?? undefined}
+          partRawYmm={part.raw_y_mm ?? undefined}
+          partRawDiameterMm={part.raw_diameter_mm ?? undefined}
+          partDxfFileId={part.files?.find(f => f.file_type === 'dxf')?.id}
+          partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
+          onReload={onReload}
+          readOnly={readOnly}
+          onChange={onPhasesChange}
+        />
+      }
+      costSummary={
+        <PartCostSummary
+          materialTotal={materialTotal}
+          materialShipping={deliveryPerPiece}
+          materialCutting={cuttingPerPiece > 0 ? cuttingPerPiece : undefined}
+          laborTotal={workPhaseCost}
+          laborSetup={workSetupTotal}
+          laborWork={workCycleTotal}
+          treatmentTotal={treatmentPhaseCost}
+          treatmentShipping={treatmentShippingPerPiece}
+          costPerPart={part.total_cost ?? 0}
+          unitPrice={part.unit_price ?? 0}
+          quantity={part.quantity}
+          totalPrice={part.total_price ?? 0}
+          minimumActive={!!part.minimum_price && (part.total_cost ?? 0) < part.minimum_price}
+          marginPercent={String(part.margin_percent ?? globalMarginPercent)}
+          minimumPrice={part.minimum_price != null ? String(part.minimum_price) : ''}
+          locked={readOnly}
+          onChange={(f, v) => {
+            if (f === 'marginPercent') onUpdate({ margin_percent: parseDecimal(v) || 0 })
+            else onUpdate({ minimum_price: v === '' ? undefined : parseDecimal(v) || 0 })
+          }}
+          onBlur={() => onSave()}
+        />
+      }
+    />
   )
 }

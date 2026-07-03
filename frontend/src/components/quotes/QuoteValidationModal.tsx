@@ -1,49 +1,88 @@
+// src/components/quotes/QuoteValidationModal.tsx
+import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useEscapeKey } from '@/lib/useEscapeKey'
-import type { PartIssue } from '@/lib/quoteValidation'
 
-interface Props {
-  issues: PartIssue[]
-  onSelectPart: (partIdx: number) => void
-  onClose: () => void
-  onProceed: () => void
+export interface ValidationPart {
+  id: number
+  /** Etichetta già composta (es. "P-002 · Punzone Ø42 temprato"). */
+  label: string
+  issues: string[]
 }
 
-/** Modal di validazione preventivo: lista parti con problemi, click sul codice
- *  parte per navigare alla sezione, oppure "Genera comunque" per ignorare. */
-export default function QuoteValidationModal({ issues, onSelectPart, onClose, onProceed }: Props) {
-  useEscapeKey(onClose)
+interface Props {
+  open: boolean
+  parts: ValidationPart[]
+  onOpenPart?: (id: number) => void
+  onCancel: () => void
+  onGenerate: () => void
+}
+
+export function QuoteValidationModal(props: Props) {
+  const { open, parts, onOpenPart, onCancel, onGenerate } = props
+  if (!open) return null
+
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
-        <div className="px-5 py-4 border-b flex items-center gap-2">
-          <span className="text-amber-500 text-lg">⚠</span>
-          <h2 className="font-semibold text-foreground">Preventivo incompleto</h2>
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[480px] overflow-hidden rounded-[15px] border border-border bg-card shadow-[0_24px_60px_rgba(0,0,0,0.28)]"
+      >
+        {/* header */}
+        <div className="flex items-center gap-[11px] border-b border-border px-[22px] py-[18px]">
+          <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[9px] bg-warning/[0.14] text-warning">
+            <AlertTriangle className="h-[19px] w-[19px]" />
+          </div>
+          <div>
+            <div className="text-[15.5px] font-bold text-foreground">Problemi rilevati</div>
+            <div className="text-[12.5px] text-muted-foreground">
+              {parts.length} {parts.length === 1 ? 'parte presenta avvisi' : 'parti presentano avvisi'}{' '}
+              bloccanti
+            </div>
+          </div>
         </div>
-        <div className="px-5 py-4 space-y-3 max-h-80 overflow-y-auto">
-          {issues.map(({ partIdx, partCode, issues: partIssues }) => (
-            <div key={partIdx}>
+
+        {/* body */}
+        <div className="max-h-[280px] overflow-y-auto px-[22px] py-4">
+          {parts.map((p, i) => (
+            <div key={p.id} className={i < parts.length - 1 ? 'mb-4' : undefined}>
               <button
-                onClick={() => onSelectPart(partIdx)}
-                className="font-mono font-semibold text-blue-600 hover:underline text-sm"
+                type="button"
+                onClick={() => onOpenPart?.(p.id)}
+                className="mb-2 block text-left font-mono text-[13.5px] font-semibold text-primary hover:underline"
               >
-                {partCode}
+                {p.label}
               </button>
-              <ul className="mt-1 space-y-0.5">
-                {partIssues.map(issue => (
-                  <li key={issue} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                    <span className="text-muted-foreground mt-0.5">•</span>
-                    {issue}
-                  </li>
-                ))}
-              </ul>
+              {p.issues.map((issue, j) => (
+                <div
+                  key={j}
+                  className="flex items-center gap-2.5 py-[5px] text-[12.5px] text-muted-foreground"
+                >
+                  <span className="h-[5px] w-[5px] flex-none rounded-full bg-danger" />
+                  {issue}
+                </div>
+              ))}
             </div>
           ))}
-          <p className="text-xs text-muted-foreground pt-1">Clicca sul codice parte per navigare direttamente alla sezione.</p>
         </div>
-        <div className="px-5 py-4 border-t flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>Annulla</Button>
-          <Button size="sm" onClick={onProceed}>Genera comunque →</Button>
+
+        {/* footer */}
+        <div className="flex justify-end gap-2.5 border-t border-border bg-card-muted/50 px-[22px] py-4">
+          <Button variant="outline" onClick={onCancel} className="h-10 rounded-[10px]">
+            Annulla
+          </Button>
+          <button
+            type="button"
+            onClick={onGenerate}
+            className="inline-flex h-10 items-center gap-[7px] rounded-[10px] bg-warning px-[18px] text-[13.5px] font-semibold text-white transition-[filter] hover:brightness-105"
+          >
+            Genera comunque
+            <ArrowRight className="h-[15px] w-[15px]" />
+          </button>
         </div>
       </div>
     </div>

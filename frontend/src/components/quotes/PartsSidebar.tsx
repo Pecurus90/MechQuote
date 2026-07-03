@@ -1,81 +1,147 @@
-import { Trash2, Copy, Plus } from 'lucide-react'
-import type { Quote } from '@/types'
+// src/components/quotes/PartsSidebar.tsx
+import { Settings2, Plus, AlertTriangle, Copy, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-interface Props {
-  quote: Quote
-  selectedPartIdx: number  // -1 = pannello "Dati preventivo"
-  isLocked: boolean
-  partsWithIssues: Set<number>
-  onSelect: (idx: number) => void
-  onAdd: () => void
-  onDuplicate: (idx: number) => void
-  onRequestDelete: (idx: number) => void
+export interface PartSidebarItem {
+  id: number
+  part_code: string
+  description: string
+  total_price: number
+  hasIssues?: boolean
 }
 
-/** Sidebar parti a sinistra dell'editor preventivo: lista cliccabile + add
- *  + duplica/elimina (commessa, non-locked). Mostra ⚠ se la parte ha
- *  validation issues; evidenzia la riga selezionata.
- *
- *  Estratto da QuoteEditor per coesione: questo è un componente puramente
- *  presentazionale, tutte le mutazioni avvengono via callback.
- */
-export default function PartsSidebar({
-  quote, selectedPartIdx, isLocked, partsWithIssues,
-  onSelect, onAdd, onDuplicate, onRequestDelete,
-}: Props) {
+interface Props {
+  parts: PartSidebarItem[]
+  selected: number | 'quote'
+  canAddParts: boolean
+  locked: boolean
+  onSelect: (id: number | 'quote') => void
+  onAdd?: () => void
+  onDuplicate?: (id: number) => void
+  onDelete?: (id: number) => void
+}
+
+const eur0 = (v: number): string =>
+  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
+
+export function PartsSidebar(props: Props) {
+  const { parts, selected, canAddParts, locked, onSelect, onAdd, onDuplicate, onDelete } = props
+  const showActions = canAddParts && !locked
+
   return (
-    <div className="w-64 bg-card border-r flex flex-col shrink-0">
-      <div className="p-3 border-b flex items-center justify-between">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Parti ({quote.parts.length})
+    <div className="flex min-h-0 w-64 flex-none flex-col border-r border-border bg-sidebar">
+      <div className="flex flex-none items-center justify-between px-4 pb-2.5 pt-3.5">
+        <span className="text-[13px] font-semibold text-foreground">
+          Parti <span className="text-muted-foreground">({parts.length})</span>
         </span>
-        {quote.quote_type !== 'single' && !isLocked && (
-          <button onClick={onAdd} className="p-0.5 hover:text-blue-600 text-muted-foreground" title="Aggiungi parte">
-            <Plus className="w-4 h-4" />
+        {canAddParts && !locked && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] border border-border bg-card text-foreground transition-[filter] hover:brightness-105"
+          >
+            <Plus className="h-[15px] w-[15px]" />
           </button>
         )}
       </div>
-      <div
-        onClick={() => onSelect(-1)}
-        className={`px-3 py-2 cursor-pointer border-b text-xs text-muted-foreground hover:bg-muted ${
-          selectedPartIdx === -1 ? 'bg-primary/10 border-l-2 border-l-blue-600' : ''
-        }`}
-      >
-        ⚙ Dati preventivo
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {quote.parts.map((part, idx) => (
-          <div
-            key={part.id ?? idx}
-            onClick={() => onSelect(idx)}
-            className={`px-3 py-2.5 cursor-pointer border-b hover:bg-muted ${
-              selectedPartIdx === idx ? 'bg-primary/10 border-l-2 border-l-blue-600' : ''
-            }`}
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
+        {/* Dati preventivo */}
+        <button
+          type="button"
+          onClick={() => onSelect('quote')}
+          className={cn(
+            'mb-1.5 flex w-full items-center gap-2.5 rounded-[10px] border px-[11px] py-2.5 text-left transition-colors',
+            selected === 'quote'
+              ? 'border-primary/35 bg-primary/10'
+              : 'border-transparent hover:bg-muted/55',
+          )}
+        >
+          <Settings2
+            className={cn(
+              'h-4 w-4 flex-none',
+              selected === 'quote' ? 'text-primary' : 'text-muted-foreground',
+            )}
+          />
+          <span
+            className={cn(
+              'text-[13px]',
+              selected === 'quote' ? 'font-semibold text-primary' : 'font-medium text-foreground',
+            )}
           >
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-sm font-mono font-medium text-foreground truncate">{part.part_code}</span>
-              <div className="flex items-center gap-1 shrink-0">
-                {partsWithIssues.has(idx) && (
-                  <span className="text-amber-500 text-xs" title="Dati mancanti">⚠</span>
-                )}
-                {quote.quote_type !== 'single' && !isLocked && (
-                  <button onClick={e => { e.stopPropagation(); onDuplicate(idx) }}
-                    className="p-1 hover:text-blue-600 hover:bg-primary/10 rounded text-muted-foreground" title="Duplica">
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                {quote.quote_type !== 'single' && !isLocked && (
-                  <button onClick={e => { e.stopPropagation(); onRequestDelete(idx) }}
-                    className="p-1 hover:text-red-600 hover:bg-red-50 rounded text-muted-foreground" title="Elimina">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+            Dati preventivo
+          </span>
+        </button>
+
+        {/* Part rows */}
+        {parts.map((p) => {
+          const active = selected === p.id
+          return (
+            <div
+              key={p.id}
+              onClick={() => onSelect(p.id)}
+              className={cn(
+                'mb-1 cursor-pointer rounded-[10px] border px-[11px] py-2.5 transition-colors',
+                active
+                  ? 'border-primary/35 bg-primary/10'
+                  : 'border-transparent hover:bg-muted/55',
+              )}
+            >
+              <div className="mb-[3px] flex items-center gap-[7px]">
+                <span
+                  className={cn(
+                    'font-mono text-[12.5px] font-semibold',
+                    active ? 'text-primary' : 'text-foreground',
+                  )}
+                >
+                  {p.part_code}
+                </span>
+                {p.hasIssues && <AlertTriangle className="h-[13px] w-[13px] text-warning" />}
+                <span className="flex-1" />
+                {showActions && (
+                  <>
+                    <Copy
+                      className={cn(
+                        'h-3.5 w-3.5 transition-colors hover:text-foreground',
+                        active ? 'text-primary' : 'text-muted-foreground',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDuplicate?.(p.id)
+                      }}
+                    />
+                    <Trash2
+                      className={cn(
+                        'h-3.5 w-3.5 transition-colors hover:text-danger',
+                        active ? 'text-primary' : 'text-muted-foreground',
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete?.(p.id)
+                      }}
+                    />
+                  </>
                 )}
               </div>
+              <div
+                className={cn(
+                  'mb-[5px] truncate text-xs',
+                  active ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {p.description}
+              </div>
+              <div
+                className={cn(
+                  'text-right font-mono text-[12.5px] font-semibold',
+                  active ? 'text-primary' : 'text-foreground',
+                )}
+              >
+                {eur0(p.total_price)}
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground truncate">{part.description || 'Nessuna descrizione'}</div>
-            <div className="text-xs font-semibold text-blue-600 mt-0.5">{part.total_price.toFixed(2)} €</div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

@@ -56,11 +56,17 @@ def ordered_supplier_ids(db: Session, quote_id: int) -> set:
 
 
 def quote_material_status(db: Session, quote: Quote) -> str:
-    """Stato materiale del preventivo, calcolato dal DB (spec 18)."""
+    """Stato materiale del preventivo, calcolato dal DB (spec 18).
+
+    Solo i preventivi confermati/completi sono "ordinabili": per gli altri
+    eventuali righe d'ordine residue (es. dopo un ritorno indietro) NON contano
+    come evasione — il materiale resta 'da ordinare'.
+    """
     parts = db.query(Part).options(joinedload(Part.material)).filter(
         Part.quote_id == quote.id
     ).all()
-    return ms.quote_material_status(parts, ordered_supplier_ids(db, quote.id))
+    ordered = ordered_supplier_ids(db, quote.id) if quote.status in ORDERABLE_STATUSES else set()
+    return ms.quote_material_status(parts, ordered)
 
 
 def material_is_resolved(db: Session, quote: Quote) -> bool:

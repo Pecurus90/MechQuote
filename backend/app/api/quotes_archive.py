@@ -16,6 +16,7 @@ from app.schemas import (
 from app.services.material_status import (
     part_material_state, quote_material_status,
 )
+from app.services.quote_workflow import ORDERABLE_STATUSES
 
 
 router = APIRouter(prefix="/api", tags=["quotes-archive"])
@@ -124,7 +125,10 @@ def list_archive(
         if is_die(r):
             r.material_status = None
         else:
-            r.material_status = quote_material_status(r.parts, ordered_map.get(r.id, set()))
+            # Solo confermato/completo è "ordinabile": altrimenti eventuali
+            # ordini residui non contano come evasione (spec 18).
+            ordered = ordered_map.get(r.id, set()) if r.status in ORDERABLE_STATUSES else set()
+            r.material_status = quote_material_status(r.parts, ordered)
     return results
 
 
@@ -150,7 +154,7 @@ def quote_material_detail(
         r.material_supplier_id for r in db.query(QuoteSupplierOrder).filter(
             QuoteSupplierOrder.quote_id == quote_id
         ).all()
-    }
+    } if quote.status in ORDERABLE_STATUSES else set()
 
     articles: List[ArticleMaterialRow] = []
     for p in quote.parts:

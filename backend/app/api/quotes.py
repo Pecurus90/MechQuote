@@ -326,6 +326,12 @@ def reopen_quote(
     quote.submitted_by_user_id = None
     quote.read_at = None
     quote.read_by_user_id = None
+    # Tornando prima della Conferma il materiale non è più "ordinato": azzera le
+    # evasioni (coppie preventivo-fornitore) come fa unconfirm. L'ordine resta
+    # nello storico (MaterialOrder), ma il materiale va riordinato.
+    db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
+    quote.material_ordered_at = None
+    quote.material_ordered_by_user_id = None
     db.commit()
     db.refresh(quote)
 

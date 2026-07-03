@@ -60,3 +60,7 @@ prv/
 /tools_alert.ps1
 /setup-prod*.ps1
 estrazione_lavoro.csv
+
+# Handoff design (prompt, anteprime .dc.html, conversioni React di lavoro) —
+# materiale di lavoro, non codice dell'app: non va nel repo.
+design_handoff_mechquote/

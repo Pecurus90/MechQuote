@@ -112,7 +112,7 @@ export default function QuoteEditor() {
     if (!part?.id) return
     try {
       await api.put(`/parts/${part.id}`, {
-        part_code: part.part_code, description: part.description, quantity: part.quantity,
+        part_code: part.part_code, revision: part.revision, description: part.description, quantity: part.quantity,
         quote_mode: part.quote_mode, material_id: part.material_id,
         raw_x_mm: part.raw_x_mm, raw_y_mm: part.raw_y_mm, raw_z_mm: part.raw_z_mm,
         raw_diameter_mm: part.raw_diameter_mm, finished_weight_kg: part.finished_weight_kg,

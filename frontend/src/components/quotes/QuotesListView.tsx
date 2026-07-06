@@ -37,6 +37,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const canDeleteAny = hasPermission('quotes.delete')
   const canConfirmPerm = hasPermission('quotes.confirm')
   const canPdf = hasPermission('quotes.pdf')
+  const canMaterials = hasPermission('orders.materials')
 
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [years, setYears] = useState<number[]>([])
@@ -130,6 +131,30 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nel salvataggio del prezzo')
+    }
+  }
+
+  // CSV materiali del singolo preventivo (sola lettura, nessun ordine creato).
+  const downloadMaterialCsv = async (id: number) => {
+    try {
+      const res = await api.get(`/orders/materials/quote/${id}/csv`, { responseType: 'blob' })
+      const dispo = res.headers['content-disposition'] as string | undefined
+      const match = dispo?.match(/filename="?([^"]+)"?/)
+      const q = quotes.find(x => x.id === id)
+      const filename = match ? match[1] : `materiali_${q?.quote_number ?? id}.csv`
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
+      const a = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
+    } catch (e) {
+      // Il body d'errore è un Blob (responseType blob): leggilo per il detail.
+      let msg = 'Errore nel download del CSV materiali'
+      const err = e as { response?: { data?: Blob } }
+      try {
+        const txt = await err.response?.data?.text()
+        if (txt) { const j = JSON.parse(txt); if (j.detail) msg = j.detail }
+      } catch { /* body non-JSON: usa il messaggio generico */ }
+      toast.error(msg)
     }
   }
 
@@ -227,6 +252,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         canConfirm={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
         onNotOrdered={showQuickActions && canConfirmPerm ? (id) => setNotOrderedId(id) : undefined}
         canNotOrdered={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
+        onMaterialCsv={showQuickActions && canMaterials ? (id) => downloadMaterialCsv(id) : undefined}
+        canMaterialCsv={(r) => r.quote_type !== 'die' && ['confermato', 'completo'].includes(r.status)}
         onPdf={showQuickActions && canPdf ? (id) => { const q = quotes.find(x => x.id === id); if (q) downloadPdf(q) } : undefined}
         onDelete={(id) => setConfirmDeleteId(id)}
         canDelete={(r) => canDeleteAny || (r.created_by_user_id != null && r.created_by_user_id === user?.id)}

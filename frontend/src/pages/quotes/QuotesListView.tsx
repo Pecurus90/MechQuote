@@ -7,6 +7,7 @@ import {
   ChevronRight,
   FileText,
   FileDown,
+  FileSpreadsheet,
   CheckCheck,
   XCircle,
   Trash2,
@@ -61,10 +62,12 @@ interface Props {
   onOpen: (id: number) => void
   onConfirm?: (id: number) => void
   onNotOrdered?: (id: number) => void
+  onMaterialCsv?: (id: number) => void
   onPdf?: (id: number) => void
   onDelete?: (id: number) => void
   canConfirm?: (row: QuotesListRow) => boolean
   canNotOrdered?: (row: QuotesListRow) => boolean
+  canMaterialCsv?: (row: QuotesListRow) => boolean
   canDelete?: (row: QuotesListRow) => boolean
 
   /** Archivio: mostra le colonne prezzo (Venduto/Costo/Margine) editabili
@@ -151,7 +154,8 @@ export function QuotesListView(props: Props) {
     title, icon: Icon, subtitle, onNew, rows, emptyText,
     expandedId, onToggleExpand, articleRows,
     filters, onFilterChange, years, statusOptions,
-    onOpen, onConfirm, onNotOrdered, onPdf, onDelete, canConfirm, canNotOrdered, canDelete,
+    onOpen, onConfirm, onNotOrdered, onMaterialCsv, onPdf, onDelete,
+    canConfirm, canNotOrdered, canMaterialCsv, canDelete,
     showPrices = false, onSavePrice, pagination,
   } = props
 
@@ -273,6 +277,7 @@ export function QuotesListView(props: Props) {
             const last = i === rows.length - 1
             const showConfirm = !!onConfirm && (canConfirm ? canConfirm(r) : true)
             const showNotOrdered = !!onNotOrdered && (canNotOrdered ? canNotOrdered(r) : true)
+            const showMaterialCsv = !!onMaterialCsv && (canMaterialCsv ? canMaterialCsv(r) : true)
             const showDelete = !!onDelete && (canDelete ? canDelete(r) : true)
             // Consuntivo (Archivio): compilabile solo sui completi.
             const editablePrice = showPrices && r.status === 'completo'
@@ -341,6 +346,12 @@ export function QuotesListView(props: Props) {
                       <button type="button" title="Segna come non ordinato" aria-label="Segna come non ordinato"
                         className="text-state-perso transition-[filter] hover:brightness-110" onClick={() => onNotOrdered?.(r.id)}>
                         <XCircle className="h-4 w-4" />
+                      </button>
+                    )}
+                    {showMaterialCsv && (
+                      <button type="button" title="Scarica CSV materiali" aria-label="Scarica CSV materiali"
+                        className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onMaterialCsv?.(r.id)}>
+                        <FileSpreadsheet className="h-4 w-4" />
                       </button>
                     )}
                     {onPdf && (

@@ -46,6 +46,9 @@ from app.services.notifications import create_notification
 # materiale stesso; forma e dimensioni sono colonne separate; il riferimento è
 # la commessa (numero preventivo) — una riga per commessa.
 _MAT_CSV_COLUMNS = ['Materiale', 'Forma', 'Dimensioni', 'Riferimento', 'Quantità']
+# CSV rapido del singolo preventivo: il riferimento (numero) è unico, quindi al
+# suo posto il fornitore (un preventivo può coprire più fornitori).
+_QUOTE_MAT_CSV_COLUMNS = ['Materiale', 'Forma', 'Dimensioni', 'Fornitore', 'Quantità']
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orders/materials", tags=["orders"])
@@ -244,6 +247,36 @@ def _supplier_order_data(quote_ids: List[int], supplier_id: int, db: Session):
         for s in sorted(aggr.values(), key=lambda s: (s['name'], s['dim'], s['ref']))
     ]
     return involved, rows
+
+
+def _quote_material_rows(quote_id: int, db: Session):
+    """Righe CSV dei materiali da ordinare di UN preventivo (tutti i fornitori).
+
+    Solo parti "da ordinare" (materiale reale, non conto lavoro, non da
+    magazzino). Parti con stesso materiale+dimensioni sommate. Colonne:
+    [materiale, forma, dimensioni, fornitore, qty]. Nessun side effect.
+    """
+    parts = db.query(Part).options(joinedload(Part.material)).filter(
+        Part.quote_id == quote_id
+    ).all()
+    aggr: Dict[Tuple, Dict[str, Any]] = {}
+    for p in parts:
+        if not part_needs_ordering(p) or not p.material:
+            continue
+        sup = p.material.material_supplier
+        key = (p.material_id, _dim_signature(p))
+        slot = aggr.setdefault(key, {
+            'name': p.material.name,
+            'forma': _shape_label(p),
+            'dim': _dims_only(p),
+            'sup': sup.name if sup else 'Senza fornitore',
+            'qty': 0,
+        })
+        slot['qty'] += (p.quantity or 1)
+    return [
+        [s['name'], s['forma'], s['dim'], s['sup'], s['qty']]
+        for s in sorted(aggr.values(), key=lambda s: (s['sup'], s['name'], s['dim']))
+    ]
 
 
 def _refresh_quote_material_flag(quote: Quote, db: Session, actor_id: int) -> None:
@@ -535,6 +568,26 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"MO{order.id:04d}"
     filename = f"{ts}_{sanitize_filename_part(order.supplier_name)}.csv"
     return csv_export_response(filename=filename, columns=_MAT_CSV_COLUMNS, rows=rows)
+
+
+@router.get("/quote/{quote_id}/csv")
+def get_quote_material_csv(quote_id: int, db: Session = Depends(get_db), _=_can_orders):
+    """CSV dei materiali da ordinare di UN singolo preventivo (tutti i
+    fornitori). Sola lettura: nessun ordine creato, nessun flag toccato —
+    comodità per lo scarico rapido da "Preventivi in corso".
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    rows = _quote_material_rows(quote_id, db)
+    if not rows:
+        raise HTTPException(
+            status_code=400,
+            detail="Nessun materiale da ordinare per questo preventivo "
+                   "(conto lavoro, da magazzino o senza materiale configurato).",
+        )
+    filename = f"materiali_{sanitize_filename_part(quote.quote_number)}.csv"
+    return csv_export_response(filename=filename, columns=_QUOTE_MAT_CSV_COLUMNS, rows=rows)
 
 
 @router.delete("/{order_id}")

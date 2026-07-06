@@ -25,7 +25,7 @@ interface Props {
   emptyText?: string
 }
 
-const GRID = 'grid grid-cols-[110px_minmax(0,1.3fr)_130px_minmax(0,1fr)_minmax(0,1.2fr)] gap-3'
+const GRID = 'grid grid-cols-[130px_minmax(0,1.7fr)_130px_minmax(0,1fr)_minmax(0,1.3fr)] gap-3'
 
 export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo preventivo.' }: Props) {
   return (
@@ -33,7 +33,7 @@ export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo 
       <div
         className={cn(
           GRID,
-          'border-b border-border bg-card-muted px-[15px] py-[9px] text-[10.5px] font-semibold uppercase tracking-[0.03em] text-muted-foreground',
+          'border-b border-border bg-card-muted px-4 py-[10px] text-[11px] font-semibold uppercase tracking-[0.03em] text-muted-foreground',
         )}
       >
         <div>Parte</div>
@@ -44,40 +44,40 @@ export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo 
       </div>
 
       {rows.length === 0 ? (
-        <div className="px-[15px] py-4 text-center text-[12px] text-muted-foreground">{emptyText}</div>
+        <div className="px-4 py-4 text-center text-[13px] text-muted-foreground">{emptyText}</div>
       ) : (
         rows.map((r, i) => (
           <div
             key={r.partId}
             className={cn(
               GRID,
-              'items-center px-[15px] py-[11px] text-[12.5px]',
+              'items-center px-4 py-[13px] text-[13px]',
               i < rows.length - 1 && 'border-b border-border',
             )}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono font-semibold text-foreground">{r.partCode}</span>
+            {/* Codice articolo in evidenza + revisione sotto */}
+            <div className="min-w-0">
+              <div className="font-mono text-[13.5px] font-semibold text-foreground">{r.partCode}</div>
               {r.revision && (
-                <span className="font-mono text-[10.5px] text-muted-foreground">rev {r.revision}</span>
+                <div className="font-mono text-[11px] text-muted-foreground">rev {r.revision}</div>
               )}
             </div>
-            <div className="min-w-0 truncate">
-              <span className="font-mono text-foreground">{r.materialCode}</span>
+            {/* Materiale: codice a piena leggibilità (no troncamento) + famiglia sotto */}
+            <div className="min-w-0">
+              <div className="break-words font-mono font-medium text-foreground">{r.materialCode}</div>
               {r.materialFamily && (
-                <>
-                  {' '}· <span className="text-muted-foreground">{r.materialFamily}</span>
-                </>
+                <div className="text-[11.5px] text-muted-foreground">{r.materialFamily}</div>
               )}
             </div>
-            <div className="font-mono text-muted-foreground">{r.dimensions}</div>
-            <div className="truncate text-muted-foreground">
-              {r.treatments && r.treatments.length ? r.treatments.join(', ') : '—'}
+            <div className="font-mono text-foreground">{r.dimensions}</div>
+            <div className="text-foreground/80">
+              {r.treatments && r.treatments.length ? r.treatments.join(', ') : <span className="text-muted-foreground">—</span>}
             </div>
-            <div className="flex items-center gap-2">
-              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium', r.statusClass)}>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-medium', r.statusClass)}>
                 {r.statusLabel}
               </span>
-              <span className="text-[11px] text-muted-foreground">{r.supplierName ?? '—'}</span>
+              <span className="text-[11.5px] text-muted-foreground">{r.supplierName ?? '—'}</span>
             </div>
           </div>
         ))

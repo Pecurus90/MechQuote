@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  FileDown,
   FileSpreadsheet,
   CheckCheck,
   XCircle,
@@ -63,7 +62,6 @@ interface Props {
   onConfirm?: (id: number) => void
   onNotOrdered?: (id: number) => void
   onMaterialCsv?: (id: number) => void
-  onPdf?: (id: number) => void
   onDelete?: (id: number) => void
   canConfirm?: (row: QuotesListRow) => boolean
   canNotOrdered?: (row: QuotesListRow) => boolean
@@ -154,7 +152,7 @@ export function QuotesListView(props: Props) {
     title, icon: Icon, subtitle, onNew, rows, emptyText,
     expandedId, onToggleExpand, articleRows,
     filters, onFilterChange, years, statusOptions,
-    onOpen, onConfirm, onNotOrdered, onMaterialCsv, onPdf, onDelete,
+    onOpen, onConfirm, onNotOrdered, onMaterialCsv, onDelete,
     canConfirm, canNotOrdered, canMaterialCsv, canDelete,
     showPrices = false, onSavePrice, pagination,
   } = props
@@ -352,12 +350,6 @@ export function QuotesListView(props: Props) {
                       <button type="button" title="Scarica CSV materiali" aria-label="Scarica CSV materiali"
                         className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onMaterialCsv?.(r.id)}>
                         <FileSpreadsheet className="h-4 w-4" />
-                      </button>
-                    )}
-                    {onPdf && (
-                      <button type="button" title="Scarica PDF" aria-label="Scarica PDF"
-                        className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onPdf(r.id)}>
-                        <FileDown className="h-4 w-4" />
                       </button>
                     )}
                     {showDelete && (

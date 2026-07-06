@@ -36,7 +36,6 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const { user, hasPermission } = useAuth()
   const canDeleteAny = hasPermission('quotes.delete')
   const canConfirmPerm = hasPermission('quotes.confirm')
-  const canPdf = hasPermission('quotes.pdf')
   const canMaterials = hasPermission('orders.materials')
 
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -158,17 +157,6 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     }
   }
 
-  const downloadPdf = async (q: Quote) => {
-    try {
-      const res = await api.get(`/quotes/${q.id}/pdf`, { responseType: 'blob' })
-      const prefix = q.quote_type === 'die' ? 'preventivo_stampo' : 'preventivo'
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-      const a = document.createElement('a')
-      a.href = url; a.download = `${prefix}_${q.quote_number}.pdf`
-      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
-    } catch { toast.error('Errore nella generazione del PDF') }
-  }
-
   const quoteTotal = (q: Quote): number => {
     if (q.quote_type === 'die' && q.die_spec) {
       const ind = q.die_spec.cost_industrial || 0
@@ -254,7 +242,6 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         canNotOrdered={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
         onMaterialCsv={showQuickActions && canMaterials ? (id) => downloadMaterialCsv(id) : undefined}
         canMaterialCsv={(r) => r.quote_type !== 'die' && ['confermato', 'completo'].includes(r.status)}
-        onPdf={showQuickActions && canPdf ? (id) => { const q = quotes.find(x => x.id === id); if (q) downloadPdf(q) } : undefined}
         onDelete={(id) => setConfirmDeleteId(id)}
         canDelete={(r) => canDeleteAny || (r.created_by_user_id != null && r.created_by_user_id === user?.id)}
         showPrices={phase === 'completed'}

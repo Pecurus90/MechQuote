@@ -40,6 +40,14 @@ const eur = (v: number): string =>
 const kg = (v: number): string =>
   Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' kg'
 
+// Fallback difensivo: se la risposta non porta `outcome` (es. backend non
+// aggiornato) la pagina non deve andare in bianco.
+const EMPTY_OUTCOME = {
+  won_count: 0, lost_count: 0, open_count: 0,
+  won_value: 0, lost_value: 0, open_value: 0,
+  conversion_rate: 0, conversion_rate_value: 0,
+}
+
 interface NamedOpt { id: number; name: string }
 
 export default function StatisticsPage() {
@@ -113,9 +121,9 @@ export default function StatisticsPage() {
               onCustomerChange={setCustomer}
               kpis={buildQuoteKpis(qData)}
               outcome={[
-                { name: 'Vinti', value: qData.outcome.won_value, color: 'hsl(142 66% 40%)' },
-                { name: 'Persi', value: qData.outcome.lost_value, color: 'hsl(349 75% 52%)' },
-                { name: 'Aperti', value: qData.outcome.open_value, color: 'hsl(220 9% 60%)' },
+                { name: 'Vinti', value: (qData.outcome ?? EMPTY_OUTCOME).won_value, color: 'hsl(142 66% 40%)' },
+                { name: 'Persi', value: (qData.outcome ?? EMPTY_OUTCOME).lost_value, color: 'hsl(349 75% 52%)' },
+                { name: 'Aperti', value: (qData.outcome ?? EMPTY_OUTCOME).open_value, color: 'hsl(220 9% 60%)' },
               ]}
               trendByType={qData.trend_monthly.map(p => ({ month: monthLabel(p.month), standard: p.standard, stampi: p.dies }))}
               monthlyMargin={qData.margin_monthly.map(p => ({ month: monthLabel(p.month), margine: p.margin_percent }))}
@@ -184,7 +192,7 @@ function buildQuoteKpis(data: Statistics): StatKpi[] {
   const avgMargin = data.margin_monthly.length === 0
     ? 0
     : data.margin_monthly.reduce((s, p) => s + p.margin_percent, 0) / data.margin_monthly.length
-  const o = data.outcome
+  const o = data.outcome ?? EMPTY_OUTCOME
   return [
     { key: 'count', label: 'Preventivi', value: data.standard_count + data.dies_count, hint: `${data.standard_count} std · ${data.dies_count} stampi`, icon: FileText, tone: 'primary' },
     { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi · ${o.conversion_rate_value.toFixed(0)}% a valore`, icon: Target, tone: 'confirmed' },

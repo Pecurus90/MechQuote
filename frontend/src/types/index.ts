@@ -640,7 +640,7 @@ export interface Statistics {
   period: 'year' | '12m' | 'prev_year' | 'all'
   standard_count: number
   dies_count: number
-  outcome: StatsOutcome
+  outcome?: StatsOutcome
   trend_monthly: StatsTrendPoint[]
   top_customers: StatsCustomerRow[]
   by_category: StatsCategoryRow[]

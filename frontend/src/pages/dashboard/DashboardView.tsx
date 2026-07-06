@@ -193,6 +193,10 @@ export function DashboardView(props: DashboardViewProps) {
               emptyText="Nessun materiale da ordinare."
             >
               {materials.map((m) => (
+                // Lista "materiale da fare" = preventivi confermati senza
+                // ordine (awaiting-materials): per costruzione lo stato
+                // materiale è sempre "non ordinato". Il fornitore non è unico
+                // per preventivo (più parti/fornitori) → omesso.
                 <MaterialTodoRow
                   key={m.id}
                   description={m.customer_name ?? m.quote_number}

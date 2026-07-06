@@ -138,8 +138,11 @@ export function MaterialTodoRow({
       <div className="min-w-0">
         <div className="truncate text-[13px] font-medium">{description}</div>
         <div className="text-[11.5px] text-muted-foreground">
-          <span className="font-mono">{quoteNumber}</span>
-          {supplier ? <> · {supplier}</> : null}
+          {/* Evita il numero ripetuto quando la description è già il numero
+              (preventivo senza cliente indicato). */}
+          {quoteNumber !== description && <span className="font-mono">{quoteNumber}</span>}
+          {quoteNumber !== description && supplier ? <> · </> : null}
+          {supplier || null}
         </div>
       </div>
       <div className="flex-none">

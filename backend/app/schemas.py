@@ -740,10 +740,28 @@ class StatsHoursRow(BaseModel):
     hours: float
 
 
+class StatsOutcome(BaseModel):
+    """Esito commerciale (vinto/perso/aperto) per conteggio e valore €.
+
+    Vinto = confermato + completo (il cliente ha ordinato); perso =
+    non_ordinato; aperto = bozza/inviato/letto/in_attesa_cliente.
+    Tasso di conversione = vinti / (vinti + persi) — solo sui decisi.
+    """
+    won_count: int = 0
+    lost_count: int = 0
+    open_count: int = 0
+    won_value: float = 0.0
+    lost_value: float = 0.0
+    open_value: float = 0.0
+    conversion_rate: float = 0.0        # % sul numero di preventivi decisi
+    conversion_rate_value: float = 0.0  # % sul valore € dei preventivi decisi
+
+
 class StatisticsOut(BaseModel):
     period: str                              # 'year' | '12m' | 'prev_year' | 'all'
     standard_count: int = 0                  # n° preventivi standard nel periodo
     dies_count: int = 0                      # n° preventivi stampo nel periodo
+    outcome: StatsOutcome = StatsOutcome()   # esito vinto/perso/aperto
     trend_monthly: List[StatsTrendPoint]
     top_customers: List[StatsCustomerRow]
     by_category: List[StatsCategoryRow]

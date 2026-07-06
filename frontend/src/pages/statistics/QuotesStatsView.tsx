@@ -22,8 +22,10 @@ interface Props {
   customer: string
   customers: CustomerOption[]
   onCustomerChange: (v: string) => void
-  /** 4 KPI (Preventivi, Standard/Stampi, € preventivato, Margine medio) */
+  /** 4 KPI (Preventivi, Tasso conversione, € preventivato, Margine medio) */
   kpis: StatKpi[]
+  /** esito preventivi a valore € — Vinti / Persi / Aperti (con color) */
+  outcome: Array<{ name: string; value: number; color?: string }>
   /** € per tipo, mensile — righe con { <xKey>, standard, stampi } */
   trendByType: Array<Record<string, string | number>>
   /** margine % mensile — righe con { <xKey>, margine } */
@@ -58,6 +60,7 @@ export function QuotesStatsView({
   customers,
   onCustomerChange,
   kpis,
+  outcome,
   trendByType,
   monthlyMargin,
   topCustomers,
@@ -145,6 +148,11 @@ export function QuotesStatsView({
           series={[{ key: 'margine', name: 'Margine %', color: col.margine }]}
           yFmt={(v) => `${v}%`}
           tipFmt={(v, n) => [`${v}%`, n]}
+        />
+        <DonutCard
+          title="Esito preventivi (€)"
+          subtitle="Vinti · Persi · Aperti (valore preventivato)"
+          data={outcome}
         />
         <RankBarsCard
           title="Top 10 clienti (€)"

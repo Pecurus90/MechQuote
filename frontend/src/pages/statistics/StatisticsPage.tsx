@@ -5,7 +5,7 @@
 // - Utensili: sola quantità (scelta utente) + sotto scorta per marca
 import { useEffect, useState } from 'react'
 import {
-  FileText, Layers, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
+  FileText, Target, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -112,6 +112,11 @@ export default function StatisticsPage() {
               ]}
               onCustomerChange={setCustomer}
               kpis={buildQuoteKpis(qData)}
+              outcome={[
+                { name: 'Vinti', value: qData.outcome.won_value, color: 'hsl(142 66% 40%)' },
+                { name: 'Persi', value: qData.outcome.lost_value, color: 'hsl(349 75% 52%)' },
+                { name: 'Aperti', value: qData.outcome.open_value, color: 'hsl(220 9% 60%)' },
+              ]}
               trendByType={qData.trend_monthly.map(p => ({ month: monthLabel(p.month), standard: p.standard, stampi: p.dies }))}
               monthlyMargin={qData.margin_monthly.map(p => ({ month: monthLabel(p.month), margine: p.margin_percent }))}
               topCustomers={qData.top_customers.map(c => ({ name: c.customer_name ?? '—', value: c.total }))}
@@ -179,11 +184,12 @@ function buildQuoteKpis(data: Statistics): StatKpi[] {
   const avgMargin = data.margin_monthly.length === 0
     ? 0
     : data.margin_monthly.reduce((s, p) => s + p.margin_percent, 0) / data.margin_monthly.length
+  const o = data.outcome
   return [
-    { key: 'count', label: 'Preventivi', value: data.standard_count + data.dies_count, hint: 'nel periodo', icon: FileText, tone: 'primary' },
-    { key: 'split', label: 'Standard / Stampi', value: `${data.standard_count} / ${data.dies_count}`, hint: 'per tipologia', icon: Layers, tone: 'info' },
+    { key: 'count', label: 'Preventivi', value: data.standard_count + data.dies_count, hint: `${data.standard_count} std · ${data.dies_count} stampi`, icon: FileText, tone: 'primary' },
+    { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi · ${o.conversion_rate_value.toFixed(0)}% a valore`, icon: Target, tone: 'confirmed' },
     { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'valore nel periodo', icon: Euro, tone: 'success' },
-    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'confirmed' },
+    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'info' },
   ]
 }
 

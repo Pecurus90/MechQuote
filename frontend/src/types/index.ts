@@ -660,10 +660,22 @@ export interface StatsHoursRow {
   hours: number
 }
 
+export interface StatsOutcome {
+  won_count: number
+  lost_count: number
+  open_count: number
+  won_value: number
+  lost_value: number
+  open_value: number
+  conversion_rate: number         // % sul numero di preventivi decisi
+  conversion_rate_value: number   // % sul valore € dei preventivi decisi
+}
+
 export interface Statistics {
   period: 'year' | '12m' | 'prev_year' | 'all'
   standard_count: number
   dies_count: number
+  outcome: StatsOutcome
   trend_monthly: StatsTrendPoint[]
   top_customers: StatsCustomerRow[]
   by_category: StatsCategoryRow[]

@@ -24,7 +24,7 @@ from app.schemas import (
     StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
     StatsHoursRow, MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
     StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
-    StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow,
+    StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow, StatsOutcome,
 )
 from app.api.notifications import serialize_notification
 
@@ -450,10 +450,51 @@ def get_statistics(
         "COALESCE(o.name, 'Senza lavorazione')",
     )
 
+    # ─── 7. Esito commerciale: vinto/perso/aperto (conteggio + valore €) ──
+    # Valore per preventivo: stampi = industriale × margine × sconto, standard
+    # = Σ parts.total_price. Bucket per stato. Rispetta i filtri correnti.
+    rows_outcome = db.execute(text(
+        f"""
+        SELECT
+          CASE
+            WHEN q.status IN ('confermato', 'completo') THEN 'won'
+            WHEN q.status = 'non_ordinato' THEN 'lost'
+            ELSE 'open'
+          END AS outcome,
+          COUNT(*) AS n,
+          COALESCE(SUM(
+            COALESCE(
+              CASE WHEN q.quote_type = 'die'
+                   THEN ds.cost_industrial
+                        * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+                        * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+                   ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+              END, 0)
+          ), 0) AS value
+        FROM quotes q
+        LEFT JOIN die_specs ds ON ds.quote_id = q.id
+        WHERE 1=1 {date_filter}
+        GROUP BY outcome
+        """
+    ), params).all()
+    oc = {r.outcome: (int(r.n), float(r.value or 0)) for r in rows_outcome}
+    won_n, won_v = oc.get('won', (0, 0.0))
+    lost_n, lost_v = oc.get('lost', (0, 0.0))
+    open_n, open_v = oc.get('open', (0, 0.0))
+    decided_n = won_n + lost_n
+    decided_v = won_v + lost_v
+    outcome = StatsOutcome(
+        won_count=won_n, lost_count=lost_n, open_count=open_n,
+        won_value=round(won_v, 2), lost_value=round(lost_v, 2), open_value=round(open_v, 2),
+        conversion_rate=round(won_n / decided_n * 100.0, 1) if decided_n > 0 else 0.0,
+        conversion_rate_value=round(won_v / decided_v * 100.0, 1) if decided_v > 0 else 0.0,
+    )
+
     return StatisticsOut(
         period=period,
         standard_count=standard_count,
         dies_count=dies_count,
+        outcome=outcome,
         trend_monthly=trend,
         top_customers=top_customers,
         by_category=by_category,

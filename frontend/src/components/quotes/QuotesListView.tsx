@@ -29,6 +29,7 @@ interface Props {
 }
 
 const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'] as const
+const COMPLETED_STATUSES = ['completo', 'non_ordinato'] as const
 
 export default function QuotesListView({ phase, title, subtitle, icon, showQuickActions = false }: Props) {
   const navigate = useNavigate()
@@ -42,9 +43,9 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status')
+  const validInitStatuses = (phase === 'active' ? ACTIVE_STATUSES : COMPLETED_STATUSES) as readonly string[]
   const [statusFilter, setStatusFilter] = useState<string>(
-    phase === 'active' && (ACTIVE_STATUSES as readonly string[]).includes(initialStatus ?? '')
-      ? (initialStatus as string) : 'all'
+    validInitStatuses.includes(initialStatus ?? '') ? (initialStatus as string) : 'all'
   )
   const [typeFilter, setTypeFilter] = useState<ListFilters['type']>('all')
   const [searchInput, setSearchInput] = useState('')
@@ -181,7 +182,11 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         { value: 'in_attesa_cliente', label: 'Attesa cliente' },
         { value: 'confermato', label: 'Confermato' },
       ]
-    : [{ value: 'all', label: 'Tutti' }]
+    : [
+        { value: 'all', label: 'Tutti' },
+        { value: 'completo', label: 'Completo' },
+        { value: 'non_ordinato', label: 'Non ordinato' },
+      ]
 
   const quoteToDelete = quotes.find(q => q.id === confirmDeleteId)
   const quoteToConfirm = quotes.find(q => q.id === confirmQuoteId)

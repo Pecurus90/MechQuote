@@ -65,9 +65,9 @@ export default function DashboardPage() {
   // esito cliente, buchi dati prezzo, approvvigionamento.
   type Kpi = { key: string; label: string; value: string | number; hint: string; icon: LucideIcon; tone: KpiTone; to: string; show: boolean }
   const allKpis: Kpi[] = [
-    { key: 'da-revisionare', label: 'Da revisionare', value: stats.to_review_count, hint: 'in attesa conferma interna', icon: FileSearch, tone: 'confirmed', to: '/quotes/active?status=inviato', show: canReview },
+    { key: 'da-revisionare', label: 'Da revisionare', value: stats.to_review_count, hint: 'inviati o letti, da confermare', icon: FileSearch, tone: 'confirmed', to: '/quotes/active', show: canReview },
     { key: 'attesa-cliente', label: 'Attesa cliente', value: stats.awaiting_client_count, hint: 'offerte dal cliente', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canReview },
-    { key: 'prezzi-mancanti', label: 'Prezzi mancanti', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive', show: canReview },
+    { key: 'prezzi-mancanti', label: 'Prezzi mancanti', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=completo', show: canReview },
     { key: 'da-ordinare', label: 'Da ordinare', value: matStats?.to_order ?? 0, hint: 'confermati da ordinare', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },
     { key: 'sotto-scorta', label: 'Sotto scorta utensili', value: toolStats?.low_stock ?? 0, hint: `su ${toolStats?.total_active ?? 0} a catalogo`, icon: Drill, tone: 'warning', to: '/orders/tools', show: canTools },
   ]
@@ -86,9 +86,13 @@ export default function DashboardPage() {
       byStatus={stats.by_status}
       standardCount={stats.standard_count ?? 0}
       dieCount={stats.die_count ?? 0}
-      onSelectStatus={(s) => navigate(`/quotes/active?status=${s}`)}
+      onSelectStatus={(s) => navigate(
+        ['completo', 'non_ordinato'].includes(s)
+          ? `/quotes/archive?status=${s}`
+          : `/quotes/active?status=${s}`
+      )}
       toReview={canReview ? toReview : undefined}
-      onSeeAllReview={() => navigate('/quotes/active?status=inviato')}
+      onSeeAllReview={() => navigate('/quotes/active')}
       myQuotes={canQuote ? myQuotes.slice(0, 6) : undefined}
       onSeeAllMine={() => navigate('/quotes/active')}
       onOpenQuote={(id) => navigate(`/quotes/${id}`)}

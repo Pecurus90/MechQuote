@@ -401,6 +401,13 @@ class QuoteStatusUpdate(BaseModel):
     status: str  # "bozza" | "inviato"
 
 
+class QuoteCloseoutUpdate(BaseModel):
+    """Consuntivo commessa: prezzo venduto + costo reale (solo su completo).
+    Editabile da chi accede all'archivio (PATCH /quotes/{id}/closeout)."""
+    sold_price: Optional[float] = Field(default=None, ge=0)
+    actual_cost: Optional[float] = Field(default=None, ge=0)
+
+
 class UserMinimal(BaseModel):
     id: int
     username: str

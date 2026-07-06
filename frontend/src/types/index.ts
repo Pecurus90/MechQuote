@@ -393,6 +393,10 @@ export interface QuoteListItem {
   // Modulo Stampi: presente solo per quote_type==='die'. Usato per calcolare
   // il `display_price` dell'archivio (cost_industrial × margin × discount).
   die_spec?: { cost_industrial: number } | null
+  // Consuntivo commessa (spec G): prezzo venduto al cliente + costo reale.
+  // Compilabili solo su status='completo'. Mostrati/editabili in Archivio.
+  sold_price?: number | null
+  actual_cost?: number | null
 }
 
 // Vista espandibile archivio: dettaglio articoli con stato materiale (spec 18).

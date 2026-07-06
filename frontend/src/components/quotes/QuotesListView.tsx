@@ -119,6 +119,20 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     finally { setMarkingNotOrdered(false) }
   }
 
+  // Consuntivo Archivio: salva prezzo venduto / costo reale inline (solo
+  // completi; il backend rifiuta gli altri stati). Aggiorna lo stato locale
+  // senza ricaricare la lista.
+  const savePrice = async (id: number, field: 'sold_price' | 'actual_cost', value: number | null) => {
+    try {
+      await api.patch(`/quotes/${id}/closeout`, { [field]: value })
+      setQuotes(qs => qs.map(q => (q.id === id ? { ...q, [field]: value } : q)))
+      toast.success('Consuntivo aggiornato')
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nel salvataggio del prezzo')
+    }
+  }
+
   const downloadPdf = async (q: Quote) => {
     try {
       const res = await api.get(`/quotes/${q.id}/pdf`, { responseType: 'blob' })
@@ -216,6 +230,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         onPdf={showQuickActions && canPdf ? (id) => { const q = quotes.find(x => x.id === id); if (q) downloadPdf(q) } : undefined}
         onDelete={(id) => setConfirmDeleteId(id)}
         canDelete={(r) => canDeleteAny || (r.created_by_user_id != null && r.created_by_user_id === user?.id)}
+        showPrices={phase === 'completed'}
+        onSavePrice={savePrice}
         pagination={
           <>
             <button type="button" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}

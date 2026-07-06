@@ -12,7 +12,7 @@ from app.models import (
     Quote, Part, ManufacturingPhase, QuoteSupplierOrder, User,
     CompanySettings, DieNormalizedItem,
 )
-from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate
+from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate, QuoteCloseoutUpdate
 from app.core.quote_types import is_die
 from app.services import quote_workflow as wf
 from app.services.calculation import recalculate_part
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 _can_write = require_permission('quotes.create')
 _can_send = require_permission('quotes.send')
 _can_confirm = require_permission('quotes.confirm')
+_can_archive = require_permission('quotes.archive')
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
@@ -462,6 +463,36 @@ def restore_quote(
     quote.awaiting_client_at = None
     db.commit()
     logger.info("Ripristino non-ordinato→letto: quote_id=%s by=%s", quote_id, current_user.username)
+    return _load_quote(quote_id, db)
+
+
+@router.patch("/{quote_id}/closeout", response_model=QuoteOut)
+def update_quote_closeout(
+    quote_id: int,
+    data: QuoteCloseoutUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_archive,
+):
+    """Consuntivo commessa: prezzo venduto + costo reale.
+
+    Compilabile solo su preventivi 'completo' e da chi accede all'archivio
+    (ufficio tecnico E amministrazione) — separato da `quotes.create` perché
+    è un dato di chiusura, non una modifica al preventivo. Usato dall'edit
+    inline dei prezzi in Archivio.
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status != wf.STATUS_COMPLETO:
+        raise HTTPException(
+            status_code=400,
+            detail="Prezzi consuntivo compilabili solo su preventivi completi",
+        )
+    payload = data.model_dump(exclude_unset=True)
+    for key, value in payload.items():
+        setattr(quote, key, value)
+    db.commit()
     return _load_quote(quote_id, db)
 
 

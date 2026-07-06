@@ -230,19 +230,34 @@ export function QuotesListView(props: Props) {
                     )}
                   </div>
                   <div className="text-right font-mono font-semibold text-foreground">{eur0(r.total_price)}</div>
-                  <div className="flex justify-end gap-[11px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                    <FileText className="h-4 w-4 cursor-pointer transition-colors hover:text-foreground" onClick={() => onOpen(r.id)} />
+                  <div className="flex items-center justify-end gap-[9px]" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" title="Apri preventivo" aria-label="Apri preventivo"
+                      className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onOpen(r.id)}>
+                      <FileText className="h-4 w-4" />
+                    </button>
                     {showConfirm && (
-                      <CheckCheck className="h-4 w-4 cursor-pointer text-state-confermato transition-colors hover:brightness-110" onClick={() => onConfirm?.(r.id)} />
+                      <button type="button" title="Conferma ordine" aria-label="Conferma ordine"
+                        className="text-state-confermato transition-[filter] hover:brightness-110" onClick={() => onConfirm?.(r.id)}>
+                        <CheckCheck className="h-4 w-4" />
+                      </button>
                     )}
                     {showNotOrdered && (
-                      <XCircle className="h-4 w-4 cursor-pointer text-state-perso transition-colors hover:brightness-110" onClick={() => onNotOrdered?.(r.id)} />
+                      <button type="button" title="Segna come non ordinato" aria-label="Segna come non ordinato"
+                        className="text-state-perso transition-[filter] hover:brightness-110" onClick={() => onNotOrdered?.(r.id)}>
+                        <XCircle className="h-4 w-4" />
+                      </button>
                     )}
                     {onPdf && (
-                      <FileDown className="h-4 w-4 cursor-pointer transition-colors hover:text-foreground" onClick={() => onPdf(r.id)} />
+                      <button type="button" title="Scarica PDF" aria-label="Scarica PDF"
+                        className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onPdf(r.id)}>
+                        <FileDown className="h-4 w-4" />
+                      </button>
                     )}
                     {showDelete && (
-                      <Trash2 className="h-4 w-4 cursor-pointer transition-colors hover:text-danger" onClick={() => onDelete?.(r.id)} />
+                      <button type="button" title="Elimina preventivo" aria-label="Elimina preventivo"
+                        className="text-muted-foreground transition-colors hover:text-danger" onClick={() => onDelete?.(r.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                 </div>

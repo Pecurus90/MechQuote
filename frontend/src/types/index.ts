@@ -183,14 +183,18 @@ export interface Quote {
   submitted_at?: string | null
   read_by_user_id?: number | null
   read_at?: string | null
+  awaiting_client_at?: string | null
   confirmed_by_user_id?: number | null
   confirmed_at?: string | null
   completed_by_user_id?: number | null
   completed_at?: string | null
+  not_ordered_at?: string | null
+  not_ordered_by_user_id?: number | null
   submitted_by?: UserMinimal | null
   read_by?: UserMinimal | null
   confirmed_by?: UserMinimal | null
   completed_by?: UserMinimal | null
+  not_ordered_by?: UserMinimal | null
   material_ordered_at?: string | null
   material_ordered_by_user_id?: number | null
   material_ordered_by?: UserMinimal | null

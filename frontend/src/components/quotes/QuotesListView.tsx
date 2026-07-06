@@ -28,7 +28,7 @@ interface Props {
   showQuickActions?: boolean
 }
 
-const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'confermato'] as const
+const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'] as const
 
 export default function QuotesListView({ phase, title, subtitle, icon, showQuickActions = false }: Props) {
   const navigate = useNavigate()
@@ -56,6 +56,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const [deleting, setDeleting] = useState(false)
   const [confirmQuoteId, setConfirmQuoteId] = useState<number | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [notOrderedId, setNotOrderedId] = useState<number | null>(null)
+  const [markingNotOrdered, setMarkingNotOrdered] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [detailCache, setDetailCache] = useState<Record<number, QuoteMaterialDetail | 'loading'>>({})
 
@@ -107,6 +109,13 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     try { await api.post(`/quotes/${id}/confirm`); setConfirmQuoteId(null); toast.success('Preventivo confermato'); loadQuotes() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nella conferma') }
     finally { setConfirming(false) }
+  }
+
+  const doMarkNotOrdered = async (id: number) => {
+    setMarkingNotOrdered(true)
+    try { await api.post(`/quotes/${id}/mark-not-ordered`); setNotOrderedId(null); toast.success('Segnato come non ordinato'); loadQuotes() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+    finally { setMarkingNotOrdered(false) }
   }
 
   const downloadPdf = async (q: Quote) => {
@@ -169,12 +178,14 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         { value: 'bozza', label: 'Bozza' },
         { value: 'inviato', label: 'Inviato' },
         { value: 'letto', label: 'Letto' },
+        { value: 'in_attesa_cliente', label: 'Attesa cliente' },
         { value: 'confermato', label: 'Confermato' },
       ]
     : [{ value: 'all', label: 'Tutti' }]
 
   const quoteToDelete = quotes.find(q => q.id === confirmDeleteId)
   const quoteToConfirm = quotes.find(q => q.id === confirmQuoteId)
+  const quoteNotOrdered = quotes.find(q => q.id === notOrderedId)
 
   return (
     <PageContainer width="xl">
@@ -194,7 +205,9 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         statusOptions={statusOptions}
         onOpen={(id) => navigate(`/quotes/${id}`)}
         onConfirm={showQuickActions && canConfirmPerm ? (id) => setConfirmQuoteId(id) : undefined}
-        canConfirm={(r) => r.status === 'inviato' || r.status === 'letto'}
+        canConfirm={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
+        onNotOrdered={showQuickActions && canConfirmPerm ? (id) => setNotOrderedId(id) : undefined}
+        canNotOrdered={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
         onPdf={showQuickActions && canPdf ? (id) => { const q = quotes.find(x => x.id === id); if (q) downloadPdf(q) } : undefined}
         onDelete={(id) => setConfirmDeleteId(id)}
         canDelete={(r) => canDeleteAny || (r.created_by_user_id != null && r.created_by_user_id === user?.id)}
@@ -240,6 +253,20 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         confirmLabel={confirming ? 'Conferma...' : 'Conferma preventivo'}
         onConfirm={() => { if (confirmQuoteId !== null) doConfirm(confirmQuoteId) }}
         onCancel={() => setConfirmQuoteId(null)}
+      />
+
+      <ConfirmDialog
+        open={notOrderedId !== null && !!quoteNotOrdered}
+        variant="default"
+        title="Segna come non ordinato"
+        description={
+          quoteNotOrdered
+            ? `Il cliente non ha ordinato il preventivo ${quoteNotOrdered.quote_number}${quoteNotOrdered.customer_name ? ` (${quoteNotOrdered.customer_name})` : ''}? Passerà in archivio come "non ordinato" (reversibile).`
+            : undefined
+        }
+        confirmLabel={markingNotOrdered ? 'Attendere...' : 'Segna non ordinato'}
+        onConfirm={() => { if (notOrderedId !== null) doMarkNotOrdered(notOrderedId) }}
+        onCancel={() => setNotOrderedId(null)}
       />
     </PageContainer>
   )

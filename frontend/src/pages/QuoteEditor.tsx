@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Send, CheckCheck, Undo2, RotateCcw, FileDown, Save } from 'lucide-react'
+import { Send, CheckCheck, Undo2, RotateCcw, FileDown, Save, Hourglass, XCircle } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
@@ -238,7 +238,10 @@ export default function QuoteEditor() {
   }
 
   // Workflow: conferma / rimanda in bozza / annulla conferma (ex QuoteStatusActions).
-  const doStatus = async (path: 'confirm' | 'reopen' | 'unconfirm', okMsg: string) => {
+  const doStatus = async (
+    path: 'confirm' | 'reopen' | 'unconfirm' | 'await-client' | 'mark-not-ordered' | 'restore',
+    okMsg: string,
+  ) => {
     if (!quote?.id) return
     setSaving(true)
     try {
@@ -286,16 +289,21 @@ export default function QuoteEditor() {
   const partsSubtotal = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
-  const isLocked = !['bozza', 'inviato', 'letto'].includes(quote.status) && !hasPermission('quotes.edit_locked')
+  const isLocked = !['bozza', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
 
   // ─── guscio: props ────────────────────────────────────────────────────────
   const st = quote.status
-  const canReview = hasPermission('quotes.confirm') && (st === 'inviato' || st === 'letto')
+  const canConfirm = hasPermission('quotes.confirm')
+  const inReview = st === 'inviato' || st === 'letto'          // pre-invio al cliente
+  const preConfirm = inReview || st === 'in_attesa_cliente'    // esito ancora aperto
   const showUnconfirm = hasPermission('quotes.edit_locked') && (st === 'confermato' || st === 'completo')
   const actions: EditorAction[] = [
     { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: st === 'bozza' && hasPermission('quotes.send') },
-    { key: 'confirm', label: 'Conferma', icon: CheckCheck, variant: 'confirm', onClick: () => doStatus('confirm', 'Preventivo confermato'), show: canReview },
-    { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => doStatus('reopen', 'Rimandato in bozza'), show: canReview },
+    { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => doStatus('await-client', 'Offerta in attesa del cliente'), show: canConfirm && inReview },
+    { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: () => doStatus('confirm', 'Preventivo confermato'), show: canConfirm && preConfirm },
+    { key: 'notordered', label: 'Non ordinato', icon: XCircle, variant: 'muted', onClick: () => doStatus('mark-not-ordered', 'Segnato come non ordinato'), show: canConfirm && preConfirm },
+    { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => doStatus('restore', 'Preventivo ripristinato'), show: canConfirm && st === 'non_ordinato' },
+    { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => doStatus('reopen', 'Rimandato in bozza'), show: canConfirm && preConfirm },
     { key: 'unconfirm', label: 'Annulla conferma', icon: RotateCcw, variant: 'muted', onClick: () => setConfirmUnconfirm(true), show: showUnconfirm },
     { key: 'pdf', label: 'PDF', icon: FileDown, variant: 'secondary', onClick: handlePdfClick, show: true },
     { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !isLocked },
@@ -304,7 +312,9 @@ export default function QuoteEditor() {
   const fmtD = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : undefined
   const stepDates: Partial<Record<QuoteStatus, string>> = {
     bozza: fmtD(quote.quote_date), inviato: fmtD(quote.submitted_at), letto: fmtD(quote.read_at),
+    in_attesa_cliente: fmtD(quote.awaiting_client_at),
     confermato: fmtD(quote.confirmed_at), completo: fmtD(quote.completed_at),
+    non_ordinato: fmtD(quote.not_ordered_at),
   }
 
   const sidebarParts = quote.parts.map((p, idx) => ({

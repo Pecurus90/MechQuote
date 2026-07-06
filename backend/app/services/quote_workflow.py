@@ -8,10 +8,17 @@ Cuore del workflow, condiviso tra `api/quotes.py` (transizioni) e
 - `maybe_complete`: confermato → completo quando il materiale è risolto
 
 Stato lavorazione:
-    bozza → inviato → letto → confermato → completo
-- modificabile fino a `letto` compreso; bloccato da `confermato` (admin esente)
+    bozza → inviato → letto → in_attesa_cliente ─┬→ confermato → completo
+                                                 └→ non_ordinato (perso)
+- modificabile fino a `in_attesa_cliente` compreso; bloccato da `confermato`
+  (admin esente). `non_ordinato` è terminale e non modificabile.
 - `letto`: auto quando amministrazione apre un `inviato`
-- `confermato`: click manuale amministrazione (blocca la modifica)
+- `in_attesa_cliente`: click manuale amministrazione — l'offerta è dal cliente,
+  si attende la sua risposta (materiale non ancora ordinabile)
+- `confermato`: click manuale amministrazione = il cliente ha ordinato (blocca
+  la modifica, materiale ordinabile)
+- `non_ordinato`: click manuale amministrazione = il cliente non ha ordinato
+  (preventivo perso, terminale, reversibile con `restore` → letto)
 - `completo`: auto quando `confermato` e materiale risolto (evaso o non
   necessario). Per i preventivi Stampi (`die`, fuori scope materiale) il
   materiale è considerato sempre risolto → conferma = completo.
@@ -28,15 +35,21 @@ from app.services import material_status as ms
 STATUS_BOZZA = "bozza"
 STATUS_INVIATO = "inviato"
 STATUS_LETTO = "letto"
+STATUS_IN_ATTESA_CLIENTE = "in_attesa_cliente"
 STATUS_CONFERMATO = "confermato"
 STATUS_COMPLETO = "completo"
+STATUS_NON_ORDINATO = "non_ordinato"
 
 QUOTE_STATUSES = (
-    STATUS_BOZZA, STATUS_INVIATO, STATUS_LETTO, STATUS_CONFERMATO, STATUS_COMPLETO,
+    STATUS_BOZZA, STATUS_INVIATO, STATUS_LETTO, STATUS_IN_ATTESA_CLIENTE,
+    STATUS_CONFERMATO, STATUS_COMPLETO, STATUS_NON_ORDINATO,
 )
 
-# Fino a "letto" il preventivo è modificabile; dalla Conferma è bloccato.
-EDITABLE_STATUSES = frozenset({STATUS_BOZZA, STATUS_INVIATO, STATUS_LETTO})
+# Fino a "in attesa cliente" il preventivo è modificabile; dalla Conferma è
+# bloccato. 'non_ordinato' (perso) è terminale e non modificabile.
+EDITABLE_STATUSES = frozenset({
+    STATUS_BOZZA, STATUS_INVIATO, STATUS_LETTO, STATUS_IN_ATTESA_CLIENTE,
+})
 
 # Da questi stati si può creare un ordine materiale (dopo la Conferma).
 ORDERABLE_STATUSES = frozenset({STATUS_CONFERMATO, STATUS_COMPLETO})

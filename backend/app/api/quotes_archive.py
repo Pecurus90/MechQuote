@@ -99,11 +99,13 @@ def list_archive(
             Quote.quote_number.ilike(like),
             Quote.customer_name.ilike(like),
         ))
-    # Spec 18: split "Preventivi in corso" (non completo) vs Archivio (completo).
+    # Spec 18: split "Preventivi in corso" (in lavorazione) vs Archivio
+    # (terminali: completo o non ordinato/perso).
     if phase == 'completed':
-        query = query.filter(Quote.status == 'completo')
+        query = query.filter(Quote.status.in_(['completo', 'non_ordinato']))
     elif phase == 'active':
-        query = query.filter(Quote.status.in_(['bozza', 'inviato', 'letto', 'confermato']))
+        query = query.filter(Quote.status.in_(
+            ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato']))
     if status:
         query = query.filter(Quote.status == status)
     query = query.order_by(Quote.quote_date.desc(), Quote.id.desc())

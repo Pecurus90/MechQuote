@@ -1,10 +1,14 @@
-// Ciclo di vita preventivo (spec 18): bozza → inviato → letto → confermato → completo
+// Ciclo di vita preventivo (spec 18):
+// bozza → inviato → letto → in_attesa_cliente ─┬→ confermato → completo
+//                                              └→ non_ordinato (perso)
 export const STATUS_LABELS: Record<string, string> = {
-  bozza:      'Bozza',
-  inviato:    'Inviato',
-  letto:      'Letto',
-  confermato: 'Confermato',
-  completo:   'Completo',
+  bozza:             'Bozza',
+  inviato:           'Inviato',
+  letto:             'Letto',
+  in_attesa_cliente: 'Attesa cliente',
+  confermato:        'Confermato',
+  completo:          'Completo',
+  non_ordinato:      'Non ordinato',
   // legacy fallback (pre-migrazione)
   completato: 'Completo',
   draft:           'Bozza',
@@ -15,11 +19,13 @@ export const STATUS_LABELS: Record<string, string> = {
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  bozza:      'bg-gray-100 text-gray-700',
-  inviato:    'bg-amber-100 text-amber-700',
-  letto:      'bg-sky-100 text-sky-700',
-  confermato: 'bg-violet-100 text-violet-700',
-  completo:   'bg-green-100 text-green-700',
+  bozza:             'bg-gray-100 text-gray-700',
+  inviato:           'bg-amber-100 text-amber-700',
+  letto:             'bg-sky-100 text-sky-700',
+  in_attesa_cliente: 'bg-orange-100 text-orange-700',
+  confermato:        'bg-violet-100 text-violet-700',
+  completo:          'bg-green-100 text-green-700',
+  non_ordinato:      'bg-rose-100 text-rose-700',
   // legacy fallback
   completato:      'bg-green-100 text-green-700',
   draft:           'bg-gray-100 text-gray-700',

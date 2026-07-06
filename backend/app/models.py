@@ -80,10 +80,13 @@ class Quote(Base):
     packaging_cost = Column(Float, default=0.0)
     notes_customer = Column(Text)
     notes_internal = Column(Text)
-    # Spec 18: bozza|inviato|letto|confermato|completo (String, no Enum).
-    # 'letto' auto quando amministrazione apre un 'inviato'; 'confermato' via
-    # pulsante manuale (blocca modifica); 'completo' auto quando confermato +
-    # materiale risolto. Vedi services/quote_workflow.py.
+    # Spec 18: bozza|inviato|letto|in_attesa_cliente|confermato|completo|
+    # non_ordinato (String, no Enum). 'letto' auto quando amministrazione apre
+    # un 'inviato'; 'in_attesa_cliente' pulsante manuale (offerta dal cliente);
+    # 'confermato' pulsante manuale = cliente ha ordinato (blocca modifica);
+    # 'non_ordinato' = cliente non ha ordinato (perso, terminale, reversibile);
+    # 'completo' auto quando confermato + materiale risolto.
+    # Vedi services/quote_workflow.py.
     status = Column(String(20), default="bozza")
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     submitted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -91,11 +94,16 @@ class Quote(Base):
     # Lettura da amministrazione (spec 18).
     read_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     read_at = Column(DateTime, nullable=True)
+    # Invio al cliente (spec 18): quando amministrazione mette 'in_attesa_cliente'.
+    awaiting_client_at = Column(DateTime, nullable=True)
     # Conferma manuale amministrazione (spec 18): da qui il preventivo è locked.
     confirmed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     confirmed_at = Column(DateTime, nullable=True)
     completed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    # Esito 'non ordinato' (perso): il cliente non ha acquistato (spec 18).
+    not_ordered_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    not_ordered_at = Column(DateTime, nullable=True)
     # Tracking ordine materiale: settato quando un MaterialOrder include questo
     # quote (vedi api/orders.py). Indipendente dal workflow stato.
     material_ordered_at = Column(DateTime, nullable=True)
@@ -122,6 +130,7 @@ class Quote(Base):
     read_by = relationship("User", foreign_keys=[read_by_user_id])
     confirmed_by = relationship("User", foreign_keys=[confirmed_by_user_id])
     completed_by = relationship("User", foreign_keys=[completed_by_user_id])
+    not_ordered_by = relationship("User", foreign_keys=[not_ordered_by_user_id])
     material_ordered_by = relationship("User", foreign_keys=[material_ordered_by_user_id])
     # Modulo Stampi: 1:1 con DieSpec (NULL se quote_type != 'die').
     die_spec = relationship("DieSpec", uselist=False, back_populates="quote",

@@ -808,6 +808,13 @@ def _run_migrations():
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_suppliers_name ON suppliers(lower(trim(name)))",
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_normalized_suppliers_name ON normalized_suppliers(lower(trim(name)))",
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_tool_suppliers_name ON tool_suppliers(lower(trim(name)))",
+
+        # ═══ Spec 18 — stati "in attesa cliente" e "non ordinato" (perso) ═══
+        # Nuovi stati additivi (status resta String, nessun vincolo). Colonne
+        # audit per le statistiche: data invio al cliente + data/autore "perso".
+        "ALTER TABLE quotes ADD COLUMN awaiting_client_at DATETIME",
+        "ALTER TABLE quotes ADD COLUMN not_ordered_at DATETIME",
+        "ALTER TABLE quotes ADD COLUMN not_ordered_by_user_id INTEGER REFERENCES users(id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

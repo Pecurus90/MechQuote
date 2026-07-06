@@ -267,16 +267,16 @@ def confirm_quote(
     current_user: User = Depends(get_current_user),
     _=_can_confirm,
 ):
-    """Conferma manuale (amministrazione): letto/inviato → confermato.
+    """Conferma manuale (amministrazione) = il cliente ha ordinato.
 
-    Da qui il preventivo è bloccato in modifica. Se il materiale è già
-    risolto (non necessario, tutto evaso, o preventivo stampo) passa subito a
-    'completo'.
+    Da inviato/letto/in_attesa_cliente → confermato. Da qui il preventivo è
+    bloccato in modifica. Se il materiale è già risolto (non necessario, tutto
+    evaso, o preventivo stampo) passa subito a 'completo'.
     """
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
-    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO):
+    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
         raise HTTPException(
             status_code=400,
             detail=f"Conferma non possibile dallo stato '{quote.status}'",
@@ -311,11 +311,11 @@ def reopen_quote(
     current_user: User = Depends(get_current_user),
     _=_can_confirm,
 ):
-    """Rimanda in bozza (amministrazione): inviato/letto → bozza + notifica creatore."""
+    """Rimanda in bozza (amministrazione): inviato/letto/in_attesa_cliente → bozza."""
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
-    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO):
+    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
         raise HTTPException(
             status_code=400,
             detail=f"Rimando in bozza non possibile dallo stato '{quote.status}'",
@@ -326,6 +326,7 @@ def reopen_quote(
     quote.submitted_by_user_id = None
     quote.read_at = None
     quote.read_by_user_id = None
+    quote.awaiting_client_at = None
     # Tornando prima della Conferma il materiale non è più "ordinato": azzera le
     # evasioni (coppie preventivo-fornitore) come fa unconfirm. L'ordine resta
     # nello storico (MaterialOrder), ma il materiale va riordinato.
@@ -382,6 +383,85 @@ def unconfirm_quote(
     quote.completed_by_user_id = None
     db.commit()
     logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
+    return _load_quote(quote_id, db)
+
+
+@router.post("/{quote_id}/await-client", response_model=QuoteOut)
+def await_client_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Amministrazione: inviato/letto → in_attesa_cliente (offerta dal cliente).
+
+    Il preventivo resta modificabile (si può ritoccare l'offerta), ma il
+    materiale non è ancora ordinabile: si attende la risposta del cliente.
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO):
+        raise HTTPException(
+            status_code=400,
+            detail=f"'In attesa cliente' non possibile dallo stato '{quote.status}'",
+        )
+    quote.status = wf.STATUS_IN_ATTESA_CLIENTE
+    quote.awaiting_client_at = utc_now()
+    db.commit()
+    logger.info("In attesa cliente: quote_id=%s by=%s", quote_id, current_user.username)
+    return _load_quote(quote_id, db)
+
+
+@router.post("/{quote_id}/mark-not-ordered", response_model=QuoteOut)
+def mark_not_ordered_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Amministrazione: il cliente non ha ordinato → non_ordinato (perso).
+
+    Da inviato/letto/in_attesa_cliente. Terminale ma reversibile (restore).
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
+        raise HTTPException(
+            status_code=400,
+            detail=f"'Non ordinato' non possibile dallo stato '{quote.status}'",
+        )
+    quote.status = wf.STATUS_NON_ORDINATO
+    quote.not_ordered_at = utc_now()
+    quote.not_ordered_by_user_id = current_user.id
+    db.commit()
+    logger.info("Non ordinato: quote_id=%s by=%s", quote_id, current_user.username)
+    return _load_quote(quote_id, db)
+
+
+@router.post("/{quote_id}/restore", response_model=QuoteOut)
+def restore_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Amministrazione: annulla 'non ordinato' → letto (il cliente ci ripensa)."""
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    if quote.status != wf.STATUS_NON_ORDINATO:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nessun 'non ordinato' da annullare (stato '{quote.status}')",
+        )
+    quote.status = wf.STATUS_LETTO
+    quote.not_ordered_at = None
+    quote.not_ordered_by_user_id = None
+    quote.awaiting_client_at = None
+    db.commit()
+    logger.info("Ripristino non-ordinato→letto: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
 

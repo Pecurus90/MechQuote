@@ -8,6 +8,7 @@ import {
   FileText,
   FileDown,
   CheckCheck,
+  XCircle,
   Trash2,
   SearchX,
 } from 'lucide-react'
@@ -59,9 +60,11 @@ interface Props {
 
   onOpen: (id: number) => void
   onConfirm?: (id: number) => void
+  onNotOrdered?: (id: number) => void
   onPdf?: (id: number) => void
   onDelete?: (id: number) => void
   canConfirm?: (row: QuotesListRow) => boolean
+  canNotOrdered?: (row: QuotesListRow) => boolean
   canDelete?: (row: QuotesListRow) => boolean
 
   pagination?: ReactNode
@@ -94,7 +97,7 @@ export function QuotesListView(props: Props) {
     title, icon: Icon, subtitle, onNew, rows, emptyText,
     expandedId, onToggleExpand, articleRows,
     filters, onFilterChange, years, statusOptions,
-    onOpen, onConfirm, onPdf, onDelete, canConfirm, canDelete, pagination,
+    onOpen, onConfirm, onNotOrdered, onPdf, onDelete, canConfirm, canNotOrdered, canDelete, pagination,
   } = props
 
   return (
@@ -199,6 +202,7 @@ export function QuotesListView(props: Props) {
             const expanded = expandedId === r.id
             const last = i === rows.length - 1
             const showConfirm = !!onConfirm && (canConfirm ? canConfirm(r) : true)
+            const showNotOrdered = !!onNotOrdered && (canNotOrdered ? canNotOrdered(r) : true)
             const showDelete = !!onDelete && (canDelete ? canDelete(r) : true)
             return (
               <div key={r.id} className={cn(!last && 'border-b border-border')}>
@@ -230,6 +234,9 @@ export function QuotesListView(props: Props) {
                     <FileText className="h-4 w-4 cursor-pointer transition-colors hover:text-foreground" onClick={() => onOpen(r.id)} />
                     {showConfirm && (
                       <CheckCheck className="h-4 w-4 cursor-pointer text-state-confermato transition-colors hover:brightness-110" onClick={() => onConfirm?.(r.id)} />
+                    )}
+                    {showNotOrdered && (
+                      <XCircle className="h-4 w-4 cursor-pointer text-state-perso transition-colors hover:brightness-110" onClick={() => onNotOrdered?.(r.id)} />
                     )}
                     {onPdf && (
                       <FileDown className="h-4 w-4 cursor-pointer transition-colors hover:text-foreground" onClick={() => onPdf(r.id)} />

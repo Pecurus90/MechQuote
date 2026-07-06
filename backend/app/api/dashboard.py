@@ -219,16 +219,17 @@ def get_workflow_stats(
         Quote.status == 'inviato',
     ).scalar() or 0
 
-    has_confirm = 'quotes.confirm' in getattr(current_user, '_permissions', [])
+    # Visibilità pipeline: chi accede all'archivio (ufficio tecnico E
+    # amministrazione) vede gli stessi KPI. La conferma resta gated altrove.
+    has_archive = 'quotes.archive' in getattr(current_user, '_permissions', [])
     to_review = (
         db.query(func.count(Quote.id)).filter(Quote.status.in_(['inviato', 'letto'])).scalar() or 0
-    ) if has_confirm else 0
+    ) if has_archive else 0
 
-    # Offerte in attesa di risposta del cliente (spec 18): promemoria per chi
-    # gestisce gli esiti (amministrazione).
+    # Offerte in attesa di risposta del cliente (spec 18).
     awaiting_client = (
         db.query(func.count(Quote.id)).filter(Quote.status == 'in_attesa_cliente').scalar() or 0
-    ) if has_confirm else 0
+    ) if has_archive else 0
 
     # Ordini completi senza prezzo di vendita: buchi nei dati statistici
     # (marginalità reale). Solo status='completo' con sold_price non compilato.
@@ -236,7 +237,7 @@ def get_workflow_stats(
         db.query(func.count(Quote.id)).filter(
             Quote.status == 'completo', Quote.sold_price.is_(None)
         ).scalar() or 0
-    ) if has_confirm else 0
+    ) if has_archive else 0
 
     return WorkflowStats(
         by_status=by_status,
@@ -925,7 +926,9 @@ def get_to_review(
     _=_can_view,
     limit: int = 10,
 ):
-    if 'quotes.confirm' not in getattr(current_user, '_permissions', []):
+    # Visibile a chi accede all'archivio (ufficio tecnico E amministrazione):
+    # è una panoramica pipeline, la conferma resta gated in editor.
+    if 'quotes.archive' not in getattr(current_user, '_permissions', []):
         raise HTTPException(status_code=403, detail="Permesso negato")
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),

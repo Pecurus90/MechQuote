@@ -19,7 +19,10 @@ interface ToolsStats { low_stock: number; total_active: number; orders_this_mont
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
-  const canReview = hasPermission('quotes.confirm')
+  // Visibilità pipeline preventivi: chi accede all'archivio (ufficio tecnico
+  // E amministrazione). La CONFERMA resta un'azione gated da quotes.confirm
+  // nell'editor — qui la dashboard mostra gli stessi KPI ai due ruoli.
+  const canSeeQuotes = hasPermission('quotes.archive')
   const canQuote = hasPermission('quotes.create')
   const canTools = hasPermission('tools')
   const canOrderMaterials = hasPermission('orders.materials')
@@ -48,13 +51,13 @@ export default function DashboardPage() {
         get<DashboardQuoteRow[]>('/dashboard/my-quotes', { status: 'bozza' }),
         get<DashboardQuoteRow[]>('/dashboard/my-quotes', { status: 'inviato' }),
       ]).then(([d, p]) => setMyQuotes([...(d || []), ...(p || [])])),
-      canReview ? get<DashboardQuoteRow[]>('/dashboard/to-review').then(d => d && setToReview(d)) : null,
-      canReview ? get<DashboardQuoteRow[]>('/dashboard/awaiting-materials').then(d => d && setAwaitingMaterials(d)) : null,
+      canSeeQuotes ? get<DashboardQuoteRow[]>('/dashboard/to-review').then(d => d && setToReview(d)) : null,
+      (canSeeQuotes || canOrderMaterials) ? get<DashboardQuoteRow[]>('/dashboard/awaiting-materials').then(d => d && setAwaitingMaterials(d)) : null,
       canOrderMaterials ? get<MaterialsStats>('/orders/materials/stats').then(d => d && setMatStats(d)) : null,
       canTools ? get<ToolsStats>('/orders/tools/stats').then(d => d && setToolStats(d)) : null,
       canTools ? get<ToolLowStockPreview>('/orders/tools/preview').then(d => d && setToolPreview(d)) : null,
     ]).catch(() => toast.error('Errore nel caricamento dashboard')).finally(() => setLoading(false))
-  }, [canReview, canOrderMaterials, canTools])
+  }, [canSeeQuotes, canOrderMaterials, canTools])
 
   if (loading || !stats) return (
     <div className="flex items-center justify-center h-64 text-muted-foreground">Caricamento...</div>
@@ -65,9 +68,9 @@ export default function DashboardPage() {
   // esito cliente, buchi dati prezzo, approvvigionamento.
   type Kpi = { key: string; label: string; value: string | number; hint: string; icon: LucideIcon; tone: KpiTone; to: string; show: boolean }
   const allKpis: Kpi[] = [
-    { key: 'da-revisionare', label: 'Da revisionare', value: stats.to_review_count, hint: 'inviati o letti, da confermare', icon: FileSearch, tone: 'confirmed', to: '/quotes/active', show: canReview },
-    { key: 'attesa-cliente', label: 'Attesa cliente', value: stats.awaiting_client_count, hint: 'offerte dal cliente', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canReview },
-    { key: 'prezzi-mancanti', label: 'Prezzi mancanti', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=completo', show: canReview },
+    { key: 'da-revisionare', label: 'Da revisionare', value: stats.to_review_count, hint: 'inviati o letti, da confermare', icon: FileSearch, tone: 'confirmed', to: '/quotes/active', show: canSeeQuotes },
+    { key: 'attesa-cliente', label: 'Attesa cliente', value: stats.awaiting_client_count, hint: 'offerte dal cliente', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canSeeQuotes },
+    { key: 'prezzi-mancanti', label: 'Prezzi mancanti', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=completo', show: canSeeQuotes },
     { key: 'da-ordinare', label: 'Da ordinare', value: matStats?.to_order ?? 0, hint: 'confermati da ordinare', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },
     { key: 'sotto-scorta', label: 'Sotto scorta utensili', value: toolStats?.low_stock ?? 0, hint: `su ${toolStats?.total_active ?? 0} a catalogo`, icon: Drill, tone: 'warning', to: '/orders/tools', show: canTools },
   ]
@@ -91,7 +94,7 @@ export default function DashboardPage() {
           ? `/quotes/archive?status=${s}`
           : `/quotes/active?status=${s}`
       )}
-      toReview={canReview ? toReview : undefined}
+      toReview={canSeeQuotes ? toReview : undefined}
       onSeeAllReview={() => navigate('/quotes/active')}
       myQuotes={canQuote ? myQuotes.slice(0, 6) : undefined}
       onSeeAllMine={() => navigate('/quotes/active')}
@@ -101,7 +104,7 @@ export default function DashboardPage() {
       onSeeAllActivity={() => navigate('/activity')}
       tools={tools}
       onOrderTools={() => navigate('/orders/tools')}
-      materials={(canReview || canOrderMaterials) ? awaitingMaterials.slice(0, 6) : undefined}
+      materials={(canSeeQuotes || canOrderMaterials) ? awaitingMaterials.slice(0, 6) : undefined}
       onOrderMaterials={() => navigate('/orders/materials')}
     />
   )

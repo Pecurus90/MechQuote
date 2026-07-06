@@ -107,11 +107,11 @@ export default function OrdersHistoryPage() {
     }
   }
 
-  const downloadMat = (kind: 'csv' | 'pdf', id: number) =>
-    downloadBlob(`/orders/materials/${id}/${kind}`, `ordine_materiali_${String(id).padStart(4, '0')}.${kind}`)
+  const downloadMatCsv = (id: number) =>
+    downloadBlob(`/orders/materials/${id}/csv`, `ordine_materiali_${String(id).padStart(4, '0')}.csv`)
       .catch((e) => {
         const err = e as { response?: { data?: { detail?: string } } }
-        toast.error(err?.response?.data?.detail || `Errore nel download del ${kind.toUpperCase()}`)
+        toast.error(err?.response?.data?.detail || 'Errore nel download del CSV')
       })
 
   const downloadToolCsv = (id: number) =>
@@ -198,11 +198,8 @@ export default function OrdersHistoryPage() {
                       {o.quote_numbers.slice(0, 3).join(', ')}{o.quote_numbers.length > 3 && ` +${o.quote_numbers.length - 3}`}
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
-                      <Button size="sm" variant="outline" onClick={() => downloadMat('csv', o.id)} className="mr-1">
+                      <Button size="sm" variant="outline" onClick={() => downloadMatCsv(o.id)} className="mr-1">
                         <FileDown className="w-3.5 h-3.5 mr-1" /> CSV
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadMat('pdf', o.id)} className="mr-1">
-                        <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
                       </Button>
                       {canMaterials && (
                         <Button size="sm" variant="ghost" onClick={() => deleteMaterialOrder(o)}

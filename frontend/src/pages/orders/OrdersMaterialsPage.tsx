@@ -156,7 +156,7 @@ export default function OrdersMaterialsPage() {
       color="blue"
       width="xl"
       title="Ordini materiali"
-      subtitle='Seleziona preventivi e genera un PDF lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
+      subtitle='Seleziona preventivi e genera un CSV lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
     >
 
       {stats && (

@@ -1,7 +1,7 @@
 """API ordini materiali.
 
 Estrae da N preventivi selezionati la lista dei materiali grezzi
-aggregata per fornitore. Click "Esporta PDF" → 3 azioni atomiche:
+aggregata per fornitore. Creazione ordine (per fornitore) → 3 azioni atomiche:
 1. crea record MaterialOrder + join sui quote
 2. marca i quote con material_ordered_at + material_ordered_by_user_id
 3. notifica a ufficio_tecnico + amministrazione
@@ -13,19 +13,16 @@ Conto lavoro: le parti con `customer_supplied_material=True` sono ESCLUSE
 dall'aggregazione (il cliente porta il materiale, non si ordina).
 
 Materiale a magazzino: le parti con `material_from_stock=True` sono INCLUSE
-nell'aggregazione ma marcate con `from_stock=True` per render badge UI/PDF
+nell'aggregazione ma marcate con `from_stock=True` per render badge UI
 (l'utente le vede comunque nella lista del fornitore abituale, ma marcate
 come "Da magazzino" per non confonderle con materiale da ordinare).
 """
-import asyncio
 import logging
 import math
-import os
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csv_import import csv_export_response, sanitize_filename_part
@@ -363,7 +360,7 @@ def create_order(
     scelto, marca le coppie (preventivo, fornitore) come ordinate, ricalcola
     lo stato materiale e notifica. Idempotente: i preventivi già ordinati per
     quel fornitore vengono saltati; se sono tutti già ordinati → 400.
-    Il CSV/PDF si scaricano separatamente via GET /{id}/csv | /{id}/pdf.
+    Il CSV si scarica separatamente via GET /{id}/csv.
     """
     if payload.material_supplier_id is None:
         raise HTTPException(status_code=400, detail="Fornitore mancante per l'ordine")
@@ -514,30 +511,6 @@ def list_orders(
     return [_order_to_out(o, db) for o in orders]
 
 
-@router.get("/{order_id}/pdf")
-async def get_order_pdf(
-    order_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _=_can_orders,
-):
-    """Rigenera il PDF dell'ordine on-demand (niente file salvato su disco)."""
-    order = db.query(MaterialOrder).options(joinedload(MaterialOrder.quotes)).filter(
-        MaterialOrder.id == order_id
-    ).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Ordine non trovato")
-
-    from app.api.orders_pdf import generate_order_pdf
-    path = await asyncio.to_thread(generate_order_pdf, order_id, db)
-    background_tasks.add_task(os.unlink, path)
-    return FileResponse(
-        path=path,
-        media_type='application/pdf',
-        filename=f"ordine_materiali_{order_id:04d}.pdf",
-    )
-
-
 @router.get("/{order_id}/csv")
 def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     """CSV dell'ordine materiali di quel fornitore (un file = un ordine gestionale).
@@ -554,7 +527,7 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     if order.material_supplier_id is None:
         raise HTTPException(
             status_code=400,
-            detail="Ordine storico senza fornitore: CSV non disponibile (usa il PDF)",
+            detail="Ordine storico senza fornitore: CSV non disponibile per questo ordine.",
         )
 
     quote_ids = [q.id for q in order.quotes]

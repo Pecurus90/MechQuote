@@ -20,7 +20,7 @@ from app.models import (
     Quote, Part, Material, QuoteSupplierOrder, User, Notification, NotificationRead,
 )
 from app.schemas import (
-    DashboardKPI, MonthlyData, WorkflowStats, DashboardQuoteRow,
+    MonthlyData, WorkflowStats, DashboardQuoteRow,
     StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
     StatsHoursRow, MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
     StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
@@ -34,118 +34,6 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 _can_view = require_permission('dashboard')
 
 
-@router.get("/dashboard/kpi", response_model=DashboardKPI)
-def get_kpi(db: Session = Depends(get_db), _=_can_view):
-    today = date.today()
-    first_this = today.replace(day=1)
-    first_prev = (first_this - timedelta(days=1)).replace(day=1)
-
-    # 4 query aggregate in totale, niente caricamento di righe in memoria.
-    # `parts.total_price` è già ricalcolato via `recalculate_part` ad ogni write,
-    # quindi sommarlo qui è coerente con quanto mostrato nei preventivi.
-
-    # 1. Conteggi quote (totale + mese corrente)
-    quote_counts = db.execute(text(
-        """
-        SELECT
-          COUNT(*) AS total,
-          COALESCE(SUM(CASE WHEN quote_date >= :first_this THEN 1 ELSE 0 END), 0) AS this_month
-        FROM quotes
-        """
-    ), {"first_this": first_this}).first()
-    total_quotes = int(quote_counts.total or 0)
-    total_quotes_this_month = int(quote_counts.this_month or 0)
-
-    # 2. Somme valore preventivato per finestra temporale (totale, mese corrente, mese precedente)
-    value_sums = db.execute(text(
-        """
-        SELECT
-          COALESCE(SUM(p.total_price), 0) AS total,
-          COALESCE(SUM(CASE WHEN q.quote_date >= :first_this THEN p.total_price ELSE 0 END), 0) AS this_month,
-          COALESCE(SUM(CASE WHEN q.quote_date >= :first_prev AND q.quote_date < :first_this THEN p.total_price ELSE 0 END), 0) AS prev_month
-        FROM parts p
-        JOIN quotes q ON q.id = p.quote_id
-        """
-    ), {"first_this": first_this, "first_prev": first_prev}).first()
-    total_quoted_value = float(value_sums.total or 0.0)
-    quoted_value_this_month = float(value_sums.this_month or 0.0)
-    quoted_value_prev_month = float(value_sums.prev_month or 0.0)
-
-    percentage_diff = 0.0
-    if quoted_value_prev_month > 0:
-        percentage_diff = ((quoted_value_this_month - quoted_value_prev_month) / quoted_value_prev_month) * 100
-    avg_quote_value = total_quoted_value / total_quotes if total_quotes > 0 else 0.0
-
-    # 3. Conteggio totale parti (codici)
-    total_part_codes = db.execute(text("SELECT COUNT(*) AS n FROM parts")).scalar() or 0
-
-    # 4. Split CNC/EDM per quote_mode (somma parti.total_price condizionale).
-    # Esclude i preventivi tipo 'die' (le piastre stampo non sono CNC/EDM
-    # nel senso lavorazione-cliente, sono materiale interno dello stampo).
-    mode_split = db.execute(text(
-        """
-        SELECT
-          COALESCE(SUM(CASE WHEN p.quote_mode IN ('manual','step','mixed') THEN p.total_price ELSE 0 END), 0) AS cnc,
-          COALESCE(SUM(CASE WHEN p.quote_mode IN ('dxf','mixed') THEN p.total_price ELSE 0 END), 0) AS edm
-        FROM parts p
-        JOIN quotes q ON q.id = p.quote_id
-        WHERE q.quote_type != 'die' OR q.quote_type IS NULL
-        """
-    )).first()
-    cnc_value = float(mode_split.cnc or 0.0)
-    edm_value = float(mode_split.edm or 0.0)
-
-    # 5. Modulo Stampi: valore preventivato per quote_type='die'. Il prezzo
-    # finale è cost_industrial × (1 + margin%) × (1 - discount%); somma su
-    # tutti i preventivi stampo (non solo i 'completato', allineato al resto
-    # del KPI che include anche bozze e inviati).
-    dies_value = db.execute(text(
-        """
-        SELECT COALESCE(SUM(
-          ds.cost_industrial
-          * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-          * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-        ), 0) AS v
-        FROM die_specs ds
-        JOIN quotes q ON q.id = ds.quote_id
-        WHERE q.quote_type = 'die'
-        """
-    )).scalar() or 0.0
-    dies_quoted_value = float(dies_value)
-
-    # 6. Margine medio % sui preventivi standard (non die — i die hanno
-    # un margine "globale" sull'industriale e non per parte, calcolo a parte).
-    # Formula: ((Σ unit_price × qty) - (Σ total_cost × qty)) / (Σ total_cost × qty) × 100
-    # Se total_cost=0 → 0% (parte senza costo, non significativa per la media).
-    margin_row = db.execute(text(
-        """
-        SELECT
-          COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
-          COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
-        FROM parts p
-        JOIN quotes q ON q.id = p.quote_id
-        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL)
-          AND p.total_cost > 0
-        """
-    )).first()
-    revenue = float(margin_row.revenue or 0.0)
-    cost = float(margin_row.cost or 0.0)
-    avg_margin_percent = ((revenue - cost) / cost * 100.0) if cost > 0 else 0.0
-
-    return DashboardKPI(
-        total_quotes=total_quotes,
-        total_quotes_this_month=total_quotes_this_month,
-        total_quoted_value=round(total_quoted_value, 2),
-        quoted_value_this_month=round(quoted_value_this_month, 2),
-        quoted_value_prev_month=round(quoted_value_prev_month, 2),
-        percentage_diff=round(percentage_diff, 2),
-        avg_quote_value=round(avg_quote_value, 2),
-        total_part_codes=int(total_part_codes),
-        cnc_quoted_value=round(cnc_value, 2),
-        edm_quoted_value=round(edm_value, 2),
-        dies_quoted_value=round(dies_quoted_value, 2),
-        avg_margin_percent=round(avg_margin_percent, 2),
-    )
 
 
 @router.get("/dashboard/activity")
@@ -209,16 +97,6 @@ def get_workflow_stats(
     die_count = db.query(func.count(Quote.id)).filter(Quote.quote_type == 'die').scalar() or 0
     standard_count = total_all - die_count
 
-    my_drafts = db.query(func.count(Quote.id)).filter(
-        Quote.created_by_user_id == current_user.id,
-        Quote.status == 'bozza',
-    ).scalar() or 0
-
-    my_pending = db.query(func.count(Quote.id)).filter(
-        Quote.created_by_user_id == current_user.id,
-        Quote.status == 'inviato',
-    ).scalar() or 0
-
     # Visibilità pipeline: chi accede all'archivio (ufficio tecnico E
     # amministrazione) vede gli stessi KPI. La conferma resta gated altrove.
     has_archive = 'quotes.archive' in getattr(current_user, '_permissions', [])
@@ -241,8 +119,6 @@ def get_workflow_stats(
 
     return WorkflowStats(
         by_status=by_status,
-        my_drafts_count=my_drafts,
-        my_pending_count=my_pending,
         to_review_count=to_review,
         awaiting_client_count=awaiting_client,
         completed_missing_price_count=missing_price,
@@ -960,53 +836,24 @@ def get_awaiting_materials(
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])
 def get_monthly(db: Session = Depends(get_db), _=_can_view):
-    """Aggregati mensili — value, margin, material, labor.
-
-    2 query aggregate. La prima copre value/cost/material via JOIN su
-    materials/material_suppliers per il cutting_cost_per_part. La seconda
-    somma il calculated_cost delle fasi non-treatment. Le coppie (anno,mese)
-    sono unite in Python.
+    """Aggregati mensili per il grafico Andamento: valore preventivato +
+    conteggi preventivi creati (per quote_date) e confermati (per
+    confirmed_at). Le coppie (anno, mese) sono unite in Python.
     """
-    materials_rows = db.execute(text(
+    value_rows = db.execute(text(
         """
         SELECT
           CAST(strftime('%Y', q.quote_date) AS INTEGER) AS y,
           CAST(strftime('%m', q.quote_date) AS INTEGER) AS m,
-          COALESCE(SUM(p.total_price), 0)                                  AS value,
-          COALESCE(SUM(COALESCE(p.total_cost, 0) * p.quantity), 0)         AS cost_total,
-          COALESCE(SUM(
-            COALESCE(p.material_cost, 0) * p.quantity
-            + COALESCE(p.material_delivery_cost, 0)
-            + COALESCE(ms.cutting_cost_per_part, 0) * p.quantity
-          ), 0) AS material
+          COALESCE(SUM(p.total_price), 0) AS value
         FROM quotes q
         JOIN parts p ON p.quote_id = q.id
-        LEFT JOIN materials mat ON mat.id = p.material_id
-        LEFT JOIN material_suppliers ms ON ms.id = mat.supplier_id
         WHERE q.quote_date IS NOT NULL
         GROUP BY y, m
         ORDER BY y, m
         """
     )).fetchall()
 
-    labor_rows = db.execute(text(
-        """
-        SELECT
-          CAST(strftime('%Y', q.quote_date) AS INTEGER) AS y,
-          CAST(strftime('%m', q.quote_date) AS INTEGER) AS m,
-          COALESCE(SUM(COALESCE(ph.calculated_cost, 0) * p.quantity), 0) AS labor
-        FROM quotes q
-        JOIN parts p ON p.quote_id = q.id
-        JOIN manufacturing_phases ph ON ph.part_id = p.id
-        WHERE q.quote_date IS NOT NULL AND ph.treatment_id IS NULL
-        GROUP BY y, m
-        """
-    )).fetchall()
-
-    labor_by_key = {(int(r.y), int(r.m)): float(r.labor or 0.0) for r in labor_rows}
-
-    # Conteggi preventivi per mese: creati (per quote_date), confermati (per
-    # confirmed_at). Alimentano il grafico Andamento (linee creati/confermati).
     created_rows = db.execute(text(
         "SELECT CAST(strftime('%Y', quote_date) AS INTEGER) AS y, "
         "CAST(strftime('%m', quote_date) AS INTEGER) AS m, COUNT(*) AS n "
@@ -1019,24 +866,16 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
     )).fetchall()
     created_by_key = {(int(r.y), int(r.m)): int(r.n) for r in created_rows}
     confirmed_by_key = {(int(r.y), int(r.m)): int(r.n) for r in confirmed_rows}
-    value_by_key = {(int(r.y), int(r.m)): r for r in materials_rows}
+    value_by_key = {(int(r.y), int(r.m)): float(r.value or 0.0) for r in value_rows}
 
     all_keys = sorted(set(value_by_key) | set(created_by_key) | set(confirmed_by_key))
-    out: List[MonthlyData] = []
-    for (y, m) in all_keys:
-        r = value_by_key.get((y, m))
-        value = float(r.value or 0.0) if r else 0.0
-        cost_total = float(r.cost_total or 0.0) if r else 0.0
-        material = float(r.material or 0.0) if r else 0.0
-        labor = labor_by_key.get((y, m), 0.0)
-        out.append(MonthlyData(
+    return [
+        MonthlyData(
             month=f"{y}-{m:02d}",
             year=y,
-            value=round(value, 2),
-            margin=round(value - cost_total, 2),
-            material=round(material, 2),
-            labor=round(labor, 2),
+            value=round(value_by_key.get((y, m), 0.0), 2),
             created_count=created_by_key.get((y, m), 0),
             confirmed_count=confirmed_by_key.get((y, m), 0),
-        ))
-    return out
+        )
+        for (y, m) in all_keys
+    ]

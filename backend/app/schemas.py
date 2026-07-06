@@ -666,40 +666,16 @@ class StepColorRuleOut(StepColorRuleBase):
 
 
 # --- Dashboard ---
-class DashboardKPI(BaseModel):
-    total_quotes: int
-    total_quotes_this_month: int
-    total_quoted_value: float
-    quoted_value_this_month: float
-    quoted_value_prev_month: float
-    percentage_diff: float
-    avg_quote_value: float
-    total_part_codes: int
-    cnc_quoted_value: float
-    edm_quoted_value: float
-    # Modulo Stampi: valore preventivato dei quote_type='die' (industriale ×
-    # margine × sconto), escluso dal split CNC/EDM.
-    dies_quoted_value: float = 0.0
-    # Margine medio % sui preventivi standard (non die):
-    # (Σ unit_price × qty - Σ total_cost × qty) / Σ total_cost × qty * 100.
-    avg_margin_percent: float = 0.0
-
-
 class MonthlyData(BaseModel):
     month: str
     year: int
     value: float     # somma part.total_price (valore preventivato finale)
-    margin: float    # somma (price - cost_total)
-    material: float  # somma costi materiali (grezzo + delivery + taglio)
-    labor: float     # somma calculated_cost delle fasi non-treatment
     created_count: int = 0    # preventivi creati nel mese (per quote_date)
     confirmed_count: int = 0  # preventivi confermati nel mese (per confirmed_at)
 
 
 class WorkflowStats(BaseModel):
     by_status: dict[str, int]
-    my_drafts_count: int
-    my_pending_count: int
     to_review_count: int
     awaiting_client_count: int = 0        # offerte in attesa risposta cliente
     completed_missing_price_count: int = 0  # ordini completi senza prezzo di vendita
@@ -1254,10 +1230,6 @@ class ToolOrderOut(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class ToolOrderDetailOut(ToolOrderOut):
-    items: List[ToolOrderItemOut] = []
 
 
 # ─── Officina ──────────────────────────────────────────────────────────────

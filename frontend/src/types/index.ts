@@ -306,20 +306,6 @@ export interface ToolAttribute {
   active: boolean
 }
 
-export interface ToolOrderItem {
-  id: number
-  tool_id?: number | null
-  code_snapshot: string
-  tool_type_snapshot?: string | null
-  brand_snapshot?: string | null
-  model_snapshot?: string | null
-  diameter_snapshot?: number | null
-  supplier_name_snapshot?: string | null
-  quantity_at_time: number
-  minimum_at_time: number
-  quantity_to_order: number
-}
-
 export interface ToolOrder {
   id: number
   created_at: string
@@ -330,9 +316,6 @@ export interface ToolOrder {
   total_quantity: number
 }
 
-export interface ToolOrderDetail extends ToolOrder {
-  items: ToolOrderItem[]
-}
 
 export interface ToolLowStockPreviewItem {
   tool_id: number
@@ -372,8 +355,6 @@ export interface ActivityRow {
 
 export interface WorkflowStats {
   by_status: Record<string, number>
-  my_drafts_count: number
-  my_pending_count: number
   to_review_count: number
   awaiting_client_count: number
   completed_missing_price_count: number
@@ -466,23 +447,6 @@ export interface Operation {
   active: boolean
 }
 
-export interface DashboardKPI {
-  total_quotes: number
-  total_quotes_this_month: number
-  total_quoted_value: number
-  quoted_value_this_month: number
-  quoted_value_prev_month: number
-  percentage_diff: number
-  avg_quote_value: number
-  total_part_codes: number
-  cnc_quoted_value: number
-  edm_quoted_value: number
-  // Modulo Stampi: prezzo finale (industriale × margine × sconto) cumulato.
-  dies_quoted_value?: number
-  // Margine medio % sui preventivi standard (non die).
-  avg_margin_percent?: number
-}
-
 // ─── Wire EDM ───────────────────────────────────────────────────────────────
 
 export interface EdmConfig {
@@ -561,9 +525,6 @@ export interface MonthlyData {
   month: string
   year: number
   value: number     // valore preventivato (prezzo finale)
-  margin: number    // margine = prezzo - costo
-  material: number  // costo materiali (grezzo + delivery + taglio)
-  labor: number     // costo lavorazioni (escluso trattamenti)
   created_count: number    // preventivi creati nel mese
   confirmed_count: number  // preventivi confermati nel mese
 }

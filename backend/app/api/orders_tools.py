@@ -21,7 +21,7 @@ from app.core.csv_import import csv_export_response, sanitize_filename_part
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
 from app.models import Tool, ToolOrder, ToolOrderItem, User
-from app.schemas import ToolOrderCreate, ToolOrderDetailOut, ToolOrderOut
+from app.schemas import ToolOrderCreate, ToolOrderOut
 from app.services.notifications import create_notification
 
 logger = logging.getLogger(__name__)
@@ -243,34 +243,6 @@ def list_tool_orders(
 
     orders = query.order_by(ToolOrder.created_at.desc()).limit(limit).all()
     return [_order_to_out(o) for o in orders]
-
-
-@router.get("/{order_id}", response_model=ToolOrderDetailOut)
-def get_tool_order_detail(order_id: int, db: Session = Depends(get_db), _=_can_orders_tools):
-    order = db.query(ToolOrder).options(
-        joinedload(ToolOrder.created_by),
-        joinedload(ToolOrder.items),
-    ).filter(ToolOrder.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Ordine non trovato")
-    base = _order_to_out(order)
-    base["items"] = [
-        {
-            "id": it.id,
-            "tool_id": it.tool_id,
-            "code_snapshot": it.code_snapshot,
-            "tool_type_snapshot": it.tool_type_snapshot,
-            "brand_snapshot": it.brand_snapshot,
-            "model_snapshot": it.model_snapshot,
-            "diameter_snapshot": it.diameter_snapshot,
-            "supplier_name_snapshot": it.supplier_name_snapshot,
-            "quantity_at_time": it.quantity_at_time,
-            "minimum_at_time": it.minimum_at_time,
-            "quantity_to_order": it.quantity_to_order,
-        }
-        for it in order.items
-    ]
-    return base
 
 
 @router.delete("/{order_id}")

@@ -728,15 +728,22 @@ export interface StatsToolTypeRow {
   quantity: number
 }
 
+export interface StatsToolBrandRow {
+  name: string
+  value: number
+}
+
 export interface ToolsStats {
   period: string
   orders_count: number
   total_quantity: number
   distinct_tools: number
+  low_stock_total: number
   trend_monthly: StatsCountPoint[]
   top_suppliers: StatsSupplierRow[]
   top_tools: StatsToolRow[]
   by_type: StatsToolTypeRow[]
+  low_stock_by_brand: StatsToolBrandRow[]
 }
 
 

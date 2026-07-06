@@ -814,15 +814,23 @@ class StatsToolTypeRow(BaseModel):
     quantity: int
 
 
+class StatsToolBrandRow(BaseModel):
+    """Utensili sotto scorta raggruppati per marca (tab Utensili)."""
+    name: str
+    value: int
+
+
 class ToolsStatsOut(BaseModel):
     period: str
     orders_count: int = 0                           # n° ordini utensili nel periodo
     total_quantity: int = 0                         # Σ quantità ordinata
     distinct_tools: int = 0                         # utensili distinti ordinati
+    low_stock_total: int = 0                        # utensili sotto scorta (attuale)
     trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
     top_suppliers: List[StatsSupplierRow]           # top 10 fornitori utensili
     top_tools: List[StatsToolRow]                   # top 10 utensili più ordinati
     by_type: List[StatsToolTypeRow] = []            # quantità per tipo utensile
+    low_stock_by_brand: List[StatsToolBrandRow] = []  # sotto scorta per marca
 
 
 class DashboardQuoteRow(BaseModel):

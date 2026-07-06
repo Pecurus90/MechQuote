@@ -24,7 +24,7 @@ from app.schemas import (
     StatisticsOut, StatsTrendPoint, StatsCustomerRow, StatsCategoryRow, StatsMarginPoint,
     StatsHoursRow, MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
     StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
-    StatsMaterialSupplierRow, StatsMaterialRow,
+    StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow,
 )
 from app.api.notifications import serialize_notification
 
@@ -780,15 +780,34 @@ def get_tools_stats(
     ), item_params).all()
     by_type = [StatsToolTypeRow(label=r.label or '—', quantity=int(r.qty or 0)) for r in rows_type]
 
+    # 5. Sotto scorta per marca (inventario ATTUALE, non filtrato per periodo:
+    # è lo stato di magazzino corrente). quantity < minimum, minimum > 0.
+    rows_low = db.execute(text(
+        """
+        SELECT COALESCE(NULLIF(TRIM(brand), ''), 'Senza marca') AS name, COUNT(*) AS n
+        FROM tools
+        WHERE quantity < minimum_quantity AND minimum_quantity > 0
+        GROUP BY name
+        ORDER BY n DESC
+        LIMIT 10
+        """
+    )).all()
+    low_stock_by_brand = [StatsToolBrandRow(name=r.name, value=int(r.n)) for r in rows_low]
+    low_stock_total = db.execute(text(
+        "SELECT COUNT(*) FROM tools WHERE quantity < minimum_quantity AND minimum_quantity > 0"
+    )).scalar() or 0
+
     return ToolsStatsOut(
         period=period,
         orders_count=int(kpi.orders or 0) if kpi else 0,
         total_quantity=int(kpi.qty or 0) if kpi else 0,
         distinct_tools=int(kpi.distinct_tools or 0) if kpi else 0,
+        low_stock_total=low_stock_total,
         trend_monthly=trend,
         top_suppliers=top_suppliers,
         top_tools=top_tools,
         by_type=by_type,
+        low_stock_by_brand=low_stock_by_brand,
     )
 
 

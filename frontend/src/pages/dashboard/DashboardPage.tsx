@@ -69,8 +69,8 @@ export default function DashboardPage() {
   type Kpi = { key: string; label: string; value: string | number; hint: string; icon: LucideIcon; tone: KpiTone; to: string; show: boolean }
   const allKpis: Kpi[] = [
     { key: 'da-revisionare', label: 'Preventivi da confermare', value: stats.to_review_count, hint: 'inviati o letti', icon: FileSearch, tone: 'confirmed', to: '/quotes/active', show: canSeeQuotes },
-    { key: 'attesa-cliente', label: 'Preventivi in attesa del cliente', value: stats.awaiting_client_count, hint: 'offerta inviata', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canSeeQuotes },
-    { key: 'prezzi-mancanti', label: 'Prezzi mancanti', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=completo', show: canSeeQuotes },
+    { key: 'attesa-cliente', label: 'In attesa del cliente', value: stats.awaiting_client_count, hint: 'offerta inviata', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canSeeQuotes },
+    { key: 'prezzi-mancanti', label: 'Preventivi senza prezzo', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=completo', show: canSeeQuotes },
     { key: 'da-ordinare', label: 'Materiale da ordinare', value: matStats?.to_order ?? 0, hint: 'da preventivi confermati', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },
     { key: 'sotto-scorta', label: 'Utensili da ordinare', value: toolStats?.low_stock ?? 0, hint: 'sotto la scorta minima', icon: Drill, tone: 'warning', to: '/orders/tools', show: canTools },
   ]

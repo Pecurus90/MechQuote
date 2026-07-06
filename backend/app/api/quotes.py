@@ -448,7 +448,13 @@ def restore_quote(
     current_user: User = Depends(get_current_user),
     _=_can_confirm,
 ):
-    """Amministrazione: annulla 'non ordinato' → letto (il cliente ci ripensa)."""
+    """Amministrazione: annulla 'non ordinato' (il cliente ci ripensa).
+
+    Torna allo stato precedente al 'perso': se il preventivo era già stato
+    mandato al cliente (awaiting_client_at valorizzato) rientra in
+    'in_attesa_cliente', altrimenti in 'letto'. Così non si perde il contesto
+    "offerta dal cliente".
+    """
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
@@ -457,12 +463,15 @@ def restore_quote(
             status_code=400,
             detail=f"Nessun 'non ordinato' da annullare (stato '{quote.status}')",
         )
-    quote.status = wf.STATUS_LETTO
+    if quote.awaiting_client_at:
+        quote.status = wf.STATUS_IN_ATTESA_CLIENTE  # awaiting_client_at resta
+    else:
+        quote.status = wf.STATUS_LETTO
     quote.not_ordered_at = None
     quote.not_ordered_by_user_id = None
-    quote.awaiting_client_at = None
     db.commit()
-    logger.info("Ripristino non-ordinato→letto: quote_id=%s by=%s", quote_id, current_user.username)
+    logger.info("Ripristino non-ordinato→%s: quote_id=%s by=%s",
+                quote.status, quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
 

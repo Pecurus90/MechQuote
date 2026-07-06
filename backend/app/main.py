@@ -59,7 +59,7 @@ _auth = [Depends(get_current_user)]
 _backup = [require_permission('backup')]
 
 from app.api import (
-    auth, quotes, parts, phases, dashboard, pdf, backup, customers, quotes_archive,
+    auth, quotes, parts, phases, dashboard, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
     workflow_templates, operations, orders, tools, orders_tools, officina,
     heat_treatments,
@@ -78,7 +78,6 @@ app.include_router(machines.router, dependencies=_auth)
 app.include_router(treatments.router, dependencies=_auth)
 app.include_router(catalog.router, dependencies=_auth)
 app.include_router(dashboard.router, dependencies=_auth)
-app.include_router(pdf.router, dependencies=_auth)
 app.include_router(backup.router, dependencies=_backup)
 app.include_router(customers.router, dependencies=_auth)
 app.include_router(roles.router, dependencies=_auth)

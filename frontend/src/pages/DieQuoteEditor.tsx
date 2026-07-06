@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Pencil, X, Send, FileText, Save, AlertCircle } from 'lucide-react'
+import { Pencil, X, Send, Save, AlertCircle } from 'lucide-react'
 
 import api, { getApiErrorDetail } from '@/lib/api'
 import { buildCatalogOptions } from '@/lib/catalogSelect'
@@ -35,7 +35,6 @@ export default function DieQuoteEditor() {
   const { hasPermission } = useAuth()
   const canWrite = hasPermission('dies.create')
   const canSubmit = hasPermission('quotes.send')
-  const canPdf = hasPermission('quotes.pdf') || hasPermission('dies.pdf')
 
   const [quote, setQuote] = useState<Quote | null>(null)
   const [spec, setSpec] = useState<DieSpec | null>(null)
@@ -315,28 +314,6 @@ export default function DieQuoteEditor() {
     }
   }
 
-  const handleDownloadPdf = async () => {
-    // Se ci sono modifiche pending, salva prima così il PDF è coerente
-    // con quello che l'utente vede nell'editor (altrimenti il BE
-    // riempirebbe il PDF con i valori vecchi dal DB).
-    if (isDirty) {
-      const ok = await handleSave()
-      if (!ok) return
-    }
-    try {
-      const res = await api.get(`/quotes/${id}/pdf`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `preventivo_stampo_${quote?.quote_number || id}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (e) {
-      toast.error(getApiErrorDetail(e, 'Errore download PDF'))
-    }
-  }
 
   // Live preview L3/L4: replico la formula backend lato client per
   // mostrare i costi aggiornati subito quando l'utente cambia
@@ -433,11 +410,6 @@ export default function DieQuoteEditor() {
             </Button>
           )}
           <QuoteStatusActions quote={quote} onChanged={setQuote} />
-          {canPdf && (
-            <Button variant="outline" onClick={handleDownloadPdf}>
-              <FileText className="w-4 h-4 mr-1" /> PDF
-            </Button>
-          )}
           {editable && canWrite && (
             <Button disabled={saving || !isDirty} onClick={handleSave}>
               <Save className="w-4 h-4 mr-1" /> {saving ? 'Salvataggio…' : 'Salva'}

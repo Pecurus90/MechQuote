@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Send, CheckCheck, Undo2, RotateCcw, FileDown, Save, Hourglass, XCircle } from 'lucide-react'
+import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
@@ -11,7 +11,6 @@ import PartCard from '@/components/quotes/PartCard'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import DieQuoteEditor from '@/pages/DieQuoteEditor'
 import { validateQuote } from '@/lib/quoteValidation'
-import type { PartIssue } from '@/lib/quoteValidation'
 import { toast } from 'sonner'
 // Guscio editor (design handoff)
 import { QuoteEditorTopBar, type EditorAction } from '@/components/quotes/QuoteEditorTopBar'
@@ -20,7 +19,6 @@ import { QuoteDataPanel, type QuoteDataValue } from '@/components/quotes/QuoteDa
 import { CommessaSummaryTable, type CommessaRow } from '@/components/quotes/CommessaSummaryTable'
 import { CloseoutPanel } from '@/components/quotes/CloseoutPanel'
 import { QuoteBottomBar } from '@/components/quotes/QuoteBottomBar'
-import { QuoteValidationModal, type ValidationPart } from '@/components/quotes/QuoteValidationModal'
 import type { QuoteType } from '@/components/quotes/TypeBadge'
 import type { QuoteStatus } from '@/components/dashboard/StatusBadges'
 
@@ -43,8 +41,6 @@ export default function QuoteEditor() {
   const [selectedPartIdx, setSelectedPartIdx] = useState(0)
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
-  const [validationIssues, setValidationIssues] = useState<PartIssue[] | null>(null)
-  const [pendingPdfType, setPendingPdfType] = useState<boolean>(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [confirmUnconfirm, setConfirmUnconfirm] = useState(false)
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
@@ -254,24 +250,6 @@ export default function QuoteEditor() {
     } finally { setSaving(false) }
   }
 
-  const downloadPdf = async () => {
-    if (!quote?.id) return
-    try {
-      const res = await api.get(`/quotes/${quote.id}/pdf`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a')
-      a.href = url; a.download = `preventivo_${quote.quote_number}.pdf`
-      document.body.appendChild(a); a.click(); a.remove()
-      toast.success('PDF generato')
-    } catch { toast.error('Errore nella generazione del PDF') }
-  }
-
-  const handlePdfClick = () => {
-    if (!quote) return
-    const issues = validateQuote(quote)
-    if (issues.length > 0) { setValidationIssues(issues); setPendingPdfType(true) }
-    else downloadPdf()
-  }
 
   if (isNew) {
     return (
@@ -305,7 +283,6 @@ export default function QuoteEditor() {
     { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => doStatus('restore', 'Preventivo ripristinato'), show: canConfirm && st === 'non_ordinato' },
     { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => doStatus('reopen', 'Rimandato in bozza'), show: canConfirm && preConfirm },
     { key: 'unconfirm', label: 'Annulla conferma', icon: RotateCcw, variant: 'muted', onClick: () => setConfirmUnconfirm(true), show: showUnconfirm },
-    { key: 'pdf', label: 'PDF', icon: FileDown, variant: 'secondary', onClick: handlePdfClick, show: hasPermission('quotes.pdf') },
     { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !isLocked },
   ]
 
@@ -365,12 +342,6 @@ export default function QuoteEditor() {
   const soldMargin = (quote.sold_price ?? 0) - (quote.actual_cost ?? 0)
   const soldMarginPct = quote.sold_price ? (soldMargin / quote.sold_price) * 100 : 0
   const closeoutMarginLabel = `${eur0(soldMargin)}${quote.sold_price ? ` · ${soldMarginPct.toFixed(1).replace('.', ',')}%` : ''}`
-
-  const validationParts: ValidationPart[] = (validationIssues ?? []).map(pi => ({
-    id: pi.partIdx,
-    label: `${pi.partCode}${quote.parts[pi.partIdx]?.description ? ` · ${quote.parts[pi.partIdx].description}` : ''}`,
-    issues: pi.issues,
-  }))
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-background">
@@ -465,14 +436,6 @@ export default function QuoteEditor() {
         locked={isLocked}
         onChange={onBottomChange}
         onBlur={saveQuote}
-      />
-
-      <QuoteValidationModal
-        open={validationIssues !== null}
-        parts={validationParts}
-        onOpenPart={(idx) => { setSelectedPartIdx(idx); setValidationIssues(null); setPendingPdfType(false) }}
-        onCancel={() => { setValidationIssues(null); setPendingPdfType(false) }}
-        onGenerate={() => { if (pendingPdfType) downloadPdf(); setValidationIssues(null); setPendingPdfType(false) }}
       />
 
       <ConfirmDialog

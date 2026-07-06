@@ -305,7 +305,7 @@ export default function QuoteEditor() {
     { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => doStatus('restore', 'Preventivo ripristinato'), show: canConfirm && st === 'non_ordinato' },
     { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => doStatus('reopen', 'Rimandato in bozza'), show: canConfirm && preConfirm },
     { key: 'unconfirm', label: 'Annulla conferma', icon: RotateCcw, variant: 'muted', onClick: () => setConfirmUnconfirm(true), show: showUnconfirm },
-    { key: 'pdf', label: 'PDF', icon: FileDown, variant: 'secondary', onClick: handlePdfClick, show: true },
+    { key: 'pdf', label: 'PDF', icon: FileDown, variant: 'secondary', onClick: handlePdfClick, show: hasPermission('quotes.pdf') },
     { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !isLocked },
   ]
 

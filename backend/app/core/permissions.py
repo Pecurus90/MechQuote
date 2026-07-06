@@ -2,7 +2,6 @@ PERMISSION_KEYS: dict[str, str] = {
     "dashboard":     "Visualizza Dashboard",
     "quotes.create": "Crea/modifica preventivi",
     "quotes.archive": "Archivio preventivi",
-    "quotes.pdf":    "Scarica PDF",
     "quotes.send":   "Invia preventivo per revisione",
     "quotes.confirm": "Conferma preventivo (amministrazione)",
     "quotes.view_all": "Vede tutti i preventivi (non solo i propri)",
@@ -10,7 +9,6 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.delete": "Elimina preventivi (di chiunque)",
     "dies.create":     "Crea/modifica preventivi stampi",
     "dies.archive":    "Archivio preventivi stampi",
-    "dies.pdf":        "Scarica PDF preventivo stampo",
     "dies.settings":   "Configura tariffe, fasce e template stampi",
     "customers":     "Gestione clienti",
     "settings":      "Impostazioni (materiali, macchine…)",
@@ -34,9 +32,9 @@ PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
     ("Dashboard", ["dashboard"]),
     ("Preventivi", [
         "quotes.create", "quotes.send", "quotes.confirm", "quotes.view_all",
-        "quotes.pdf", "quotes.archive", "quotes.edit_locked", "quotes.delete",
+        "quotes.archive", "quotes.edit_locked", "quotes.delete",
     ]),
-    ("Preventivatore Stampi", ["dies.create", "dies.archive", "dies.pdf", "dies.settings"]),
+    ("Preventivatore Stampi", ["dies.create", "dies.archive", "dies.settings"]),
     ("Ordini", ["orders.materials", "orders.tools"]),
     ("Officina & Utensili", ["officina", "officina.write", "tools"]),
     ("Impostazioni & Sistema", ["settings", "customers", "company", "users", "backup", "notifications"]),
@@ -45,10 +43,10 @@ PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "admin": list(PERMISSION_KEYS.keys()),
     "ufficio_tecnico": [
-        "dashboard", "quotes.create", "quotes.archive", "quotes.pdf",
+        "dashboard", "quotes.create", "quotes.archive",
         "quotes.send", "customers", "notifications", "orders.materials",
         "tools", "orders.tools", "officina", "officina.write",
-        "dies.create", "dies.archive", "dies.pdf",
+        "dies.create", "dies.archive",
     ],
     # Officina: solo la sua area + catalogo utensili. Nessun preventivo,
     # nessun ordine (materiali/utensili), niente dashboard né notifiche.
@@ -56,9 +54,9 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "officina", "officina.write", "tools",
     ],
     "amministrazione": [
-        "dashboard", "quotes.archive", "quotes.pdf", "quotes.view_all",
+        "dashboard", "quotes.archive", "quotes.view_all",
         "quotes.confirm", "notifications", "orders.materials",
         "tools", "orders.tools", "officina", "officina.write",
-        "dies.archive", "dies.pdf",
+        "dies.archive",
     ],
 }

@@ -719,11 +719,11 @@ def _run_migrations():
         ("INSERT INTO die_dimension_brackets (label, area_min_dm2, area_max_dm2, coefficient, sort_order) "
          "SELECT 'XL', 65, NULL, 1.30, 4 WHERE NOT EXISTS (SELECT 1 FROM die_dimension_brackets WHERE label='XL')"),
 
-        # Permessi dies.* — admin + ufficio_tecnico (create/archive/pdf) + amministrazione (archive/pdf), admin (settings).
-        "DELETE FROM role_permissions WHERE permission_key IN ('dies.create','dies.archive','dies.pdf','dies.settings')",
+        # Permessi dies.* — admin + ufficio_tecnico (create/archive) + amministrazione (archive), admin (settings).
+        # dies.pdf rimosso (feature PDF eliminata): vedi DELETE in fondo alla lista.
+        "DELETE FROM role_permissions WHERE permission_key IN ('dies.create','dies.archive','dies.settings')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.create' FROM roles WHERE name IN ('admin','ufficio_tecnico')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.archive' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.pdf' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'dies.settings' FROM roles WHERE name = 'admin'",
 
         # ═══ NormalizedItem — catalogo voci normalizzate (cantiere catalogo
@@ -814,6 +814,13 @@ def _run_migrations():
         "ALTER TABLE quotes ADD COLUMN awaiting_client_at DATETIME",
         "ALTER TABLE quotes ADD COLUMN not_ordered_at DATETIME",
         "ALTER TABLE quotes ADD COLUMN not_ordered_by_user_id INTEGER REFERENCES users(id)",
+
+        # ═══ Rimozione feature PDF preventivo (standard + stampi) ═══
+        # Il PDF non si genera più (nessun endpoint): le chiavi quotes.pdf /
+        # dies.pdf sono state tolte da PERMISSION_KEYS. Pulisci le assegnazioni
+        # residue sui DB esistenti. Idempotente (ultima migrazione della lista:
+        # eventuali INSERT precedenti di dies.pdf vengono comunque rimossi qui).
+        "DELETE FROM role_permissions WHERE permission_key IN ('quotes.pdf', 'dies.pdf')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

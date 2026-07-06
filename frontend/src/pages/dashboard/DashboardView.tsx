@@ -132,12 +132,12 @@ export function DashboardView(props: DashboardViewProps) {
           />
           {toReview && (
             <QuoteTable
-              title="Da revisionare"
+              title="Preventivi da confermare"
               icon={FileSearch}
               iconClass="text-confirmed"
               showCount
               rows={toReview}
-              emptyText="Nessun preventivo da revisionare."
+              emptyText="Nessun preventivo da confermare."
               onOpen={onOpenQuote}
               onSeeAll={onSeeAllReview}
             />
@@ -161,7 +161,7 @@ export function DashboardView(props: DashboardViewProps) {
 
           {tools && (
             <RailCard
-              title="Utensili sotto scorta"
+              title="Utensili da ordinare"
               icon={Drill}
               iconClass="text-warning"
               actionLabel="Ordina"
@@ -183,7 +183,7 @@ export function DashboardView(props: DashboardViewProps) {
 
           {materials && (
             <RailCard
-              title="Ordini materiale da fare"
+              title="Materiale da ordinare"
               icon={PackagePlus}
               iconClass="text-danger"
               count={materials.length}

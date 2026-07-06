@@ -701,6 +701,8 @@ class WorkflowStats(BaseModel):
     my_drafts_count: int
     my_pending_count: int
     to_review_count: int
+    awaiting_client_count: int = 0        # offerte in attesa risposta cliente
+    completed_missing_price_count: int = 0  # ordini completi senza prezzo di vendita
     standard_count: int = 0   # preventivi standard (single/commessa/NULL)
     die_count: int = 0        # preventivi stampo
 

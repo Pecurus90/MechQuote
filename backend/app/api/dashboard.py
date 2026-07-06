@@ -224,11 +224,27 @@ def get_workflow_stats(
         db.query(func.count(Quote.id)).filter(Quote.status.in_(['inviato', 'letto'])).scalar() or 0
     ) if has_confirm else 0
 
+    # Offerte in attesa di risposta del cliente (spec 18): promemoria per chi
+    # gestisce gli esiti (amministrazione).
+    awaiting_client = (
+        db.query(func.count(Quote.id)).filter(Quote.status == 'in_attesa_cliente').scalar() or 0
+    ) if has_confirm else 0
+
+    # Ordini completi senza prezzo di vendita: buchi nei dati statistici
+    # (marginalità reale). Solo status='completo' con sold_price non compilato.
+    missing_price = (
+        db.query(func.count(Quote.id)).filter(
+            Quote.status == 'completo', Quote.sold_price.is_(None)
+        ).scalar() or 0
+    ) if has_confirm else 0
+
     return WorkflowStats(
         by_status=by_status,
         my_drafts_count=my_drafts,
         my_pending_count=my_pending,
         to_review_count=to_review,
+        awaiting_client_count=awaiting_client,
+        completed_missing_price_count=missing_price,
         standard_count=standard_count,
         die_count=die_count,
     )
@@ -827,7 +843,10 @@ def get_my_quotes(
     """Lista preventivi del utente corrente. status opzionale: se None ritorna
     tutti gli stati (bozza/inviato/letto/confermato/completo).
     """
-    if status is not None and status not in ('bozza', 'inviato', 'letto', 'confermato', 'completo'):
+    if status is not None and status not in (
+        'bozza', 'inviato', 'letto', 'in_attesa_cliente',
+        'confermato', 'completo', 'non_ordinato',
+    ):
         raise HTTPException(status_code=400, detail="Stato non valido")
     q = db.query(Quote).options(
         joinedload(Quote.parts),

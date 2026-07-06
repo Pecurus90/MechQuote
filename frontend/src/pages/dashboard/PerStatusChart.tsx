@@ -23,8 +23,10 @@ const ORDER: { key: string; label: string }[] = [
   { key: 'bozza', label: 'Bozza' },
   { key: 'inviato', label: 'Inviato' },
   { key: 'letto', label: 'Letto' },
+  { key: 'in_attesa_cliente', label: 'Attesa cliente' },
   { key: 'confermato', label: 'Confermato' },
   { key: 'completo', label: 'Completo' },
+  { key: 'non_ordinato', label: 'Non ordinato' },
 ]
 
 export default function PerStatusChart({ byStatus, standardCount, dieCount, onSelect }: Props) {
@@ -42,8 +44,10 @@ export default function PerStatusChart({ byStatus, standardCount, dieCount, onSe
         bozza: 'hsl(220 9% 62%)',
         inviato: 'hsl(213 93% 66%)',
         letto: 'hsl(36 96% 56%)',
+        in_attesa_cliente: 'hsl(25 95% 62%)',
         confermato: 'hsl(263 84% 72%)',
         completo: 'hsl(142 58% 52%)',
+        non_ordinato: 'hsl(349 82% 66%)',
       }
     : {
         grid: 'hsl(220 14% 90%)',
@@ -55,8 +59,10 @@ export default function PerStatusChart({ byStatus, standardCount, dieCount, onSe
         bozza: 'hsl(220 9% 46%)',
         inviato: 'hsl(214 90% 52%)',
         letto: 'hsl(33 92% 45%)',
+        in_attesa_cliente: 'hsl(25 95% 53%)',
         confermato: 'hsl(262 78% 56%)',
         completo: 'hsl(142 66% 38%)',
+        non_ordinato: 'hsl(349 75% 50%)',
       }
 
   const colorFor = (key: string): string =>
@@ -104,7 +110,7 @@ export default function PerStatusChart({ byStatus, standardCount, dieCount, onSe
         ))}
       </div>
 
-      <div className="h-[150px] w-full">
+      <div className="h-[200px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
@@ -118,7 +124,7 @@ export default function PerStatusChart({ byStatus, standardCount, dieCount, onSe
               tick={{ fill: c.text, fontSize: 12.5, fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
-              width={82}
+              width={94}
             />
             <Tooltip {...tooltipProps} />
             <Bar dataKey="n" name="Preventivi" radius={[0, 6, 6, 0]} barSize={15}>

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingCart, Drill, Truck, FileSearch, Clock } from 'lucide-react'
+import { ShoppingCart, Drill, FileSearch, Hourglass, Euro } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { MonthlyData, WorkflowStats, DashboardQuoteRow, ToolLowStockPreview } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { useAuth } from '@/lib/auth'
-import { timeAgo } from '@/lib/timeAgo'
 import { toast } from 'sonner'
 import { DashboardView } from '@/pages/dashboard/DashboardView'
 import type { KpiTone } from '@/components/dashboard/KpiCard'
@@ -61,14 +60,16 @@ export default function DashboardPage() {
     <div className="flex items-center justify-center h-64 text-muted-foreground">Caricamento...</div>
   )
 
-  // KPI (5, filtrate per permesso) → shape KpiSpec di DashboardView.
+  // KPI (max 5, filtrate per permesso) → shape KpiSpec di DashboardView.
+  // Set focalizzato sulle code di lavoro (riordino 2026-07): revisione interna,
+  // esito cliente, buchi dati prezzo, approvvigionamento.
   type Kpi = { key: string; label: string; value: string | number; hint: string; icon: LucideIcon; tone: KpiTone; to: string; show: boolean }
   const allKpis: Kpi[] = [
+    { key: 'da-revisionare', label: 'Da revisionare', value: stats.to_review_count, hint: 'in attesa conferma interna', icon: FileSearch, tone: 'confirmed', to: '/quotes/active?status=inviato', show: canReview },
+    { key: 'attesa-cliente', label: 'Attesa cliente', value: stats.awaiting_client_count, hint: 'offerte dal cliente', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canReview },
+    { key: 'prezzi-mancanti', label: 'Prezzi mancanti', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive', show: canReview },
     { key: 'da-ordinare', label: 'Da ordinare', value: matStats?.to_order ?? 0, hint: 'confermati da ordinare', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },
     { key: 'sotto-scorta', label: 'Sotto scorta utensili', value: toolStats?.low_stock ?? 0, hint: `su ${toolStats?.total_active ?? 0} a catalogo`, icon: Drill, tone: 'warning', to: '/orders/tools', show: canTools },
-    { key: 'ordini-mese', label: 'Ordini nel mese', value: matStats?.orders_this_month ?? 0, hint: 'ordini materiale emessi', icon: Truck, tone: 'info', to: '/orders/materials', show: canOrderMaterials },
-    { key: 'da-revisionare', label: 'Da revisionare', value: stats.to_review_count, hint: 'in attesa conferma', icon: FileSearch, tone: 'confirmed', to: '/quotes/active?status=inviato', show: canReview },
-    { key: 'ultimo-ordine', label: 'Ultimo ordine', value: matStats?.last_order_at ? timeAgo(matStats.last_order_at) : '—', hint: 'materiale', icon: Clock, tone: 'success', to: '/orders/materials', show: canOrderMaterials },
   ]
   const kpis = allKpis
     .filter(k => k.show)

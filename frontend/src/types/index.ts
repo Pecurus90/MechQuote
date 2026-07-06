@@ -375,6 +375,8 @@ export interface WorkflowStats {
   my_drafts_count: number
   my_pending_count: number
   to_review_count: number
+  awaiting_client_count: number
+  completed_missing_price_count: number
   standard_count: number
   die_count: number
 }

@@ -17,6 +17,7 @@ import type { QuoteStatType } from '@/pages/statistics/QuotesStatsView'
 import { MaterialsStatsView } from '@/pages/statistics/MaterialsStatsView'
 import { ToolsStatsView } from '@/pages/statistics/ToolsStatsView'
 import { type Period, Loading } from '@/pages/statistics/statsShared'
+import { MATERIAL_FAMILIES } from '@/lib/materialFamilies'
 
 // I preset del redesign ↔ i valori attesi dagli endpoint /dashboard/statistics.
 const PERIOD_MAP: Record<StatPeriod, Period> = {
@@ -39,7 +40,7 @@ const eur = (v: number): string =>
 const kg = (v: number): string =>
   Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' kg'
 
-interface CustomerOpt { id: number; name: string }
+interface NamedOpt { id: number; name: string }
 
 export default function StatisticsPage() {
   const [tab, setTab] = useState<StatTab>('quotes')
@@ -48,7 +49,16 @@ export default function StatisticsPage() {
   // Filtri locali tab Preventivi.
   const [quoteType, setQuoteType] = useState<QuoteStatType>('all')
   const [customer, setCustomer] = useState<string>('all')
-  const [customers, setCustomers] = useState<CustomerOpt[]>([])
+  const [customers, setCustomers] = useState<NamedOpt[]>([])
+
+  // Filtri locali tab Materiali (supplier_id, family slug) e Utensili (nomi).
+  const [matSupplier, setMatSupplier] = useState<string>('all')
+  const [matFamily, setMatFamily] = useState<string>('all')
+  const [matSuppliers, setMatSuppliers] = useState<NamedOpt[]>([])
+  const [toolType, setToolType] = useState<string>('all')
+  const [toolSupplier, setToolSupplier] = useState<string>('all')
+  const [toolTypes, setToolTypes] = useState<NamedOpt[]>([])
+  const [toolSuppliers, setToolSuppliers] = useState<NamedOpt[]>([])
 
   const [qData, setQData] = useState<Statistics | null>(null)
   const [mData, setMData] = useState<MaterialsStats | null>(null)
@@ -57,6 +67,9 @@ export default function StatisticsPage() {
 
   useEffect(() => {
     api.get('/customers').then(r => setCustomers(r.data)).catch(() => undefined)
+    api.get('/material-suppliers').then(r => setMatSuppliers(r.data)).catch(() => undefined)
+    api.get('/tools/types').then(r => setToolTypes(r.data)).catch(() => undefined)
+    api.get('/tools/suppliers').then(r => setToolSuppliers(r.data)).catch(() => undefined)
   }, [])
 
   useEffect(() => {
@@ -70,13 +83,19 @@ export default function StatisticsPage() {
       api.get(`/dashboard/statistics?${params}`).then(r => setQData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche preventivi')).finally(done)
     } else if (tab === 'materials') {
-      api.get(`/dashboard/statistics/orders-materials?period=${p}`).then(r => setMData(r.data))
+      const params = new URLSearchParams({ period: p })
+      if (matSupplier !== 'all') params.set('supplier_id', matSupplier)
+      if (matFamily !== 'all') params.set('family', matFamily)
+      api.get(`/dashboard/statistics/orders-materials?${params}`).then(r => setMData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche materiali')).finally(done)
     } else {
-      api.get(`/dashboard/statistics/tools?period=${p}`).then(r => setTData(r.data))
+      const params = new URLSearchParams({ period: p })
+      if (toolType !== 'all') params.set('tool_type', toolType)
+      if (toolSupplier !== 'all') params.set('supplier', toolSupplier)
+      api.get(`/dashboard/statistics/tools?${params}`).then(r => setTData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche utensili')).finally(done)
     }
-  }, [tab, period, quoteType, customer])
+  }, [tab, period, quoteType, customer, matSupplier, matFamily, toolType, toolSupplier])
 
   return (
     <div className="px-6 pb-10 pt-[22px]">
@@ -107,6 +126,18 @@ export default function StatisticsPage() {
           (loading || !mData) ? <Loading /> : (
             <MaterialsStatsView
               kpis={buildMaterialKpis(mData)}
+              supplier={matSupplier}
+              suppliers={[
+                { value: 'all', label: 'Fornitore · tutti' },
+                ...matSuppliers.map(s => ({ value: String(s.id), label: s.name })),
+              ]}
+              onSupplierChange={setMatSupplier}
+              family={matFamily}
+              families={[
+                { value: 'all', label: 'Tipo materiale · tutti' },
+                ...MATERIAL_FAMILIES.map(f => ({ value: f.slug, label: f.label })),
+              ]}
+              onFamilyChange={setMatFamily}
               monthlyOrders={mData.trend_monthly.map(p => ({ month: monthLabel(p.month), count: p.count }))}
               topMaterials={mData.by_material.map(m => ({ name: m.material_name, value: m.material_cost }))}
               bySupplier={mData.by_supplier.map(s => ({ name: s.supplier_name, value: s.material_cost }))}
@@ -119,6 +150,18 @@ export default function StatisticsPage() {
           (loading || !tData) ? <Loading /> : (
             <ToolsStatsView
               kpis={buildToolKpis(tData)}
+              toolType={toolType}
+              toolTypes={[
+                { value: 'all', label: 'Tipo utensile · tutti' },
+                ...toolTypes.map(t => ({ value: t.name, label: t.name })),
+              ]}
+              onToolTypeChange={setToolType}
+              supplier={toolSupplier}
+              suppliers={[
+                { value: 'all', label: 'Fornitore · tutti' },
+                ...toolSuppliers.map(s => ({ value: s.name, label: s.name })),
+              ]}
+              onSupplierChange={setToolSupplier}
               monthlyOrders={tData.trend_monthly.map(p => ({ month: monthLabel(p.month), count: p.count }))}
               topTools={tData.top_tools.map(t => ({ name: t.code, value: t.total_quantity }))}
               byType={tData.by_type.map(t => ({ name: t.label, value: t.quantity }))}

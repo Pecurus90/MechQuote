@@ -7,10 +7,20 @@ import { KpiCard } from '@/components/dashboard/KpiCard'
 import TrendAreaCard from '@/components/charts/TrendAreaCard'
 import RankBarsCard from '@/components/charts/RankBarsCard'
 import DonutCard from '@/components/charts/DonutCard'
+import { FilterSelect, type FilterOption } from '@/pages/statistics/StatFilterSelect'
 import type { StatKpi } from '@/pages/statistics/StatisticsView'
+
+type SelectOption = FilterOption
 
 interface Props {
   kpis: StatKpi[]
+  /** filtri locali */
+  supplier: string
+  suppliers: SelectOption[]
+  onSupplierChange: (v: string) => void
+  family: string
+  families: SelectOption[]
+  onFamilyChange: (v: string) => void
   /** ordini materiale per mese — righe { <xKey>, count } */
   monthlyOrders: Array<Record<string, string | number>>
   /** top materiali per costo (€) — righe { name, value } (già ordinate) */
@@ -26,6 +36,12 @@ const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 
 export function MaterialsStatsView({
   kpis,
+  supplier,
+  suppliers,
+  onSupplierChange,
+  family,
+  families,
+  onFamilyChange,
   monthlyOrders,
   topMaterials,
   bySupplier,
@@ -40,6 +56,12 @@ export function MaterialsStatsView({
 
   return (
     <div>
+      {/* Filtri locali */}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <FilterSelect value={supplier} options={suppliers} onChange={onSupplierChange} />
+        <FilterSelect value={family} options={families} onChange={onFamilyChange} />
+      </div>
+
       <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-4">
         {kpis.map((k) => (
           <KpiCard

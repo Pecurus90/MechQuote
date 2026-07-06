@@ -7,10 +7,18 @@ import { KpiCard } from '@/components/dashboard/KpiCard'
 import TrendAreaCard from '@/components/charts/TrendAreaCard'
 import RankBarsCard from '@/components/charts/RankBarsCard'
 import DonutCard from '@/components/charts/DonutCard'
+import { FilterSelect, type FilterOption } from '@/pages/statistics/StatFilterSelect'
 import type { StatKpi } from '@/pages/statistics/StatisticsView'
 
 interface Props {
   kpis: StatKpi[]
+  /** filtri locali */
+  toolType: string
+  toolTypes: FilterOption[]
+  onToolTypeChange: (v: string) => void
+  supplier: string
+  suppliers: FilterOption[]
+  onSupplierChange: (v: string) => void
   /** ordini utensili per mese — righe { <xKey>, count } */
   monthlyOrders: Array<Record<string, string | number>>
   /** top utensili più ordinati (pz) — righe { name, value } (già ordinate) */
@@ -24,6 +32,12 @@ interface Props {
 
 export function ToolsStatsView({
   kpis,
+  toolType,
+  toolTypes,
+  onToolTypeChange,
+  supplier,
+  suppliers,
+  onSupplierChange,
   monthlyOrders,
   topTools,
   byType,
@@ -36,6 +50,12 @@ export function ToolsStatsView({
 
   return (
     <div>
+      {/* Filtri locali */}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <FilterSelect value={toolType} options={toolTypes} onChange={onToolTypeChange} width={190} />
+        <FilterSelect value={supplier} options={suppliers} onChange={onSupplierChange} width={190} />
+      </div>
+
       <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-4">
         {kpis.map((k) => (
           <KpiCard

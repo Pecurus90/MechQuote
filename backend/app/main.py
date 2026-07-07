@@ -821,6 +821,23 @@ def _run_migrations():
         # residue sui DB esistenti. Idempotente (ultima migrazione della lista:
         # eventuali INSERT precedenti di dies.pdf vengono comunque rimossi qui).
         "DELETE FROM role_permissions WHERE permission_key IN ('quotes.pdf', 'dies.pdf')",
+
+        # ═══ Ordini materiale "da file" (distinta CSV/manuale, no preventivo) ═══
+        "ALTER TABLE material_orders ADD COLUMN source VARCHAR(10) DEFAULT 'quotes'",
+        ("CREATE TABLE IF NOT EXISTS material_order_items ("
+         "id INTEGER PRIMARY KEY, "
+         "material_order_id INTEGER NOT NULL REFERENCES material_orders(id), "
+         "material_id INTEGER REFERENCES materials(id), "
+         "material_name VARCHAR(100) NOT NULL DEFAULT '', "
+         "part_code VARCHAR(120) DEFAULT '', "
+         "description VARCHAR(200) DEFAULT '', "
+         "width_mm FLOAT, height_mm FLOAT, thickness_mm FLOAT, "
+         "quantity INTEGER DEFAULT 1)"),
+        ("CREATE TABLE IF NOT EXISTS material_aliases ("
+         "id INTEGER PRIMARY KEY, "
+         "csv_name VARCHAR(120) NOT NULL UNIQUE, "
+         "material_id INTEGER NOT NULL REFERENCES materials(id))"),
+        "CREATE INDEX IF NOT EXISTS ix_material_aliases_csv_name ON material_aliases(csv_name)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

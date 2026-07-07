@@ -624,12 +624,18 @@ class MaterialOrder(Base):
     # storici pre-spec18 (retro-compatibile).
     material_supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
     supplier_name = Column(String(100), nullable=True)
+    # Origine dell'ordine: 'quotes' (righe derivate dai preventivi, storico) o
+    # 'file' (righe libere da distinta CSV/manuale, salvate in material_order_items).
+    source = Column(String(10), default="quotes")
 
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     quotes = relationship(
         "Quote",
         secondary="material_order_quotes",
         backref="material_orders",
+    )
+    items = relationship(
+        "MaterialOrderItem", back_populates="order", cascade="all, delete-orphan",
     )
 
 
@@ -640,6 +646,46 @@ class MaterialOrderQuote(Base):
     id = Column(Integer, primary_key=True)
     material_order_id = Column(Integer, ForeignKey("material_orders.id"), nullable=False)
     quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
+
+
+class MaterialOrderItem(Base):
+    """Riga di un ordine materiale 'da file' (distinta CSV o manuale).
+
+    Solo per gli ordini con source='file': le righe non derivano da un
+    preventivo ma dalla distinta importata/editata. Dimensioni GREZZO già
+    calcolate (larghezza/altezza +5, spessore al multiplo di 5 per eccesso).
+    material_id opzionale = materiale catalogo abbinato (per fornitore);
+    material_name è lo snapshot mostrato/esportato.
+    """
+    __tablename__ = "material_order_items"
+
+    id = Column(Integer, primary_key=True)
+    material_order_id = Column(Integer, ForeignKey("material_orders.id"), nullable=False)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=True)
+    material_name = Column(String(100), nullable=False, default="")
+    part_code = Column(String(120), default="")     # Num. parte (riferimento)
+    description = Column(String(200), default="")
+    width_mm = Column(Float, nullable=True)         # larghezza grezzo
+    height_mm = Column(Float, nullable=True)        # altezza grezzo
+    thickness_mm = Column(Float, nullable=True)     # spessore grezzo
+    quantity = Column(Integer, default=1)
+
+    order = relationship("MaterialOrder", back_populates="items")
+
+
+class MaterialAlias(Base):
+    """Corrispondenza appresa: nome materiale della distinta (es. SolidWorks)
+    → materiale di catalogo. Popolata quando l'utente abbina una riga non
+    riconosciuta; ai prossimi import l'abbinamento è automatico.
+    csv_name è normalizzato (trim + lower) e unico.
+    """
+    __tablename__ = "material_aliases"
+
+    id = Column(Integer, primary_key=True)
+    csv_name = Column(String(120), unique=True, nullable=False, index=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+
+    material = relationship("Material", foreign_keys=[material_id])
 
 
 class QuoteSupplierOrder(Base):

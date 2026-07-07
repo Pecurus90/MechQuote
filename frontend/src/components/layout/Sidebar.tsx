@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, FilePlus2, ClipboardList, FolderOpen, Truck, Package, Wrench,
   History, Drill, Users, BarChart3, Activity, Library, Settings, Box, Tag, Factory, Zap,
-  Hammer, Building2, Shield,
+  Hammer, Building2, Shield, FileUp,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import api from '@/lib/api'
@@ -74,6 +74,7 @@ export default function Sidebar() {
   if (canOrdersMaterials || canOrdersTools) {
     const children: Leaf[] = []
     if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials') })
+    if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Materiale da file', icon: FileUp, active: at('/orders/materials-file') })
     if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: Wrench, active: at('/orders/tools') })
     children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })
     operativita.push({ key: 'ordini', label: 'Ordini', icon: Truck, children, badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })

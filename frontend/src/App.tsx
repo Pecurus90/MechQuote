@@ -20,6 +20,7 @@ import QuoteCategoriesPage from '@/pages/settings/QuoteCategoriesPage'
 import ActivityPage from '@/pages/dashboard/ActivityPage'
 import StatisticsPage from '@/pages/statistics/StatisticsPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
+import OrdersMaterialFilePage from '@/pages/orders/OrdersMaterialFilePage'
 import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
 import OrdersHistoryPage from '@/pages/orders/OrdersHistoryPage'
 import ToolsPage from '@/pages/tools/ToolsPage'
@@ -72,6 +73,7 @@ function AppRoutes() {
         <Route path="quotes/active" element={<ProtectedRoute permission="quotes.archive"><QuotesActivePage /></ProtectedRoute>} />
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
+        <Route path="orders/materials-file" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialFilePage /></ProtectedRoute>} />
         <Route path="orders/tools" element={<ProtectedRoute permission="orders.tools"><OrdersToolsPage /></ProtectedRoute>} />
         <Route path="orders/history" element={<ProtectedRoute anyPermission={["orders.materials", "orders.tools"]}><OrdersHistoryPage /></ProtectedRoute>} />
         <Route path="tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />

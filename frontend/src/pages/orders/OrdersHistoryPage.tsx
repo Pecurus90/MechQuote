@@ -193,9 +193,13 @@ export default function OrdersHistoryPage() {
                     <td className="p-3 text-muted-foreground">{new Date(o.created_at).toLocaleString('it-IT')}</td>
                     <td className="p-3 text-foreground truncate">{o.supplier_name || '—'}</td>
                     <td className="p-3 truncate">{o.created_by?.full_name || o.created_by?.username || '—'}</td>
-                    <td className="p-3 font-mono text-center">{o.quote_count}</td>
+                    <td className="p-3 font-mono text-center">
+                      {o.source === 'file' ? (o.item_count ?? 0) : o.quote_count}
+                    </td>
                     <td className="p-3 text-xs text-muted-foreground font-mono truncate">
-                      {o.quote_numbers.slice(0, 3).join(', ')}{o.quote_numbers.length > 3 && ` +${o.quote_numbers.length - 3}`}
+                      {o.source === 'file'
+                        ? <span className="rounded-full bg-primary/[0.12] px-2 py-0.5 font-sans text-[11px] font-medium text-primary">Distinta (da file)</span>
+                        : <>{o.quote_numbers.slice(0, 3).join(', ')}{o.quote_numbers.length > 3 && ` +${o.quote_numbers.length - 3}`}</>}
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
                       <Button size="sm" variant="outline" onClick={() => downloadMatCsv(o.id)} className="mr-1">

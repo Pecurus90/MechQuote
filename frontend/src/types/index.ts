@@ -93,6 +93,23 @@ export interface Material {
   has_datasheet?: boolean   // true se Material ha una scheda PDF allegata
 }
 
+// Riga della tabella "Ordini materiale da file" (parse distinta + editing).
+export interface FileOrderRow {
+  part_code: string
+  description: string
+  csv_material: string
+  material_id: number | null
+  material_name: string
+  supplier_id: number | null
+  supplier_name: string | null
+  width_mm: number | null
+  height_mm: number | null
+  thickness_mm: number | null
+  quantity: number
+  needs_dimensions: boolean
+  needs_material: boolean
+}
+
 export interface Category {
   id: number
   code: string
@@ -218,6 +235,8 @@ export interface MaterialOrder {
   supplier_name: string | null
   quote_count: number
   quote_numbers: string[]
+  source?: string          // 'quotes' | 'file'
+  item_count?: number      // righe (ordini da file)
 }
 
 export interface MaterialItemAggregated {

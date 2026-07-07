@@ -74,6 +74,21 @@ def ensure_editable(quote: Quote, current_user: User) -> None:
     )
 
 
+def ensure_quote_visible(quote: Quote, current_user: User) -> None:
+    """ACL per-preventivo: chi non ha 'quotes.view_all' agisce SOLO sui propri.
+
+    Stesso filtro di list_archive/material-detail — va chiamato da ogni endpoint
+    per-id che opera su un singolo preventivo (closeout, ...) così l'ACL non
+    diverge tra la lista (che nasconde) e le azioni (che agirebbero per id).
+    """
+    perms = getattr(current_user, '_permissions', [])
+    if 'quotes.view_all' in perms:
+        return
+    if quote.created_by_user_id is not None and quote.created_by_user_id == current_user.id:
+        return
+    raise HTTPException(status_code=403, detail="Accesso negato a questo preventivo")
+
+
 @router.get("", response_model=List[QuoteOut])
 def list_quotes(
     db: Session = Depends(get_db),
@@ -516,6 +531,7 @@ def update_quote_closeout(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)
     if quote.status != wf.STATUS_COMPLETO:
         raise HTTPException(
             status_code=400,

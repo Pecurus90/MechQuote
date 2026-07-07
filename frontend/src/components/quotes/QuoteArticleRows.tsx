@@ -25,7 +25,7 @@ interface Props {
   emptyText?: string
 }
 
-const GRID = 'grid grid-cols-[130px_minmax(0,1.7fr)_130px_minmax(0,1fr)_minmax(0,1.3fr)] gap-3'
+const GRID = 'grid grid-cols-[130px_minmax(0,1.05fr)_140px_minmax(0,1fr)_minmax(0,1.35fr)] gap-3'
 
 export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo preventivo.' }: Props) {
   return (

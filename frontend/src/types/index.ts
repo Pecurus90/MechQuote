@@ -372,6 +372,7 @@ export interface DashboardQuoteRow {
   total_price: number
   submitted_at?: string | null
   submitted_by?: UserMinimal | null
+  material_status?: string | null
 }
 
 // Minimal shape returned by the archive/list endpoints

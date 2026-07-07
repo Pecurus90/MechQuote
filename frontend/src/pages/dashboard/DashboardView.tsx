@@ -10,6 +10,7 @@ import PerStatusChart from '@/pages/dashboard/PerStatusChart'
 import { ActivityTimeline } from '@/pages/dashboard/ActivityTimeline'
 import { QuoteTable } from '@/pages/dashboard/QuoteTable'
 import { RailCard, ToolLowStockRow, MaterialTodoRow } from '@/pages/dashboard/RailCard'
+import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
 
 interface KpiSpec {
   key: string
@@ -193,16 +194,15 @@ export function DashboardView(props: DashboardViewProps) {
               emptyText="Nessun materiale da ordinare."
             >
               {materials.map((m) => (
-                // Lista "materiale da fare" = preventivi confermati senza
-                // ordine (awaiting-materials): per costruzione lo stato
-                // materiale è sempre "non ordinato". Il fornitore non è unico
-                // per preventivo (più parti/fornitori) → omesso.
+                // Stato materiale REALE dal backend: può essere "parziale"
+                // (alcuni fornitori già ordinati) e non solo "non ordinato".
+                // Il fornitore non è unico per preventivo (più parti) → omesso.
                 <MaterialTodoRow
                   key={m.id}
                   description={m.customer_name ?? m.quote_number}
                   quoteNumber={m.quote_number}
                   supplier=""
-                  status="non_ordinato"
+                  status={(m.material_status as MaterialStatus) ?? 'non_ordinato'}
                   onClick={() => onOpenQuote(m.id)}
                 />
               ))}

@@ -844,6 +844,8 @@ class DashboardQuoteRow(BaseModel):
     total_price: float
     submitted_at: Optional[datetime] = None
     submitted_by: Optional[UserMinimal] = None
+    # Stato materiale aggregato (solo dove serve, es. "materiale da fare").
+    material_status: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -831,7 +831,16 @@ def get_awaiting_materials(
         Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
     ).order_by(Quote.confirmed_at.desc().nullslast()).limit(limit).all()
-    return [_quote_to_row(q) for q in quotes]
+    # Stato materiale reale per riga: `material_ordered_at` è NULL anche per i
+    # PARZIALI (viene valorizzato solo a evasione totale), quindi il badge non
+    # è sempre "non ordinato" — può essere "parziale". Lo calcoliamo qui.
+    from app.services import quote_workflow as wf
+    rows = []
+    for q in quotes:
+        row = _quote_to_row(q)
+        row.material_status = wf.quote_material_status(db, q)
+        rows.append(row)
+    return rows
 
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])

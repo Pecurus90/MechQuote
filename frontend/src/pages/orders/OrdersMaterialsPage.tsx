@@ -1,285 +1,134 @@
+// Container Ordini materiali: seleziona preventivi confermati (non ordinati),
+// aggrega per fornitore e crea l'ordine + CSV. Mappa sulle props di
+// MaterialOrdersView (design handoff). Nessuna grafica qui.
 import { useEffect, useMemo, useState } from 'react'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Search, Package } from 'lucide-react'
-import StandardPage from '@/components/layout/StandardPage'
+import { ClipboardCheck, CalendarDays, Layers, Clock } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import { STATUS_LABELS } from '@/lib/constants'
 import { timeAgo } from '@/lib/timeAgo'
-import KpiBar from '@/components/ui/kpi-bar'
-import AggregatePreview from './AggregatePreview'
-import type {
-  MaterialAggregateResult, MaterialOrder, QuoteListItem,
-} from '@/types'
+import PageContainer from '@/components/ui/page-container'
+import {
+  MaterialOrdersView, type OrderKpi, type SelectableQuote, type SupplierAggregate,
+} from '@/pages/orders/MaterialOrdersView'
+import type { QuoteType } from '@/components/quotes/TypeBadge'
+import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
+import type { MaterialAggregateResult, MaterialOrder, QuoteListItem } from '@/types'
 
 interface MaterialsStats {
-  to_order: number
-  orders_this_month: number
-  orders_total: number
-  last_order_at: string | null
+  to_order: number; orders_this_month: number; orders_total: number; last_order_at: string | null
 }
 
-const STATUS_OPTIONS = [
-  { value: 'confermato', label: 'Confermati' },
-  { value: 'completo', label: 'Completi' },
-  { value: 'letto', label: 'Letti' },
-  { value: 'inviato', label: 'Inviati' },
-  { value: 'bozza', label: 'Bozze' },
-  { value: '', label: 'Tutti gli stati' },
-]
+const toQuoteType = (t?: string | null): QuoteType => (t === 'die' ? 'die' : t === 'commessa' ? 'commessa' : 'single')
+const quoteTotal = (q: QuoteListItem): number => q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
+const kg = (v: number): string => `${Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 1 })} kg`
+
+// dim_str backend = "Prismatico 80 × 120 × 30 mm" → [forma, dimensioni].
+const SHAPES = ['Prismatico', 'Tondo', 'Tubo']
+function splitDim(dim: string): { shape: string; dimensions: string } {
+  const first = dim.split(' ')[0]
+  if (SHAPES.includes(first)) return { shape: first, dimensions: dim.slice(first.length).trim() }
+  return { shape: '—', dimensions: dim }
+}
 
 export default function OrdersMaterialsPage() {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [statusFilter, setStatusFilter] = useState('confermato')
-  const [onlyUnordered, setOnlyUnordered] = useState(true)
-  const [search, setSearch] = useState('')
   const [aggregate, setAggregate] = useState<MaterialAggregateResult | null>(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
-  const [creatingSupplierId, setCreatingSupplierId] = useState<number | null>(null)
   const [stats, setStats] = useState<MaterialsStats | null>(null)
 
-  const loadStats = () => {
-    api.get('/orders/materials/stats')
-      .then(r => setStats(r.data))
-      .catch(() => undefined)
-  }
-
+  const loadStats = () => api.get('/orders/materials/stats').then(r => setStats(r.data)).catch(() => undefined)
   const loadQuotes = () => {
-    const params = new URLSearchParams()
-    // Passo sempre `status`, anche vuoto: il default backend è "confermato",
-    // quindi se non lo settassi la voce "Tutti gli stati" (value='') tornerebbe
-    // solo confermati.
-    params.set('status', statusFilter)
-    if (search.trim()) params.set('q', search.trim())
-    params.set('only_unordered', String(onlyUnordered))
-    api.get(`/orders/materials/quotes-selectable?${params}`)
-      .then(r => setQuotes(r.data))
-      .catch(() => toast.error('Errore nel caricamento dei preventivi'))
+    const p = new URLSearchParams({ status: 'confermato', only_unordered: 'true' })
+    api.get(`/orders/materials/quotes-selectable?${p}`).then(r => setQuotes(r.data)).catch(() => toast.error('Errore nel caricamento dei preventivi'))
   }
+  useEffect(() => { loadQuotes(); loadStats() }, [])
 
-  useEffect(() => { loadQuotes() }, [statusFilter, onlyUnordered])
-  useEffect(() => { loadStats() }, [])
-
-  // Search con debounce minimo.
   useEffect(() => {
-    const t = setTimeout(loadQuotes, 200)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search])
-
-  // Preview aggregata: ricalcola quando la selezione cambia
-  useEffect(() => {
-    if (selectedIds.size === 0) {
-      setAggregate(null)
-      return
-    }
-    setLoadingPreview(true)
+    if (selectedIds.size === 0) { setAggregate(null); return }
     api.post('/orders/materials/aggregate', { quote_ids: Array.from(selectedIds) })
-      .then(r => setAggregate(r.data))
-      .catch(() => toast.error('Errore nel calcolo aggregato'))
-      .finally(() => setLoadingPreview(false))
+      .then(r => setAggregate(r.data)).catch(() => toast.error('Errore nel calcolo aggregato'))
   }, [selectedIds])
 
-  const toggleSelected = (id: number) => {
-    setSelectedIds(s => {
-      const next = new Set(s)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleAll = () => {
-    if (selectedIds.size === quotes.length) setSelectedIds(new Set())
-    else setSelectedIds(new Set(quotes.map(q => q.id)))
-  }
-
-  const totalQty = useMemo(() =>
-    aggregate?.groups.reduce(
-      (s, g) => s + g.items.reduce((ss, i) => ss + i.total_qty, 0), 0,
-    ) ?? 0,
-    [aggregate])
-
-  const totalWeight = useMemo(() =>
-    aggregate?.groups.reduce(
-      (s, g) => s + g.items.reduce((ss, i) => ss + i.total_weight_kg, 0), 0,
-    ) ?? 0,
-    [aggregate])
+  const toggle = (id: number) => setSelectedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleAll = () => setSelectedIds(s => s.size === quotes.length ? new Set() : new Set(quotes.map(q => q.id)))
 
   const downloadCsv = async (orderId: number) => {
-    try {
-      const res = await api.get(`/orders/materials/${orderId}/csv`, { responseType: 'blob' })
-      // Il backend nomina il file per-fornitore (AAAAMMGG_HHmm_fornitore.csv).
-      const cd = res.headers['content-disposition'] as string | undefined
-      const match = cd?.match(/filename="?([^"]+)"?/)
-      const filename = match ? match[1] : `ordine_materiali_${orderId.toString().padStart(4, '0')}.csv`
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nel download del CSV')
-    }
+    const res = await api.get(`/orders/materials/${orderId}/csv`, { responseType: 'blob' })
+    const cd = res.headers['content-disposition'] as string | undefined
+    const match = cd?.match(/filename="?([^"]+)"?/)
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const a = document.createElement('a')
+    a.href = url; a.download = match ? match[1] : `ordine_materiali_${orderId}.csv`
+    document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
   }
 
-  const createSupplierOrder = async (supplierId: number, supplierName: string) => {
+  const createOrder = async (supplierId: number) => {
     if (selectedIds.size === 0) { toast.error('Seleziona almeno un preventivo'); return }
-    setCreatingSupplierId(supplierId)
     try {
-      const res = await api.post('/orders/materials', {
-        quote_ids: Array.from(selectedIds),
-        material_supplier_id: supplierId,
-      })
+      const res = await api.post('/orders/materials', { quote_ids: Array.from(selectedIds), material_supplier_id: supplierId })
       const order = res.data as MaterialOrder
       await downloadCsv(order.id)
-      toast.success(`Ordine MO-${String(order.id).padStart(4, '0')} creato per ${supplierName} — CSV scaricato`)
-      loadQuotes()
-      loadStats()
+      toast.success(`Ordine MO-${String(order.id).padStart(4, '0')} creato — CSV scaricato`)
+      loadQuotes(); loadStats(); setSelectedIds(new Set())
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
-    } finally {
-      setCreatingSupplierId(null)
     }
   }
 
+  const selectableQuotes: SelectableQuote[] = quotes.map(q => ({
+    id: q.id,
+    quote_number: q.quote_number,
+    customer_name: q.customer_name ?? null,
+    quote_type: toQuoteType(q.quote_type),
+    quote_date: q.quote_date,
+    total_price: quoteTotal(q),
+    // La lista selezionabile è per default confermati-non-ordinati → materiale
+    // ancora da ordinare (dettaglio fine per-riga in fase di aggregazione).
+    materialStatus: (q.material_status as MaterialStatus) ?? 'non_ordinato',
+  }))
+
+  const aggregateGroups: SupplierAggregate[] = useMemo(() => (aggregate?.groups ?? [])
+    .filter(g => g.supplier_id != null)
+    .map(g => {
+      const quoteNums = new Set(g.items.flatMap(i => i.quote_refs.map(r => r.split(' ')[0])))
+      return {
+        supplierId: g.supplier_id as number,
+        supplierName: g.supplier_name,
+        quoteCount: quoteNums.size,
+        items: g.items.map(i => {
+          const { shape, dimensions } = splitDim(i.dim_str)
+          return {
+            materialCode: i.material_name,
+            materialName: i.family ? i.family.replace(/_/g, ' ') : undefined,
+            shape, dimensions,
+            quantity: i.total_qty,
+            estimatedWeight: kg(i.total_weight_kg),
+            quoteRefs: i.quote_refs,
+            fromStock: i.from_stock,
+          }
+        }),
+      }
+    }), [aggregate])
+
+  const kpis: OrderKpi[] = stats ? [
+    { key: 'to-order', label: 'Da ordinare', value: stats.to_order, hint: stats.to_order === 0 ? 'tutti ordinati' : 'preventivi pronti', icon: ClipboardCheck, tone: stats.to_order > 0 ? 'primary' : 'success' },
+    { key: 'month', label: 'Ordini nel mese', value: stats.orders_this_month, icon: CalendarDays, tone: 'info' },
+    { key: 'total', label: 'Totale ordini', value: stats.orders_total, hint: 'in totale', icon: Layers, tone: 'confirmed' },
+    { key: 'last', label: 'Ultimo ordine', value: stats.last_order_at ? timeAgo(stats.last_order_at) : '—', icon: Clock, tone: 'warning' },
+  ] : []
+
   return (
-    <StandardPage
-      icon={Package}
-      color="blue"
-      width="xl"
-      title="Ordini materiali"
-      subtitle='Seleziona preventivi e genera un CSV lista materiali raggruppato per fornitore. I preventivi inclusi vengono marcati "materiale ordinato".'
-    >
-
-      {stats && (
-        <KpiBar items={[
-          {
-            label: 'Da ordinare',
-            value: stats.to_order,
-            color: stats.to_order > 0 ? 'orange' : 'green',
-            hint: stats.to_order === 0 ? 'tutti i completati ordinati' : 'preventivi pronti',
-          },
-          {
-            label: 'Ordini mese',
-            value: stats.orders_this_month,
-            color: 'blue',
-          },
-          {
-            label: 'Ordini totali',
-            value: stats.orders_total,
-            color: 'gray',
-            hint: 'all-time',
-          },
-          {
-            label: 'Ultimo ordine',
-            value: stats.last_order_at ? timeAgo(stats.last_order_at) : '—',
-            color: 'gray',
-          },
-        ]} />
-      )}
-
-      {/* Nuovo ordine: lista preventivi */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div>
-          <h2 className="text-base font-semibold text-foreground mb-3">Seleziona preventivi</h2>
-          <div className="flex items-center gap-2 mb-3">
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={onlyUnordered}
-                onChange={e => setOnlyUnordered(e.target.checked)}
-              />
-              Solo non ordinati
-            </label>
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Cerca numero o cliente..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          <Card>
-            <CardContent className="p-0">
-              <table className="table-fixed w-full text-sm">
-                <thead className="bg-muted border-b">
-                  <tr>
-                    <th className="p-2 w-8">
-                      <input
-                        type="checkbox"
-                        checked={quotes.length > 0 && selectedIds.size === quotes.length}
-                        onChange={toggleAll}
-                      />
-                    </th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Numero</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Cliente</th>
-                    <th className="text-right p-2 w-16 font-medium text-muted-foreground">Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotes.length === 0 && (
-                    <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">
-                      Nessun preventivo da mostrare con i filtri attuali.
-                    </td></tr>
-                  )}
-                  {quotes.map(q => (
-                    <tr
-                      key={q.id}
-                      className={`border-b hover:bg-muted cursor-pointer ${selectedIds.has(q.id) ? 'bg-primary/10' : ''}`}
-                      onClick={() => toggleSelected(q.id)}
-                    >
-                      <td className="p-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(q.id)}
-                          onChange={() => toggleSelected(q.id)}
-                          onClick={e => e.stopPropagation()}
-                        />
-                      </td>
-                      <td className="p-2 font-mono font-medium text-primary">{q.quote_number}</td>
-                      <td className="p-2 text-foreground truncate">{q.customer_name || '—'}</td>
-                      <td className="p-2 text-right text-xs text-muted-foreground">{STATUS_LABELS[q.status] ?? q.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-          <p className="text-xs text-muted-foreground mt-2">
-            {selectedIds.size > 0
-              ? `${selectedIds.size} preventiv${selectedIds.size === 1 ? 'o' : 'i'} selezionat${selectedIds.size === 1 ? 'o' : 'i'}`
-              : 'Nessuna selezione'}
-          </p>
-        </div>
-
-        <AggregatePreview
-          aggregate={aggregate}
-          loading={loadingPreview}
-          selectedCount={selectedIds.size}
-          totalQty={totalQty}
-          totalWeight={totalWeight}
-          creatingSupplierId={creatingSupplierId}
-          onCreateSupplierOrder={createSupplierOrder}
-        />
-      </div>
-    </StandardPage>
+    <PageContainer width="xl">
+      <MaterialOrdersView
+        kpis={kpis}
+        selectableQuotes={selectableQuotes}
+        selectedIds={Array.from(selectedIds)}
+        onToggle={toggle}
+        onToggleAll={toggleAll}
+        aggregate={aggregateGroups}
+        onCreateOrder={createOrder}
+      />
+    </PageContainer>
   )
 }

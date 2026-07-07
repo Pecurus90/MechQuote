@@ -15,6 +15,7 @@ from app.models import (
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate, QuoteCloseoutUpdate
 from app.core.quote_types import is_die
 from app.services import quote_workflow as wf
+from app.services.material_status import unassigned_supplier_parts
 from app.services.calculation import recalculate_part
 from app.services.notifications import create_notification
 
@@ -282,6 +283,21 @@ def confirm_quote(
             status_code=400,
             detail=f"Conferma non possibile dallo stato '{quote.status}'",
         )
+    # Guardia spec 18 §2: una parte con materiale da ordinare ma SENZA fornitore
+    # non potrà mai essere evasa → il preventivo resterebbe bloccato in
+    # 'confermato' senza mai raggiungere 'completo'. Impedisci la conferma finché
+    # non si assegna un fornitore (materiale fuori scope per gli stampi).
+    if not is_die(quote):
+        parts = db.query(Part).options(joinedload(Part.material)).filter(
+            Part.quote_id == quote.id
+        ).all()
+        missing = unassigned_supplier_parts(parts)
+        if missing:
+            codes = ', '.join(sorted(p.part_code for p in missing))
+            raise HTTPException(
+                status_code=400,
+                detail=f"Conferma bloccata: assegna un fornitore al materiale di {codes}.",
+            )
     quote.status = wf.STATUS_CONFERMATO
     quote.confirmed_by_user_id = current_user.id
     quote.confirmed_at = utc_now()

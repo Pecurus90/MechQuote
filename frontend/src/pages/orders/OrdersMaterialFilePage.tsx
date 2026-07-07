@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FileUp, Plus, Trash2, Package, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import StandardPage from '@/components/layout/StandardPage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,12 +43,13 @@ export default function OrdersMaterialFilePage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await api.post('/orders/materials/from-file/parse', fd)
+      const res = await api.post('/orders/materials/from-file/parse', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       setRows(res.data.rows as FileOrderRow[])
       toast.success(`Distinta importata: ${res.data.rows.length} righe`)
     } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nell\'import del CSV')
+      toast.error(getApiErrorDetail(e, 'Errore nell\'import del CSV'))
     } finally {
       setImporting(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -98,8 +99,7 @@ export default function OrdersMaterialFilePage() {
       for (const o of orders) await download(o.id)
       setRows([])
     } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
+      toast.error(getApiErrorDetail(e, 'Errore nella creazione dell\'ordine'))
     } finally {
       setCreating(false)
     }

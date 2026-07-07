@@ -112,6 +112,11 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     finally { setConfirming(false) }
   }
 
+  const doAwaitClient = async (id: number) => {
+    try { await api.post(`/quotes/${id}/await-client`); toast.success('Offerta in attesa del cliente'); loadQuotes() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+  }
+
   const doMarkNotOrdered = async (id: number) => {
     setMarkingNotOrdered(true)
     try { await api.post(`/quotes/${id}/mark-not-ordered`); setNotOrderedId(null); toast.success('Segnato come non ordinato'); loadQuotes() }
@@ -236,6 +241,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         years={yearOptions}
         statusOptions={statusOptions}
         onOpen={(id) => navigate(`/quotes/${id}`)}
+        onAwaitClient={showQuickActions && canConfirmPerm ? (id) => doAwaitClient(id) : undefined}
+        canAwaitClient={(r) => ['inviato', 'letto'].includes(r.status)}
         onConfirm={showQuickActions && canConfirmPerm ? (id) => setConfirmQuoteId(id) : undefined}
         canConfirm={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
         onNotOrdered={showQuickActions && canConfirmPerm ? (id) => setNotOrderedId(id) : undefined}

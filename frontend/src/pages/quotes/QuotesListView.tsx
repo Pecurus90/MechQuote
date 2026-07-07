@@ -7,6 +7,7 @@ import {
   ChevronRight,
   FileText,
   FileSpreadsheet,
+  Hourglass,
   CheckCheck,
   XCircle,
   Trash2,
@@ -59,10 +60,12 @@ interface Props {
   statusOptions: SelectOption[]
 
   onOpen: (id: number) => void
+  onAwaitClient?: (id: number) => void
   onConfirm?: (id: number) => void
   onNotOrdered?: (id: number) => void
   onMaterialCsv?: (id: number) => void
   onDelete?: (id: number) => void
+  canAwaitClient?: (row: QuotesListRow) => boolean
   canConfirm?: (row: QuotesListRow) => boolean
   canNotOrdered?: (row: QuotesListRow) => boolean
   canMaterialCsv?: (row: QuotesListRow) => boolean
@@ -152,8 +155,8 @@ export function QuotesListView(props: Props) {
     title, icon: Icon, subtitle, onNew, rows, emptyText,
     expandedId, onToggleExpand, articleRows,
     filters, onFilterChange, years, statusOptions,
-    onOpen, onConfirm, onNotOrdered, onMaterialCsv, onDelete,
-    canConfirm, canNotOrdered, canMaterialCsv, canDelete,
+    onOpen, onAwaitClient, onConfirm, onNotOrdered, onMaterialCsv, onDelete,
+    canAwaitClient, canConfirm, canNotOrdered, canMaterialCsv, canDelete,
     showPrices = false, onSavePrice, pagination,
   } = props
 
@@ -273,6 +276,7 @@ export function QuotesListView(props: Props) {
           rows.map((r, i) => {
             const expanded = expandedId === r.id
             const last = i === rows.length - 1
+            const showAwaitClient = !!onAwaitClient && (canAwaitClient ? canAwaitClient(r) : true)
             const showConfirm = !!onConfirm && (canConfirm ? canConfirm(r) : true)
             const showNotOrdered = !!onNotOrdered && (canNotOrdered ? canNotOrdered(r) : true)
             const showMaterialCsv = !!onMaterialCsv && (canMaterialCsv ? canMaterialCsv(r) : true)
@@ -334,6 +338,12 @@ export function QuotesListView(props: Props) {
                       className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onOpen(r.id)}>
                       <FileText className="h-4 w-4" />
                     </button>
+                    {showAwaitClient && (
+                      <button type="button" title="In attesa del cliente" aria-label="In attesa del cliente"
+                        className="text-state-attesa transition-[filter] hover:brightness-110" onClick={() => onAwaitClient?.(r.id)}>
+                        <Hourglass className="h-4 w-4" />
+                      </button>
+                    )}
                     {showConfirm && (
                       <button type="button" title="Conferma ordine" aria-label="Conferma ordine"
                         className="text-state-confermato transition-[filter] hover:brightness-110" onClick={() => onConfirm?.(r.id)}>

@@ -25,7 +25,7 @@ interface Props {
   emptyText?: string
 }
 
-const GRID = 'grid grid-cols-[130px_minmax(0,1.05fr)_140px_minmax(0,1fr)_minmax(0,1.35fr)] gap-3'
+const GRID = 'grid grid-cols-[110px_minmax(0,1.1fr)_minmax(0,1.55fr)_minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3'
 
 export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo preventivo.' }: Props) {
   return (
@@ -69,7 +69,7 @@ export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo 
                 <div className="text-[11.5px] text-muted-foreground">{r.materialFamily}</div>
               )}
             </div>
-            <div className="font-mono text-foreground">{r.dimensions}</div>
+            <div className="whitespace-nowrap font-mono text-foreground">{r.dimensions}</div>
             <div className="text-foreground/80">
               {r.treatments && r.treatments.length ? r.treatments.join(', ') : <span className="text-muted-foreground">—</span>}
             </div>

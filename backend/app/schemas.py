@@ -1015,6 +1015,8 @@ class MaterialOrderOut(BaseModel):
     supplier_name: Optional[str] = None
     quote_count: int
     quote_numbers: List[str] = []
+    source: str = "quotes"            # 'quotes' | 'file'
+    item_count: int = 0               # righe (solo ordini da file)
 
     class Config:
         from_attributes = True
@@ -1040,6 +1042,53 @@ class MaterialAggregateBySupplier(BaseModel):
 
 class MaterialAggregateOut(BaseModel):
     groups: List[MaterialAggregateBySupplier] = []
+
+
+# ─── Ordini materiale "da file" (distinta CSV / manuale) ────────────────────
+
+class FileOrderRow(BaseModel):
+    """Riga della tabella editabile: risultato del parse E input alla creazione.
+
+    Dimensioni = GREZZO (larghezza/altezza già +5, spessore già al multiplo di
+    5 per eccesso). `needs_*` sono flag informativi per la UI (rossi), ignorati
+    in creazione (il backend rivaluta).
+    """
+    part_code: str = ""
+    description: str = ""
+    csv_material: str = ""                # nome materiale dalla distinta
+    material_id: Optional[int] = None     # materiale catalogo abbinato
+    material_name: str = ""               # nome mostrato/esportato
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    width_mm: Optional[float] = Field(default=None, ge=0)
+    height_mm: Optional[float] = Field(default=None, ge=0)
+    thickness_mm: Optional[float] = Field(default=None, ge=0)
+    quantity: int = Field(default=1, ge=1)
+    needs_dimensions: bool = False
+    needs_material: bool = False
+
+
+class FileOrderParseOut(BaseModel):
+    rows: List[FileOrderRow] = []
+
+
+class FileOrderCreate(BaseModel):
+    rows: List[FileOrderRow] = Field(min_length=1)
+
+
+class MaterialAliasCreate(BaseModel):
+    csv_name: str = Field(min_length=1)
+    material_id: int
+
+
+class MaterialAliasOut(BaseModel):
+    id: int
+    csv_name: str
+    material_id: int
+    material_name: str = ""
+
+    class Config:
+        from_attributes = True
 
 
 # ─── Utensili ──────────────────────────────────────────────────────────────

@@ -552,22 +552,36 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     righe sono ri-aggregate dai preventivi dell'ordine per il suo fornitore
     (ri-scarico idempotente: nessun side effect).
     """
-    order = db.query(MaterialOrder).options(joinedload(MaterialOrder.quotes)).filter(
-        MaterialOrder.id == order_id
-    ).first()
+    order = db.query(MaterialOrder).options(
+        joinedload(MaterialOrder.quotes), joinedload(MaterialOrder.items),
+    ).filter(MaterialOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Ordine non trovato")
-    if order.material_supplier_id is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Ordine storico senza fornitore: CSV non disponibile per questo ordine.",
-        )
 
-    quote_ids = [q.id for q in order.quotes]
-    _involved, rows = _supplier_order_data(quote_ids, order.material_supplier_id, db)
+    if order.source == 'file':
+        # Righe salvate (distinta): riferimento = codice parte, dimensioni grezzo.
+        rows = [
+            [it.material_name, 'Prismatico', _file_item_dim(it), it.part_code, it.quantity]
+            for it in order.items
+        ]
+    else:
+        if order.material_supplier_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Ordine storico senza fornitore: CSV non disponibile per questo ordine.",
+            )
+        quote_ids = [q.id for q in order.quotes]
+        _involved, rows = _supplier_order_data(quote_ids, order.material_supplier_id, db)
+
     ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"MO{order.id:04d}"
     filename = f"{ts}_{sanitize_filename_part(order.supplier_name)}.csv"
     return csv_export_response(filename=filename, columns=_MAT_CSV_COLUMNS, rows=rows)
+
+
+def _file_item_dim(it) -> str:
+    """Dimensioni grezzo di una riga ordine-da-file: 'L × A × S mm'."""
+    vals = [v for v in (it.width_mm, it.height_mm, it.thickness_mm) if v]
+    return (' × '.join(f"{v:g}" for v in vals) + ' mm') if vals else '—'
 
 
 @router.get("/quote/{quote_id}/csv")
@@ -686,4 +700,6 @@ def _order_to_out(order: MaterialOrder, db: Session) -> MaterialOrderOut:
         supplier_name=order.supplier_name,
         quote_count=len(order.quotes),
         quote_numbers=quote_numbers,
+        source=order.source or 'quotes',
+        item_count=len(order.items),
     )

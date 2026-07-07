@@ -77,14 +77,21 @@ export default function MonthlyChart({ data }: Props) {
     labelStyle: { color: c.text, fontWeight: 600, marginBottom: 4 },
   }
 
-  // Ultimi 6 mesi (API ordinata asc), etichetta mese IT.
-  const rows = data.slice(-6).map((d) => {
-    const mm = parseInt(d.month.split('-')[1] || '0', 10)
+  // Ultimi 6 mesi di CALENDARIO contigui (l'API emette una riga solo per i
+  // mesi con dati → un semplice slice(-6) mostrerebbe mesi non consecutivi come
+  // se lo fossero). Riempio i buchi con 0 e metto l'anno nell'etichetta per non
+  // confondere mesi omonimi di anni diversi (es. "Mag 25" vs "Mag 26").
+  const byKey = new Map(data.map((d) => [d.month, d]))
+  const now = new Date()
+  const rows = Array.from({ length: 6 }, (_, i) => {
+    const dt = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+    const d = byKey.get(key)
     return {
-      mese: MESI[mm - 1] ?? d.month,
-      creati: d.created_count,
-      confermati: d.confirmed_count,
-      valore: d.value,
+      mese: `${MESI[dt.getMonth()]} ${String(dt.getFullYear()).slice(2)}`,
+      creati: d?.created_count ?? 0,
+      confermati: d?.confirmed_count ?? 0,
+      valore: d?.value ?? 0,
     }
   })
 

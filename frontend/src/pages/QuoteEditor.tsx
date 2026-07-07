@@ -281,7 +281,7 @@ export default function QuoteEditor() {
   const canConfirm = hasPermission('quotes.confirm')
   const inReview = st === 'inviato' || st === 'letto'          // pre-invio al cliente
   const preConfirm = inReview || st === 'in_attesa_cliente'    // esito ancora aperto
-  const showUnconfirm = hasPermission('quotes.edit_locked') && (st === 'confermato' || st === 'completo')
+  const showUnconfirm = (hasPermission('quotes.edit_locked') || hasPermission('quotes.confirm')) && (st === 'confermato' || st === 'completo')
   const actions: EditorAction[] = [
     { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: st === 'bozza' && hasPermission('quotes.send') },
     { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => doStatus('await-client', 'Offerta in attesa del cliente'), show: canConfirm && inReview },

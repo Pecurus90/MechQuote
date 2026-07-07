@@ -395,8 +395,15 @@ def unconfirm_quote(
     (preventivo, fornitore) ordinate — l'ordine resta nello storico ma il
     materiale va riordinato — e sblocca la modifica.
     """
-    if 'quotes.edit_locked' not in getattr(current_user, '_permissions', []):
-        raise HTTPException(status_code=403, detail="Permesso negato: serve 'Modifica preventivi bloccati'")
+    # Chi può confermare può anche annullare la propria conferma (altrimenti
+    # l'amministrazione resterebbe bloccata su una conferma per errore, senza
+    # 'edit_locked'); anche chi ha 'edit_locked' (intervento su bloccati).
+    perms = getattr(current_user, '_permissions', [])
+    if not ('quotes.confirm' in perms or 'quotes.edit_locked' in perms):
+        raise HTTPException(
+            status_code=403,
+            detail="Permesso negato: serve 'Conferma preventivo' o 'Modifica preventivi bloccati'",
+        )
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")

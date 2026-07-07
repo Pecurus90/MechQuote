@@ -102,9 +102,12 @@ export interface FileOrderRow {
   material_name: string
   supplier_id: number | null
   supplier_name: string | null
+  shape: 'prismatico' | 'tondo' | 'tubo'
   width_mm: number | null
   height_mm: number | null
   thickness_mm: number | null
+  diameter_mm: number | null
+  length_mm: number | null
   quantity: number
   needs_dimensions: boolean
   needs_material: boolean

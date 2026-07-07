@@ -1060,9 +1060,12 @@ class FileOrderRow(BaseModel):
     material_name: str = ""               # nome mostrato/esportato
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
+    shape: str = "prismatico"             # 'prismatico' | 'tondo' | 'tubo'
     width_mm: Optional[float] = Field(default=None, ge=0)
     height_mm: Optional[float] = Field(default=None, ge=0)
     thickness_mm: Optional[float] = Field(default=None, ge=0)
+    diameter_mm: Optional[float] = Field(default=None, ge=0)
+    length_mm: Optional[float] = Field(default=None, ge=0)
     quantity: int = Field(default=1, ge=1)
     needs_dimensions: bool = False
     needs_material: bool = False

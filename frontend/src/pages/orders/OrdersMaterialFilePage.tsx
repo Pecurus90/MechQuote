@@ -13,9 +13,17 @@ import type { FileOrderRow, Material } from '@/types'
 const emptyRow = (): FileOrderRow => ({
   part_code: '', description: '', csv_material: '',
   material_id: null, material_name: '', supplier_id: null, supplier_name: null,
-  width_mm: null, height_mm: null, thickness_mm: null,
+  shape: 'prismatico',
+  width_mm: null, height_mm: null, thickness_mm: null, diameter_mm: null, length_mm: null,
   quantity: 1, needs_dimensions: true, needs_material: true,
 })
+
+// Dimensioni mancanti per forma (riga rossa finché non complete).
+const dimsMissing = (r: FileOrderRow): boolean => {
+  if (r.shape === 'tondo') return !(r.diameter_mm && r.length_mm)
+  if (r.shape === 'tubo') return !(r.diameter_mm && r.thickness_mm && r.length_mm)
+  return !(r.width_mm && r.height_mm && r.thickness_mm)
+}
 
 const numOrNull = (v: string): number | null => {
   const s = v.trim().replace(',', '.')
@@ -143,17 +151,24 @@ export default function OrdersMaterialFilePage() {
                 <th className="px-3 py-2 text-left font-semibold">Descrizione</th>
                 <th className="px-3 py-2 text-left font-semibold">Materiale</th>
                 <th className="px-3 py-2 text-left font-semibold">Fornitore</th>
-                <th className="px-3 py-2 text-right font-semibold">Largh.</th>
-                <th className="px-3 py-2 text-right font-semibold">Alt.</th>
-                <th className="px-3 py-2 text-right font-semibold">Spess.</th>
+                <th className="px-3 py-2 text-left font-semibold">Forma</th>
+                <th className="px-3 py-2 text-left font-semibold">Misure grezzo (mm)</th>
                 <th className="px-3 py-2 text-right font-semibold">Qtà</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                const missingDims = !(r.width_mm && r.height_mm && r.thickness_mm)
+                const missingDims = dimsMissing(r)
                 const missingMat = !r.supplier_id
+                const dimInput = (field: keyof FileOrderRow, ph: string) => (
+                  <label className="inline-flex flex-col text-[10px] text-muted-foreground">
+                    {ph}
+                    <Input value={(r[field] as number | null) ?? ''} placeholder={ph}
+                      onChange={e => patchRow(i, { [field]: numOrNull(e.target.value) } as Partial<FileOrderRow>)}
+                      className="h-7 w-[64px] text-right font-mono" />
+                  </label>
+                )
                 return (
                   <tr key={i} className={`border-b border-border last:border-0 ${missingDims ? 'bg-danger/[0.06]' : ''}`}>
                     <td className="px-2 py-1">
@@ -174,13 +189,20 @@ export default function OrdersMaterialFilePage() {
                     </td>
                     <td className="px-3 py-1 text-muted-foreground">{r.supplier_name ?? '—'}</td>
                     <td className="px-2 py-1">
-                      <Input value={r.width_mm ?? ''} onChange={e => patchRow(i, { width_mm: numOrNull(e.target.value) })} className="h-8 w-[70px] text-right font-mono" />
+                      <select value={r.shape}
+                        onChange={e => patchRow(i, { shape: e.target.value as FileOrderRow['shape'] })}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-[13px]">
+                        <option value="prismatico">Prismatico</option>
+                        <option value="tondo">Tondo</option>
+                        <option value="tubo">Tubo</option>
+                      </select>
                     </td>
                     <td className="px-2 py-1">
-                      <Input value={r.height_mm ?? ''} onChange={e => patchRow(i, { height_mm: numOrNull(e.target.value) })} className="h-8 w-[70px] text-right font-mono" />
-                    </td>
-                    <td className="px-2 py-1">
-                      <Input value={r.thickness_mm ?? ''} onChange={e => patchRow(i, { thickness_mm: numOrNull(e.target.value) })} className="h-8 w-[70px] text-right font-mono" />
+                      <div className="flex items-end gap-1.5">
+                        {r.shape === 'prismatico' && <>{dimInput('width_mm', 'Largh.')}{dimInput('height_mm', 'Alt.')}{dimInput('thickness_mm', 'Spess.')}</>}
+                        {r.shape === 'tondo' && <>{dimInput('diameter_mm', 'Ø')}{dimInput('length_mm', 'Lungh.')}</>}
+                        {r.shape === 'tubo' && <>{dimInput('diameter_mm', 'Ø est.')}{dimInput('thickness_mm', 'Parete')}{dimInput('length_mm', 'Lungh.')}</>}
+                      </div>
                     </td>
                     <td className="px-2 py-1">
                       <Input value={r.quantity} onChange={e => patchRow(i, { quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })} className="h-8 w-[56px] text-right font-mono" />
@@ -198,7 +220,7 @@ export default function OrdersMaterialFilePage() {
           </table>
         </div>
       )}
-      {rows.some(r => !(r.width_mm && r.height_mm && r.thickness_mm)) && (
+      {rows.some(dimsMissing) && (
         <p className="mt-2 text-[12px] text-danger">Le righe evidenziate hanno dimensioni mancanti: compilale prima di creare l'ordine.</p>
       )}
     </StandardPage>

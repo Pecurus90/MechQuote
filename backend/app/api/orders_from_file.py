@@ -178,6 +178,7 @@ async def parse_distinta(
             material_name=mat_name or material_csv,
             supplier_id=sup_id,
             supplier_name=sup_name,
+            shape='prismatico',  # la distinta SolidWorks porta L/A/S
             width_mm=w, height_mm=h, thickness_mm=t,
             quantity=qty,
             needs_dimensions=not (h and w and t),
@@ -269,7 +270,9 @@ def create_file_orders(
                 material_name=r.material_name or r.csv_material,
                 part_code=r.part_code,
                 description=r.description,
+                shape=r.shape or 'prismatico',
                 width_mm=r.width_mm, height_mm=r.height_mm, thickness_mm=r.thickness_mm,
+                diameter_mm=r.diameter_mm, length_mm=r.length_mm,
                 quantity=r.quantity,
             ))
         created.append(order)

@@ -561,7 +561,7 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     if order.source == 'file':
         # Righe salvate (distinta): riferimento = codice parte, dimensioni grezzo.
         rows = [
-            [it.material_name, 'Prismatico', _file_item_dim(it), it.part_code, it.quantity]
+            [it.material_name, _shape_label_it(it.shape), _file_item_dim(it), it.part_code, it.quantity]
             for it in order.items
         ]
     else:
@@ -578,8 +578,19 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     return csv_export_response(filename=filename, columns=_MAT_CSV_COLUMNS, rows=rows)
 
 
+def _shape_label_it(shape: Optional[str]) -> str:
+    return {'tondo': 'Tondo', 'tubo': 'Tubo'}.get(shape or '', 'Prismatico')
+
+
 def _file_item_dim(it) -> str:
-    """Dimensioni grezzo di una riga ordine-da-file: 'L × A × S mm'."""
+    """Dimensioni grezzo di una riga ordine-da-file, formattate per forma."""
+    def g(v):
+        return f"{v:g}" if v else '?'
+    shape = it.shape or 'prismatico'
+    if shape == 'tondo':
+        return f"Ø{g(it.diameter_mm)} × {g(it.length_mm)} mm"
+    if shape == 'tubo':
+        return f"Ø{g(it.diameter_mm)} × sp.{g(it.thickness_mm)} × {g(it.length_mm)} mm"
     vals = [v for v in (it.width_mm, it.height_mm, it.thickness_mm) if v]
     return (' × '.join(f"{v:g}" for v in vals) + ' mm') if vals else '—'
 

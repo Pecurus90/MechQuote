@@ -665,9 +665,13 @@ class MaterialOrderItem(Base):
     material_name = Column(String(100), nullable=False, default="")
     part_code = Column(String(120), default="")     # Num. parte (riferimento)
     description = Column(String(200), default="")
-    width_mm = Column(Float, nullable=True)         # larghezza grezzo
-    height_mm = Column(Float, nullable=True)        # altezza grezzo
-    thickness_mm = Column(Float, nullable=True)     # spessore grezzo
+    # Forma grezzo: 'prismatico' (L×A×S) | 'tondo' (Ø×lung) | 'tubo' (Øest×parete×lung).
+    shape = Column(String(12), default="prismatico")
+    width_mm = Column(Float, nullable=True)         # prismatico: larghezza grezzo
+    height_mm = Column(Float, nullable=True)        # prismatico: altezza grezzo
+    thickness_mm = Column(Float, nullable=True)     # prismatico: spessore / tubo: parete
+    diameter_mm = Column(Float, nullable=True)      # tondo/tubo: Ø (esterno per il tubo)
+    length_mm = Column(Float, nullable=True)        # tondo/tubo: lunghezza
     quantity = Column(Integer, default=1)
 
     order = relationship("MaterialOrder", back_populates="items")

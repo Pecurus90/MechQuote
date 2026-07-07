@@ -839,6 +839,10 @@ def _run_migrations():
          "csv_name VARCHAR(120) NOT NULL UNIQUE, "
          "material_id INTEGER NOT NULL REFERENCES materials(id))"),
         "CREATE INDEX IF NOT EXISTS ix_material_aliases_csv_name ON material_aliases(csv_name)",
+        # Forma grezzo sulle righe ordine-da-file (prismatico | tondo | tubo).
+        "ALTER TABLE material_order_items ADD COLUMN shape VARCHAR(12) DEFAULT 'prismatico'",
+        "ALTER TABLE material_order_items ADD COLUMN diameter_mm FLOAT",
+        "ALTER TABLE material_order_items ADD COLUMN length_mm FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

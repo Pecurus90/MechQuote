@@ -620,6 +620,12 @@ def delete_quote(
         "(SELECT id FROM notifications WHERE target_quote_id = :qid)"
     ), {"qid": quote_id})
     db.execute(text("DELETE FROM notifications WHERE target_quote_id = :qid"), {"qid": quote_id})
+    # Idem per le evasioni materiale: QuoteSupplierOrder ha solo la FK quote_id,
+    # nessuna relationship/cascade su Quote (e le FK SQLite sono OFF). Senza
+    # questa DELETE le righe restano orfane e, col riciclo id di SQLite, un
+    # nuovo preventivo eredita evasioni fantasma → stato materiale falso.
+    # (material_order_quotes è invece gestito dal cascade m2m del backref.)
+    db.execute(text("DELETE FROM quote_supplier_orders WHERE quote_id = :qid"), {"qid": quote_id})
     db.delete(quote)
     db.commit()
     logger.info("Quote eliminato: id=%s number=%r by=%s",

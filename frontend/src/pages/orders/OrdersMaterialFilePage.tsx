@@ -26,13 +26,13 @@ const str = (v: number | null | undefined): string => (v == null ? '' : String(v
 
 // backend row → dims Record della vista (per forma).
 function dimsToView(r: FileOrderRow): Record<string, string> {
-  if (r.shape === 'tondo') return { diameter: str(r.diameter_mm), innerDiameter: str(r.inner_diameter_mm), length: str(r.length_mm) }
+  if (r.shape === 'tondo') return { diameter: str(r.diameter_mm), length: str(r.length_mm) }
   if (r.shape === 'tubo') return { outerDiameter: str(r.diameter_mm), wall: str(r.thickness_mm), length: str(r.length_mm) }
   return { width: str(r.width_mm), height: str(r.height_mm), thickness: str(r.thickness_mm) }
 }
 // dims Record della vista → campi espliciti backend (per forma).
 function dimsToFields(shape: Shape, dims: Record<string, string>): Partial<FileOrderRow> {
-  if (shape === 'tondo') return { diameter_mm: numOrNull(dims.diameter), inner_diameter_mm: numOrNull(dims.innerDiameter), length_mm: numOrNull(dims.length), width_mm: null, height_mm: null, thickness_mm: null }
+  if (shape === 'tondo') return { diameter_mm: numOrNull(dims.diameter), length_mm: numOrNull(dims.length), inner_diameter_mm: null, width_mm: null, height_mm: null, thickness_mm: null }
   if (shape === 'tubo') return { diameter_mm: numOrNull(dims.outerDiameter), thickness_mm: numOrNull(dims.wall), length_mm: numOrNull(dims.length), inner_diameter_mm: null, width_mm: null, height_mm: null }
   return { width_mm: numOrNull(dims.width), height_mm: numOrNull(dims.height), thickness_mm: numOrNull(dims.thickness), diameter_mm: null, inner_diameter_mm: null, length_mm: null }
 }

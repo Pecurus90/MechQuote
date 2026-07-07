@@ -25,8 +25,7 @@ export const SHAPE_FIELDS: Record<Shape, { key: string; label: string; optional?
     { key: 'thickness', label: 'Spess' },
   ],
   tondo: [
-    { key: 'diameter', label: 'Ø est' },
-    { key: 'innerDiameter', label: 'Ø int', optional: true },
+    { key: 'diameter', label: 'Ø' },
     { key: 'length', label: 'Lungh' },
   ],
   tubo: [
@@ -67,7 +66,7 @@ interface Props {
 }
 
 const GRID =
-  'grid grid-cols-[110px_minmax(150px,1.2fr)_minmax(140px,1fr)_110px_116px_178px_54px_32px] items-center gap-2.5'
+  'grid grid-cols-[150px_minmax(150px,1.2fr)_minmax(130px,0.8fr)_110px_110px_190px_52px_32px] items-center gap-2.5'
 
 /** Una riga con misure mancanti o materiale non abbinato è "invalida". */
 function isRowInvalid(row: FileRow): boolean {
@@ -259,27 +258,25 @@ export function MaterialsFileView({
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-[9px] top-[10px] h-[14px] w-[14px] text-muted-foreground" />
                   </div>
-                  {/* Misure grezzo (dinamiche per forma) */}
+                  {/* Misure grezzo (dinamiche per forma) — label come placeholder
+                      così gli input restano alla stessa altezza delle altre celle. */}
                   <div className="flex gap-1.5">
                     {SHAPE_FIELDS[row.shape].map((f) => {
                       const val = row.dims[f.key] ?? ''
                       const missing = !f.optional && !val.trim()
                       return (
-                        <div key={f.key} className="flex flex-col gap-0.5">
-                          <span className="text-[8.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                            {f.label}
-                          </span>
-                          <input
-                            value={val}
-                            onChange={(e) =>
-                              onPatchRow(row.id, { dims: { ...row.dims, [f.key]: e.target.value } })
-                            }
-                            className={cn(
-                              'h-[30px] w-[50px] rounded-[7px] border bg-background px-1.5 text-right font-mono text-[12px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]',
-                              missing ? 'border-danger/60' : 'border-input',
-                            )}
-                          />
-                        </div>
+                        <input
+                          key={f.key}
+                          value={val}
+                          placeholder={f.label}
+                          onChange={(e) =>
+                            onPatchRow(row.id, { dims: { ...row.dims, [f.key]: e.target.value } })
+                          }
+                          className={cn(
+                            'h-[34px] w-[54px] rounded-[8px] border bg-background px-2 text-right font-mono text-[12.5px] text-foreground outline-none transition-colors placeholder:text-[11px] placeholder:font-sans placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/[0.18]',
+                            missing ? 'border-danger/60' : 'border-input',
+                          )}
+                        />
                       )
                     })}
                   </div>

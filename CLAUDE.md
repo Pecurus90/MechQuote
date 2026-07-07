@@ -369,7 +369,7 @@ Regole:
 - `letto → confermato`: click manuale di chi ha `quotes.confirm`; da qui il preventivo è **bloccato**.
 - `confermato → completo`: automatico quando il materiale è risolto (evaso o non necessario); gli Stampi (`die`) sono sempre risolti → conferma = completo.
 - **Modifica di un preventivo bloccato** (`confermato`/`completo`): serve `quotes.edit_locked` (`ensure_editable()` in `quotes.py`; default solo admin).
-- **Annulla conferma** (`confermato`/`completo` → `letto`): serve `quotes.edit_locked`; azzera le evasioni materiale (ordini restano nello storico).
+- **Annulla conferma** (`confermato`/`completo` → `letto`): serve `quotes.confirm` **o** `quotes.edit_locked` (chi conferma può disfare la propria conferma); azzera le evasioni materiale (ordini restano nello storico) e il consuntivo venduto/costo + `awaiting_client_at`.
 - **Eliminazione preventivo**: il creatore (`Quote.created_by_user_id`) o chi ha `quotes.delete`.
 
 > ⚠️ Vecchio modello a 3 stati (`bozza/inviato/completato` con `quotes.complete`): **rimosso**. Non esiste più `quotes.complete` (era → `quotes.confirm`).

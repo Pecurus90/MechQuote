@@ -13,8 +13,9 @@ import {
   Trash2,
   SearchX,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState, useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { parseDecimalOrNull } from '@/lib/decimalInput'
 import type { QuoteListItem } from '@/types'
 import { StatusBadge, MaterialStatusBadge } from '@/components/dashboard/StatusBadges'
 import type { QuoteStatus, MaterialStatus } from '@/components/dashboard/StatusBadges'
@@ -112,15 +113,20 @@ function PriceCell({ value, editable, onSave }: {
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  // Evita il doppio commit (Enter → setEditing(false) → l'input si smonta →
+  // scatta onBlur → secondo commit) e i salvataggi inutili.
+  const doneRef = useRef(false)
 
   if (!editable) return <div className="text-right text-muted-foreground">—</div>
 
   const commit = () => {
-    const t = draft.trim()
-    const n = parseFloat(t.replace(',', '.'))
-    onSave(t === '' || Number.isNaN(n) ? null : n)
+    if (doneRef.current) return
+    doneRef.current = true
     setEditing(false)
+    const parsed = parseDecimalOrNull(draft)   // parser IT: gestisce "1.300,50"
+    if (parsed !== (value ?? null)) onSave(parsed)  // salva solo se cambiato
   }
+  const cancel = () => { doneRef.current = true; setEditing(false) }
 
   if (editing) {
     return (
@@ -129,7 +135,7 @@ function PriceCell({ value, editable, onSave }: {
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel() }}
         onClick={(e) => e.stopPropagation()}
         className="w-full rounded-[7px] border border-ring bg-background px-2 py-1 text-right font-mono text-[13px] text-foreground outline-none focus:ring-2 focus:ring-ring/[0.18]"
       />
@@ -140,7 +146,7 @@ function PriceCell({ value, editable, onSave }: {
     <button
       type="button"
       title="Modifica"
-      onClick={(e) => { e.stopPropagation(); setDraft(value != null ? String(value) : ''); setEditing(true) }}
+      onClick={(e) => { e.stopPropagation(); doneRef.current = false; setDraft(value != null ? String(value) : ''); setEditing(true) }}
       className="w-full rounded-[7px] px-2 py-1 text-right font-mono text-[13px] transition-colors hover:bg-muted"
     >
       {value != null

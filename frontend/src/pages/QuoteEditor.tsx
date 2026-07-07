@@ -181,18 +181,25 @@ export default function QuoteEditor() {
     if (!quote?.id) return
     setSaving(true)
     try {
+      // Campi quote-level (lo `status` non serve: il backend lo scarta).
+      const quoteFields = {
+        customer_name: quote.customer_name, customer_id: quote.customer_id,
+        customer_reference: quote.customer_reference,
+        global_margin_percent: quote.global_margin_percent,
+        global_discount_percent: quote.global_discount_percent,
+        transport_cost: quote.transport_cost, packaging_cost: quote.packaging_cost,
+        validity_days: quote.validity_days, delivery_text: quote.delivery_text,
+        quote_date: quote.quote_date, notes_customer: quote.notes_customer,
+        notes_internal: quote.notes_internal,
+      }
+      const closeout = { sold_price: quote.sold_price ?? null, actual_cost: quote.actual_cost ?? null }
+      // Su 'completo' un utente normale vede solo il consuntivo (pannelli
+      // bloccati) → invia solo il closeout. Chi ha 'quotes.edit_locked' ha i
+      // pannelli editabili: se non gli inviamo anche i campi quote-level, ogni
+      // sua modifica (margine/sconto/note...) verrebbe scartata in silenzio.
       const payload = quote.status === 'completo'
-        ? { sold_price: quote.sold_price ?? null, actual_cost: quote.actual_cost ?? null }
-        : {
-            customer_name: quote.customer_name, customer_id: quote.customer_id,
-            customer_reference: quote.customer_reference,
-            global_margin_percent: quote.global_margin_percent,
-            global_discount_percent: quote.global_discount_percent,
-            transport_cost: quote.transport_cost, packaging_cost: quote.packaging_cost,
-            validity_days: quote.validity_days, delivery_text: quote.delivery_text,
-            quote_date: quote.quote_date, notes_customer: quote.notes_customer,
-            notes_internal: quote.notes_internal, status: quote.status,
-          }
+        ? (hasPermission('quotes.edit_locked') ? { ...quoteFields, ...closeout } : closeout)
+        : quoteFields
       await api.put(`/quotes/${quote.id}`, payload)
       toast.success('Preventivo salvato')
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio')) }

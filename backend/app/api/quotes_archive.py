@@ -106,7 +106,14 @@ def list_archive(
     elif phase == 'active':
         query = query.filter(Quote.status.in_(
             ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato']))
-    if status:
+    # Filtri "sintetici" per far coincidere i KPI dashboard con la lista:
+    #  - da_confermare = inviato + letto (KPI "Preventivi da confermare")
+    #  - senza_prezzo  = completo senza prezzo di vendita (KPI "Senza prezzo")
+    if status == 'da_confermare':
+        query = query.filter(Quote.status.in_(['inviato', 'letto']))
+    elif status == 'senza_prezzo':
+        query = query.filter(Quote.status == 'completo', Quote.sold_price.is_(None))
+    elif status:
         query = query.filter(Quote.status == status)
     query = query.order_by(Quote.quote_date.desc(), Quote.id.desc())
     offset = (page - 1) * page_size

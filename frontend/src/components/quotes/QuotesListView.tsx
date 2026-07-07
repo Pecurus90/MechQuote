@@ -28,8 +28,10 @@ interface Props {
   showQuickActions?: boolean
 }
 
-const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'] as const
-const COMPLETED_STATUSES = ['completo', 'non_ordinato'] as const
+// 'da_confermare' / 'senza_prezzo' = filtri sintetici (il backend li traduce)
+// per far coincidere i KPI dashboard con la lista.
+const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato', 'da_confermare'] as const
+const COMPLETED_STATUSES = ['completo', 'non_ordinato', 'senza_prezzo'] as const
 
 export default function QuotesListView({ phase, title, subtitle, icon, showQuickActions = false }: Props) {
   const navigate = useNavigate()
@@ -63,6 +65,18 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const [detailCache, setDetailCache] = useState<Record<number, QuoteMaterialDetail | 'loading'>>({})
 
   useEffect(() => { api.get('/quotes/years').then(res => setYears(res.data)).catch(() => {}) }, [])
+
+  // Filtri guidati dall'URL: quando cambia la query (ricerca globale header,
+  // click su un chip/KPI della dashboard verso questa stessa lista) risincronizza
+  // stato e ricerca. Senza questo il componente non si rimontava → filtro e
+  // casella restavano fermi (ricerca `q` ignorata, chip che non rifiltravano).
+  useEffect(() => {
+    const s = searchParams.get('status')
+    setStatusFilter(validInitStatuses.includes(s ?? '') ? (s as string) : 'all')
+    setSearchInput(searchParams.get('q') ?? '')
+    setPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   useEffect(() => {
     const t = setTimeout(() => { setSearchQuery(searchInput.trim()); setPage(1) }, 300)
@@ -213,11 +227,13 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         { value: 'letto', label: 'Letto' },
         { value: 'in_attesa_cliente', label: 'Attesa cliente' },
         { value: 'confermato', label: 'Confermato' },
+        { value: 'da_confermare', label: 'Da confermare' },
       ]
     : [
         { value: 'all', label: 'Tutti' },
         { value: 'completo', label: 'Completo' },
         { value: 'non_ordinato', label: 'Non ordinato' },
+        { value: 'senza_prezzo', label: 'Senza prezzo' },
       ]
 
   const quoteToDelete = quotes.find(q => q.id === confirmDeleteId)

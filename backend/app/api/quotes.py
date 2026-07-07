@@ -382,6 +382,13 @@ def unconfirm_quote(
     quote.confirmed_by_user_id = None
     quote.completed_at = None
     quote.completed_by_user_id = None
+    # Annullando la chiusura si torna a monte del cliente: azzera il timestamp
+    # "in attesa cliente" (altrimenti resta sporco e devia un successivo
+    # restore) e il consuntivo venduto/costo (era di una chiusura ora annullata;
+    # find-similar userebbe dati falsi).
+    quote.awaiting_client_at = None
+    quote.sold_price = None
+    quote.actual_cost = None
     db.commit()
     logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
@@ -517,6 +524,12 @@ def update_quote(
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
     payload = data.model_dump(exclude_unset=True)
+
+    # Le transizioni di stato passano SOLO dagli endpoint dedicati
+    # (confirm/reopen/await-client/...): un PUT generico non deve poter
+    # scrivere `status`, altrimenti aggira permessi, guardie e campi audit
+    # (e potrebbe persistere valori fuori dalla macchina a stati).
+    payload.pop('status', None)
 
     # Sprint G — `sold_price` e `actual_cost` sono dati di chiusura commessa
     # (post-completamento): possono essere settati anche su preventivi non

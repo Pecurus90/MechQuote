@@ -22,10 +22,25 @@ export default function DashboardPage() {
   // Visibilità pipeline preventivi: chi accede all'archivio (ufficio tecnico
   // E amministrazione). La CONFERMA resta un'azione gated da quotes.confirm
   // nell'editor — qui la dashboard mostra gli stessi KPI ai due ruoli.
+  const hasDashboard = hasPermission('dashboard')
   const canSeeQuotes = hasPermission('quotes.archive')
   const canQuote = hasPermission('quotes.create')
-  const canTools = hasPermission('tools')
+  // Rail/KPI "Utensili da ordinare" = dominio ORDINI utensili (orders.tools),
+  // non l'anagrafica (tools): gli endpoint /orders/tools/* sono gated così.
+  const canOrderTools = hasPermission('orders.tools')
   const canOrderMaterials = hasPermission('orders.materials')
+
+  // Chi non ha la dashboard (es. ruolo officina) non deve restare bloccato
+  // sullo spinner della home: redirige alla prima pagina utile per il ruolo.
+  useEffect(() => {
+    if (hasDashboard) return
+    const dest = hasPermission('officina') ? '/officina'
+      : canOrderTools ? '/orders/tools'
+      : hasPermission('tools') ? '/tools'
+      : canSeeQuotes ? '/quotes/active'
+      : '/login'
+    navigate(dest, { replace: true })
+  }, [hasDashboard, canOrderTools, canSeeQuotes, hasPermission, navigate])
 
   const [monthly, setMonthly] = useState<MonthlyData[]>([])
   const [stats, setStats] = useState<WorkflowStats | null>(null)
@@ -39,6 +54,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!hasDashboard) return
     setLoading(true)
     const get = <T,>(url: string, params?: object) =>
       api.get(url, params ? { params } : undefined).then(r => r.data as T).catch(() => null)
@@ -54,13 +70,23 @@ export default function DashboardPage() {
       canSeeQuotes ? get<DashboardQuoteRow[]>('/dashboard/to-review').then(d => d && setToReview(d)) : null,
       (canSeeQuotes || canOrderMaterials) ? get<DashboardQuoteRow[]>('/dashboard/awaiting-materials').then(d => d && setAwaitingMaterials(d)) : null,
       canOrderMaterials ? get<MaterialsStats>('/orders/materials/stats').then(d => d && setMatStats(d)) : null,
-      canTools ? get<ToolsStats>('/orders/tools/stats').then(d => d && setToolStats(d)) : null,
-      canTools ? get<ToolLowStockPreview>('/orders/tools/preview').then(d => d && setToolPreview(d)) : null,
+      canOrderTools ? get<ToolsStats>('/orders/tools/stats').then(d => d && setToolStats(d)) : null,
+      canOrderTools ? get<ToolLowStockPreview>('/orders/tools/preview').then(d => d && setToolPreview(d)) : null,
     ]).catch(() => toast.error('Errore nel caricamento dashboard')).finally(() => setLoading(false))
-  }, [canSeeQuotes, canOrderMaterials, canTools])
+  }, [hasDashboard, canSeeQuotes, canOrderMaterials, canOrderTools])
 
-  if (loading || !stats) return (
+  if (!hasDashboard) return null  // redirect in corso
+  if (loading) return (
     <div className="flex items-center justify-center h-64 text-muted-foreground">Caricamento...</div>
+  )
+  if (!stats) return (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
+      <p>Impossibile caricare la dashboard.</p>
+      <button type="button" onClick={() => window.location.reload()}
+        className="rounded-[8px] border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/60">
+        Riprova
+      </button>
+    </div>
   )
 
   // KPI (max 5, filtrate per permesso) → shape KpiSpec di DashboardView.
@@ -72,14 +98,14 @@ export default function DashboardPage() {
     { key: 'attesa-cliente', label: 'In attesa del cliente', value: stats.awaiting_client_count, hint: 'offerta inviata', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canSeeQuotes },
     { key: 'prezzi-mancanti', label: 'Preventivi senza prezzo', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=completo', show: canSeeQuotes },
     { key: 'da-ordinare', label: 'Materiale da ordinare', value: matStats?.to_order ?? 0, hint: 'da preventivi confermati', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },
-    { key: 'sotto-scorta', label: 'Utensili da ordinare', value: toolStats?.low_stock ?? 0, hint: 'sotto la scorta minima', icon: Drill, tone: 'warning', to: '/orders/tools', show: canTools },
+    { key: 'sotto-scorta', label: 'Utensili da ordinare', value: toolStats?.low_stock ?? 0, hint: 'sotto la scorta minima', icon: Drill, tone: 'warning', to: '/orders/tools', show: canOrderTools },
   ]
   const kpis = allKpis
     .filter(k => k.show)
     .map(k => ({ key: k.key, label: k.label, value: k.value, hint: k.hint, icon: k.icon, tone: k.tone, onClick: () => navigate(k.to) }))
 
   const today = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const tools = canTools ? (toolPreview?.groups.flatMap(g => g.items) ?? []).slice(0, 6) : undefined
+  const tools = canOrderTools ? (toolPreview?.groups.flatMap(g => g.items) ?? []).slice(0, 6) : undefined
 
   return (
     <DashboardView

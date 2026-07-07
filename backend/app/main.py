@@ -843,6 +843,7 @@ def _run_migrations():
         "ALTER TABLE material_order_items ADD COLUMN shape VARCHAR(12) DEFAULT 'prismatico'",
         "ALTER TABLE material_order_items ADD COLUMN diameter_mm FLOAT",
         "ALTER TABLE material_order_items ADD COLUMN length_mm FLOAT",
+        "ALTER TABLE material_order_items ADD COLUMN inner_diameter_mm FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

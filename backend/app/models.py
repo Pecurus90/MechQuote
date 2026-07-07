@@ -670,7 +670,8 @@ class MaterialOrderItem(Base):
     width_mm = Column(Float, nullable=True)         # prismatico: larghezza grezzo
     height_mm = Column(Float, nullable=True)        # prismatico: altezza grezzo
     thickness_mm = Column(Float, nullable=True)     # prismatico: spessore / tubo: parete
-    diameter_mm = Column(Float, nullable=True)      # tondo/tubo: Ø (esterno per il tubo)
+    diameter_mm = Column(Float, nullable=True)      # tondo/tubo: Ø esterno
+    inner_diameter_mm = Column(Float, nullable=True)  # tondo (cavo): Ø interno (opz.)
     length_mm = Column(Float, nullable=True)        # tondo/tubo: lunghezza
     quantity = Column(Integer, default=1)
 

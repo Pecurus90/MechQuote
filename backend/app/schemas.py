@@ -1065,6 +1065,7 @@ class FileOrderRow(BaseModel):
     height_mm: Optional[float] = Field(default=None, ge=0)
     thickness_mm: Optional[float] = Field(default=None, ge=0)
     diameter_mm: Optional[float] = Field(default=None, ge=0)
+    inner_diameter_mm: Optional[float] = Field(default=None, ge=0)
     length_mm: Optional[float] = Field(default=None, ge=0)
     quantity: int = Field(default=1, ge=1)
     needs_dimensions: bool = False

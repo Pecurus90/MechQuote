@@ -14,7 +14,8 @@ const emptyRow = (): FileOrderRow => ({
   part_code: '', description: '', csv_material: '',
   material_id: null, material_name: '', supplier_id: null, supplier_name: null,
   shape: 'prismatico',
-  width_mm: null, height_mm: null, thickness_mm: null, diameter_mm: null, length_mm: null,
+  width_mm: null, height_mm: null, thickness_mm: null,
+  diameter_mm: null, inner_diameter_mm: null, length_mm: null,
   quantity: 1, needs_dimensions: true, needs_material: true,
 })
 
@@ -200,7 +201,7 @@ export default function OrdersMaterialFilePage() {
                     <td className="px-2 py-1">
                       <div className="flex items-end gap-1.5">
                         {r.shape === 'prismatico' && <>{dimInput('width_mm', 'Largh.')}{dimInput('height_mm', 'Alt.')}{dimInput('thickness_mm', 'Spess.')}</>}
-                        {r.shape === 'tondo' && <>{dimInput('diameter_mm', 'Ø')}{dimInput('length_mm', 'Lungh.')}</>}
+                        {r.shape === 'tondo' && <>{dimInput('diameter_mm', 'Ø est.')}{dimInput('inner_diameter_mm', 'Ø int.')}{dimInput('length_mm', 'Lungh.')}</>}
                         {r.shape === 'tubo' && <>{dimInput('diameter_mm', 'Ø est.')}{dimInput('thickness_mm', 'Parete')}{dimInput('length_mm', 'Lungh.')}</>}
                       </div>
                     </td>

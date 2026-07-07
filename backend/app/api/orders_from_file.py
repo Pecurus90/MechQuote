@@ -272,7 +272,7 @@ def create_file_orders(
                 description=r.description,
                 shape=r.shape or 'prismatico',
                 width_mm=r.width_mm, height_mm=r.height_mm, thickness_mm=r.thickness_mm,
-                diameter_mm=r.diameter_mm, length_mm=r.length_mm,
+                diameter_mm=r.diameter_mm, inner_diameter_mm=r.inner_diameter_mm, length_mm=r.length_mm,
                 quantity=r.quantity,
             ))
         created.append(order)

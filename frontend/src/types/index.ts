@@ -107,6 +107,7 @@ export interface FileOrderRow {
   height_mm: number | null
   thickness_mm: number | null
   diameter_mm: number | null
+  inner_diameter_mm: number | null
   length_mm: number | null
   quantity: number
   needs_dimensions: boolean

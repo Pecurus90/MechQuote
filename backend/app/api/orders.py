@@ -588,7 +588,10 @@ def _file_item_dim(it) -> str:
         return f"{v:g}" if v else '?'
     shape = it.shape or 'prismatico'
     if shape == 'tondo':
-        return f"Ø{g(it.diameter_mm)} × {g(it.length_mm)} mm"
+        core = f"Ø{g(it.diameter_mm)}"
+        if it.inner_diameter_mm:
+            core += f"/Øint{g(it.inner_diameter_mm)}"   # tondo cavo
+        return f"{core} × {g(it.length_mm)} mm"
     if shape == 'tubo':
         return f"Ø{g(it.diameter_mm)} × sp.{g(it.thickness_mm)} × {g(it.length_mm)} mm"
     vals = [v for v in (it.width_mm, it.height_mm, it.thickness_mm) if v]

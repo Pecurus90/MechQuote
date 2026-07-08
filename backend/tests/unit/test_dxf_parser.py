@@ -26,6 +26,10 @@ def _dxf_to_bytes(doc) -> bytes:
 def test_parse_closed_rectangle():
     """LWPOLYLINE rettangolare 100×50 chiusa → 1 profilo, length=300, bbox 100×50."""
     doc = ezdxf.new("R2010")
+    # Dichiara esplicitamente i mm: ezdxf ≥1.3 imposta $INSUNITS=6 (metri) di
+    # default, e il parser convertirebbe ×1000 (corretto per il file, ma non è
+    # ciò che il test intende). Il disegno è inteso in millimetri.
+    doc.units = ezdxf.units.MM
     msp = doc.modelspace()
     msp.add_lwpolyline(
         [(0, 0), (100, 0), (100, 50), (0, 50)],
@@ -49,6 +53,7 @@ def test_parse_closed_rectangle():
 def test_stitching_endpoints():
     """2 LINE che condividono un endpoint → unione in 1 profilo aperto."""
     doc = ezdxf.new("R2010")
+    doc.units = ezdxf.units.MM   # coordinate in mm (vedi nota in test_parse_closed_rectangle)
     msp = doc.modelspace()
     # Due segmenti che si toccano in (50, 0): A=(0,0)-(50,0), B=(50,0)-(50,30)
     msp.add_line((0, 0), (50, 0))

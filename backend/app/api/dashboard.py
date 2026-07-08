@@ -824,6 +824,12 @@ def get_awaiting_materials(
 ):
     """Preventivi confermati in attesa di ordine materiale (spec 18/19):
     status 'confermato' con materiale non ancora totalmente evaso."""
+    # Espone dati di preventivi (cliente, numero, totale): gate come il gemello
+    # to-review. Visibile a chi vede l'archivio O gestisce gli ordini materiale
+    # (allineato al frontend: canSeeQuotes || canOrderMaterials).
+    perms = getattr(current_user, '_permissions', [])
+    if 'quotes.archive' not in perms and 'orders.materials' not in perms:
+        raise HTTPException(status_code=403, detail="Permesso negato")
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),

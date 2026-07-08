@@ -56,14 +56,21 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
 
 
 def ensure_editable(quote: Quote, current_user: User) -> None:
-    """Modificabile fino a 'letto'; bloccato dalla Conferma.
+    """Visibile E modificabile: modificabile fino a 'letto'; bloccato dalla Conferma.
 
     Spec 18: si modifica in bozza/inviato/letto, poi la Conferma manuale di
     amministrazione blocca (confermato/completo). Chi ha 'quotes.edit_locked'
     (default: solo admin) può modificare anche i preventivi bloccati.
     Esportata per parts.py / phases.py — mutare parti o fasi è modificare il
     preventivo.
+
+    Include la ACL di proprietà (`ensure_quote_visible`) come PRIMO check:
+    mutare un preventivo che non puoi vedere non deve essere possibile. Così
+    ogni sito che già chiama `ensure_editable` (update_quote, recalculate,
+    tutte le scritture di parts.py/phases.py) eredita l'ACL senza doverla
+    ricordare a mano — la causa del leak per-id era proprio un sito dimenticato.
     """
+    ensure_quote_visible(quote, current_user)
     if wf.is_editable(quote.status):
         return
     if 'quotes.edit_locked' in getattr(current_user, '_permissions', []):
@@ -194,6 +201,7 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     quote = _load_quote(quote_id, db)
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)
 
     # Auto-mark "letto" quando amministrazione (quotes.confirm) apre un 'inviato'
     # (spec 18). Leggere NON completa più nulla: la conferma è manuale. Il
@@ -225,6 +233,7 @@ def update_quote_status(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)
 
     # Questa route gestisce solo bozza → inviato. Il resto del ciclo (spec 18):
     # inviato → letto (auto in GET all'apertura di amministrazione),
@@ -562,6 +571,9 @@ def update_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    # ACL di proprietà esplicita: il ramo closeout-only sotto salta
+    # `ensure_editable` (che la include), quindi la garantiamo qui in cima.
+    ensure_quote_visible(quote, current_user)
     payload = data.model_dump(exclude_unset=True)
 
     # Le transizioni di stato passano SOLO dagli endpoint dedicati

@@ -71,6 +71,10 @@ interface Props {
   onImport: (file: File) => void
   onCreate: () => void
   onPickMaterial: (id: string, materialId: number) => void
+  /** Crea un nuovo materiale a catalogo per una riga non abbinata (apre il form
+   *  nel container). Fornito SOLO se l'utente ha i permessi catalogo ('settings')
+   *  → il pulsante "+ Nuovo" appare solo allora. */
+  onCreateNewMaterial?: (rowId: string) => void
   /** Alias appresi (opzionale): pannello di gestione sotto la tabella. */
   aliases?: AliasEntry[]
   onDeleteAlias?: (id: number) => void
@@ -96,6 +100,7 @@ export function MaterialsFileView({
   onImport,
   onCreate,
   onPickMaterial,
+  onCreateNewMaterial,
   aliases = [],
   onDeleteAlias,
 }: Props) {
@@ -239,33 +244,45 @@ export function MaterialsFileView({
                     onChange={(e) => onPatchRow(row.id, { description: e.target.value })}
                     className="h-[34px] w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
                   />
-                  {/* Materiale (select catalogo) */}
-                  <div className="relative">
-                    <select
-                      value={row.materialId ?? ''}
-                      onChange={(e) => onPickMaterial(row.id, Number(e.target.value))}
-                      className={cn(
-                        'h-[34px] w-full cursor-pointer appearance-none rounded-[8px] border bg-background pl-2.5 pr-[26px] text-[12.5px] outline-none focus:ring-2 focus:ring-ring/[0.18]',
-                        unmatched
-                          ? 'border-danger/60 font-semibold text-danger'
-                          : 'border-input text-foreground focus:border-ring',
-                      )}
-                    >
-                      <option value="" disabled>
-                        — Non abbinato —
-                      </option>
-                      {materials.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.label}
+                  {/* Materiale (select catalogo) + "+ Nuovo" se non abbinato */}
+                  <div className="flex items-center gap-1">
+                    <div className="relative min-w-0 flex-1">
+                      <select
+                        value={row.materialId ?? ''}
+                        onChange={(e) => onPickMaterial(row.id, Number(e.target.value))}
+                        className={cn(
+                          'h-[34px] w-full cursor-pointer appearance-none rounded-[8px] border bg-background pl-2.5 pr-[26px] text-[12.5px] outline-none focus:ring-2 focus:ring-ring/[0.18]',
+                          unmatched
+                            ? 'border-danger/60 font-semibold text-danger'
+                            : 'border-input text-foreground focus:border-ring',
+                        )}
+                      >
+                        <option value="" disabled>
+                          — Non abbinato —
                         </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      className={cn(
-                        'pointer-events-none absolute right-[9px] top-[10px] h-[14px] w-[14px]',
-                        unmatched ? 'text-danger' : 'text-muted-foreground',
-                      )}
-                    />
+                        {materials.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        className={cn(
+                          'pointer-events-none absolute right-[9px] top-[10px] h-[14px] w-[14px]',
+                          unmatched ? 'text-danger' : 'text-muted-foreground',
+                        )}
+                      />
+                    </div>
+                    {unmatched && onCreateNewMaterial && (
+                      <button
+                        type="button"
+                        onClick={() => onCreateNewMaterial(row.id)}
+                        title="Crea nuovo materiale a catalogo"
+                        className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[8px] border border-border bg-card text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                      >
+                        <FilePlus2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                   {/* Fornitore (derivato) */}
                   <div className="text-[12.5px] text-muted-foreground">{row.supplierName ?? '—'}</div>

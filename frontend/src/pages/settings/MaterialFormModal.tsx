@@ -15,8 +15,8 @@ interface MatForm {
   edm: string; cnc: string; scrap: string; supplier_id: string; active: boolean
 }
 
-const fromMaterial = (m: Material | null): MatForm => ({
-  name: m?.name ?? '',
+const fromMaterial = (m: Material | null, defaultName = ''): MatForm => ({
+  name: m?.name ?? defaultName,
   family: m?.family ?? '',
   density: m != null ? String(m.density_kg_dm3) : '',
   cost: m != null ? String(m.cost_per_kg) : '',
@@ -30,12 +30,13 @@ const fromMaterial = (m: Material | null): MatForm => ({
 interface Props {
   material: Material | null     // null = nuovo
   suppliers: MaterialSupplier[]
+  defaultName?: string          // precompila il nome (creando da import distinta)
   onClose: () => void
-  onSaved: () => void
+  onSaved: (saved?: Material) => void  // restituisce il materiale salvato al chiamante
 }
 
-export default function MaterialFormModal({ material, suppliers, onClose, onSaved }: Props) {
-  const [form, setForm] = useState<MatForm>(fromMaterial(material))
+export default function MaterialFormModal({ material, suppliers, defaultName, onClose, onSaved }: Props) {
+  const [form, setForm] = useState<MatForm>(fromMaterial(material, defaultName))
   const [saving, setSaving] = useState(false)
   // Alias: gestiti come sotto-risorsa (persistono subito, indipendenti dal
   // Salva principale — come la scheda PDF). Solo per un materiale esistente.
@@ -83,10 +84,11 @@ export default function MaterialFormModal({ material, suppliers, onClose, onSave
     }
     setSaving(true)
     try {
-      if (material) await api.put(`/materials/${material.id}`, payload)
-      else await api.post('/materials', payload)
+      const res = material
+        ? await api.put(`/materials/${material.id}`, payload)
+        : await api.post('/materials', payload)
       toast.success('Materiale salvato')
-      onSaved()
+      onSaved(res.data as Material)
       onClose()
     } catch { toast.error('Errore nel salvataggio') }
     finally { setSaving(false) }

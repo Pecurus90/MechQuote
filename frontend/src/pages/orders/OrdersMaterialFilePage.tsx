@@ -9,7 +9,9 @@ import PageContainer from '@/components/ui/page-container'
 import {
   MaterialsFileView, type FileRow, type MaterialOption, type Shape,
 } from '@/pages/orders/MaterialsFileView'
-import type { FileOrderRow, Material, MaterialAlias } from '@/types'
+import MaterialFormModal from '@/pages/settings/MaterialFormModal'
+import { useAuth } from '@/lib/auth'
+import type { FileOrderRow, Material, MaterialAlias, MaterialSupplier } from '@/types'
 
 // Riga interna = shape backend + id client per key/patch.
 type Row = FileOrderRow & { _id: string }
@@ -46,13 +48,21 @@ const emptyRow = (): Row => ({
 })
 
 export default function OrdersMaterialFilePage() {
+  const { hasPermission } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
+  const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
   const [aliases, setAliases] = useState<MaterialAlias[]>([])
+  // Riga per cui si sta creando un nuovo materiale (apre il MaterialFormModal).
+  const [newMatRowId, setNewMatRowId] = useState<string | null>(null)
 
+  const loadMaterials = () => api.get('/materials').then(r => setMaterials(r.data)).catch(() => undefined)
   const loadAliases = () => api.get('/orders/materials/aliases').then(r => setAliases(r.data)).catch(() => undefined)
   useEffect(() => {
-    api.get('/materials').then(r => setMaterials(r.data)).catch(() => undefined)
+    loadMaterials()
+    // Fornitori: servono al MaterialFormModal (creazione materiale da import).
+    // GET aperto (nessun permesso richiesto), quindi caricabile sempre.
+    api.get('/material-suppliers').then(r => setSuppliers(r.data)).catch(() => undefined)
     loadAliases()
   }, [])
 
@@ -83,6 +93,22 @@ export default function OrdersMaterialFilePage() {
     const m = materials.find(x => x.id === materialId)
     if (!m) return
     patch(id, { material_id: m.id, material_name: m.name, supplier_id: m.supplier_id ?? null, supplier_name: m.material_supplier?.name ?? null })
+  }
+
+  // Nuovo materiale creato dal modal per la riga `newMatRowId`: aggiungilo alla
+  // lista (per la tendina) e selezionalo sulla riga. L'alias nome-distinta →
+  // materiale si imparerà alla creazione dell'ordine, come per un abbinamento
+  // manuale (il backend usa row.csv_material, che resta invariato).
+  const onNewMaterialSaved = (m?: Material) => {
+    if (m && newMatRowId) {
+      setMaterials(prev => prev.some(x => x.id === m.id) ? prev.map(x => (x.id === m.id ? m : x)) : [...prev, m])
+      patch(newMatRowId, {
+        material_id: m.id, material_name: m.name,
+        supplier_id: m.supplier_id ?? null,
+        supplier_name: m.material_supplier?.name ?? null,
+      })
+    }
+    setNewMatRowId(null)
   }
 
   const download = async (orderId: number) => {
@@ -139,9 +165,19 @@ export default function OrdersMaterialFilePage() {
         onImport={onImport}
         onCreate={onCreate}
         onPickMaterial={onPickMaterial}
+        onCreateNewMaterial={hasPermission('settings') ? (rowId) => setNewMatRowId(rowId) : undefined}
         aliases={aliases}
         onDeleteAlias={deleteAlias}
       />
+      {newMatRowId && (
+        <MaterialFormModal
+          material={null}
+          defaultName={rows.find(r => r._id === newMatRowId)?.csv_material || ''}
+          suppliers={suppliers}
+          onClose={() => setNewMatRowId(null)}
+          onSaved={onNewMaterialSaved}
+        />
+      )}
     </PageContainer>
   )
 }

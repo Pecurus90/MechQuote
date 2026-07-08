@@ -146,7 +146,7 @@ async def parse_distinta(
     for i, raw in enumerate(raw_rows[:8]):
         cleaned = [_clean_header(c) for c in raw]
         lowered = [c.lower() for c in cleaned]
-        if any('num. parte' in c or 'materiale' == c for c in lowered):
+        if any('num. parte' in c or 'materiale' in c for c in lowered):
             header_idx, header = i, cleaned
             break
     if header_idx is None:
@@ -157,6 +157,15 @@ async def parse_distinta(
         )
 
     cmap = _column_map(header)
+    # Delimitatore errato (es. CSV separato da ',') → l'header collassa in una
+    # cella unica e quasi nulla viene mappato: meglio un errore chiaro che
+    # importare righe spazzatura (tutte le colonne sull'indice 0).
+    if len(header) < 2 or len(cmap) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Colonne non riconosciute. Atteso un CSV separato da ';' con "
+                   "le colonne Num. parte / Materiale / dimensioni.",
+        )
 
     # Cataloghi per l'abbinamento (nome catalogo + alias appresi).
     materials = db.query(Material).options(joinedload(Material.material_supplier)).all()

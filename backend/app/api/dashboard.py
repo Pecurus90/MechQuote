@@ -796,19 +796,23 @@ def get_alerts(
 @router.get("/dashboard/my-quotes", response_model=List[DashboardQuoteRow])
 def get_my_quotes(
     status: Optional[str] = None,
+    open_only: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
     limit: int = 10,
 ):
-    """Lista preventivi del utente corrente. status opzionale: se None ritorna
-    tutti gli stati (bozza/inviato/letto/confermato/completo).
+    """Lista preventivi del utente corrente. `status` opzionale (uno preciso);
+    `open_only=true` filtra ai soli stati aperti/modificabili (bozza/inviato/
+    letto/in_attesa_cliente) — la sezione "I miei preventivi" mostra gli aperti,
+    non i chiusi (confermato/completo/non_ordinato).
     """
     if status is not None and status not in (
         'bozza', 'inviato', 'letto', 'in_attesa_cliente',
         'confermato', 'completo', 'non_ordinato',
     ):
         raise HTTPException(status_code=400, detail="Stato non valido")
+    from app.services import quote_workflow as wf
     q = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
@@ -816,6 +820,8 @@ def get_my_quotes(
     ).filter(Quote.created_by_user_id == current_user.id)
     if status is not None:
         q = q.filter(Quote.status == status)
+    elif open_only:
+        q = q.filter(Quote.status.in_(list(wf.EDITABLE_STATUSES)))
     quotes = q.order_by(Quote.updated_at.desc()).limit(limit).all()
     return [_quote_to_row(q) for q in quotes]
 

@@ -504,10 +504,10 @@ def restore_quote(
 ):
     """Amministrazione: annulla 'non ordinato' (il cliente ci ripensa).
 
-    Torna allo stato precedente al 'perso': se il preventivo era già stato
-    mandato al cliente (awaiting_client_at valorizzato) rientra in
-    'in_attesa_cliente', altrimenti in 'letto'. Così non si perde il contesto
-    "offerta dal cliente".
+    Torna allo stato precedente al 'perso', senza inventarne uno mai raggiunto:
+    - se era già stato mandato al cliente (awaiting_client_at) → 'in_attesa_cliente';
+    - altrimenti se era stato letto da amministrazione (read_at) → 'letto';
+    - altrimenti (solo inviato, mai aperto) → 'inviato'.
     """
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
@@ -519,8 +519,10 @@ def restore_quote(
         )
     if quote.awaiting_client_at:
         quote.status = wf.STATUS_IN_ATTESA_CLIENTE  # awaiting_client_at resta
-    else:
+    elif quote.read_at:
         quote.status = wf.STATUS_LETTO
+    else:
+        quote.status = wf.STATUS_INVIATO
     quote.not_ordered_at = None
     quote.not_ordered_by_user_id = None
     db.commit()

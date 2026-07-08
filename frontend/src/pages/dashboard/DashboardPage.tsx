@@ -63,10 +63,7 @@ export default function DashboardPage() {
       get<WorkflowStats>('/dashboard/workflow-stats').then(d => d && setStats(d)),
       get<MonthlyData[]>('/dashboard/monthly').then(d => d && setMonthly(d)),
       get<Notification[]>('/dashboard/activity').then(d => d && setActivity(d)),
-      Promise.all([
-        get<DashboardQuoteRow[]>('/dashboard/my-quotes', { status: 'bozza' }),
-        get<DashboardQuoteRow[]>('/dashboard/my-quotes', { status: 'inviato' }),
-      ]).then(([d, p]) => setMyQuotes([...(d || []), ...(p || [])])),
+      get<DashboardQuoteRow[]>('/dashboard/my-quotes', { open_only: true }).then(d => d && setMyQuotes(d)),
       canSeeQuotes ? get<DashboardQuoteRow[]>('/dashboard/to-review').then(d => d && setToReview(d)) : null,
       (canSeeQuotes || canOrderMaterials) ? get<DashboardQuoteRow[]>('/dashboard/awaiting-materials').then(d => d && setAwaitingMaterials(d)) : null,
       canOrderMaterials ? get<MaterialsStats>('/orders/materials/stats').then(d => d && setMatStats(d)) : null,

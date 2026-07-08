@@ -202,14 +202,24 @@ export function MaterialOrdersView({
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => onCreateOrder(g.supplierId)}
-                className="inline-flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-card px-[15px] text-[13px] font-semibold text-foreground transition-[filter] hover:brightness-105"
-              >
-                <FileDown className="h-[15px] w-[15px]" />
-                Crea CSV
-              </button>
+              {g.items.some((it) => !it.fromStock) ? (
+                <button
+                  type="button"
+                  onClick={() => onCreateOrder(g.supplierId)}
+                  className="inline-flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-card px-[15px] text-[13px] font-semibold text-foreground transition-[filter] hover:brightness-105"
+                >
+                  <FileDown className="h-[15px] w-[15px]" />
+                  Crea CSV
+                </button>
+              ) : (
+                // Tutte le righe del fornitore sono da magazzino: niente da
+                // ordinare (il backend le esclude), quindi niente bottone CSV
+                // che finirebbe in 400. Le righe restano visibili come info.
+                <span className="inline-flex h-9 items-center gap-[7px] rounded-[9px] border border-dashed border-border px-[15px] text-[12.5px] font-medium text-muted-foreground">
+                  <Warehouse className="h-[14px] w-[14px]" />
+                  Tutto da magazzino
+                </span>
+              )}
             </div>
             {/* items head */}
             <div

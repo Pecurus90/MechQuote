@@ -7,7 +7,7 @@ si sente da ~500 preventivi in poi.
 """
 from collections import defaultdict
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, text
+from sqlalchemy import func, text, or_
 from sqlalchemy.orm import Session, joinedload
 from datetime import date, timedelta
 from typing import List, Optional
@@ -69,7 +69,19 @@ def get_activity(
 
 def _quote_to_row(q: Quote) -> DashboardQuoteRow:
     """Serializza un Quote nella shape compatta usata dalle liste in dashboard."""
-    total = sum((p.total_price or 0.0) for p in q.parts) if q.parts else 0.0
+    # Valore preventivato: per gli Stampi è il prezzo industriale
+    # (cost_industrial × markup × sconto, L5→L7), NON la somma delle piastre
+    # (che sarebbe solo L1). Stessa formula del trend in /statistics. Richiede
+    # joinedload(Quote.die_spec) nella query chiamante.
+    if q.quote_type == 'die' and q.die_spec is not None:
+        base = q.die_spec.cost_industrial or 0.0
+        total = (
+            base
+            * (1 + (q.global_margin_percent or 0) / 100.0)
+            * (1 - (q.global_discount_percent or 0) / 100.0)
+        )
+    else:
+        total = sum((p.total_price or 0.0) for p in q.parts) if q.parts else 0.0
     return DashboardQuoteRow(
         id=q.id,
         quote_number=q.quote_number,
@@ -111,9 +123,12 @@ def get_workflow_stats(
 
     # Ordini completi senza prezzo di vendita: buchi nei dati statistici
     # (marginalità reale). Solo status='completo' con sold_price non compilato.
+    # Esclude gli Stampi: hanno il proprio prezzo industriale e passano
+    # confermato→completo senza sold_price, quindi gonfierebbero il KPI.
     missing_price = (
         db.query(func.count(Quote.id)).filter(
-            Quote.status == 'completo', Quote.sold_price.is_(None)
+            Quote.status == 'completo', Quote.sold_price.is_(None),
+            or_(Quote.quote_type != 'die', Quote.quote_type.is_(None)),
         ).scalar() or 0
     ) if has_archive else 0
 
@@ -234,11 +249,20 @@ def get_statistics(
     ]
 
     # ─── 3. Distribuzione per categoria (lettera nel quote_number) ────
-    # quote_number formato: CCC-YYL_PPP → lettera in posizione 8 (1-based)
+    # quote_number formato: CUST-YY<CAT>_PROG con CUST a lunghezza variabile
+    # (1–3 cifre) e CAT di 1–2 lettere → la posizione della lettera NON è fissa.
+    # Estraiamo il segmento CAT = testo tra le 2 cifre dell'anno (dopo '-') e '_':
+    #   pre = quote_number fino a '_'  → CUST-YY<CAT>
+    #   dopo '-' → YY<CAT>,  poi SUBSTR(..,3) scarta le 2 cifre anno → <CAT>
     rows_cat = db.execute(text(
         f"""
         SELECT
-          SUBSTR(q.quote_number, 8, 1) AS cat,
+          SUBSTR(
+            SUBSTR(
+              SUBSTR(q.quote_number, 1, INSTR(q.quote_number, '_') - 1),
+              INSTR(SUBSTR(q.quote_number, 1, INSTR(q.quote_number, '_') - 1), '-') + 1
+            ), 3
+          ) AS cat,
           COUNT(*) AS cnt,
           COALESCE(SUM(
             COALESCE(
@@ -788,6 +812,7 @@ def get_my_quotes(
     q = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
+        joinedload(Quote.die_spec),
     ).filter(Quote.created_by_user_id == current_user.id)
     if status is not None:
         q = q.filter(Quote.status == status)
@@ -809,6 +834,7 @@ def get_to_review(
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
+        joinedload(Quote.die_spec),
     ).filter(
         Quote.status.in_(['inviato', 'letto']),
     ).order_by(Quote.submitted_at.desc().nullslast()).limit(limit).all()
@@ -833,6 +859,7 @@ def get_awaiting_materials(
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
+        joinedload(Quote.die_spec),
     ).filter(
         Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
@@ -855,14 +882,24 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
     conteggi preventivi creati (per quote_date) e confermati (per
     confirmed_at). Le coppie (anno, mese) sono unite in Python.
     """
+    # Valore preventivato per mese: standard = Σ parts.total_price; Stampi =
+    # cost_industrial × markup × sconto (L5→L7). Stessa logica del trend in
+    # /statistics — sommare le sole piastre (L1) sottostimava i die.
     value_rows = db.execute(text(
         """
         SELECT
           CAST(strftime('%Y', q.quote_date) AS INTEGER) AS y,
           CAST(strftime('%m', q.quote_date) AS INTEGER) AS m,
-          COALESCE(SUM(p.total_price), 0) AS value
+          COALESCE(SUM(
+            CASE WHEN q.quote_type = 'die'
+                 THEN ds.cost_industrial
+                      * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+                      * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+                 ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+            END
+          ), 0) AS value
         FROM quotes q
-        JOIN parts p ON p.quote_id = q.id
+        LEFT JOIN die_specs ds ON ds.quote_id = q.id
         WHERE q.quote_date IS NOT NULL
         GROUP BY y, m
         ORDER BY y, m

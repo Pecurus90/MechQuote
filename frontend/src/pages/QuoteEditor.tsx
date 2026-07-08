@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
-import { parseDecimal } from '@/lib/decimalInput'
+import { parseDecimal, parseDecimalOrNull } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import api, { getApiErrorDetail } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -402,7 +402,7 @@ export default function QuoteEditor() {
               actualCost={quote.actual_cost != null ? String(quote.actual_cost) : ''}
               marginLabel={closeoutMarginLabel}
               marginPositive={soldMargin >= 0}
-              onChange={(field, val) => setQuote(q => q ? { ...q, [field === 'soldPrice' ? 'sold_price' : 'actual_cost']: val ? parseFloat(val.replace(',', '.')) : null } : q)}
+              onChange={(field, val) => setQuote(q => q ? { ...q, [field === 'soldPrice' ? 'sold_price' : 'actual_cost']: parseDecimalOrNull(val) } : q)}
               onBlur={saveQuote}
             />
           )}

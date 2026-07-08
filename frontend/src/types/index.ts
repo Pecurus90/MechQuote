@@ -114,6 +114,13 @@ export interface FileOrderRow {
   needs_material: boolean
 }
 
+export interface MaterialAlias {
+  id: number
+  csv_name: string
+  material_id: number
+  material_name: string
+}
+
 export interface Category {
   id: number
   code: string

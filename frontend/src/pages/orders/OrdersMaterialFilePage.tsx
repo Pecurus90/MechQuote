@@ -9,7 +9,7 @@ import PageContainer from '@/components/ui/page-container'
 import {
   MaterialsFileView, type FileRow, type MaterialOption, type Shape,
 } from '@/pages/orders/MaterialsFileView'
-import type { FileOrderRow, Material } from '@/types'
+import type { FileOrderRow, Material, MaterialAlias } from '@/types'
 
 // Riga interna = shape backend + id client per key/patch.
 type Row = FileOrderRow & { _id: string }
@@ -48,8 +48,21 @@ const emptyRow = (): Row => ({
 export default function OrdersMaterialFilePage() {
   const [rows, setRows] = useState<Row[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
+  const [aliases, setAliases] = useState<MaterialAlias[]>([])
 
-  useEffect(() => { api.get('/materials').then(r => setMaterials(r.data)).catch(() => undefined) }, [])
+  const loadAliases = () => api.get('/orders/materials/aliases').then(r => setAliases(r.data)).catch(() => undefined)
+  useEffect(() => {
+    api.get('/materials').then(r => setMaterials(r.data)).catch(() => undefined)
+    loadAliases()
+  }, [])
+
+  const deleteAlias = async (id: number) => {
+    try {
+      await api.delete(`/orders/materials/aliases/${id}`)
+      setAliases(a => a.filter(x => x.id !== id))
+      toast.success('Alias rimosso')
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nella rimozione dell\'alias')) }
+  }
 
   const patch = (id: string, p: Partial<Row>) => setRows(rs => rs.map(r => (r._id === id ? { ...r, ...p } : r)))
 
@@ -63,14 +76,13 @@ export default function OrdersMaterialFilePage() {
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'import del CSV')) }
   }
 
-  const onPickMaterial = async (id: string, materialId: number) => {
+  // Selezione materiale: aggiorna solo la riga. L'alias NON si salva qui (era
+  // apprendimento da click transitorio/errato): viene appreso alla creazione
+  // dell'ordine, dagli abbinamenti effettivamente confermati (vedi backend).
+  const onPickMaterial = (id: string, materialId: number) => {
     const m = materials.find(x => x.id === materialId)
     if (!m) return
-    const row = rows.find(r => r._id === id)
     patch(id, { material_id: m.id, material_name: m.name, supplier_id: m.supplier_id ?? null, supplier_name: m.material_supplier?.name ?? null })
-    if (row?.csv_material?.trim()) {
-      try { await api.post('/orders/materials/aliases', { csv_name: row.csv_material, material_id: m.id }) } catch { /* best-effort */ }
-    }
   }
 
   const download = async (orderId: number) => {
@@ -94,6 +106,7 @@ export default function OrdersMaterialFilePage() {
       toast.success(`${orders.length} ordine/i creato/i — CSV in download`)
       for (const o of orders) await download(o.id)
       setRows([])
+      loadAliases()  // il backend ha appreso gli alias dagli abbinamenti confermati
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nella creazione dell\'ordine')) }
   }
 
@@ -126,6 +139,8 @@ export default function OrdersMaterialFilePage() {
         onImport={onImport}
         onCreate={onCreate}
         onPickMaterial={onPickMaterial}
+        aliases={aliases}
+        onDeleteAlias={deleteAlias}
       />
     </PageContainer>
   )

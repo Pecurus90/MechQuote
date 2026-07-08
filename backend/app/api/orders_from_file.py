@@ -93,6 +93,21 @@ def _column_map(header: List[str]) -> dict:
     return idx
 
 
+# Misure obbligatorie per forma (già il grezzo). Devono essere valorizzate
+# prima di creare l'ordine, altrimenti il CSV stampa '?' al posto della misura.
+# Speculare a SHAPE_FIELDS/isRowInvalid del frontend (MaterialsFileView.tsx).
+_REQUIRED_DIMS = {
+    'prismatico': ('width_mm', 'height_mm', 'thickness_mm'),
+    'tondo': ('diameter_mm', 'length_mm'),
+    'tubo': ('diameter_mm', 'thickness_mm', 'length_mm'),
+}
+
+
+def _row_missing_dims(row) -> bool:
+    req = _REQUIRED_DIMS.get(row.shape or 'prismatico', ())
+    return any(getattr(row, f, None) is None for f in req)
+
+
 def _match_material(csv_material: str, name_map: dict, alias_map: dict):
     """Abbina un nome materiale del CSV a un materiale catalogo (alias poi nome).
     Ritorna (material_id, material_name, supplier_id, supplier_name) o Nones."""
@@ -224,6 +239,17 @@ def create_alias(
     return MaterialAliasOut(id=alias.id, csv_name=key, material_id=mat.id, material_name=mat.name)
 
 
+@router.delete("/aliases/{alias_id}")
+def delete_alias(alias_id: int, db: Session = Depends(get_db), _=_can_orders):
+    """Rimuove un alias appreso (correzione di un abbinamento sbagliato)."""
+    alias = db.query(MaterialAlias).filter(MaterialAlias.id == alias_id).first()
+    if not alias:
+        raise HTTPException(status_code=404, detail="Alias non trovato")
+    db.delete(alias)
+    db.commit()
+    return {"ok": True}
+
+
 # ─── Creazione ordine/i da file ─────────────────────────────────────────────
 
 @router.post("/from-file", response_model=List[MaterialOrderOut])
@@ -239,11 +265,25 @@ def create_file_orders(
     from app.api.orders import _order_to_out
 
     rows = payload.rows
-    missing = [r.part_code or r.material_name or r.csv_material for r in rows if not r.supplier_id]
-    if missing:
+    if not rows:
+        raise HTTPException(status_code=400, detail="Nessuna riga da ordinare")
+
+    def _label(r) -> str:
+        return r.part_code or r.material_name or r.csv_material or '(riga senza codice)'
+
+    missing_sup = [_label(r) for r in rows if not r.supplier_id]
+    if missing_sup:
         raise HTTPException(
             status_code=400,
-            detail="Assegna un materiale con fornitore a: " + ', '.join(missing[:5]),
+            detail="Assegna un materiale con fornitore a: " + ', '.join(missing_sup[:5]),
+        )
+    # Difesa in profondità: senza le misure il CSV stamperebbe '?'. Il frontend
+    # già disabilita "Crea ordine", ma un payload stantio/craftato passerebbe.
+    missing_dim = [_label(r) for r in rows if _row_missing_dims(r)]
+    if missing_dim:
+        raise HTTPException(
+            status_code=400,
+            detail="Completa le misure grezzo di: " + ', '.join(missing_dim[:5]),
         )
 
     by_supplier: dict = defaultdict(list)
@@ -276,6 +316,26 @@ def create_file_orders(
                 quantity=r.quantity,
             ))
         created.append(order)
+
+    # Impara gli alias SOLO ora, dagli abbinamenti confermati con la creazione
+    # dell'ordine (nome-distinta → materiale): niente più apprendimento da click
+    # transitori/errati durante l'editing. Upsert idempotente per csv_name.
+    learned: dict = {}
+    for r in rows:
+        key = _norm(r.csv_material)
+        if key and r.material_id:
+            learned[key] = r.material_id
+    if learned:
+        existing = {
+            a.csv_name: a
+            for a in db.query(MaterialAlias).filter(MaterialAlias.csv_name.in_(list(learned))).all()
+        }
+        for key, mat_id in learned.items():
+            alias = existing.get(key)
+            if alias:
+                alias.material_id = mat_id
+            else:
+                db.add(MaterialAlias(csv_name=key, material_id=mat_id))
 
     db.commit()
 

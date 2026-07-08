@@ -1,5 +1,6 @@
 // src/pages/orders/MaterialsFileView.tsx
-import { Upload, Plus, Check, Trash2, ChevronDown, FileSpreadsheet, Info, FilePlus2 } from 'lucide-react'
+import { useState } from 'react'
+import { Upload, Plus, Check, Trash2, ChevronDown, FileSpreadsheet, Info, FilePlus2, AlertTriangle, Link2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /* ---------------------------------------------------------------------------
@@ -53,6 +54,13 @@ export interface FileRow {
   qty: string
 }
 
+/** Alias appreso: nome nella distinta → materiale a catalogo. */
+export interface AliasEntry {
+  id: number
+  csv_name: string
+  material_name: string
+}
+
 interface Props {
   subtitle?: string
   rows: FileRow[]
@@ -63,6 +71,9 @@ interface Props {
   onImport: (file: File) => void
   onCreate: () => void
   onPickMaterial: (id: string, materialId: number) => void
+  /** Alias appresi (opzionale): pannello di gestione sotto la tabella. */
+  aliases?: AliasEntry[]
+  onDeleteAlias?: (id: number) => void
 }
 
 const GRID =
@@ -85,7 +96,13 @@ export function MaterialsFileView({
   onImport,
   onCreate,
   onPickMaterial,
+  aliases = [],
+  onDeleteAlias,
 }: Props) {
+  // Righe con materiale non abbinato o misure mancanti: bloccano la creazione
+  // (il backend rifiuta comunque, ma qui evitiamo il round-trip e spieghiamo).
+  const invalidCount = rows.filter(isRowInvalid).length
+  const [aliasesOpen, setAliasesOpen] = useState(false)
   return (
     <div className="rounded-2xl border border-border bg-card px-[26px] pb-[26px] pt-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       {/* StandardPage header + azioni */}
@@ -123,8 +140,9 @@ export function MaterialsFileView({
           <button
             type="button"
             onClick={onCreate}
-            disabled={rows.length === 0}
-            className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-[filter] hover:brightness-105 disabled:opacity-50"
+            disabled={rows.length === 0 || invalidCount > 0}
+            title={invalidCount > 0 ? `${invalidCount} righe da completare` : undefined}
+            className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-[filter] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check className="h-4 w-4" />
             Crea ordine
@@ -169,6 +187,14 @@ export function MaterialsFileView({
         </div>
       ) : (
         <>
+          {invalidCount > 0 && (
+            <div className="mb-3 flex items-center gap-2 rounded-[10px] border border-danger/30 bg-danger/[0.06] px-3.5 py-2.5 text-[12.5px] font-medium text-danger">
+              <AlertTriangle className="h-4 w-4 flex-none" />
+              {invalidCount === 1
+                ? '1 riga da completare (materiale o misure mancanti) prima di creare l’ordine.'
+                : `${invalidCount} righe da completare (materiale o misure mancanti) prima di creare l’ordine.`}
+            </div>
+          )}
           {/* Editable table */}
           <div className="overflow-hidden rounded-[14px] border border-border">
             <div
@@ -302,6 +328,50 @@ export function MaterialsFileView({
             Le misure inserite sono già il grezzo. Righe in rosso: materiale non abbinato o misure mancanti.
           </div>
         </>
+      )}
+
+      {/* Alias appresi: gestione (vedi/rimuovi). Gli alias si imparano quando
+          crei un ordine, dagli abbinamenti confermati. */}
+      {onDeleteAlias && aliases.length > 0 && (
+        <div className="mt-5 overflow-hidden rounded-[12px] border border-border">
+          <button
+            type="button"
+            onClick={() => setAliasesOpen((v) => !v)}
+            className="flex w-full items-center justify-between bg-card-muted px-4 py-3 text-left transition-colors hover:bg-muted"
+          >
+            <div className="flex items-center gap-2.5">
+              <Link2 className="h-[17px] w-[17px] text-muted-foreground" />
+              <span className="text-[13.5px] font-semibold text-foreground">
+                Alias materiali appresi
+              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                {aliases.length}
+              </span>
+            </div>
+            <ChevronDown
+              className={cn('h-[17px] w-[17px] text-muted-foreground transition-transform', !aliasesOpen && '-rotate-90')}
+            />
+          </button>
+          {aliasesOpen && (
+            <div className="divide-y divide-border">
+              {aliases.map((a) => (
+                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 text-[12.5px]">
+                  <span className="min-w-0 flex-1 truncate font-mono text-foreground" title={a.csv_name}>
+                    {a.csv_name}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground" title={a.material_name}>
+                    {a.material_name}
+                  </span>
+                  <Trash2
+                    className="h-4 w-4 flex-none cursor-pointer text-muted-foreground transition-colors hover:text-danger"
+                    onClick={() => onDeleteAlias(a.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

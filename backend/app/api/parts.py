@@ -8,7 +8,10 @@ from app.core.database import get_db
 from app.core.security import require_any_permission, get_current_user
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut
+from app.core.quote_types import is_die
 from app.services.calculation import recalculate_part, recalculate_quote
+from app.services.material_status import unassigned_supplier_parts
+from app.services import quote_workflow as wf
 from app.api.quotes import ensure_editable
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,40 @@ def _quote_for_part(part_id: int, db: Session) -> Quote:
     return quote
 
 router = APIRouter(prefix="/api", tags=["parts"])
+
+
+def _assert_material_supplier_ok(db: Session, quote: Quote) -> None:
+    """Guard spec 18 §2 esteso agli edit su preventivi ordinabili (confermato/
+    completo): non lasciare materiale "da ordinare" senza fornitore, altrimenti
+    il preventivo non potrebbe mai essere evaso e resterebbe bloccato in
+    'confermato'. Chiamare dopo `db.flush()` e PRIMA del commit: se invalido,
+    rollback della modifica + 400. No-op sui preventivi non ancora ordinabili
+    (lì la guardia scatta alla Conferma) e sugli stampi (materiale fuori scope).
+    """
+    if quote.status not in wf.ORDERABLE_STATUSES or is_die(quote):
+        return
+    parts = db.query(Part).options(joinedload(Part.material)).filter(
+        Part.quote_id == quote.id
+    ).all()
+    missing = unassigned_supplier_parts(parts)
+    if missing:
+        db.rollback()
+        codes = ', '.join(sorted(p.part_code for p in missing if p.part_code))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Preventivo confermato: assegna un fornitore al materiale di "
+                   f"{codes} (non puoi lasciarlo senza fornitore).",
+        )
+
+
+def _reconcile_after_write(db: Session, quote: Quote, actor_id: int) -> None:
+    """Riallinea flag materiale + stato lavorazione dopo un write su Part di un
+    preventivo ordinabile (spec 18): un edit può aver reso il materiale risolto
+    (confermato → completo) o non più risolto (completo → riapre a confermato).
+    No-op sui preventivi non ordinabili. Vedi `wf.reconcile_material_state`.
+    """
+    if wf.reconcile_material_state(db, quote, actor_id):
+        db.commit()
 
 
 @router.post("/quotes/{quote_id}/parts", response_model=PartOut)
@@ -46,9 +83,12 @@ def add_part(
             part_data["minimum_price"] = cs.default_minimum_part_price
     part = Part(quote_id=quote_id, **part_data)
     db.add(part)
+    db.flush()
+    _assert_material_supplier_ok(db, quote)   # #3: guard su preventivo ordinabile
     db.commit()
     db.refresh(part)
     recalculate_part(part.id, db)
+    _reconcile_after_write(db, quote, current_user.id)   # #2: riconcilia stato
     return db.query(Part).options(
         joinedload(Part.phases).options(
             # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
@@ -97,11 +137,15 @@ def update_part(
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Parte non trovata")
-    ensure_editable(_quote_for_part(part_id, db), current_user)
+    quote = _quote_for_part(part_id, db)
+    ensure_editable(quote, current_user)
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(part, key, value)
+    db.flush()
+    _assert_material_supplier_ok(db, quote)   # #3: guard su preventivo ordinabile
     db.commit()
     recalculate_part(part_id, db)
+    _reconcile_after_write(db, quote, current_user.id)   # #2: riconcilia stato
     part = db.query(Part).options(
         joinedload(Part.phases).options(
             # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
@@ -129,7 +173,8 @@ def delete_part(
     part = db.query(Part).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Parte non trovata")
-    ensure_editable(_quote_for_part(part_id, db), current_user)
+    quote = _quote_for_part(part_id, db)
+    ensure_editable(quote, current_user)
     # Salvo quote_id PRIMA del delete: dopo db.delete() la part esce dal DB
     # e non si può più leggere part.quote_id. Serve per ricalcolare le siblings.
     quote_id = part.quote_id
@@ -139,6 +184,9 @@ def delete_part(
     # materiale o stesso trattamento batch restano con quote/batch vecchi
     # (la parte cancellata era contata nel Σ pesi).
     recalculate_quote(quote_id, db)
+    # Eliminare una parte può risolvere il materiale (→ completo) o rimuoverne
+    # l'ultima parte da ordinare: riconcilia lo stato del preventivo.
+    _reconcile_after_write(db, quote, current_user.id)   # #2
     return {"ok": True}
 
 
@@ -152,7 +200,8 @@ def duplicate_part(
     part = db.query(Part).options(joinedload(Part.phases)).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Parte non trovata")
-    ensure_editable(_quote_for_part(part_id, db), current_user)
+    quote = _quote_for_part(part_id, db)
+    ensure_editable(quote, current_user)
 
     new_part = Part(
         quote_id=part.quote_id,
@@ -210,6 +259,7 @@ def duplicate_part(
 
     db.commit()
     recalculate_part(new_part.id, db)
+    _reconcile_after_write(db, quote, current_user.id)   # #2: riconcilia stato
 
     return db.query(Part).options(
         joinedload(Part.phases).options(

@@ -109,3 +109,54 @@ def maybe_complete(db: Session, quote: Quote, actor_id: int) -> bool:
     quote.completed_at = utc_now()
     quote.completed_by_user_id = actor_id
     return True
+
+
+def reconcile_material_state(db: Session, quote: Quote, actor_id: int) -> bool:
+    """Riallinea flag materiale + stato lavorazione di un preventivo ordinabile.
+
+    Fonte di verità unica per la *coda* del ciclo (spec 18): va chiamata dopo
+    ogni operazione che cambia la realtà materiale — evasione/ordine, delete
+    ordine, modifica parti su preventivo bloccato — così le due viste (stato
+    derivato dai `QuoteSupplierOrder` e flag legacy `material_ordered_at`) non
+    divergono mai. Idempotente. Non fa commit: lo fa il chiamante.
+
+    - Flag legacy `material_ordered_at`/`_by` (ponte compat dashboard): set se
+      il materiale è totalmente evaso, azzerato altrimenti. Gli stampi (die)
+      hanno il materiale fuori scope → il flag non viene toccato.
+    - `confermato` + materiale risolto → `completo` (promote).
+    - `completo` + materiale non più risolto → `confermato` (demote): azzera
+      `completed_at`/`_by`. Il consuntivo (`sold_price`/`actual_cost`) NON
+      viene toccato — è un fatto della vendita, non della coda materiale.
+
+    Sui preventivi non ordinabili (bozza…in_attesa, non_ordinato) non fa nulla.
+    Ritorna True se ha cambiato lo *stato lavorazione* (promote o demote): il
+    chiamante può notificare / distinguere i riaperti.
+    """
+    if quote.status not in ORDERABLE_STATUSES:
+        return False
+
+    if is_die(quote):
+        # Materiale fuori scope: sempre risolto, flag legacy non pertinente.
+        resolved = True
+    else:
+        status = quote_material_status(db, quote)
+        resolved = status in (ms.MAT_TOTALMENTE_EVASO, ms.MAT_NON_NECESSARIO)
+        if status == ms.MAT_TOTALMENTE_EVASO:
+            if quote.material_ordered_at is None:
+                quote.material_ordered_at = utc_now()
+                quote.material_ordered_by_user_id = actor_id
+        else:
+            quote.material_ordered_at = None
+            quote.material_ordered_by_user_id = None
+
+    if quote.status == STATUS_CONFERMATO and resolved:
+        quote.status = STATUS_COMPLETO
+        quote.completed_at = utc_now()
+        quote.completed_by_user_id = actor_id
+        return True
+    if quote.status == STATUS_COMPLETO and not resolved:
+        quote.status = STATUS_CONFERMATO
+        quote.completed_at = None
+        quote.completed_by_user_id = None
+        return True
+    return False

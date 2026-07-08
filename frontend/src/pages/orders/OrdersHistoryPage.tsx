@@ -48,12 +48,12 @@ export default function OrdersHistoryPage() {
 
   const deleteMaterial = async (id: number) => {
     const num = `MO-${String(id).padStart(4, '0')}`
-    if (!window.confirm(`Eliminare l'ordine ${num}?\n\nI preventivi inclusi non ancora completati torneranno "da ordinare" e riselezionabili. Non reversibile.`)) return
+    if (!window.confirm(`Eliminare l'ordine ${num}?\n\nI preventivi inclusi torneranno "da ordinare" e riselezionabili; quelli già completati verranno riaperti (da completo a confermato). Non reversibile.`)) return
     try {
       const res = await api.delete(`/orders/materials/${id}`)
-      const { reverted = [], kept_completed = [] } = res.data as { reverted?: string[]; kept_completed?: string[] }
-      if (kept_completed.length > 0) {
-        toast.warning(`Ordine ${num} eliminato. ${reverted.length} riaperti; ${kept_completed.length} già completati non riaperti: ${kept_completed.join(', ')}`)
+      const { reopened = [] } = res.data as { reverted?: string[]; reopened?: string[] }
+      if (reopened.length > 0) {
+        toast.warning(`Ordine ${num} eliminato. ${reopened.length} preventivi riaperti (da completo a confermato): ${reopened.join(', ')}`)
       } else toast.success(`Ordine ${num} eliminato`)
       loadMaterials()
     } catch (e) {

@@ -39,7 +39,7 @@ from app.schemas import (
 )
 from app.services import quote_workflow as wf
 from app.services.material_status import (
-    MAT_TOTALMENTE_EVASO, part_needs_ordering, quote_material_status,
+    part_needs_ordering, quote_material_status,
 )
 from app.services.notifications import create_notification
 
@@ -280,30 +280,6 @@ def _quote_material_rows(quote_id: int, db: Session):
     ]
 
 
-def _refresh_quote_material_flag(quote: Quote, db: Session, actor_id: int) -> None:
-    """Ricalcola il flag legacy `material_ordered_at` dallo stato materiale.
-
-    Ponte di compatibilità finché la dashboard (Blocco 4) non legge lo stato
-    derivato: il flag = "materiale totalmente evaso". Partial/non ordinato →
-    flag azzerato (il preventivo resta "da ordinare" e selezionabile).
-    """
-    parts = db.query(Part).options(joinedload(Part.material)).filter(
-        Part.quote_id == quote.id
-    ).all()
-    ordered = {
-        r.material_supplier_id for r in db.query(QuoteSupplierOrder).filter(
-            QuoteSupplierOrder.quote_id == quote.id
-        ).all()
-    }
-    if quote_material_status(parts, ordered) == MAT_TOTALMENTE_EVASO:
-        if quote.material_ordered_at is None:
-            quote.material_ordered_at = utc_now()
-            quote.material_ordered_by_user_id = actor_id
-    else:
-        quote.material_ordered_at = None
-        quote.material_ordered_by_user_id = None
-
-
 # ─── Endpoints ──────────────────────────────────────────────────────────────
 
 @router.get("/stats")
@@ -481,9 +457,9 @@ def create_order(
     completed_quotes = []
     for qid in new_ids:
         q = quote_by_id[qid]
-        _refresh_quote_material_flag(q, db, current_user.id)
-        # L'ultimo fornitore che evade il materiale porta il preventivo a completo.
-        if wf.maybe_complete(db, q, current_user.id):
+        # Riconcilia flag materiale + stato: l'ultimo fornitore che evade il
+        # materiale porta il preventivo a completo.
+        if wf.reconcile_material_state(db, q, current_user.id) and q.status == wf.STATUS_COMPLETO:
             completed_quotes.append(q)
 
     db.commit()
@@ -666,19 +642,14 @@ def delete_order(
         raise HTTPException(status_code=404, detail="Ordine non trovato")
 
     quotes = list(order.quotes)
-    reverted: List[str] = []
-    kept_completed: List[str] = []
+    # Rimuovo le evasioni (coppie preventivo-fornitore) create da QUESTO ordine
+    # per tutti i preventivi coinvolti: l'ordine sparisce → le sue evasioni con
+    # lui. La riconciliazione poi ricalcola stato materiale e flag.
     for q in quotes:
-        base = db.query(QuoteSupplierOrder).filter(
+        db.query(QuoteSupplierOrder).filter(
             QuoteSupplierOrder.material_order_id == order.id,
             QuoteSupplierOrder.quote_id == q.id,
-        )
-        if q.status == wf.STATUS_COMPLETO:
-            base.update({QuoteSupplierOrder.material_order_id: None}, synchronize_session=False)
-            kept_completed.append(q.quote_number)
-        else:
-            base.delete(synchronize_session=False)
-            reverted.append(q.quote_number)
+        ).delete(synchronize_session=False)
 
     # Le righe di join material_order_quotes vengono rimosse da SQLAlchemy con
     # la cancellazione dell'ordine (relazione m2m): NON eliminarle a mano, o il
@@ -686,40 +657,23 @@ def delete_order(
     db.delete(order)
     db.flush()
 
-    # Ricalcolo il flag solo per i preventivi ripristinati (dopo aver rimosso
-    # le evasioni: la query dentro l'helper vede lo stato aggiornato).
+    # Riconcilia ogni preventivo (dopo aver rimosso le evasioni): un 'completo'
+    # che perde la risoluzione del materiale torna 'confermato' (riaperto); un
+    # 'confermato' resta tale, col materiale di nuovo da ordinare.
+    reverted: List[str] = []
+    reopened: List[str] = []
     for q in quotes:
-        if q.status != wf.STATUS_COMPLETO:
-            _refresh_quote_material_flag(q, db, current_user.id)
+        was_completo = q.status == wf.STATUS_COMPLETO
+        wf.reconcile_material_state(db, q, current_user.id)
+        if was_completo and q.status != wf.STATUS_COMPLETO:
+            reopened.append(q.quote_number)
+        else:
+            reverted.append(q.quote_number)
 
     db.commit()
-    logger.info("Ordine materiali eliminato: id=%s by=%s reverted=%d kept_completed=%d",
-                order_id, current_user.username, len(reverted), len(kept_completed))
-    return {"ok": True, "reverted": reverted, "kept_completed": kept_completed}
-
-
-@router.delete("/quote-flag/{quote_id}")
-def remove_quote_flag(
-    quote_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _=_can_orders,
-):
-    """Rimuove il flag material_ordered da un preventivo (errore umano).
-
-    Gated su 'orders.materials' (chi gestisce gli ordini corregge i propri
-    errori). NON rimuove il MaterialOrder che lo aveva incluso: l'ordine resta
-    nello storico (è un documento di lavoro fatto in passato). Solo il flag sul
-    Quote viene resettato così quel preventivo torna selezionabile.
-    """
-    quote = db.query(Quote).filter(Quote.id == quote_id).first()
-    if not quote:
-        raise HTTPException(status_code=404, detail="Preventivo non trovato")
-    quote.material_ordered_at = None
-    quote.material_ordered_by_user_id = None
-    db.commit()
-    logger.info("Flag material_ordered rimosso: quote_id=%s by=%s", quote_id, current_user.username)
-    return {"ok": True}
+    logger.info("Ordine materiali eliminato: id=%s by=%s reverted=%d reopened=%d",
+                order_id, current_user.username, len(reverted), len(reopened))
+    return {"ok": True, "reverted": reverted, "reopened": reopened}
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────

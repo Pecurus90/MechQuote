@@ -23,7 +23,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.csv_import import _decode_csv_bytes
+from app.core.csv_import import _decode_csv_bytes, normalize_alias
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
 from app.models import (
@@ -41,8 +41,9 @@ _can_orders = require_permission('orders.materials')
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def _norm(s: Optional[str]) -> str:
-    return (s or '').strip().lower()
+# Normalizzazione alias/nome condivisa con la pagina Materiali (DRY): unica
+# fonte in app.core.csv_import, così il match distinta→materiale resta coerente.
+_norm = normalize_alias
 
 
 def _clean_header(cell: Optional[str]) -> str:

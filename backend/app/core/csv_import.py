@@ -37,6 +37,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 
+def normalize_alias(s: Optional[str]) -> str:
+    """Chiave normalizzata per l'abbinamento nome-materiale: trim + lower.
+    Fonte UNICA condivisa tra la pagina Materiali (gestione alias) e l'import
+    distinta (`api/orders_from_file.py`): se le due normalizzazioni divergono,
+    il match alias→materiale si rompe silenziosamente. Tenerla qui sola.
+    """
+    return (s or '').strip().lower()
+
+
 # ---------------------------------------------------------------------------
 # Eccezione del mapper per scartare una riga con motivo leggibile
 # ---------------------------------------------------------------------------

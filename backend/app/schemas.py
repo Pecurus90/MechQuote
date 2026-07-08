@@ -260,6 +260,20 @@ class MaterialSupplierOut(MaterialSupplierBase):
 
 
 # --- Material ---
+class MaterialAliasBrief(BaseModel):
+    """Alias materiale embeddato in MaterialOut (id + nome, senza ridondanza)."""
+    id: int
+    csv_name: str
+
+    class Config:
+        from_attributes = True
+
+
+class MaterialAliasAdd(BaseModel):
+    """Body per aggiungere un alias a un materiale (material_id è nel path)."""
+    csv_name: str = Field(min_length=1)
+
+
 class MaterialBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     family: Optional[str] = None
@@ -298,6 +312,7 @@ class MaterialOut(MaterialBase):
     # Letto dalla @property Material.has_datasheet via from_attributes=True.
     # Il path su disco non viene mai esposto al client.
     has_datasheet: bool = False
+    aliases: List[MaterialAliasBrief] = []
 
     class Config:
         from_attributes = True

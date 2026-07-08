@@ -10,13 +10,13 @@ from typing import List, Optional
 from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.csv_import import (
     CsvImportConfig, CsvRowSkip,
-    csv_template_response, import_catalog_csv, parse_decimal_it,
+    csv_template_response, import_catalog_csv, normalize_alias, parse_decimal_it,
 )
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Material, MaterialSupplier, Part
+from app.models import Material, MaterialAlias, MaterialSupplier, Part
 from app.schemas import (
-    MaterialCreate, MaterialUpdate, MaterialOut,
+    MaterialAliasAdd, MaterialCreate, MaterialUpdate, MaterialOut,
     MaterialSupplierCreate, MaterialSupplierUpdate, MaterialSupplierOut,
 )
 
@@ -148,7 +148,9 @@ def list_materials(
     """Elenco materiali. `active` opzionale: se True/False filtra, se
     omesso restituisce tutto (default invariato, per non rompere settings
     né letture esistenti). Pattern di `normalized_items.list_items`."""
-    query = db.query(Material).options(joinedload(Material.material_supplier))
+    query = db.query(Material).options(
+        joinedload(Material.material_supplier), joinedload(Material.aliases),
+    )
     if active is not None:
         query = query.filter(Material.active == active)
     return query.order_by(Material.name).all()
@@ -194,6 +196,56 @@ def delete_material(mid: int, db: Session = Depends(get_db)):
     db.delete(m)
     db.commit()
     return {"ok": True}
+
+
+# --- Alias materiale (nomi alternativi per l'abbinamento distinta) ----------
+
+def _material_out(mid: int, db: Session) -> Material:
+    return db.query(Material).options(
+        joinedload(Material.material_supplier), joinedload(Material.aliases),
+    ).filter(Material.id == mid).first()
+
+
+@router.post("/materials/{mid}/aliases", response_model=MaterialOut,
+             dependencies=[require_permission('settings')])
+def add_material_alias(mid: int, data: MaterialAliasAdd, db: Session = Depends(get_db)):
+    """Aggiunge un alias (nome alternativo) al materiale. `csv_name` è
+    normalizzato (trim+lower) e globalmente unico: se già usato da un altro
+    materiale la richiesta è rifiutata (niente 'furto' silenzioso dell'alias).
+    Stessa tabella e stessa normalizzazione del flusso ordini-da-file."""
+    m = db.query(Material).filter(Material.id == mid).first()
+    if not m:
+        raise HTTPException(404, "Materiale non trovato")
+    key = normalize_alias(data.csv_name)
+    if not key:
+        raise HTTPException(400, "Alias vuoto")
+    existing = db.query(MaterialAlias).filter(MaterialAlias.csv_name == key).first()
+    if existing:
+        if existing.material_id == mid:
+            raise HTTPException(400, f"Alias «{key}» già presente su questo materiale")
+        other = db.query(Material).filter(Material.id == existing.material_id).first()
+        other_name = other.name if other else f"id {existing.material_id}"
+        raise HTTPException(
+            400,
+            f"Alias «{key}» già usato dal materiale «{other_name}»: rimuovilo prima da lì",
+        )
+    db.add(MaterialAlias(csv_name=key, material_id=mid))
+    db.commit()
+    return _material_out(mid, db)
+
+
+@router.delete("/materials/{mid}/aliases/{alias_id}", response_model=MaterialOut,
+               dependencies=[require_permission('settings')])
+def delete_material_alias(mid: int, alias_id: int, db: Session = Depends(get_db)):
+    """Rimuove un alias dal materiale."""
+    alias = db.query(MaterialAlias).filter(
+        MaterialAlias.id == alias_id, MaterialAlias.material_id == mid,
+    ).first()
+    if not alias:
+        raise HTTPException(404, "Alias non trovato")
+    db.delete(alias)
+    db.commit()
+    return _material_out(mid, db)
 
 
 # --- Import CSV Materiali --------------------------------------------------

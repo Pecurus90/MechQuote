@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { X } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES } from '@/lib/materialFamilies'
 import { useEscapeKey } from '@/lib/useEscapeKey'
-import type { Material, MaterialSupplier } from '@/types'
+import type { Material, MaterialAlias, MaterialSupplier } from '@/types'
 
 interface MatForm {
   name: string; family: string; density: string; cost: string
@@ -37,9 +37,40 @@ interface Props {
 export default function MaterialFormModal({ material, suppliers, onClose, onSaved }: Props) {
   const [form, setForm] = useState<MatForm>(fromMaterial(material))
   const [saving, setSaving] = useState(false)
+  // Alias: gestiti come sotto-risorsa (persistono subito, indipendenti dal
+  // Salva principale — come la scheda PDF). Solo per un materiale esistente.
+  const [aliases, setAliases] = useState<MaterialAlias[]>(material?.aliases ?? [])
+  const [newAlias, setNewAlias] = useState('')
+  const [aliasBusy, setAliasBusy] = useState(false)
   useEscapeKey(onClose, true)
 
   const set = <K extends keyof MatForm>(k: K, v: MatForm[K]) => setForm(f => ({ ...f, [k]: v }))
+
+  const addAlias = async () => {
+    const v = newAlias.trim()
+    if (!material || !v) return
+    setAliasBusy(true)
+    try {
+      const res = await api.post(`/materials/${material.id}/aliases`, { csv_name: v })
+      setAliases((res.data as Material).aliases ?? [])
+      setNewAlias('')
+      onSaved()   // tiene fresca la lista materiali del genitore
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'aggiunta dell\'alias')
+    } finally { setAliasBusy(false) }
+  }
+
+  const removeAlias = async (aliasId: number) => {
+    if (!material) return
+    setAliasBusy(true)
+    try {
+      const res = await api.delete(`/materials/${material.id}/aliases/${aliasId}`)
+      setAliases((res.data as Material).aliases ?? [])
+      onSaved()
+    } catch { toast.error('Errore nella rimozione dell\'alias') }
+    finally { setAliasBusy(false) }
+  }
 
   const handleSave = async () => {
     const payload = {
@@ -127,6 +158,53 @@ export default function MaterialFormModal({ material, suppliers, onClose, onSave
             <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4" />
             Attivo
           </label>
+
+          {/* Alias: nomi alternativi con cui il materiale compare in distinta */}
+          {material ? (
+            <div className="mt-4 border-t pt-4">
+              <label className="text-sm font-medium">Alias (nomi alternativi in distinta)</label>
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Nomi con cui questo materiale compare nelle distinte importate.
+                L'import "ordini da file" li riconosce e li abbina a questo materiale.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {aliases.length === 0 && (
+                  <span className="text-xs text-muted-foreground italic">Nessun alias</span>
+                )}
+                {aliases.map(a => (
+                  <span key={a.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs">
+                    {a.csv_name}
+                    <button
+                      type="button"
+                      onClick={() => removeAlias(a.id)}
+                      disabled={aliasBusy}
+                      className="hover:text-red-600 disabled:opacity-50"
+                      title="Rimuovi alias"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="Aggiungi alias (es. C45 EN10083)"
+                  value={newAlias}
+                  onChange={e => setNewAlias(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAlias() } }}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={addAlias} disabled={aliasBusy || !newAlias.trim()}>
+                  <Plus className="w-4 h-4" /> Aggiungi
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 border-t pt-4 text-[11px] text-muted-foreground italic">
+              Salva il materiale per poter aggiungere alias (nomi alternativi in distinta).
+            </p>
+          )}
+
           <div className="flex gap-2 mt-6">
             <PrimaryCtaButton color="blue" onClick={handleSave} disabled={saving}>Salva</PrimaryCtaButton>
             <Button variant="outline" onClick={onClose} disabled={saving}>Annulla</Button>

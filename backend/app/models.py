@@ -294,6 +294,10 @@ class Material(Base):
     datasheet_path = Column(String(500), nullable=True)
 
     material_supplier = relationship("MaterialSupplier")
+    # Nomi alternativi (distinta/ERP) che risolvono a QUESTO materiale nel
+    # flusso "ordini da file". Cascade: eliminando il materiale spariscono.
+    aliases = relationship("MaterialAlias", back_populates="material",
+                           cascade="all, delete-orphan")
 
     @property
     def has_datasheet(self) -> bool:
@@ -690,7 +694,8 @@ class MaterialAlias(Base):
     csv_name = Column(String(120), unique=True, nullable=False, index=True)
     material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
 
-    material = relationship("Material", foreign_keys=[material_id])
+    material = relationship("Material", foreign_keys=[material_id],
+                            back_populates="aliases")
 
 
 class QuoteSupplierOrder(Base):

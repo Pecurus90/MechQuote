@@ -567,9 +567,8 @@ export interface DxfAnalysis {
 export interface MonthlyData {
   month: string
   year: number
-  value: number     // valore preventivato (prezzo finale)
-  created_count: number    // preventivi creati nel mese
-  confirmed_count: number  // preventivi confermati nel mese
+  quoted_cost: number  // Σ costo stimato dei preventivi venduti nel mese
+  sold: number         // Σ prezzo di vendita reale (sold_price)
 }
 
 // ─── Role / User / Settings server-side ─────────────────────────────────────

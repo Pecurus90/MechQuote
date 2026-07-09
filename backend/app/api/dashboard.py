@@ -884,56 +884,44 @@ def get_awaiting_materials(
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])
 def get_monthly(db: Session = Depends(get_db), _=_can_view):
-    """Aggregati mensili per il grafico Andamento: valore preventivato +
-    conteggi preventivi creati (per quote_date) e confermati (per
-    confirmed_at). Le coppie (anno, mese) sono unite in Python.
+    """Aggregati mensili per il grafico dashboard "Costo preventivato vs Venduto".
+
+    Sui soli preventivi VENDUTI (sold_price valorizzato), per mese di chiusura
+    (completed_at, fallback quote_date), somma:
+    - costo stimato: standard = Σ parts.total_cost × qty; Stampi = cost_industrial
+    - venduto: Σ sold_price (prezzo di vendita reale)
+    Confronto mese per mese di quanto è costato vs quanto ha reso. Le
+    statistiche più profonde (per stato/categoria) vivono nella sezione
+    Statistiche, non qui.
     """
-    # Valore preventivato per mese: standard = Σ parts.total_price; Stampi =
-    # cost_industrial × markup × sconto (L5→L7). Stessa logica del trend in
-    # /statistics — sommare le sole piastre (L1) sottostimava i die.
-    value_rows = db.execute(text(
+    rows = db.execute(text(
         """
         SELECT
-          CAST(strftime('%Y', q.quote_date) AS INTEGER) AS y,
-          CAST(strftime('%m', q.quote_date) AS INTEGER) AS m,
+          CAST(strftime('%Y', COALESCE(q.completed_at, q.quote_date)) AS INTEGER) AS y,
+          CAST(strftime('%m', COALESCE(q.completed_at, q.quote_date)) AS INTEGER) AS m,
           COALESCE(SUM(
             CASE WHEN q.quote_type = 'die'
-                 THEN ds.cost_industrial
-                      * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-                      * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-                 ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+                 THEN COALESCE(ds.cost_industrial, 0)
+                 ELSE (SELECT COALESCE(SUM(p.total_cost * p.quantity), 0)
+                       FROM parts p WHERE p.quote_id = q.id)
             END
-          ), 0) AS value
+          ), 0) AS quoted_cost,
+          COALESCE(SUM(q.sold_price), 0) AS sold
         FROM quotes q
         LEFT JOIN die_specs ds ON ds.quote_id = q.id
-        WHERE q.quote_date IS NOT NULL
+        WHERE q.sold_price IS NOT NULL
+          AND COALESCE(q.completed_at, q.quote_date) IS NOT NULL
         GROUP BY y, m
         ORDER BY y, m
         """
     )).fetchall()
 
-    created_rows = db.execute(text(
-        "SELECT CAST(strftime('%Y', quote_date) AS INTEGER) AS y, "
-        "CAST(strftime('%m', quote_date) AS INTEGER) AS m, COUNT(*) AS n "
-        "FROM quotes WHERE quote_date IS NOT NULL GROUP BY y, m"
-    )).fetchall()
-    confirmed_rows = db.execute(text(
-        "SELECT CAST(strftime('%Y', confirmed_at) AS INTEGER) AS y, "
-        "CAST(strftime('%m', confirmed_at) AS INTEGER) AS m, COUNT(*) AS n "
-        "FROM quotes WHERE confirmed_at IS NOT NULL GROUP BY y, m"
-    )).fetchall()
-    created_by_key = {(int(r.y), int(r.m)): int(r.n) for r in created_rows}
-    confirmed_by_key = {(int(r.y), int(r.m)): int(r.n) for r in confirmed_rows}
-    value_by_key = {(int(r.y), int(r.m)): float(r.value or 0.0) for r in value_rows}
-
-    all_keys = sorted(set(value_by_key) | set(created_by_key) | set(confirmed_by_key))
     return [
         MonthlyData(
-            month=f"{y}-{m:02d}",
-            year=y,
-            value=round(value_by_key.get((y, m), 0.0), 2),
-            created_count=created_by_key.get((y, m), 0),
-            confirmed_count=confirmed_by_key.get((y, m), 0),
+            month=f"{int(r.y)}-{int(r.m):02d}",
+            year=int(r.y),
+            quoted_cost=round(float(r.quoted_cost or 0.0), 2),
+            sold=round(float(r.sold or 0.0), 2),
         )
-        for (y, m) in all_keys
+        for r in rows
     ]

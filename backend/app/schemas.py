@@ -691,9 +691,10 @@ class StepColorRuleOut(StepColorRuleBase):
 class MonthlyData(BaseModel):
     month: str
     year: int
-    value: float     # somma part.total_price (valore preventivato finale)
-    created_count: int = 0    # preventivi creati nel mese (per quote_date)
-    confirmed_count: int = 0  # preventivi confermati nel mese (per confirmed_at)
+    # Grafico dashboard "Costo preventivato vs Venduto": sui preventivi VENDUTI
+    # (con sold_price), per mese di chiusura (completed_at, fallback quote_date).
+    quoted_cost: float = 0   # Σ costo stimato dei preventivi venduti
+    sold: float = 0          # Σ prezzo di vendita reale (sold_price)
 
 
 class WorkflowStats(BaseModel):

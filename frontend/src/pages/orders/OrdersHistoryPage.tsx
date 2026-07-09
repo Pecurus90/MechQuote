@@ -7,9 +7,17 @@ import { useAuth } from '@/lib/auth'
 import PageContainer from '@/components/ui/page-container'
 import {
   OrderHistoryView, type HistoryTab,
-  type MaterialOrder as VMaterialOrder, type ToolOrder as VToolOrder,
+  type MaterialOrder as VMaterialOrder, type ToolOrder as VToolOrder, type NormOrder as VNormOrder,
 } from '@/pages/orders/OrderHistoryView'
 import type { MaterialOrder, ToolOrder } from '@/types'
+
+interface NormalizedOrderApi {
+  id: number
+  created_at: string | null
+  created_by?: { full_name?: string | null; username?: string } | null
+  supplier_name?: string | null
+  item_count: number
+}
 
 async function downloadBlob(url: string, fallbackName: string) {
   const res = await api.get(url, { responseType: 'blob' })
@@ -27,11 +35,13 @@ const userName = (u: { full_name?: string | null; username?: string } | null): s
 export default function OrdersHistoryPage() {
   const { hasPermission } = useAuth()
   const canMaterials = hasPermission('orders.materials')
+  const canNormalized = hasPermission('orders.normalized')
 
-  const [tab, setTab] = useState<HistoryTab>(canMaterials ? 'materials' : 'tools')
+  const [tab, setTab] = useState<HistoryTab>(canMaterials ? 'materials' : canNormalized ? 'normalized' : 'tools')
   const [search, setSearch] = useState('')
   const [matOrders, setMatOrders] = useState<MaterialOrder[]>([])
   const [toolOrders, setToolOrders] = useState<ToolOrder[]>([])
+  const [normOrders, setNormOrders] = useState<NormalizedOrderApi[]>([])
 
   const loadMaterials = (term = search) => {
     const p = new URLSearchParams(); if (term.trim()) p.set('q', term.trim())
@@ -41,7 +51,12 @@ export default function OrdersHistoryPage() {
     const p = new URLSearchParams(); if (term.trim()) p.set('q', term.trim())
     api.get(`/orders/tools?${p}`).then(r => setToolOrders(r.data)).catch(() => toast.error('Errore nel caricamento dello storico utensili'))
   }
-  const reload = (term = search) => { if (tab === 'materials') loadMaterials(term); else loadTools(term) }
+  const loadNormalized = () => api.get('/orders/normalized').then(r => setNormOrders(r.data)).catch(() => toast.error('Errore nel caricamento dello storico normalizzati'))
+  const reload = (term = search) => {
+    if (tab === 'materials') loadMaterials(term)
+    else if (tab === 'normalized') loadNormalized()
+    else loadTools(term)
+  }
 
   useEffect(() => { reload() /* eslint-disable-next-line */ }, [tab])
   useEffect(() => { const t = setTimeout(() => reload(search), 250); return () => clearTimeout(t) /* eslint-disable-next-line */ }, [search])
@@ -67,6 +82,12 @@ export default function OrdersHistoryPage() {
     try { await api.delete(`/orders/tools/${id}`); toast.success(`Ordine ${num} eliminato`); loadTools() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nell\'eliminazione dell\'ordine') }
   }
+  const deleteNormalized = async (id: number) => {
+    const num = `NO-${String(id).padStart(4, '0')}`
+    if (!window.confirm(`Eliminare l'ordine ${num} dallo storico?\n\nNon reversibile.`)) return
+    try { await api.delete(`/orders/normalized/${id}`); toast.success(`Ordine ${num} eliminato`); loadNormalized() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nell\'eliminazione dell\'ordine') }
+  }
 
   const matRows: VMaterialOrder[] = matOrders.map(o => ({
     id: o.id,
@@ -87,6 +108,14 @@ export default function OrdersHistoryPage() {
     toolCount: o.item_count,
     pieceCount: o.total_quantity,
   }))
+  const normRows: VNormOrder[] = normOrders.map(o => ({
+    id: o.id,
+    number: `NO-${String(o.id).padStart(4, '0')}`,
+    date: o.created_at,
+    supplierName: o.supplier_name || '—',
+    createdBy: userName(o.created_by ?? null),
+    itemCount: o.item_count,
+  }))
 
   return (
     <PageContainer width="xl">
@@ -97,10 +126,17 @@ export default function OrdersHistoryPage() {
         onSearch={setSearch}
         materialOrders={matRows}
         toolOrders={toolRows}
-        onDownloadCsv={(id) => (tab === 'materials'
-          ? downloadBlob(`/orders/materials/${id}/csv`, `ordine_materiali_${id}.csv`).catch((e) => { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nel download del CSV') })
-          : downloadBlob(`/orders/tools/${id}/csv`, `ordine_utensili_UO${id}.csv`).catch(() => toast.error('Errore download CSV')))}
-        onDelete={(o) => (tab === 'materials' ? deleteMaterial(o.id) : deleteTool(o.id))}
+        normalizedOrders={normRows}
+        onDownloadCsv={(id) => {
+          if (tab === 'materials') return downloadBlob(`/orders/materials/${id}/csv`, `ordine_materiali_${id}.csv`).catch((e) => { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nel download del CSV') })
+          if (tab === 'normalized') return downloadBlob(`/orders/normalized/${id}/csv`, `ordine_normalizzati_${id}.csv`).catch(() => toast.error('Errore download CSV'))
+          return downloadBlob(`/orders/tools/${id}/csv`, `ordine_utensili_UO${id}.csv`).catch(() => toast.error('Errore download CSV'))
+        }}
+        onDelete={(o) => {
+          if (tab === 'materials') return deleteMaterial(o.id)
+          if (tab === 'normalized') return deleteNormalized(o.id)
+          return deleteTool(o.id)
+        }}
       />
     </PageContainer>
   )

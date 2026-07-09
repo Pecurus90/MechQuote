@@ -1,8 +1,8 @@
 // src/pages/orders/OrderHistoryView.tsx
-import { History, Search, Package, Drill, FileDown, Trash2, FileSpreadsheet } from 'lucide-react'
+import { History, Search, Package, Drill, Bolt, FileDown, Trash2, FileSpreadsheet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type HistoryTab = 'materials' | 'tools'
+export type HistoryTab = 'materials' | 'tools' | 'normalized'
 
 /** Ordine materiali emesso. `source` distingue ordini da preventivi vs da distinta (file). */
 export interface MaterialOrder {
@@ -26,6 +26,16 @@ export interface ToolOrder {
   pieceCount: number
 }
 
+/** Ordine di componenti normalizzati (da distinta). */
+export interface NormOrder {
+  id: number
+  number: string // "NO-2026-005"
+  date: string | null
+  supplierName: string
+  createdBy: string
+  itemCount: number
+}
+
 interface Props {
   subtitle?: string
   tab: HistoryTab
@@ -34,9 +44,10 @@ interface Props {
   onSearch: (value: string) => void
   materialOrders: MaterialOrder[]
   toolOrders: ToolOrder[]
+  normalizedOrders: NormOrder[]
   onDownloadCsv: (id: number) => void
   /** Il container mostra la conferma prima di eliminare. */
-  onDelete: (order: MaterialOrder | ToolOrder) => void
+  onDelete: (order: MaterialOrder | ToolOrder | NormOrder) => void
 }
 
 const GRID =
@@ -44,6 +55,7 @@ const GRID =
 
 const TABS: { key: HistoryTab; label: string; icon: typeof Package }[] = [
   { key: 'materials', label: 'Ordini materiali', icon: Package },
+  { key: 'normalized', label: 'Ordini normalizzati', icon: Bolt },
   { key: 'tools', label: 'Ordini utensili', icon: Drill },
 ]
 
@@ -93,6 +105,7 @@ export function OrderHistoryView({
   onSearch,
   materialOrders,
   toolOrders,
+  normalizedOrders,
   onDownloadCsv,
   onDelete,
 }: Props) {
@@ -210,6 +223,29 @@ export function OrderHistoryView({
                 <div className="text-[12.5px] text-muted-foreground">
                   {o.toolCount} utensili · {o.pieceCount} pezzi
                 </div>
+                <RowActions onCsv={() => onDownloadCsv(o.id)} onDel={() => onDelete(o)} />
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* NORMALIZED ORDERS */}
+      {tab === 'normalized' && (
+        <div className="overflow-hidden rounded-[14px] border border-border">
+          <TableHead />
+          {normalizedOrders.map((o, i) => {
+            const last = i === normalizedOrders.length - 1
+            return (
+              <div
+                key={o.id}
+                className={cn(GRID, 'px-[18px] py-[13px] text-[13.5px]', !last && 'border-b border-border')}
+              >
+                <div className="font-mono font-semibold text-foreground">{o.number}</div>
+                <div className="font-mono text-[13px] text-muted-foreground">{dateShort(o.date)}</div>
+                <div className="font-medium text-foreground">{o.supplierName}</div>
+                <div className="text-[13px] text-muted-foreground">{o.createdBy}</div>
+                <div className="text-[12.5px] text-muted-foreground">{o.itemCount} righe</div>
                 <RowActions onCsv={() => onDownloadCsv(o.id)} onDel={() => onDelete(o)} />
               </div>
             )

@@ -839,6 +839,11 @@ def _run_migrations():
          "csv_name VARCHAR(120) NOT NULL UNIQUE, "
          "material_id INTEGER NOT NULL REFERENCES materials(id))"),
         "CREATE INDEX IF NOT EXISTS ix_material_aliases_csv_name ON material_aliases(csv_name)",
+        ("CREATE TABLE IF NOT EXISTS normalized_aliases ("
+         "id INTEGER PRIMARY KEY, "
+         "csv_name VARCHAR(120) NOT NULL UNIQUE, "
+         "normalized_item_id INTEGER NOT NULL REFERENCES normalized_items(id))"),
+        "CREATE INDEX IF NOT EXISTS ix_normalized_aliases_csv_name ON normalized_aliases(csv_name)",
         # Forma grezzo sulle righe ordine-da-file (prismatico | tondo | tubo).
         "ALTER TABLE material_order_items ADD COLUMN shape VARCHAR(12) DEFAULT 'prismatico'",
         "ALTER TABLE material_order_items ADD COLUMN diameter_mm FLOAT",

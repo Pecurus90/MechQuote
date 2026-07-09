@@ -1170,6 +1170,20 @@ class NormalizedSupplierOut(NormalizedSupplierBase):
 
 # --- NormalizedItem (catalogo voci normalizzate: viti, cuscinetti, molle...) ---
 
+class NormalizedAliasBrief(BaseModel):
+    """Alias embeddato in NormalizedItemOut (id + nome grezzo)."""
+    id: int
+    csv_name: str
+
+    class Config:
+        from_attributes = True
+
+
+class NormalizedAliasAdd(BaseModel):
+    """Body per aggiungere un alias a una voce normalizzata (id nel path)."""
+    csv_name: str = Field(min_length=1)
+
+
 class NormalizedItemBase(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     description: str = Field(min_length=1, max_length=200)
@@ -1198,6 +1212,7 @@ class NormalizedItemOut(NormalizedItemBase):
     id: int
     supplier: Optional[NormalizedSupplierOut] = None
     created_at: datetime
+    aliases: List[NormalizedAliasBrief] = []
 
     class Config:
         from_attributes = True

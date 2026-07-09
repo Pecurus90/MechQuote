@@ -794,6 +794,25 @@ class NormalizedItem(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     supplier = relationship("NormalizedSupplier")
+    # Alias appresi: nome grezzo distinta → questa voce (gemello MaterialAlias).
+    # Cascade: eliminando la voce spariscono i suoi alias.
+    aliases = relationship("NormalizedAlias", back_populates="normalized_item",
+                           cascade="all, delete-orphan")
+
+
+class NormalizedAlias(Base):
+    """Corrispondenza appresa: nome grezzo della distinta (es. 'viti m8x100
+    tcei') → voce di catalogo `NormalizedItem` (il "tipo", es. 'Viti TCEI').
+    Gemello di `MaterialAlias` per il flusso "ordini normalizzati da file".
+    `csv_name` normalizzato (trim + lower) e unico.
+    """
+    __tablename__ = "normalized_aliases"
+
+    id = Column(Integer, primary_key=True)
+    csv_name = Column(String(120), unique=True, nullable=False, index=True)
+    normalized_item_id = Column(Integer, ForeignKey("normalized_items.id"), nullable=False)
+
+    normalized_item = relationship("NormalizedItem", back_populates="aliases")
 
 
 class ToolType(Base):

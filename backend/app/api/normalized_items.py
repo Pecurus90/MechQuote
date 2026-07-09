@@ -21,9 +21,10 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.core.catalog_protect import block_if_in_use
-from app.models import NormalizedItem, DieNormalizedItem, DieTemplateNormalized
+from app.core.csv_import import normalize_alias
+from app.models import NormalizedItem, NormalizedAlias, DieNormalizedItem, DieTemplateNormalized
 from app.schemas import (
-    NormalizedItemCreate, NormalizedItemOut, NormalizedItemUpdate,
+    NormalizedItemCreate, NormalizedItemOut, NormalizedItemUpdate, NormalizedAliasAdd,
 )
 
 router = APIRouter(prefix="/api/normalized-items", tags=["normalized-items"])
@@ -47,7 +48,9 @@ def list_items(
     - `active`: True/False per filtrare attive/ritirate.
     - `q`: ricerca case-insensitive su `code` e `description`.
     """
-    query = db.query(NormalizedItem).options(joinedload(NormalizedItem.supplier))
+    query = db.query(NormalizedItem).options(
+        joinedload(NormalizedItem.supplier), joinedload(NormalizedItem.aliases),
+    )
     if supplier_id is not None:
         query = query.filter(NormalizedItem.supplier_id == supplier_id)
     if category:
@@ -149,3 +152,47 @@ def delete_item(item_id: int, db: Session = Depends(get_db), _=_can_settings):
     db.delete(item)
     db.commit()
     return {"ok": True}
+
+
+# --- Alias (nomi grezzi distinta → questa voce, per l'import da file) --------
+
+def _item_out(item_id: int, db: Session) -> NormalizedItem:
+    return db.query(NormalizedItem).options(
+        joinedload(NormalizedItem.supplier), joinedload(NormalizedItem.aliases),
+    ).filter(NormalizedItem.id == item_id).first()
+
+
+@router.post("/{item_id}/aliases", response_model=NormalizedItemOut)
+def add_alias(item_id: int, data: NormalizedAliasAdd, db: Session = Depends(get_db), _=_can_settings):
+    """Aggiunge un alias (nome grezzo distinta) alla voce normalizzata. csv_name
+    normalizzato (trim+lower) e globalmente unico: se già usato da un'altra voce
+    → 400. Stessa tabella/normalizzazione del flusso ordini-normalizzati-da-file."""
+    item = db.query(NormalizedItem).filter(NormalizedItem.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "Normalizzato non trovato")
+    key = normalize_alias(data.csv_name)
+    if not key:
+        raise HTTPException(400, "Alias vuoto")
+    existing = db.query(NormalizedAlias).filter(NormalizedAlias.csv_name == key).first()
+    if existing:
+        if existing.normalized_item_id == item_id:
+            raise HTTPException(400, f"Alias «{key}» già presente su questa voce")
+        other = db.query(NormalizedItem).filter(NormalizedItem.id == existing.normalized_item_id).first()
+        other_name = other.code if other else f"id {existing.normalized_item_id}"
+        raise HTTPException(400, f"Alias «{key}» già usato dalla voce «{other_name}»: rimuovilo prima da lì")
+    db.add(NormalizedAlias(csv_name=key, normalized_item_id=item_id))
+    db.commit()
+    return _item_out(item_id, db)
+
+
+@router.delete("/{item_id}/aliases/{alias_id}", response_model=NormalizedItemOut)
+def delete_alias(item_id: int, alias_id: int, db: Session = Depends(get_db), _=_can_settings):
+    """Rimuove un alias dalla voce normalizzata."""
+    alias = db.query(NormalizedAlias).filter(
+        NormalizedAlias.id == alias_id, NormalizedAlias.normalized_item_id == item_id,
+    ).first()
+    if not alias:
+        raise HTTPException(404, "Alias non trovato")
+    db.delete(alias)
+    db.commit()
+    return _item_out(item_id, db)

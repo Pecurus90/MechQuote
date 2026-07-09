@@ -8,7 +8,9 @@ import PageContainer from '@/components/ui/page-container'
 import {
   NormalizedFileView, type NormRow, type TypeOption, type NormAliasEntry,
 } from '@/pages/orders/NormalizedFileView'
-import type { NormalizedItem } from '@/types'
+import NormalizedItemFormModal from '@/pages/settings/NormalizedItemFormModal'
+import { useAuth } from '@/lib/auth'
+import type { NormalizedItem, NormalizedSupplier } from '@/types'
 
 // Riga interna = shape backend (NormalizedFileRow) + id client per key/patch.
 interface BackRow {
@@ -32,13 +34,21 @@ const emptyRow = (): Row => ({
 })
 
 export default function OrdersNormalizedFilePage() {
+  const { hasPermission } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
   const [items, setItems] = useState<NormalizedItem[]>([])
+  const [suppliers, setSuppliers] = useState<NormalizedSupplier[]>([])
   const [aliases, setAliases] = useState<NormAliasEntry[]>([])
+  // Riga per cui si sta creando un nuovo tipo (apre il NormalizedItemFormModal).
+  const [newTypeRowId, setNewTypeRowId] = useState<string | null>(null)
 
   const loadItems = () => api.get('/normalized-items').then(r => setItems(r.data)).catch(() => undefined)
   const loadAliases = () => api.get('/orders/normalized/aliases').then(r => setAliases(r.data)).catch(() => undefined)
-  useEffect(() => { loadItems(); loadAliases() }, [])
+  useEffect(() => {
+    loadItems(); loadAliases()
+    // Fornitori normalizzati: servono al form di creazione tipo (solo 'settings').
+    if (hasPermission('settings')) api.get('/normalized-suppliers').then(r => setSuppliers(r.data)).catch(() => undefined)
+  }, [])
 
   const patch = (id: string, p: Partial<Row>) => setRows(rs => rs.map(r => (r._id === id ? { ...r, ...p } : r)))
 
@@ -62,6 +72,21 @@ export default function OrdersNormalizedFilePage() {
       supplier_id: it.supplier_id ?? null, supplier_name: it.supplier?.name ?? null,
       needs_type: false,
     })
+  }
+
+  // Nuovo tipo creato dal modal per la riga `newTypeRowId`: aggiungilo alla
+  // lista (tendina) e selezionalo sulla riga. L'alias designazione->tipo si
+  // imparera alla creazione dell'ordine (il backend usa row.csv_raw, invariato).
+  const onNewTypeSaved = (it?: NormalizedItem) => {
+    if (it && newTypeRowId) {
+      setItems(prev => prev.some(x => x.id === it.id) ? prev.map(x => (x.id === it.id ? it : x)) : [...prev, it])
+      patch(newTypeRowId, {
+        normalized_item_id: it.id, article: it.description,
+        supplier_id: it.supplier_id ?? null, supplier_name: it.supplier?.name ?? null,
+        needs_type: false,
+      })
+    }
+    setNewTypeRowId(null)
   }
 
   const download = async (orderId: number) => {
@@ -124,9 +149,20 @@ export default function OrdersNormalizedFilePage() {
         onImport={onImport}
         onCreate={onCreate}
         onPickType={onPickType}
+        onCreateNewType={hasPermission('settings') ? (rowId) => setNewTypeRowId(rowId) : undefined}
         aliases={aliases}
         onDeleteAlias={deleteAlias}
       />
+      {newTypeRowId && (
+        <NormalizedItemFormModal
+          item={null}
+          suppliers={suppliers}
+          categories={Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[]}
+          defaultDescription={rows.find(r => r._id === newTypeRowId)?.csv_raw || ''}
+          onClose={() => setNewTypeRowId(null)}
+          onSaved={onNewTypeSaved}
+        />
+      )}
     </PageContainer>
   )
 }

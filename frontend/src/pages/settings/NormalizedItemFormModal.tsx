@@ -19,9 +19,9 @@ interface FormState {
   active: boolean
 }
 
-const fromItem = (it: NormalizedItem | null): FormState => ({
+const fromItem = (it: NormalizedItem | null, defaultDescription = ''): FormState => ({
   code: it?.code ?? '',
-  description: it?.description ?? '',
+  description: it?.description ?? defaultDescription,
   category: it?.category ?? '',
   supplier_id: it?.supplier_id ?? null,
   unit_price: it?.unit_price ?? 0,
@@ -33,12 +33,13 @@ interface Props {
   item: NormalizedItem | null     // null = nuovo
   suppliers: NormalizedSupplier[]
   categories: string[]
+  defaultDescription?: string     // precompila la descrizione (creando da import)
   onClose: () => void
-  onSaved: () => void
+  onSaved: (saved?: NormalizedItem) => void  // restituisce la voce salvata
 }
 
-export default function NormalizedItemFormModal({ item, suppliers, categories, onClose, onSaved }: Props) {
-  const [form, setForm] = useState<FormState>(fromItem(item))
+export default function NormalizedItemFormModal({ item, suppliers, categories, defaultDescription, onClose, onSaved }: Props) {
+  const [form, setForm] = useState<FormState>(fromItem(item, defaultDescription))
   const [saving, setSaving] = useState(false)
   // Alias: gestiti come sotto-risorsa (persistono subito, indipendenti dal
   // Salva principale). Solo per una voce già esistente.
@@ -90,10 +91,11 @@ export default function NormalizedItemFormModal({ item, suppliers, categories, o
     }
     setSaving(true)
     try {
-      if (item) await api.put(`/normalized-items/${item.id}`, payload)
-      else await api.post('/normalized-items', payload)
+      const res = item
+        ? await api.put(`/normalized-items/${item.id}`, payload)
+        : await api.post('/normalized-items', payload)
       toast.success(item ? 'Voce aggiornata' : 'Voce creata')
-      onSaved()
+      onSaved(res.data as NormalizedItem)
       onClose()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }

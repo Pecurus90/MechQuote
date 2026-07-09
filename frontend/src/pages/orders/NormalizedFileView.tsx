@@ -36,6 +36,9 @@ interface Props {
   onImport: (file: File) => void
   onCreate: () => void
   onPickType: (id: string, typeId: number) => void
+  /** Crea un nuovo tipo a catalogo per una riga non abbinata (apre il form nel
+   *  container). Fornito SOLO se l'utente ha 'settings' → il pulsante appare. */
+  onCreateNewType?: (rowId: string) => void
   aliases?: NormAliasEntry[]
   onDeleteAlias?: (id: number) => void
 }
@@ -58,6 +61,7 @@ export function NormalizedFileView({
   onImport,
   onCreate,
   onPickType,
+  onCreateNewType,
   aliases = [],
   onDeleteAlias,
 }: Props) {
@@ -153,19 +157,31 @@ export function NormalizedFileView({
                     onChange={(e) => onPatchRow(row.id, { description: e.target.value })}
                     className="h-[34px] w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
                   />
-                  <div className="relative">
-                    <select
-                      value={row.typeId ?? ''}
-                      onChange={(e) => onPickType(row.id, Number(e.target.value))}
-                      className={cn(
-                        'h-[34px] w-full cursor-pointer appearance-none rounded-[8px] border bg-background pl-2.5 pr-[26px] text-[12.5px] outline-none focus:ring-2 focus:ring-ring/[0.18]',
-                        unmatched ? 'border-danger/60 font-semibold text-danger' : 'border-input text-foreground focus:border-ring',
-                      )}
-                    >
-                      <option value="" disabled>— Non abbinato —</option>
-                      {types.map((t) => (<option key={t.id} value={t.id}>{t.label}</option>))}
-                    </select>
-                    <ChevronDown className={cn('pointer-events-none absolute right-[9px] top-[10px] h-[14px] w-[14px]', unmatched ? 'text-danger' : 'text-muted-foreground')} />
+                  <div className="flex items-center gap-1">
+                    <div className="relative min-w-0 flex-1">
+                      <select
+                        value={row.typeId ?? ''}
+                        onChange={(e) => onPickType(row.id, Number(e.target.value))}
+                        className={cn(
+                          'h-[34px] w-full cursor-pointer appearance-none rounded-[8px] border bg-background pl-2.5 pr-[26px] text-[12.5px] outline-none focus:ring-2 focus:ring-ring/[0.18]',
+                          unmatched ? 'border-danger/60 font-semibold text-danger' : 'border-input text-foreground focus:border-ring',
+                        )}
+                      >
+                        <option value="" disabled>— Non abbinato —</option>
+                        {types.map((t) => (<option key={t.id} value={t.id}>{t.label}</option>))}
+                      </select>
+                      <ChevronDown className={cn('pointer-events-none absolute right-[9px] top-[10px] h-[14px] w-[14px]', unmatched ? 'text-danger' : 'text-muted-foreground')} />
+                    </div>
+                    {unmatched && onCreateNewType && (
+                      <button
+                        type="button"
+                        onClick={() => onCreateNewType(row.id)}
+                        title="Crea nuovo tipo a catalogo"
+                        className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[8px] border border-border bg-card text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                      >
+                        <FilePlus2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                   <div className="text-[12.5px] text-muted-foreground">{row.supplierName ?? '—'}</div>
                   <input

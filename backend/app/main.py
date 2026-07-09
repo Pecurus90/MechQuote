@@ -64,7 +64,7 @@ from app.api import (
     workflow_templates, operations, orders, orders_from_file, normalized_from_file,
     tools, orders_tools, officina,
     heat_treatments,
-    normalized_suppliers, normalized_items,
+    normalized_suppliers, normalized_items, direct_sales,
     dies, die_normalized_items, die_settings,
 )
 app.include_router(auth.router)
@@ -99,6 +99,7 @@ app.include_router(officina.router, dependencies=_auth)
 app.include_router(heat_treatments.router, dependencies=_auth)
 app.include_router(normalized_suppliers.router, dependencies=_auth)
 app.include_router(normalized_items.router, dependencies=_auth)
+app.include_router(direct_sales.router, dependencies=_auth)
 # Modulo Stampi — 3 router con prefix dedicato.
 app.include_router(dies.router, dependencies=_auth)
 app.include_router(die_normalized_items.router, dependencies=_auth)
@@ -868,6 +869,22 @@ def _run_migrations():
         "SELECT r.id, 'orders.normalized' FROM roles r "
         "WHERE r.name IN ('admin','ufficio_tecnico','amministrazione') "
         "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'orders.normalized')",
+        ("CREATE TABLE IF NOT EXISTS direct_sales ("
+         "id INTEGER PRIMARY KEY, "
+         "code VARCHAR(100) NOT NULL, "
+         "description VARCHAR(200), "
+         "sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+         "unit_price FLOAT DEFAULT 0, "
+         "unit_cost FLOAT DEFAULT 0, "
+         "quantity INTEGER DEFAULT 1, "
+         "notes TEXT, "
+         "created_by_user_id INTEGER REFERENCES users(id), "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        "CREATE INDEX IF NOT EXISTS ix_direct_sales_sale_date ON direct_sales(sale_date)",
+        "INSERT INTO role_permissions (role_id, permission_key) "
+        "SELECT r.id, 'sales.direct' FROM roles r "
+        "WHERE r.name IN ('admin','amministrazione') "
+        "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'sales.direct')",
         # Forma grezzo sulle righe ordine-da-file (prismatico | tondo | tubo).
         "ALTER TABLE material_order_items ADD COLUMN shape VARCHAR(12) DEFAULT 'prismatico'",
         "ALTER TABLE material_order_items ADD COLUMN diameter_mm FLOAT",

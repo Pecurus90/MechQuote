@@ -849,6 +849,27 @@ class NormalizedOrderItem(Base):
     order = relationship("NormalizedOrder", back_populates="items")
 
 
+class DirectSale(Base):
+    """Vendita di componenti NON passata da un preventivo (ricambi, vendite
+    dirette). Il totale venduto/costo confluisce nel 'venduto' annuo della
+    dashboard insieme ai preventivi completati. Prezzo/costo sono UNITARI;
+    il totale riga = unit × quantity."""
+    __tablename__ = "direct_sales"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(100), nullable=False)
+    description = Column(String(200), nullable=True)
+    sale_date = Column(DateTime, nullable=False, server_default=func.now())
+    unit_price = Column(Float, default=0.0)   # prezzo di vendita unitario
+    unit_cost = Column(Float, default=0.0)    # costo unitario (consuntivo)
+    quantity = Column(Integer, default=1)
+    notes = Column(Text, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+
 class ToolType(Base):
     """Catalogo Tipi utensile (es. Cilindrica, Sferica, Conica).
     Gestito da Settings → Catalogo → Attributi utensili. `Tool.tool_type` è

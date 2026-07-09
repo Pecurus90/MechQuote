@@ -687,6 +687,39 @@ class StepColorRuleOut(StepColorRuleBase):
         from_attributes = True
 
 
+# --- Vendite dirette (extra-preventivo) ---
+class DirectSaleBase(BaseModel):
+    code: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = None
+    sale_date: datetime
+    unit_price: float = Field(default=0.0, ge=0)   # prezzo di vendita unitario
+    unit_cost: float = Field(default=0.0, ge=0)    # costo unitario (consuntivo)
+    quantity: int = Field(default=1, ge=1)
+    notes: Optional[str] = None
+
+
+class DirectSaleCreate(DirectSaleBase):
+    pass
+
+
+class DirectSaleUpdate(BaseModel):
+    code: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    sale_date: Optional[datetime] = None
+    unit_price: Optional[float] = Field(default=None, ge=0)
+    unit_cost: Optional[float] = Field(default=None, ge=0)
+    quantity: Optional[int] = Field(default=None, ge=1)
+    notes: Optional[str] = None
+
+
+class DirectSaleOut(DirectSaleBase):
+    id: int
+    created_by: Optional[UserMinimal] = None
+
+    class Config:
+        from_attributes = True
+
+
 # --- Dashboard ---
 class MonthlyData(BaseModel):
     month: str

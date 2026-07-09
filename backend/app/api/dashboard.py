@@ -878,12 +878,30 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
         """
     )).fetchall()
 
+    # Vendite dirette (extra-preventivo) per mese di vendita: confluiscono nel
+    # 'venduto'/'costo' insieme ai preventivi. Totale riga = unit × quantity.
+    sale_rows = db.execute(text(
+        """
+        SELECT
+          CAST(strftime('%Y', sale_date) AS INTEGER) AS y,
+          CAST(strftime('%m', sale_date) AS INTEGER) AS m,
+          COALESCE(SUM(unit_cost * quantity), 0) AS quoted_cost,
+          COALESCE(SUM(unit_price * quantity), 0) AS sold
+        FROM direct_sales
+        WHERE sale_date IS NOT NULL
+        GROUP BY y, m
+        """
+    )).fetchall()
+
+    # Merge preventivi + vendite dirette per (anno, mese).
+    agg: dict = {}
+    for r in list(rows) + list(sale_rows):
+        key = (int(r.y), int(r.m))
+        cur = agg.setdefault(key, [0.0, 0.0])
+        cur[0] += float(r.quoted_cost or 0.0)
+        cur[1] += float(r.sold or 0.0)
+
     return [
-        MonthlyData(
-            month=f"{int(r.y)}-{int(r.m):02d}",
-            year=int(r.y),
-            quoted_cost=round(float(r.quoted_cost or 0.0), 2),
-            sold=round(float(r.sold or 0.0), 2),
-        )
-        for r in rows
+        MonthlyData(month=f"{y}-{m:02d}", year=y, quoted_cost=round(c, 2), sold=round(s, 2))
+        for (y, m), (c, s) in sorted(agg.items())
     ]

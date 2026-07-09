@@ -753,46 +753,6 @@ def get_tools_stats(
     )
 
 
-@router.get("/dashboard/alerts")
-def get_alerts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _=_can_view,
-):
-    """Conteggi per il pannello Alert della dashboard. Niente row di dettaglio
-    qui: solo i counts, le pagine target hanno già le loro liste complete.
-
-    Ritorna:
-    - low_stock_tools: utensili con quantity < minimum
-    - stale_submitted: preventivi inviati > 7gg senza completamento
-    - to_order_materials: preventivi completati senza ordine materiale
-    """
-    from datetime import datetime, timezone
-    from app.models import Tool
-
-    # 1. Utensili sotto scorta
-    low_stock = db.execute(text(
-        "SELECT COUNT(*) FROM tools WHERE quantity < minimum_quantity AND minimum_quantity > 0"
-    )).scalar() or 0
-
-    # 2. Preventivi inviati > 7 giorni
-    threshold = datetime.now(timezone.utc) - timedelta(days=7)
-    stale_submitted = db.execute(text(
-        "SELECT COUNT(*) FROM quotes WHERE status = 'inviato' AND submitted_at < :t"
-    ), {"t": threshold}).scalar() or 0
-
-    # 3. Completati senza ordine materiale
-    to_order = db.execute(text(
-        "SELECT COUNT(*) FROM quotes WHERE status = 'confermato' AND material_ordered_at IS NULL"
-    )).scalar() or 0
-
-    return {
-        "low_stock_tools": int(low_stock),
-        "stale_submitted": int(stale_submitted),
-        "to_order_materials": int(to_order),
-    }
-
-
 @router.get("/dashboard/my-quotes", response_model=List[DashboardQuoteRow])
 def get_my_quotes(
     status: Optional[str] = None,

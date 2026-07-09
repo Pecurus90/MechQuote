@@ -12,6 +12,7 @@ from app.core.quote_types import is_die
 from app.services.calculation import recalculate_part, recalculate_quote
 from app.services.material_status import unassigned_supplier_parts
 from app.services import quote_workflow as wf
+from app.services.notifications import create_notification
 from app.api.quotes import ensure_editable
 
 logger = logging.getLogger(__name__)
@@ -45,22 +46,38 @@ def _assert_material_supplier_ok(db: Session, quote: Quote) -> None:
     missing = unassigned_supplier_parts(parts)
     if missing:
         db.rollback()
-        codes = ', '.join(sorted(p.part_code for p in missing if p.part_code))
+        codes = ', '.join(sorted(p.part_code for p in missing if p.part_code)) or f"{len(missing)} parti"
         raise HTTPException(
             status_code=400,
-            detail=f"Preventivo confermato: assegna un fornitore al materiale di "
-                   f"{codes} (non puoi lasciarlo senza fornitore).",
+            detail=f"Preventivo confermato: il materiale di {codes} è senza fornitore. "
+                   "Assegna un fornitore a quel materiale (catalogo Materiali) prima di salvare.",
         )
 
 
-def _reconcile_after_write(db: Session, quote: Quote, actor_id: int) -> None:
+def _reconcile_after_write(db: Session, quote: Quote, user: User) -> None:
     """Riallinea flag materiale + stato lavorazione dopo un write su Part di un
     preventivo ordinabile (spec 18): un edit può aver reso il materiale risolto
     (confermato → completo) o non più risolto (completo → riapre a confermato).
     No-op sui preventivi non ordinabili. Vedi `wf.reconcile_material_state`.
+
+    Se la modifica RIAPRE un preventivo completo (demote), avvisa il creatore:
+    altrimenti il cambio di stato sarebbe silenzioso (allineato a delete_order).
     """
-    if wf.reconcile_material_state(db, quote, actor_id):
-        db.commit()
+    was_completo = quote.status == wf.STATUS_COMPLETO
+    if not wf.reconcile_material_state(db, quote, user.id):
+        return
+    db.commit()
+    if was_completo and quote.status == wf.STATUS_CONFERMATO and quote.created_by_user_id:
+        actor = user.full_name or user.username
+        create_notification(
+            db,
+            type='quote_reopened',
+            title=f"Preventivo {quote.quote_number} riaperto",
+            body=f"Una modifica ha reso il materiale di nuovo da ordinare ({actor})",
+            created_by_user_id=user.id,
+            target_user_id=quote.created_by_user_id,
+            data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+        )
 
 
 @router.post("/quotes/{quote_id}/parts", response_model=PartOut)
@@ -88,7 +105,7 @@ def add_part(
     db.commit()
     db.refresh(part)
     recalculate_part(part.id, db)
-    _reconcile_after_write(db, quote, current_user.id)   # #2: riconcilia stato
+    _reconcile_after_write(db, quote, current_user)   # #2: riconcilia stato
     return db.query(Part).options(
         joinedload(Part.phases).options(
             # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
@@ -145,7 +162,7 @@ def update_part(
     _assert_material_supplier_ok(db, quote)   # #3: guard su preventivo ordinabile
     db.commit()
     recalculate_part(part_id, db)
-    _reconcile_after_write(db, quote, current_user.id)   # #2: riconcilia stato
+    _reconcile_after_write(db, quote, current_user)   # #2: riconcilia stato
     part = db.query(Part).options(
         joinedload(Part.phases).options(
             # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
@@ -186,7 +203,7 @@ def delete_part(
     recalculate_quote(quote_id, db)
     # Eliminare una parte può risolvere il materiale (→ completo) o rimuoverne
     # l'ultima parte da ordinare: riconcilia lo stato del preventivo.
-    _reconcile_after_write(db, quote, current_user.id)   # #2
+    _reconcile_after_write(db, quote, current_user)   # #2
     return {"ok": True}
 
 
@@ -225,8 +242,7 @@ def duplicate_part(
         internal_notes=part.internal_notes,
     )
     db.add(new_part)
-    db.commit()
-    db.refresh(new_part)
+    db.flush()   # id senza commit: serve per copiare le fasi e per il guard #6
 
     # Copy phases
     for ph in part.phases:
@@ -257,9 +273,12 @@ def duplicate_part(
         )
         db.add(new_ph)
 
+    db.flush()
+    _assert_material_supplier_ok(db, quote)   # #6: guard su preventivo ordinabile
     db.commit()
+    db.refresh(new_part)
     recalculate_part(new_part.id, db)
-    _reconcile_after_write(db, quote, current_user.id)   # #2: riconcilia stato
+    _reconcile_after_write(db, quote, current_user)   # #2: riconcilia stato
 
     return db.query(Part).options(
         joinedload(Part.phases).options(

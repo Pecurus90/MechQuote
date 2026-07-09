@@ -572,6 +572,19 @@ export interface MonthlyData {
   sold: number         // Σ prezzo di vendita reale (sold_price)
 }
 
+/** Vendita diretta (extra-preventivo): codice + prezzo/costo unitari + qta. */
+export interface DirectSale {
+  id: number
+  code: string
+  description?: string | null
+  sale_date: string
+  unit_price: number
+  unit_cost: number
+  quantity: number
+  notes?: string | null
+  created_by?: { id: number; full_name?: string | null; username?: string } | null
+}
+
 // ─── Role / User / Settings server-side ─────────────────────────────────────
 
 export interface Role {

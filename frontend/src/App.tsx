@@ -22,6 +22,7 @@ import StatisticsPage from '@/pages/statistics/StatisticsPage'
 import OrdersMaterialsPage from '@/pages/orders/OrdersMaterialsPage'
 import OrdersMaterialFilePage from '@/pages/orders/OrdersMaterialFilePage'
 import OrdersNormalizedFilePage from '@/pages/orders/OrdersNormalizedFilePage'
+import DirectSalesPage from '@/pages/sales/DirectSalesPage'
 import OrdersToolsPage from '@/pages/orders/OrdersToolsPage'
 import OrdersHistoryPage from '@/pages/orders/OrdersHistoryPage'
 import ToolsPage from '@/pages/tools/ToolsPage'
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/active" element={<ProtectedRoute permission="quotes.archive"><QuotesActivePage /></ProtectedRoute>} />
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
+        <Route path="sales/direct" element={<ProtectedRoute permission="sales.direct"><DirectSalesPage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
         <Route path="orders/materials-file" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialFilePage /></ProtectedRoute>} />
         <Route path="orders/normalized-file" element={<ProtectedRoute permission="orders.normalized"><OrdersNormalizedFilePage /></ProtectedRoute>} />

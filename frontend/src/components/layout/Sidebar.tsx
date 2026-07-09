@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, FilePlus2, ClipboardList, FolderOpen, Truck, Package,
   History, Drill, Users, BarChart3, Activity, Library, Settings, Box, Tag, Factory, Zap,
-  Hammer, Building2, Shield, FileUp, Bolt, ShoppingCart, HardHat, Handshake, Sliders,
+  Hammer, Building2, Shield, FileUp, Bolt, ShoppingCart, HardHat, Handshake, Sliders, Receipt,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import api from '@/lib/api'
@@ -47,6 +47,7 @@ export default function Sidebar() {
   const canCompany = hasPermission('company')
   const canUsers = hasPermission('users')
   const canBackup = hasPermission('backup')
+  const canSalesDirect = hasPermission('sales.direct')
   const canOrdersMaterials = hasPermission('orders.materials')
   const canOrdersNormalized = hasPermission('orders.normalized')
   const canOrdersTools = hasPermission('orders.tools')
@@ -72,6 +73,7 @@ export default function Sidebar() {
     if (canArchive) children.push({ key: '/quotes/archive', label: 'Archivio preventivi', icon: FolderOpen, active: at('/quotes/archive') })
     if (children.length) operativita.push({ key: 'preventivi', label: 'Preventivi', icon: FileText, children })
   }
+  if (canSalesDirect) operativita.push({ key: '/sales/direct', label: 'Vendite dirette', icon: Receipt, active: at('/sales/direct') })
   if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {
     const children: Leaf[] = []
     if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials') })

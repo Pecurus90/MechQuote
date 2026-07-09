@@ -86,7 +86,7 @@ export default function MonthlyChart({ data }: Props) {
     <div className="rounded-[14px] border border-border bg-card px-5 py-[18px]">
       <div className="mb-2">
         <div className="text-[15px] font-semibold text-foreground">Costo preventivato vs venduto</div>
-        <div className="text-xs text-muted-foreground">Anno {year} · sui preventivi venduti</div>
+        <div className="text-xs text-muted-foreground">Anno {year} · preventivi + vendite dirette</div>
       </div>
 
       <div className="h-[264px] w-full">

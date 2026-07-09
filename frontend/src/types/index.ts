@@ -319,6 +319,7 @@ export interface NormalizedItem {
   active?: boolean
   supplier?: NormalizedSupplier | null
   created_at?: string
+  aliases?: { id: number; csv_name: string }[]  // nomi grezzi distinta → questa voce
 }
 
 export interface Tool {

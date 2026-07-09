@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { X } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -40,9 +40,40 @@ interface Props {
 export default function NormalizedItemFormModal({ item, suppliers, categories, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(fromItem(item))
   const [saving, setSaving] = useState(false)
+  // Alias: gestiti come sotto-risorsa (persistono subito, indipendenti dal
+  // Salva principale). Solo per una voce già esistente.
+  const [aliases, setAliases] = useState<{ id: number; csv_name: string }[]>(item?.aliases ?? [])
+  const [newAlias, setNewAlias] = useState('')
+  const [aliasBusy, setAliasBusy] = useState(false)
   useEscapeKey(onClose, true)
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(f => ({ ...f, [k]: v }))
+
+  const addAlias = async () => {
+    const v = newAlias.trim()
+    if (!item || !v) return
+    setAliasBusy(true)
+    try {
+      const res = await api.post(`/normalized-items/${item.id}/aliases`, { csv_name: v })
+      setAliases((res.data as NormalizedItem).aliases ?? [])
+      setNewAlias('')
+      onSaved()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'aggiunta dell\'alias')
+    } finally { setAliasBusy(false) }
+  }
+
+  const removeAlias = async (aliasId: number) => {
+    if (!item) return
+    setAliasBusy(true)
+    try {
+      const res = await api.delete(`/normalized-items/${item.id}/aliases/${aliasId}`)
+      setAliases((res.data as NormalizedItem).aliases ?? [])
+      onSaved()
+    } catch { toast.error('Errore nella rimozione dell\'alias') }
+    finally { setAliasBusy(false) }
+  }
 
   const save = async () => {
     if (!form.code.trim()) { toast.error('Codice obbligatorio'); return }
@@ -125,6 +156,53 @@ export default function NormalizedItemFormModal({ item, suppliers, categories, o
             <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4" />
             Attivo
           </label>
+
+          {/* Alias: designazioni grezze con cui il tipo compare in distinta */}
+          {item ? (
+            <div className="border-t pt-3">
+              <label className="text-sm font-medium">Alias (nomi grezzi in distinta)</label>
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Designazioni con cui questo tipo compare nelle distinte importate.
+                L'import "normalizzati da file" le riconosce e le abbina a questa voce.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {aliases.length === 0 && (
+                  <span className="text-xs text-muted-foreground italic">Nessun alias</span>
+                )}
+                {aliases.map(a => (
+                  <span key={a.id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs">
+                    {a.csv_name}
+                    <button
+                      type="button"
+                      onClick={() => removeAlias(a.id)}
+                      disabled={aliasBusy}
+                      className="hover:text-red-600 disabled:opacity-50"
+                      title="Rimuovi alias"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="Aggiungi alias (es. Vite TCEI M8x100)"
+                  value={newAlias}
+                  onChange={e => setNewAlias(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAlias() } }}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={addAlias} disabled={aliasBusy || !newAlias.trim()}>
+                  <Plus className="w-4 h-4" /> Aggiungi
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="border-t pt-3 text-[11px] text-muted-foreground italic">
+              Salva la voce per poter aggiungere alias (nomi grezzi in distinta).
+            </p>
+          )}
+
           <div className="flex gap-2 mt-4">
             <PrimaryCtaButton color="sky" onClick={save} disabled={saving}>Salva</PrimaryCtaButton>
             <Button variant="outline" onClick={onClose} disabled={saving}>Annulla</Button>

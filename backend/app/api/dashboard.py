@@ -888,7 +888,8 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
 
     Sui soli preventivi VENDUTI (sold_price valorizzato), per mese di chiusura
     (completed_at, fallback quote_date), somma:
-    - costo stimato: standard = Σ parts.total_cost × qty; Stampi = cost_industrial
+    - costo stimato: standard = Σ parts.total_cost × qty + trasporto + imballo;
+      Stampi = cost_industrial
     - venduto: Σ sold_price (prezzo di vendita reale)
     Confronto mese per mese di quanto è costato vs quanto ha reso. Le
     statistiche più profonde (per stato/categoria) vivono nella sezione
@@ -904,6 +905,7 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
                  THEN COALESCE(ds.cost_industrial, 0)
                  ELSE (SELECT COALESCE(SUM(p.total_cost * p.quantity), 0)
                        FROM parts p WHERE p.quote_id = q.id)
+                      + COALESCE(q.transport_cost, 0) + COALESCE(q.packaging_cost, 0)
             END
           ), 0) AS quoted_cost,
           COALESCE(SUM(q.sold_price), 0) AS sold

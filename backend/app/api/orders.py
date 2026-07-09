@@ -35,7 +35,7 @@ from app.models import (
 )
 from app.schemas import (
     MaterialAggregateOut, MaterialAggregateBySupplier, MaterialItemAggregated,
-    MaterialOrderCreate, MaterialOrderOut, QuoteOut,
+    MaterialOrderCreate, MaterialOrderOut, ArchiveQuoteOut,
 )
 from app.services import quote_workflow as wf
 from app.services.material_status import (
@@ -315,7 +315,7 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     }
 
 
-@router.get("/quotes-selectable", response_model=List[QuoteOut])
+@router.get("/quotes-selectable", response_model=List[ArchiveQuoteOut])
 def list_selectable_quotes(
     status: Optional[str] = "confermato",
     q: Optional[str] = None,
@@ -625,15 +625,14 @@ def delete_order(
 ):
     """Cancella un ordine materiali dallo storico (reversibile).
 
-    Per ogni preventivo dell'ordine:
-    - se NON è `completo` (stato terminale): rimuove le sue righe di evasione
-      legate a questo ordine e ricalcola il flag → torna "da ordinare" e
-      riselezionabile;
-    - se è `completo`: mantiene l'evasione ma la scollega dall'ordine
-      (`material_order_id = NULL`) per non riaprire uno stato terminale né
-      lasciare riferimenti pendenti.
-    Poi elimina le righe di join e il record dell'ordine. Risponde con il
-    riepilogo (`reverted` / `kept_completed`) per l'avviso lato UI.
+    Rimuove le righe di evasione (`QuoteSupplierOrder`) create da QUESTO ordine
+    per ogni preventivo coinvolto, poi elimina il record dell'ordine (le righe
+    di join `material_order_quotes` le rimuove il unit-of-work) e riconcilia
+    ogni preventivo (`reconcile_material_state`):
+    - un `confermato` torna con il materiale "da ordinare" e riselezionabile;
+    - un `completo` che perde la risoluzione del materiale viene RIAPERTO a
+      `confermato` (auto-demote; il consuntivo venduto/costo è preservato).
+    Risponde con il riepilogo (`reverted` / `reopened`) per l'avviso lato UI.
     """
     order = db.query(MaterialOrder).options(joinedload(MaterialOrder.quotes)).filter(
         MaterialOrder.id == order_id

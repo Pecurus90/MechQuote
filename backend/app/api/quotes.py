@@ -430,12 +430,12 @@ def unconfirm_quote(
     quote.completed_at = None
     quote.completed_by_user_id = None
     # Annullando la chiusura si torna a monte del cliente: azzera il timestamp
-    # "in attesa cliente" (altrimenti resta sporco e devia un successivo
-    # restore) e il consuntivo venduto/costo (era di una chiusura ora annullata;
-    # find-similar userebbe dati falsi).
+    # "in attesa cliente" (altrimenti resta sporco e devia un successivo restore).
+    # Il consuntivo (venduto/costo reale) NON viene azzerato: si compila solo per
+    # ciò che è stato realmente prodotto/venduto, quindi un preventivo annullato
+    # non ne ha; dove esiste è un dato vero da preservare (coerente con la demote
+    # completo→confermato guidata dagli ordini, che pure lo preserva).
     quote.awaiting_client_at = None
-    quote.sold_price = None
-    quote.actual_cost = None
     db.commit()
     logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)

@@ -40,7 +40,9 @@ const TYPE_META: Record<string, { icon: LucideIcon; cls: string }> = {
 const FALLBACK = { icon: Clock, cls: 'bg-muted text-muted-foreground' }
 
 // Il numero preventivo dentro il titolo (es. 240-26A_001) va reso in mono.
-const QUOTE_NUMBER = /(\d{3}-\d{2}[A-Z]_\d{3})/g
+// Formato reale (vedi generatore in NewQuote*Page): CUST-YY<CAT>_PROG con CUST
+// e PROG a 3+ cifre (padStart 3, ma 4 se >=1000), YY 2 cifre, CAT 1-2 lettere.
+const QUOTE_NUMBER = /(\d{3,}-\d{2}[A-Z]{1,2}_\d{3,})/g
 
 function renderTitle(title: string) {
   // split con gruppo di cattura → i match cadono agli indici dispari.

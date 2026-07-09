@@ -61,7 +61,8 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
-    workflow_templates, operations, orders, orders_from_file, tools, orders_tools, officina,
+    workflow_templates, operations, orders, orders_from_file, normalized_from_file,
+    tools, orders_tools, officina,
     heat_treatments,
     normalized_suppliers, normalized_items,
     dies, die_normalized_items, die_settings,
@@ -91,6 +92,7 @@ app.include_router(workflow_templates.router, dependencies=_auth)
 app.include_router(operations.router, dependencies=_auth)
 app.include_router(orders.router, dependencies=_auth)
 app.include_router(orders_from_file.router, dependencies=_auth)
+app.include_router(normalized_from_file.router, dependencies=_auth)
 app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)
 app.include_router(officina.router, dependencies=_auth)
@@ -844,6 +846,28 @@ def _run_migrations():
          "csv_name VARCHAR(120) NOT NULL UNIQUE, "
          "normalized_item_id INTEGER NOT NULL REFERENCES normalized_items(id))"),
         "CREATE INDEX IF NOT EXISTS ix_normalized_aliases_csv_name ON normalized_aliases(csv_name)",
+        ("CREATE TABLE IF NOT EXISTS normalized_orders ("
+         "id INTEGER PRIMARY KEY, "
+         "created_by_user_id INTEGER REFERENCES users(id), "
+         "normalized_supplier_id INTEGER REFERENCES normalized_suppliers(id), "
+         "supplier_name VARCHAR(100) NOT NULL DEFAULT '', "
+         "source VARCHAR(20) DEFAULT 'file', "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
+        ("CREATE TABLE IF NOT EXISTS normalized_order_items ("
+         "id INTEGER PRIMARY KEY, "
+         "normalized_order_id INTEGER NOT NULL REFERENCES normalized_orders(id), "
+         "normalized_item_id INTEGER REFERENCES normalized_items(id), "
+         "article VARCHAR(100) NOT NULL DEFAULT '', "
+         "description VARCHAR(200) NOT NULL DEFAULT '', "
+         "reference VARCHAR(100), "
+         "quantity INTEGER DEFAULT 1)"),
+        "CREATE INDEX IF NOT EXISTS ix_normalized_order_items_order ON normalized_order_items(normalized_order_id)",
+        # Nuovo permesso orders.normalized: assegnato a chi gestisce gli ordini
+        # (idempotente: NOT EXISTS evita duplicati a ogni avvio).
+        "INSERT INTO role_permissions (role_id, permission_key) "
+        "SELECT r.id, 'orders.normalized' FROM roles r "
+        "WHERE r.name IN ('admin','ufficio_tecnico','amministrazione') "
+        "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'orders.normalized')",
         # Forma grezzo sulle righe ordine-da-file (prismatico | tondo | tubo).
         "ALTER TABLE material_order_items ADD COLUMN shape VARCHAR(12) DEFAULT 'prismatico'",
         "ALTER TABLE material_order_items ADD COLUMN diameter_mm FLOAT",

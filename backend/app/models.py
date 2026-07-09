@@ -815,6 +815,40 @@ class NormalizedAlias(Base):
     normalized_item = relationship("NormalizedItem", back_populates="aliases")
 
 
+class NormalizedOrder(Base):
+    """Ordine di componenti normalizzati creato da distinta (source='file').
+    Gemello leggero di MaterialOrder per lo storico ordini normalizzati."""
+    __tablename__ = "normalized_orders"
+
+    id = Column(Integer, primary_key=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    normalized_supplier_id = Column(Integer, ForeignKey("normalized_suppliers.id"), nullable=True)
+    supplier_name = Column(String(100), nullable=False, default="")
+    source = Column(String(20), default="file")
+    created_at = Column(DateTime, server_default=func.now())
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+    supplier = relationship("NormalizedSupplier")
+    items = relationship("NormalizedOrderItem", back_populates="order",
+                         cascade="all, delete-orphan")
+
+
+class NormalizedOrderItem(Base):
+    """Riga di un ordine normalizzati (snapshot: articolo/descrizione al momento
+    dell'ordine, indipendenti dal catalogo)."""
+    __tablename__ = "normalized_order_items"
+
+    id = Column(Integer, primary_key=True)
+    normalized_order_id = Column(Integer, ForeignKey("normalized_orders.id"), nullable=False)
+    normalized_item_id = Column(Integer, ForeignKey("normalized_items.id"), nullable=True)
+    article = Column(String(100), nullable=False, default="")     # tipo normalizzato (snapshot)
+    description = Column(String(200), nullable=False, default="")  # spec grezza dalla distinta
+    reference = Column(String(100))                                # commessa / num. parte
+    quantity = Column(Integer, default=1)
+
+    order = relationship("NormalizedOrder", back_populates="items")
+
+
 class ToolType(Base):
     """Catalogo Tipi utensile (es. Cilindrica, Sferica, Conica).
     Gestito da Settings → Catalogo → Attributi utensili. `Tool.tool_type` è

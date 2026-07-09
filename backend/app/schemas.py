@@ -1218,6 +1218,50 @@ class NormalizedItemOut(NormalizedItemBase):
         from_attributes = True
 
 
+# ─── Ordini normalizzati da file ────────────────────────────────────────────
+
+class NormalizedFileRow(BaseModel):
+    """Riga della tabella editabile normalizzati: risultato del parse E input
+    alla creazione. `csv_raw` = designazione grezza dalla distinta (per
+    imparare l'alias); `article` = tipo normalizzato mostrato/esportato."""
+    reference: str = ""                     # commessa / num. parte
+    csv_raw: str = ""                       # designazione grezza (per l'alias)
+    normalized_item_id: Optional[int] = None
+    article: str = ""                       # tipo normalizzato (es. "Viti TCEI")
+    description: str = ""                    # spec (es. "M8x100 TCEI")
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    quantity: int = 1
+    needs_type: bool = False                # flag UI: non abbinato (riga rossa)
+
+
+class NormalizedFileParseOut(BaseModel):
+    rows: List[NormalizedFileRow] = []
+
+
+class NormalizedFileOrderCreate(BaseModel):
+    rows: List[NormalizedFileRow] = Field(min_length=1)
+
+
+class NormalizedFileAliasOut(BaseModel):
+    """Alias appreso per il pannello 'alias' della pagina da-file."""
+    id: int
+    csv_name: str
+    item_code: str = ""                     # code della voce normalizzata
+
+
+class NormalizedOrderOut(BaseModel):
+    """Sintesi ordine normalizzati per lo storico."""
+    id: int
+    created_at: datetime
+    created_by: Optional[UserMinimal] = None
+    supplier_name: Optional[str] = None
+    item_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 class ToolBase(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     tool_type: Optional[str] = None

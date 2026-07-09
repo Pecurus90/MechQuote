@@ -17,6 +17,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",
     "orders.materials": "Ordini materiali (lista + PDF)",
+    "orders.normalized": "Ordini normalizzati (lista + CSV + storico)",
     "orders.tools": "Ordini utensili (crea + CSV + elimina)",
     "tools": "Anagrafica/catalogo utensili",
     "officina":       "Officina — lettura documenti, tabelle reference, calcolatori",
@@ -35,7 +36,7 @@ PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
         "quotes.archive", "quotes.edit_locked", "quotes.delete",
     ]),
     ("Preventivatore Stampi", ["dies.create", "dies.archive", "dies.settings"]),
-    ("Ordini", ["orders.materials", "orders.tools"]),
+    ("Ordini", ["orders.materials", "orders.normalized", "orders.tools"]),
     ("Officina & Utensili", ["officina", "officina.write", "tools"]),
     ("Impostazioni & Sistema", ["settings", "customers", "company", "users", "backup", "notifications"]),
 ]
@@ -45,7 +46,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "ufficio_tecnico": [
         "dashboard", "quotes.create", "quotes.archive",
         "quotes.send", "customers", "notifications", "orders.materials",
-        "tools", "orders.tools", "officina", "officina.write",
+        "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
         "dies.create", "dies.archive",
     ],
     # Officina: solo la sua area + catalogo utensili. Nessun preventivo,
@@ -56,7 +57,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "amministrazione": [
         "dashboard", "quotes.archive", "quotes.view_all",
         "quotes.confirm", "notifications", "orders.materials",
-        "tools", "orders.tools", "officina", "officina.write",
+        "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
         "dies.archive",
     ],
 }

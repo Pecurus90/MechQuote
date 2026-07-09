@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, FileText, FilePlus2, ClipboardList, FolderOpen, Truck, Package, Wrench,
+  LayoutDashboard, FileText, FilePlus2, ClipboardList, FolderOpen, Truck, Package,
   History, Drill, Users, BarChart3, Activity, Library, Settings, Box, Tag, Factory, Zap,
-  Hammer, Building2, Shield, FileUp, Bolt,
+  Hammer, Building2, Shield, FileUp, Bolt, ShoppingCart, HardHat, Handshake, Sliders,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import api from '@/lib/api'
@@ -75,15 +75,15 @@ export default function Sidebar() {
   if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {
     const children: Leaf[] = []
     if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials') })
-    if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Materiale da file', icon: FileUp, active: at('/orders/materials-file') })
-    if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da file', icon: Bolt, active: at('/orders/normalized-file') })
-    if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: Wrench, active: at('/orders/tools') })
+    if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Materiali da distinta', icon: FileUp, active: at('/orders/materials-file') })
+    if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da distinta', icon: Bolt, active: at('/orders/normalized-file') })
+    if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: ShoppingCart, active: at('/orders/tools') })
     children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })
     operativita.push({ key: 'ordini', label: 'Ordini', icon: Truck, children, badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
   }
   if (canTools) operativita.push({ key: '/tools', label: 'Utensili', icon: Drill, active: at('/tools'), badge: toolsBadge > 0 ? { n: toolsBadge, tone: 'warning' } : undefined })
   if (canCustomers) operativita.push({ key: '/settings/customers', label: 'Clienti', icon: Users, active: at('/settings/customers') })
-  if (canOfficina) operativita.push({ key: '/officina', label: 'Officina', icon: Wrench, active: at('/officina') })
+  if (canOfficina) operativita.push({ key: '/officina', label: 'Officina', icon: HardHat, active: at('/officina') })
   if (canDashboard) operativita.push({ key: '/statistics', label: 'Statistiche', icon: BarChart3, active: at('/statistics') })
   if (canDashboard) operativita.push({ key: '/activity', label: 'Attività', icon: Activity, active: at('/activity') })
 
@@ -93,12 +93,12 @@ export default function Sidebar() {
     const children: Leaf[] = []
     if (canSettings) {
       children.push({ key: '/settings/materials', label: 'Materiali', icon: Box, active: at('/settings/materials') })
-      children.push({ key: '/settings/normalized-items', label: 'Normalizzati', icon: Package, active: at('/settings/normalized-items') })
+      children.push({ key: '/settings/normalized-items', label: 'Normalizzati', icon: Bolt, active: at('/settings/normalized-items') })
       children.push({ key: '/settings/catalog', label: 'Lavorazioni & Macchine', icon: Factory, active: at('/settings/catalog') })
       children.push({ key: '/settings/categories', label: 'Categorie', icon: Tag, active: at('/settings/categories') })
     }
-    if (canTools) children.push({ key: '/settings/tool-attributes', label: 'Attributi utensili', icon: Wrench, active: at('/settings/tool-attributes') })
-    if (canSettings || canTools) children.push({ key: '/settings/suppliers', label: 'Fornitori', icon: Truck, active: at('/settings/suppliers') })
+    if (canTools) children.push({ key: '/settings/tool-attributes', label: 'Attributi utensili', icon: Sliders, active: at('/settings/tool-attributes') })
+    if (canSettings || canTools) children.push({ key: '/settings/suppliers', label: 'Fornitori', icon: Handshake, active: at('/settings/suppliers') })
     if (canSettings) children.push({ key: '/settings/edm', label: 'Wire EDM', icon: Zap, active: at('/settings/edm') })
     if (canDies) children.push({ key: '/settings/dies', label: 'Stampi', icon: Hammer, active: at('/settings/dies') })
     impostazioni.push({ key: 'catalogo', label: 'Catalogo', icon: Library, children })

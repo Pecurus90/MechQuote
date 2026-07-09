@@ -98,7 +98,7 @@ export default function PhaseEditor({
       const res = await api.put<Phase>(`/phases/${current.id}`, { ...current, ...updates })
       const saved = res.data
       updateMany(idx, { ...updates, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost })
-    } catch { toast.error('Errore nel salvataggio della fase') }
+    } catch { toast.error('Errore nel salvataggio della fase'); onReload?.() }
   }
 
   const savePhase = async (idx: number) => {
@@ -109,7 +109,7 @@ export default function PhaseEditor({
       const saved: Phase = res.data
       onChange(phases.map((p, i) => i !== idx ? p : calcPhase({ ...p, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost }, machines, quantity, nParts)))
       if (phase.treatment_id && onReload) onReload()
-    } catch { toast.error('Errore nel salvataggio della fase') }
+    } catch { toast.error('Errore nel salvataggio della fase'); onReload?.() }
   }
 
   const addPhase = async () => {

@@ -119,7 +119,7 @@ export default function QuoteEditor() {
         total_cost: part.total_cost, unit_price: part.unit_price, total_price: part.total_price,
       })
       await reloadQuote()
-    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio della parte')) }
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio della parte')); await reloadQuote() }
   }
 
   const reloadPart = async (_idx: number) => { await reloadQuote() }

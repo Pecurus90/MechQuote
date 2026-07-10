@@ -43,6 +43,7 @@ export default function QuoteEditor() {
   const [saving, setSaving] = useState(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [confirmUnconfirm, setConfirmUnconfirm] = useState(false)
+  const [confirmRisky, setConfirmRisky] = useState(false)
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
 
   useEffect(() => {
@@ -279,6 +280,17 @@ export default function QuoteEditor() {
   const total = calcQuoteTotal(quote)
   const partsSubtotal = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
+  // Conferma morbida: totale a zero/negativo o margine negativo sono quasi
+  // sempre errori di battitura (sconto 100%, margine sbagliato). Non blocco,
+  // ma chiedo conferma prima di bloccare il preventivo nello stato confermato.
+  const confirmRiskReason =
+    total <= 0 ? 'Il totale del preventivo è € 0 o negativo.'
+    : (quote.global_margin_percent ?? 0) < 0 ? 'Il margine globale è negativo (vendita sottocosto).'
+    : null
+  const tryConfirm = () => {
+    if (confirmRiskReason) setConfirmRisky(true)
+    else doStatus('confirm', 'Preventivo confermato')
+  }
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   const isLocked = !['bozza', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
 
@@ -291,7 +303,7 @@ export default function QuoteEditor() {
   const actions: EditorAction[] = [
     { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: st === 'bozza' && hasPermission('quotes.send') },
     { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => doStatus('await-client', 'Offerta in attesa del cliente'), show: canConfirm && inReview },
-    { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: () => doStatus('confirm', 'Preventivo confermato'), show: canConfirm && preConfirm },
+    { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: tryConfirm, show: canConfirm && preConfirm },
     { key: 'notordered', label: 'Non ordinato', icon: XCircle, variant: 'muted', onClick: () => doStatus('mark-not-ordered', 'Segnato come non ordinato'), show: canConfirm && preConfirm },
     { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => doStatus('restore', 'Preventivo ripristinato'), show: canConfirm && st === 'non_ordinato' },
     { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => doStatus('reopen', 'Rimandato in bozza'), show: canConfirm && preConfirm },
@@ -459,6 +471,15 @@ export default function QuoteEditor() {
         confirmLabel="Invia"
         onConfirm={doSubmitForReview}
         onCancel={() => setConfirmSubmit(false)}
+      />
+      <ConfirmDialog
+        open={confirmRisky}
+        variant="destructive"
+        title="Confermare comunque?"
+        description={`${confirmRiskReason ?? ''} Di solito è un errore di battitura (sconto o margine sbagliato). Confermando, il preventivo si blocca con questo valore. Procedere?`}
+        confirmLabel="Conferma comunque"
+        onConfirm={() => { setConfirmRisky(false); doStatus('confirm', 'Preventivo confermato') }}
+        onCancel={() => setConfirmRisky(false)}
       />
       <ConfirmDialog
         open={confirmUnconfirm}

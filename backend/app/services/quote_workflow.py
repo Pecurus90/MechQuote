@@ -59,21 +59,6 @@ def is_editable(status: str) -> bool:
     return status in EDITABLE_STATUSES
 
 
-def _autofill_sold_price(quote: Quote) -> None:
-    """B2 — al completamento inizializza il prezzo di vendita col preventivato.
-
-    Il grafico Costo/Venduto filtra `sold_price IS NOT NULL`: senza questo
-    resterebbe vuoto per default (e gli stampi non ci entrerebbero mai). Al
-    passaggio a `completo`, se il consuntivo non è ancora stato compilato a
-    mano, lo inizializziamo col totale preventivato persistito (`final_total`,
-    stampi inclusi via L7). L'utente resta libero di correggerlo col prezzo
-    realmente spuntato dall'archivio. Non sovrascrive un valore già presente;
-    se `final_total` non è ancora stato calcolato resta NULL (comportamento
-    pre-B2, nessuna regressione)."""
-    if quote.sold_price is None and quote.final_total is not None:
-        quote.sold_price = quote.final_total
-
-
 def ordered_supplier_ids(db: Session, quote_id: int) -> set:
     """Fornitori già ordinati per un preventivo (dalle righe quote_supplier_orders)."""
     return {
@@ -123,7 +108,6 @@ def maybe_complete(db: Session, quote: Quote, actor_id: int) -> bool:
     quote.status = STATUS_COMPLETO
     quote.completed_at = utc_now()
     quote.completed_by_user_id = actor_id
-    _autofill_sold_price(quote)
     return True
 
 
@@ -169,7 +153,6 @@ def reconcile_material_state(db: Session, quote: Quote, actor_id: int) -> bool:
         quote.status = STATUS_COMPLETO
         quote.completed_at = utc_now()
         quote.completed_by_user_id = actor_id
-        _autofill_sold_price(quote)
         return True
     if quote.status == STATUS_COMPLETO and not resolved:
         quote.status = STATUS_CONFERMATO

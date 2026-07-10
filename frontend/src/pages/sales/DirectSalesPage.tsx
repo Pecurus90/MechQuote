@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Receipt } from 'lucide-react'
+import { Plus, Pencil, Trash2, HandCoins, Receipt } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import StandardPage from '@/components/layout/StandardPage'
@@ -34,75 +33,106 @@ export default function DirectSalesPage() {
   const totalCost = sales.reduce((s, x) => s + x.unit_cost * x.quantity, 0)
   const years = Array.from({ length: 6 }, (_, i) => nowYear - i)
 
+  const startNew = () => { setEditSale(null); setShowForm(true) }
+
   const actions = (
     <div className="flex items-center gap-3">
-      <select value={year} onChange={e => setYear(Number(e.target.value))} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+      <select
+        value={year}
+        onChange={e => setYear(Number(e.target.value))}
+        className="h-9 rounded-md border border-input bg-background px-2 font-mono text-sm"
+      >
         {years.map(y => <option key={y} value={y}>{y}</option>)}
       </select>
-      <PrimaryCtaButton color="emerald" size="sm" onClick={() => { setEditSale(null); setShowForm(true) }}>
-        <Plus className="w-4 h-4" /> Nuova vendita
+      <PrimaryCtaButton color="sales" size="sm" onClick={startNew}>
+        <Plus className="h-4 w-4" /> Nuova vendita
       </PrimaryCtaButton>
     </div>
   )
 
   return (
     <StandardPage
-      icon={Receipt}
-      color="emerald"
+      icon={HandCoins}
+      color="sales"
+      width="xl"
       title="Vendite dirette"
       subtitle="Vendite di componenti fuori preventivo (ricambi). Confluiscono nel venduto annuo."
-      width="xl"
       actions={actions}
     >
-      <Card>
-        <CardContent className="p-0">
-          <table className="table-fixed w-full text-sm">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="text-left p-3 w-[14%] font-medium text-muted-foreground">Codice</th>
-                <th className="text-left p-3 w-[26%] font-medium text-muted-foreground">Descrizione</th>
-                <th className="text-left p-3 w-[10%] font-medium text-muted-foreground">Data</th>
-                <th className="text-right p-3 w-[12%] font-medium text-muted-foreground">Prezzo/pz</th>
-                <th className="text-right p-3 w-[10%] font-medium text-muted-foreground">Costo/pz</th>
-                <th className="text-right p-3 w-[6%] font-medium text-muted-foreground">Q.tà</th>
-                <th className="text-right p-3 w-[12%] font-medium text-muted-foreground">Venduto</th>
-                <th className="text-center p-3 w-[10%] font-medium text-muted-foreground">Azioni</th>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-sm">
+            <colgroup>
+              <col style={{ width: 120 }} /><col /><col style={{ width: 92 }} />
+              <col style={{ width: 112 }} /><col style={{ width: 104 }} /><col style={{ width: 64 }} />
+              <col style={{ width: 132 }} /><col style={{ width: 84 }} />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border bg-card-muted text-[11px] uppercase tracking-wide text-muted-foreground">
+                <th className="p-2.5 text-left font-medium">Codice</th>
+                <th className="p-2.5 text-left font-medium">Descrizione</th>
+                <th className="p-2.5 text-left font-medium">Data</th>
+                <th className="p-2.5 text-right font-medium">Prezzo/pz</th>
+                <th className="p-2.5 text-right font-medium">Costo/pz</th>
+                <th className="p-2.5 text-right font-medium">Q.tà</th>
+                <th className="p-2.5 text-right font-medium">Venduto</th>
+                <th className="p-2.5 text-center font-medium">Azioni</th>
               </tr>
             </thead>
             <tbody>
-              {sales.length === 0 && (
-                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Nessuna vendita registrata per il {year}.</td></tr>
-              )}
-              {sales.map(s => (
-                <tr key={s.id} className="border-b hover:bg-muted">
-                  <td className="p-3 font-mono font-medium truncate">{s.code}</td>
-                  <td className="p-3 text-muted-foreground truncate">{s.description || '—'}</td>
-                  <td className="p-3 font-mono text-xs text-muted-foreground">{dateShort(s.sale_date)}</td>
-                  <td className="p-3 text-right font-mono">{eur(s.unit_price)}</td>
-                  <td className="p-3 text-right font-mono text-muted-foreground">{eur(s.unit_cost)}</td>
-                  <td className="p-3 text-right font-mono">{s.quantity}</td>
-                  <td className="p-3 text-right font-mono font-semibold">{eur(s.unit_price * s.quantity)}</td>
-                  <td className="p-3 text-center">
-                    <div className="flex gap-2 justify-center">
-                      <button onClick={() => { setEditSale(s); setShowForm(true) }} className="p-1 hover:bg-muted rounded"><Pencil className="w-4 h-4 text-blue-600" /></button>
-                      <button onClick={() => setPendingDel(s.id)} className="p-1 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4 text-red-600" /></button>
+              {sales.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-10">
+                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-center">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sales/[0.14] text-sales">
+                        <Receipt className="h-5 w-5" />
+                      </div>
+                      <div className="text-sm font-medium text-foreground">Nessuna vendita registrata per il {year}</div>
+                      <div className="text-xs text-muted-foreground">Cambia anno dal selettore o registra la prima vendita.</div>
+                      <PrimaryCtaButton color="sales" size="sm" className="mt-1" onClick={startNew}>
+                        <Plus className="h-4 w-4" /> Nuova vendita
+                      </PrimaryCtaButton>
+                    </div>
+                  </td>
+                </tr>
+              ) : sales.map(s => (
+                <tr key={s.id} className="border-b border-border transition-colors hover:bg-muted/[0.45]">
+                  <td className="truncate p-2.5 font-mono font-semibold text-foreground">{s.code}</td>
+                  <td className="truncate p-2.5 text-foreground">{s.description || <span className="text-muted-foreground">—</span>}</td>
+                  <td className="p-2.5 font-mono text-xs text-muted-foreground">{dateShort(s.sale_date)}</td>
+                  <td className="p-2.5 text-right font-mono">{eur(s.unit_price)}</td>
+                  <td className="p-2.5 text-right font-mono text-muted-foreground">{eur(s.unit_cost)}</td>
+                  <td className="p-2.5 text-right font-mono">{s.quantity}</td>
+                  <td className="p-2.5 text-right font-mono font-semibold text-foreground">{eur(s.unit_price * s.quantity)}</td>
+                  <td className="p-2.5">
+                    <div className="flex justify-center gap-1">
+                      <button onClick={() => { setEditSale(s); setShowForm(true) }} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Modifica">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => setPendingDel(s.id)} className="rounded p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="Elimina">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
             {sales.length > 0 && (
-              <tfoot className="border-t bg-muted/40">
-                <tr>
-                  <td colSpan={6} className="p-3 text-right font-medium text-muted-foreground">Totale {year}</td>
-                  <td className="p-3 text-right font-mono font-bold">{eur(totalSold)}</td>
-                  <td className="p-3 text-center text-[11px] text-muted-foreground">costo {eur(totalCost)}</td>
+              <tfoot>
+                <tr className="border-t border-sales/[0.30] bg-sales/[0.08]">
+                  <td colSpan={5} className="p-3 text-left font-bold text-foreground">Totale {year}</td>
+                  <td colSpan={1} className="p-3 text-right text-[12px] text-muted-foreground">costo</td>
+                  <td className="whitespace-nowrap p-3 text-right">
+                    <div className="text-[11px] font-normal text-muted-foreground">{eur(totalCost)}</div>
+                    <div className="font-mono text-[14.5px] font-bold text-sales">{eur(totalSold)}</div>
+                  </td>
+                  <td />
                 </tr>
               </tfoot>
             )}
           </table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {showForm && <DirectSaleFormModal sale={editSale} onClose={() => setShowForm(false)} onSaved={load} />}
       <ConfirmDialog

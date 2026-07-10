@@ -1,4 +1,5 @@
 // src/pages/dashboard/MonthlyChart.tsx
+import { useMemo, useState } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -55,10 +56,22 @@ export default function MonthlyChart({ data }: Props) {
 
   const axisTick = { fill: c.axis, fontSize: 11, fontFamily: '"IBM Plex Mono", monospace' }
 
-  // Anno corrente FISSO, Gen→Dic (12 mesi). L'API emette una riga solo per i
-  // mesi con vendite → buchi a 0 (la linea scende a 0, per scelta).
+  // C1 — anni disponibili dai dati (l'API emette righe per tutti gli anni),
+  // più l'anno corrente sempre presente. Ordinati decrescenti per lo select.
+  const currentYear = new Date().getFullYear()
+  const years = useMemo(() => {
+    const set = new Set<number>(data.map((d) => d.year))
+    set.add(currentYear)
+    return Array.from(set).sort((a, b) => b - a)
+  }, [data, currentYear])
+
+  // Anno selezionato: default all'anno corrente. A gennaio, con dati solo
+  // sull'anno scorso, l'utente può selezionarlo dal menu (prima il grafico
+  // restava muto). Se l'anno in stato non è più nella lista, ripiega sul primo.
+  const [selYear, setSelYear] = useState(currentYear)
+  const year = years.includes(selYear) ? selYear : years[0]
+
   const byKey = new Map(data.map((d) => [d.month, d]))
-  const year = new Date().getFullYear()
   const rows = Array.from({ length: 12 }, (_, m) => {
     const d = byKey.get(`${year}-${String(m + 1).padStart(2, '0')}`)
     return { mese: MESI[m], venduto: d?.sold ?? 0, costo: d?.quoted_cost ?? 0 }
@@ -84,9 +97,21 @@ export default function MonthlyChart({ data }: Props) {
 
   return (
     <div className="rounded-[14px] border border-border bg-card px-5 py-[18px]">
-      <div className="mb-2">
-        <div className="text-[15px] font-semibold text-foreground">Costo preventivato vs venduto</div>
-        <div className="text-xs text-muted-foreground">Anno {year} · preventivi + vendite dirette</div>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[15px] font-semibold text-foreground">Costo preventivato vs venduto</div>
+          <div className="text-xs text-muted-foreground">Anno {year} · preventivi + vendite dirette</div>
+        </div>
+        <select
+          value={year}
+          onChange={(e) => setSelYear(Number(e.target.value))}
+          className="h-8 rounded-lg border border-border bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Anno"
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
       <div className="h-[264px] w-full">

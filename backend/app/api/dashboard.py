@@ -73,7 +73,10 @@ def _quote_to_row(q: Quote) -> DashboardQuoteRow:
     # (cost_industrial × markup × sconto, L5→L7), NON la somma delle piastre
     # (che sarebbe solo L1). Stessa formula del trend in /statistics. Richiede
     # joinedload(Quote.die_spec) nella query chiamante.
-    if q.quote_type == 'die' and q.die_spec is not None:
+    if q.final_total is not None:
+        # B1: totale persistito (fonte unica, allineato ad archivio e PDF).
+        total = q.final_total
+    elif q.quote_type == 'die' and q.die_spec is not None:
         base = q.die_spec.cost_industrial or 0.0
         total = (
             base
@@ -281,10 +284,25 @@ def get_statistics(
         GROUP BY cat ORDER BY total DESC
         """
     ), params).all()
+    # C4 — la lettera estratta dal quote_number viene validata contro il catalogo
+    # QuoteCategory (unica fonte dei codici ammessi). Tutto ciò che non matcha
+    # (numerazioni legacy/manuali, quote_number malformati) confluisce in 'Altro'
+    # invece di sparire: così la somma per categoria riconcilia col totale e
+    # nessun preventivo viene scartato in silenzio.
+    valid_codes = {
+        (code or '').strip().upper()
+        for (code,) in db.execute(text("SELECT code FROM quote_categories")).all()
+    }
+    cat_agg: dict[str, list] = {}
+    for r in rows_cat:
+        raw = (r.cat or '').strip().upper()
+        code = raw if raw and raw in valid_codes else 'Altro'
+        agg = cat_agg.setdefault(code, [0, 0.0])
+        agg[0] += int(r.cnt)
+        agg[1] += float(r.total or 0)
     by_category = [
-        StatsCategoryRow(category_code=(r.cat or '?'), count=int(r.cnt), total=round(float(r.total or 0), 2))
-        for r in rows_cat
-        if r.cat and r.cat.strip()  # esclude righe con quote_number malformato
+        StatsCategoryRow(category_code=code, count=cnt, total=round(tot, 2))
+        for code, (cnt, tot) in sorted(cat_agg.items(), key=lambda x: x[1][1], reverse=True)
     ]
 
     # ─── 4. Margine medio mensile (solo standard) ─────────────────────
@@ -475,6 +493,7 @@ def get_materials_stats(
         FROM quotes q
         WHERE q.confirmed_at IS NOT NULL
           AND q.material_ordered_at IS NOT NULL
+          AND julianday(q.material_ordered_at) >= julianday(q.confirmed_at)
           {q_filter}
         """
     ), q_params).scalar()
@@ -487,6 +506,7 @@ def get_materials_stats(
         FROM quotes q
         WHERE q.confirmed_at IS NOT NULL
           AND q.material_ordered_at IS NOT NULL
+          AND julianday(q.material_ordered_at) >= julianday(q.confirmed_at)
           {q_filter}
         GROUP BY m ORDER BY m
         """
@@ -829,6 +849,7 @@ def get_awaiting_materials(
     ).filter(
         Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
+        or_(Quote.quote_type != 'die', Quote.quote_type.is_(None)),
     ).order_by(Quote.confirmed_at.desc().nullslast()).limit(limit).all()
     # Stato materiale reale per riga: `material_ordered_at` è NULL anche per i
     # PARZIALI (viene valorizzato solo a evasione totale), quindi il badge non
@@ -858,8 +879,8 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
     rows = db.execute(text(
         """
         SELECT
-          CAST(strftime('%Y', COALESCE(q.completed_at, q.quote_date)) AS INTEGER) AS y,
-          CAST(strftime('%m', COALESCE(q.completed_at, q.quote_date)) AS INTEGER) AS m,
+          CAST(strftime('%Y', COALESCE(q.completed_at, q.quote_date), 'localtime') AS INTEGER) AS y,
+          CAST(strftime('%m', COALESCE(q.completed_at, q.quote_date), 'localtime') AS INTEGER) AS m,
           COALESCE(SUM(
             CASE WHEN q.quote_type = 'die'
                  THEN COALESCE(ds.cost_industrial, 0)
@@ -883,8 +904,8 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
     sale_rows = db.execute(text(
         """
         SELECT
-          CAST(strftime('%Y', sale_date) AS INTEGER) AS y,
-          CAST(strftime('%m', sale_date) AS INTEGER) AS m,
+          CAST(strftime('%Y', sale_date, 'localtime') AS INTEGER) AS y,
+          CAST(strftime('%m', sale_date, 'localtime') AS INTEGER) AS m,
           COALESCE(SUM(unit_cost * quantity), 0) AS quoted_cost,
           COALESCE(SUM(unit_price * quantity), 0) AS sold
         FROM direct_sales

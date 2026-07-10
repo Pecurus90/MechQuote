@@ -29,6 +29,12 @@ const ORDER: { key: string; label: string }[] = [
   { key: 'non_ordinato', label: 'Non ordinato' },
 ]
 
+// C2 — il GRAFICO a barre mostra solo gli stati aperti/azionabili: con gli anni
+// gli stati terminali (completo/non_ordinato) accumulano centinaia di preventivi
+// e schiacciano visivamente quelli ancora da lavorare. I chip qui sopra restano
+// completi (drill-down verso l'archivio anche per completo/non_ordinato).
+const CHART_STATES = new Set(['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'])
+
 export default function PerStatusChart({ byStatus, standardCount, dieCount, onSelect }: Props) {
   const { theme } = useTheme()
   const dark = theme === 'dark'
@@ -68,7 +74,7 @@ export default function PerStatusChart({ byStatus, standardCount, dieCount, onSe
   const colorFor = (key: string): string =>
     (c as Record<string, string>)[key] ?? c.axis
 
-  const chartData = ORDER.map((s) => ({
+  const chartData = ORDER.filter((s) => CHART_STATES.has(s.key)).map((s) => ({
     key: s.key,
     stato: s.label,
     n: byStatus[s.key] ?? 0,

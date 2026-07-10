@@ -23,6 +23,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csv_import import csv_export_response, sanitize_filename_part
@@ -286,7 +287,13 @@ def _quote_material_rows(quote_id: int, db: Session):
 def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     """KPI mini-dashboard per /orders/materials.
 
-    - `to_order`: preventivi completati senza material_ordered_at (= preview pronto)
+    - `to_order`: preventivi confermati col materiale ancora da ordinare
+      (status 'confermato' + material_ordered_at NULL). Il flag si alza solo a
+      evasione totale, che porta subito a 'completo' → questi sono esattamente
+      i preventivi con residuo materiale reale (stessa base della rail
+      dashboard 'awaiting-materials'). Gli stampi (materiale fuori scope) sono
+      esclusi in modo difensivo: un die confermato passa già subito a completo,
+      ma non deve mai comparire in un KPI materiale.
     - `orders_this_month`: ordini creati nel mese corrente (UTC)
     - `orders_total`: ordini emessi all-time
     - `last_order_at`: timestamp ISO ultimo ordine (None se nessuno)
@@ -297,6 +304,7 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     to_order = db.query(Quote).filter(
         Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
+        or_(Quote.quote_type != 'die', Quote.quote_type.is_(None)),
     ).count()
 
     orders_total = db.query(MaterialOrder).count()

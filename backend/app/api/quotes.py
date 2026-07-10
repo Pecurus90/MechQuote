@@ -425,6 +425,12 @@ def unconfirm_quote(
             status_code=400,
             detail=f"Nessuna conferma da annullare (stato '{quote.status}')",
         )
+    # C6 — annullare un preventivo GIA' 'completo' lo riporta modificabile: il
+    # creatore va avvisato (coerente con gli altri percorsi di retrocessione,
+    # reopen/demote), altrimenti l'ufficio tecnico non sa che deve rimetterci
+    # mano. Catturo prima della mutazione.
+    was_completo = quote.status == wf.STATUS_COMPLETO
+    creator_id = quote.created_by_user_id or quote.submitted_by_user_id
     db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
     quote.material_ordered_at = None
     quote.material_ordered_by_user_id = None
@@ -441,6 +447,17 @@ def unconfirm_quote(
     # completo→confermato guidata dagli ordini, che pure lo preserva).
     quote.awaiting_client_at = None
     db.commit()
+    if was_completo and creator_id and creator_id != current_user.id:
+        actor = current_user.full_name or current_user.username
+        create_notification(
+            db,
+            type='quote_reopened',
+            title=f"Preventivo {quote.quote_number} riaperto",
+            body=f"Conferma annullata da {actor} — torna modificabile",
+            created_by_user_id=current_user.id,
+            target_user_id=creator_id,
+            data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+        )
     logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 

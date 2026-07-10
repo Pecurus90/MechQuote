@@ -20,7 +20,10 @@ interface MaterialsStats {
 
 const toQuoteType = (t?: string | null): QuoteType => (t === 'die' ? 'die' : t === 'commessa' ? 'commessa' : 'single')
 const quoteTotal = (q: QuoteListItem): number => q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
-const kg = (v: number): string => `${Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 1 })} kg`
+// Peso 0 = non calcolabile (manca densità materiale o dimensioni grezzo): "—"
+// invece di "0 kg", che sembrerebbe un dato reale.
+const kg = (v: number): string =>
+  v ? `${Number(v).toLocaleString('it-IT', { maximumFractionDigits: 1 })} kg` : '—'
 
 // dim_str backend = "Prismatico 80 × 120 × 30 mm" → [forma, dimensioni].
 const SHAPES = ['Prismatico', 'Tondo', 'Tubo']

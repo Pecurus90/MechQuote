@@ -50,6 +50,12 @@ export default function OrdersToolsPage() {
     } finally { setCreating(false); setPendingSupplier(null) }
   }
 
+  // C5 — utensili sotto scorta ma senza fornitore: non ordinabili da qui.
+  // Vengono filtrati via dalla lista (sotto), ma l'utente deve sapere che
+  // esistono, altrimenti sparirebbero in silenzio.
+  const noSupplierCount = (preview?.groups ?? [])
+    .find(g => g.supplier_id == null)?.items.length ?? 0
+
   // Solo i gruppi con fornitore reale sono ordinabili.
   const groups: ToolSupplierGroup[] = (preview?.groups ?? [])
     .filter(g => g.supplier_id != null)
@@ -78,6 +84,17 @@ export default function OrdersToolsPage() {
 
   return (
     <PageContainer width="xl">
+      {noSupplierCount > 0 && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warning" />
+          <span>
+            <b>{noSupplierCount}</b>{' '}
+            {noSupplierCount === 1 ? 'utensile sotto scorta è' : 'utensili sotto scorta sono'} senza
+            fornitore assegnato: non {noSupplierCount === 1 ? 'è ordinabile' : 'sono ordinabili'} da qui
+            finché non assegni un fornitore nell'anagrafica utensili.
+          </span>
+        </div>
+      )}
       <ToolOrdersView kpis={kpis} groups={groups} onCreateOrder={(id) => setPendingSupplier(id)} />
       <ConfirmDialog
         open={pendingSupplier !== null}

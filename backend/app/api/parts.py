@@ -274,7 +274,14 @@ def duplicate_part(
         db.add(new_ph)
 
     db.flush()
-    _assert_material_supplier_ok(db, quote)   # #6: guard su preventivo ordinabile
+    # NB: nessun _assert_material_supplier_ok qui (a differenza degli altri
+    # edit). Duplicare copia una parte esistente con lo STESSO materiale/
+    # fornitore dell'originale: non introduce una nuova parte "da ordinare senza
+    # fornitore". Se l'originale era già senza fornitore è una condizione
+    # preesistente (materiale che ha perso il fornitore in catalogo), non
+    # causata dalla copia — bloccare la duplicazione manderebbe l'utente
+    # (edit_locked) in un vicolo cieco. Lo stato materiale lo riallinea il
+    # _reconcile_after_write sotto.
     db.commit()
     db.refresh(new_part)
     recalculate_part(new_part.id, db)

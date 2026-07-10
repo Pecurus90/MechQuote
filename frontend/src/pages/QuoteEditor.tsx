@@ -251,6 +251,12 @@ export default function QuoteEditor() {
       const res = await api.post(`/quotes/${quote.id}/${path}`)
       applyQuoteData(res.data)
       toast.success(okMsg)
+      // A3 — se la conferma NON completa (materiale ancora da ordinare) e chi
+      // conferma non gestisce gli ordini, avvisa che il completamento dipende
+      // da chi emette l'ordine materiale: evita il vicolo cieco silenzioso.
+      if (path === 'confirm' && res.data?.status === 'confermato' && !hasPermission('orders.materials')) {
+        toast.info('Il materiale va ancora ordinato: il preventivo si completerà quando chi gestisce gli ordini lo evade.')
+      }
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Operazione non riuscita')

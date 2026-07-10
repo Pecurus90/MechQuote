@@ -31,8 +31,8 @@ from app.core.database import get_db, utc_now
 from app.core.quote_types import is_die
 from app.core.security import get_current_user, require_permission
 from app.models import (
-    CompanySettings, MaterialOrder, MaterialOrderQuote, MaterialSupplier,
-    Part, Quote, QuoteSupplierOrder, User,
+    CompanySettings, MaterialOrder, MaterialOrderItem, MaterialOrderQuote,
+    MaterialSupplier, Part, Quote, QuoteSupplierOrder, User,
 )
 from app.schemas import (
     MaterialAggregateOut, MaterialAggregateBySupplier, MaterialItemAggregated,
@@ -251,6 +251,56 @@ def _supplier_order_data(quote_ids: List[int], supplier_id: int, db: Session):
     return involved, rows
 
 
+def _persist_order_snapshot(order: MaterialOrder, quote_ids: List[int],
+                            supplier_id: int, db: Session) -> None:
+    """B6 — congela le righe dell'ordine 'quotes' all'emissione.
+
+    Crea una `MaterialOrderItem` per riga (materiale + dimensioni grezzo +
+    riferimento commessa + qty), così il CSV storico resta FEDELE all'ordine
+    emesso anche se i preventivi vengono modificati dopo (prima `get_order_csv`
+    ri-aggregava dal vivo → documento diverso alla ristampa). Stessa
+    aggregazione di `_supplier_order_data`: parti con stesso materiale +
+    dimensioni nello STESSO preventivo sommate, preventivi distinti su righe
+    distinte. Il riferimento (numero preventivo) va in `part_code`, la colonna
+    'Riferimento' del CSV (come gli ordini da file usano il codice parte)."""
+    parts = db.query(Part).options(
+        joinedload(Part.material), joinedload(Part.quote),
+    ).filter(Part.quote_id.in_(quote_ids)).all()
+    aggr: Dict[Tuple, Dict[str, Any]] = {}
+    for p in parts:
+        if not part_needs_ordering(p):
+            continue
+        if not p.material or p.material.supplier_id != supplier_id:
+            continue
+        key = (p.material_id, _dim_signature(p), p.quote_id)
+        slot = aggr.setdefault(key, {
+            'material_id': p.material_id,
+            'name': p.material.name,
+            'is_round': bool(p.raw_diameter_mm),
+            'diameter_mm': p.raw_diameter_mm,
+            'x_mm': p.raw_x_mm, 'y_mm': p.raw_y_mm, 'z_mm': p.raw_z_mm,
+            'ref': p.quote.quote_number if p.quote else '',
+            'qty': 0,
+        })
+        slot['qty'] += (p.quantity or 1)
+    # Ordine di inserimento = ordine del CSV (materiale, riferimento): coerente
+    # con l'ordinamento della vecchia aggregazione live.
+    for s in sorted(aggr.values(), key=lambda s: (s['name'], s['ref'])):
+        if s['is_round']:
+            db.add(MaterialOrderItem(
+                material_order_id=order.id, material_id=s['material_id'],
+                material_name=s['name'], part_code=s['ref'], shape='tondo',
+                diameter_mm=s['diameter_mm'], length_mm=s['z_mm'], quantity=s['qty'],
+            ))
+        else:
+            db.add(MaterialOrderItem(
+                material_order_id=order.id, material_id=s['material_id'],
+                material_name=s['name'], part_code=s['ref'], shape='prismatico',
+                width_mm=s['x_mm'], height_mm=s['y_mm'], thickness_mm=s['z_mm'],
+                quantity=s['qty'],
+            ))
+
+
 def _quote_material_rows(quote_id: int, db: Session):
     """Righe CSV dei materiali da ordinare di UN preventivo (tutti i fornitori).
 
@@ -460,6 +510,8 @@ def create_order(
             ordered_at=now,
             ordered_by_user_id=current_user.id,
         ))
+    # B6 — congela lo snapshot delle righe ordinate (fedeltà alla ristampa CSV).
+    _persist_order_snapshot(order, list(new_ids), supplier.id, db)
     db.flush()
 
     completed_quotes = []
@@ -564,13 +616,21 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     if not order:
         raise HTTPException(status_code=404, detail="Ordine non trovato")
 
-    if order.source == 'file':
-        # Righe salvate (distinta): riferimento = codice parte, dimensioni grezzo.
+    if order.items:
+        # Snapshot congelato all'emissione (B6): fedele all'ordine emesso anche
+        # se il preventivo è cambiato dopo. Vale sia per gli ordini da distinta
+        # ('file') sia per quelli da preventivo ('quotes') creati dopo B6.
+        # Riferimento = part_code (codice parte per i file, numero preventivo
+        # per lo snapshot dei quotes).
         rows = [
             [it.material_name, _shape_label_it(it.shape), _file_item_dim(it), it.part_code, it.quantity]
             for it in order.items
         ]
     else:
+        # Ordini 'quotes' storici pre-snapshot (nessuna MaterialOrderItem): ri-
+        # aggregazione live dai preventivi. Può divergere dall'emesso se il
+        # preventivo è stato modificato dopo l'ordine — limite noto dei soli
+        # ordini vecchi, non più dei nuovi.
         if order.material_supplier_id is None:
             raise HTTPException(
                 status_code=400,

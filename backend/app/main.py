@@ -890,6 +890,12 @@ def _run_migrations():
         "ALTER TABLE material_order_items ADD COLUMN diameter_mm FLOAT",
         "ALTER TABLE material_order_items ADD COLUMN length_mm FLOAT",
         "ALTER TABLE material_order_items ADD COLUMN inner_diameter_mm FLOAT",
+        # sales.direct esteso a ufficio_tecnico (decisione prodotto 2026-07-10):
+        # anche l'ufficio tecnico registra vendite dirette. Idempotente.
+        "INSERT INTO role_permissions (role_id, permission_key) "
+        "SELECT r.id, 'sales.direct' FROM roles r "
+        "WHERE r.name = 'ufficio_tecnico' "
+        "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'sales.direct')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

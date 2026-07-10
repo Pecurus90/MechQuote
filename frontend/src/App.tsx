@@ -79,7 +79,7 @@ function AppRoutes() {
         <Route path="orders/materials-file" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialFilePage /></ProtectedRoute>} />
         <Route path="orders/normalized-file" element={<ProtectedRoute permission="orders.normalized"><OrdersNormalizedFilePage /></ProtectedRoute>} />
         <Route path="orders/tools" element={<ProtectedRoute permission="orders.tools"><OrdersToolsPage /></ProtectedRoute>} />
-        <Route path="orders/history" element={<ProtectedRoute anyPermission={["orders.materials", "orders.tools"]}><OrdersHistoryPage /></ProtectedRoute>} />
+        <Route path="orders/history" element={<ProtectedRoute anyPermission={["orders.materials", "orders.normalized", "orders.tools"]}><OrdersHistoryPage /></ProtectedRoute>} />
         <Route path="tools" element={<ProtectedRoute permission="tools"><ToolsPage /></ProtectedRoute>} />
         <Route path="officina" element={<ProtectedRoute permission="officina"><OfficinaHub /></ProtectedRoute>} />
         <Route path="officina/documenti" element={<ProtectedRoute permission="officina"><OfficinaDocumentsPage /></ProtectedRoute>} />

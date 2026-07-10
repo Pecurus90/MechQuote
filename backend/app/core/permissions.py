@@ -47,7 +47,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "admin": list(PERMISSION_KEYS.keys()),
     "ufficio_tecnico": [
         "dashboard", "quotes.create", "quotes.archive",
-        "quotes.send", "customers", "notifications", "orders.materials",
+        "quotes.send", "sales.direct", "customers", "notifications", "orders.materials",
         "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
         "dies.create", "dies.archive",
     ],

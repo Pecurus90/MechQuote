@@ -1,8 +1,7 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Trash2, ExternalLink } from 'lucide-react'
-import { timeAgo } from '@/lib/timeAgo'
+import { Trash2, ExternalLink, Eye, Download, FileText, FileSpreadsheet, Image as ImageIcon, Box, Building2, Truck } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { OfficinaDocument } from '@/types'
-import { fileKind, fmtBytes, fmtCustomer, FileTypeBadge } from './documentsUtil'
+import { fileKind, fmtCustomer } from './documentsUtil'
 
 interface Props {
   docs: OfficinaDocument[]
@@ -14,79 +13,63 @@ interface Props {
   onDelete: (d: OfficinaDocument) => void
 }
 
-const refKeyLabel = (d: OfficinaDocument): { key: string; label: string } => {
-  if (d.customer) return { key: `c${d.customer.id}`, label: `Cliente · ${fmtCustomer(d.customer)}` }
-  if (d.material_supplier) return { key: `m${d.material_supplier.id}`, label: `Fornitore materiali · ${d.material_supplier.name}` }
-  if (d.tool_supplier) return { key: `t${d.tool_supplier.id}`, label: `Fornitore utensili · ${d.tool_supplier.name}` }
-  if (d.normalized_supplier) return { key: `n${d.normalized_supplier.id}`, label: `Fornitori normalizzati · ${d.normalized_supplier.name}` }
-  return { key: 'none', label: 'Senza riferimento' }
+// Badge tipo file: tinte da token (dark-aware). Distingue DOCX/XLSX dentro Office.
+const badgeFor = (filename: string): { label: string; cls: string; Icon: LucideIcon } => {
+  const ext = filename.toLowerCase().split('.').pop() || ''
+  if (ext === 'pdf') return { label: 'PDF', cls: 'bg-danger/[0.12] text-danger', Icon: FileText }
+  if (['png', 'jpg', 'jpeg', 'gif'].includes(ext)) return { label: 'IMG', cls: 'bg-confirmed/[0.13] text-confirmed', Icon: ImageIcon }
+  if (ext === 'dxf') return { label: 'DXF', cls: 'bg-warning/[0.14] text-warning', Icon: Box }
+  if (['doc', 'docx'].includes(ext)) return { label: 'DOCX', cls: 'bg-info/[0.13] text-info', Icon: FileText }
+  if (['xls', 'xlsx'].includes(ext)) return { label: 'XLSX', cls: 'bg-success/[0.13] text-success', Icon: FileSpreadsheet }
+  return { label: '—', cls: 'bg-muted text-muted-foreground', Icon: FileText }
 }
 
-const refInlineCell = (d: OfficinaDocument) => {
-  if (d.customer) return (
-    <span title={d.customer.name}>
-      <span className="text-[10px] font-semibold text-blue-600 uppercase mr-1">CL</span>
-      <span className="font-mono text-muted-foreground">{String(d.customer.customer_number).padStart(3, '0')}</span>
-      {' '}{d.customer.name}
-    </span>
-  )
-  if (d.material_supplier) return (
-    <span title={d.material_supplier.name}>
-      <span className="text-[10px] font-semibold text-amber-600 uppercase mr-1">MAT</span>
-      {d.material_supplier.name}
-    </span>
-  )
-  if (d.tool_supplier) return (
-    <span title={d.tool_supplier.name}>
-      <span className="text-[10px] font-semibold text-purple-600 uppercase mr-1">UT</span>
-      {d.tool_supplier.name}
-    </span>
-  )
-  if (d.normalized_supplier) return (
-    <span title={d.normalized_supplier.name}>
-      <span className="text-[10px] font-semibold text-orange-600 uppercase mr-1">NORM</span>
-      {d.normalized_supplier.name}
-    </span>
-  )
-  return <span className="text-muted-foreground/50">—</span>
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })
+
+const refKeyLabel = (d: OfficinaDocument): { key: string; label: string; Icon: LucideIcon } => {
+  if (d.customer) return { key: `c${d.customer.id}`, label: `${fmtCustomer(d.customer)} · Cliente`, Icon: Building2 }
+  if (d.material_supplier) return { key: `m${d.material_supplier.id}`, label: `${d.material_supplier.name} · Fornitore materiali`, Icon: Truck }
+  if (d.tool_supplier) return { key: `t${d.tool_supplier.id}`, label: `${d.tool_supplier.name} · Fornitore utensili`, Icon: Truck }
+  if (d.normalized_supplier) return { key: `n${d.normalized_supplier.id}`, label: `${d.normalized_supplier.name} · Fornitori normalizzati`, Icon: Truck }
+  return { key: 'none', label: 'Senza riferimento', Icon: Building2 }
 }
 
-export default function DocumentsTable({
-  docs, loading, groupByCustomer, canWrite, hasFilters, onOpen, onDelete,
-}: Props) {
+const refInline = (d: OfficinaDocument): string => {
+  if (d.customer) return `${String(d.customer.customer_number).padStart(3, '0')} · ${d.customer.name}`
+  if (d.material_supplier) return d.material_supplier.name
+  if (d.tool_supplier) return d.tool_supplier.name
+  if (d.normalized_supplier) return d.normalized_supplier.name
+  return '—'
+}
+
+export default function DocumentsTable({ docs, loading, groupByCustomer, canWrite, hasFilters, onOpen, onDelete }: Props) {
   const renderRow = (d: OfficinaDocument) => {
     const kind = fileKind(d.filename)
+    const badge = badgeFor(d.filename)
+    const OpenIcon = kind === 'dxf' ? Eye : (kind === 'office' || kind === 'other') ? Download : ExternalLink
     return (
-      <tr key={d.id} className="border-b hover:bg-muted">
-        <td className="p-2"><FileTypeBadge kind={kind} /></td>
-        <td className="p-2">
-          <div className="font-medium text-foreground truncate">{d.title}</div>
-          <div className="text-[11px] text-muted-foreground font-mono truncate">{d.filename}</div>
+      <tr key={d.id} className="border-b border-border transition-colors hover:bg-muted/[0.45]">
+        <td className="p-2.5">
+          <div className="truncate font-medium text-foreground">{d.title}</div>
+          <div className="truncate font-mono text-[11px] text-muted-foreground">{d.filename}</div>
         </td>
-        <td className="p-2">
-          {d.category ? (
-            <span className="inline-block bg-primary/10 text-primary text-[11px] font-medium px-2 py-0.5 rounded">
-              {d.category}
-            </span>
-          ) : <span className="text-muted-foreground/50">—</span>}
+        <td className="p-2.5">
+          <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-bold ${badge.cls}`}>
+            <badge.Icon className="h-3 w-3" />{badge.label}
+          </span>
         </td>
-        <td className="p-2 text-xs text-muted-foreground truncate">{refInlineCell(d)}</td>
-        <td className="p-2 text-right font-mono text-xs text-muted-foreground">{fmtBytes(d.size_bytes)}</td>
-        <td className="p-2 text-xs text-muted-foreground">
-          <div>{timeAgo(d.uploaded_at)}</div>
-          {d.uploaded_by && (
-            <div className="text-[10px] text-muted-foreground truncate">{d.uploaded_by.full_name || d.uploaded_by.username}</div>
-          )}
-        </td>
-        <td className="p-2 text-center">
-          <div className="flex gap-1.5 justify-center">
-            <button onClick={() => onOpen(d)} className="p-1 hover:bg-primary/10 rounded"
-              title={kind === 'dxf' ? 'Anteprima DXF' : kind === 'office' || kind === 'other' ? 'Scarica' : 'Apri in nuova tab'}>
-              <ExternalLink className="w-4 h-4 text-blue-600" />
+        <td className="truncate p-2.5 text-muted-foreground">{d.category || <span className="text-muted-foreground/60">—</span>}</td>
+        <td className="truncate p-2.5 text-muted-foreground">{refInline(d)}</td>
+        <td className="p-2.5 font-mono text-xs text-muted-foreground">{shortDate(d.uploaded_at)}</td>
+        <td className="p-2.5">
+          <div className="flex justify-center gap-1">
+            <button onClick={() => onOpen(d)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title={kind === 'dxf' ? 'Anteprima DXF' : kind === 'office' || kind === 'other' ? 'Scarica' : 'Apri in nuova scheda'}>
+              <OpenIcon className="h-4 w-4" />
             </button>
             {canWrite && (
-              <button onClick={() => onDelete(d)} className="p-1 hover:bg-red-50 rounded" title="Elimina">
-                <Trash2 className="w-4 h-4 text-red-600" />
+              <button onClick={() => onDelete(d)} className="rounded p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="Elimina">
+                <Trash2 className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -95,8 +78,7 @@ export default function DocumentsTable({
     )
   }
 
-  // Raggruppamento per riferimento quando attivo
-  const groups: Array<{ key: string; label: string; items: OfficinaDocument[] }> = []
+  const groups: Array<{ key: string; label: string; Icon: LucideIcon; items: OfficinaDocument[] }> = []
   if (groupByCustomer) {
     const map = new Map<string, OfficinaDocument[]>()
     for (const d of docs) {
@@ -105,53 +87,48 @@ export default function DocumentsTable({
       map.get(key)!.push(d)
     }
     for (const [key, items] of map) {
-      const { label } = refKeyLabel(items[0])
-      groups.push({ key, label, items })
+      const { label, Icon } = refKeyLabel(items[0])
+      groups.push({ key, label, Icon, items })
     }
-    groups.sort((a, b) => {
-      if (a.key === 'none') return 1
-      if (b.key === 'none') return -1
-      return a.label.localeCompare(b.label, 'it')
-    })
+    groups.sort((a, b) => (a.key === 'none' ? 1 : b.key === 'none' ? -1 : a.label.localeCompare(b.label, 'it')))
   }
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <table className="table-fixed w-full text-sm">
-          <thead className="bg-muted border-b">
-            <tr>
-              <th className="text-left p-2 w-[7%] font-medium text-muted-foreground">Tipo</th>
-              <th className="text-left p-2 w-[26%] font-medium text-muted-foreground">Titolo</th>
-              <th className="text-left p-2 w-[13%] font-medium text-muted-foreground">Categoria</th>
-              <th className="text-left p-2 w-[20%] font-medium text-muted-foreground">Riferimento</th>
-              <th className="text-right p-2 w-[9%] font-medium text-muted-foreground">Dim.</th>
-              <th className="text-left p-2 w-[13%] font-medium text-muted-foreground">Caricato</th>
-              <th className="text-center p-2 w-[12%] font-medium text-muted-foreground">Azioni</th>
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[780px] text-sm">
+          <colgroup><col /><col style={{ width: 100 }} /><col style={{ width: 150 }} /><col style={{ width: '26%' }} /><col style={{ width: 96 }} /><col style={{ width: 76 }} /></colgroup>
+          <thead>
+            <tr className="border-b border-border bg-card-muted text-[11px] uppercase tracking-wide text-muted-foreground">
+              <th className="p-2.5 text-left font-medium">Titolo</th>
+              <th className="p-2.5 text-left font-medium">Tipo</th>
+              <th className="p-2.5 text-left font-medium">Categoria</th>
+              <th className="p-2.5 text-left font-medium">Riferimento</th>
+              <th className="p-2.5 text-left font-medium">Data</th>
+              <th className="p-2.5 text-center font-medium">Azioni</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Caricamento...</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Caricamento…</td></tr>
             ) : docs.length === 0 ? (
-              <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">
-                {hasFilters ? 'Nessun documento corrisponde ai filtri.' : 'Nessun documento ancora caricato.'}
-              </td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">{hasFilters ? 'Nessun documento corrisponde ai filtri.' : 'Nessun documento ancora caricato.'}</td></tr>
             ) : groupByCustomer ? (
               groups.flatMap(g => [
-                <tr key={`h-${g.key}`} className="bg-primary/10/60 border-b">
-                  <td colSpan={7} className="px-2 py-1.5 text-xs font-semibold text-primary">
-                    {g.label} <span className="text-muted-foreground font-normal">— {g.items.length} doc</span>
+                <tr key={`h-${g.key}`} className="border-b border-border bg-muted/[0.5]">
+                  <td colSpan={6} className="px-2.5 py-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <g.Icon className="h-3.5 w-3.5 text-muted-foreground" /> {g.label}
+                      <span className="font-normal text-muted-foreground">· {g.items.length} documenti</span>
+                    </span>
                   </td>
                 </tr>,
                 ...g.items.map(renderRow),
               ])
-            ) : (
-              docs.map(renderRow)
-            )}
+            ) : docs.map(renderRow)}
           </tbody>
         </table>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

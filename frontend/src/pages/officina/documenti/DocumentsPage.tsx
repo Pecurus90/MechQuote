@@ -169,19 +169,19 @@ export default function OfficinaDocumentsPage() {
   return (
     <StandardPage
       icon={FileText}
-      color="emerald"
+      color="officina"
       title={filterCat ? `Documenti — ${filterCat}` : 'Documenti'}
       subtitle="PDF, Word, Excel, immagini e DXF consultabili dall'officina"
       width="xl"
       breadcrumb={
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-          <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
-            <ChevronLeft className="w-3 h-3" /> Officina
+        <div className="mb-1 flex items-center gap-1 text-[12.5px] font-semibold text-muted-foreground">
+          <Link to="/officina" className="flex items-center gap-1 hover:text-officina">
+            <ChevronLeft className="h-3.5 w-3.5" /> Officina
           </Link>
         </div>
       }
       actions={canWrite ? (
-        <PrimaryCtaButton color="emerald" size="sm" onClick={() => setUploadOpen(true)}>
+        <PrimaryCtaButton color="officina" size="sm" onClick={() => setUploadOpen(true)}>
           <Upload className="w-4 h-4" /> Carica file
         </PrimaryCtaButton>
       ) : undefined}
@@ -227,8 +227,10 @@ export default function OfficinaDocumentsPage() {
             </optgroup>
           )}
         </select>
-        <label className="text-xs text-muted-foreground flex items-center gap-1.5 cursor-pointer ml-2">
-          <input type="checkbox" checked={groupByCustomer} onChange={e => setGroupByCustomer(e.target.checked)} />
+        <label className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+          groupByCustomer ? 'border-officina/[0.45] bg-officina/[0.08] text-officina' : 'border-border text-muted-foreground hover:bg-muted'
+        }`}>
+          <input type="checkbox" className="hidden" checked={groupByCustomer} onChange={e => setGroupByCustomer(e.target.checked)} />
           Raggruppa per riferimento
         </label>
       </div>

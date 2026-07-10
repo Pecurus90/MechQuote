@@ -17,7 +17,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "users":         "Gestione utenti",
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",
-    "orders.materials": "Ordini materiali (lista + PDF)",
+    "orders.materials": "Ordini materiali (lista + CSV)",
     "orders.normalized": "Ordini normalizzati (lista + CSV + storico)",
     "orders.tools": "Ordini utensili (crea + CSV + elimina)",
     "tools": "Anagrafica/catalogo utensili",

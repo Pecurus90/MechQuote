@@ -200,7 +200,7 @@ Vale anche se "ho appena fatto un commit" — il commit git non protegge il DB S
 I ruoli sono creabili dall'UI (`Impostazioni → Sistema → Ruoli e Permessi`). I **permessi** sono chiavi fisse nel codice (`backend/app/core/permissions.py` → `PERMISSION_KEYS`). L'assegnazione permessi→ruoli è in `role_permissions` (DB), modificabile dall'UI.
 
 Chiavi (`PERMISSION_KEYS`):
-- `dashboard` · `quotes.create` · `quotes.archive` · `quotes.pdf`
+- `dashboard` · `quotes.create` · `quotes.archive`
 - `quotes.send` (chi può "Invia per revisione")
 - `quotes.confirm` (conferma preventivo — amministrazione)
 - `quotes.view_all` (vede tutti i preventivi, non solo i propri)
@@ -208,12 +208,12 @@ Chiavi (`PERMISSION_KEYS`):
 - `quotes.delete` (elimina preventivi di chiunque; il creatore può sempre i propri; default **solo admin**)
 - `customers` · `settings` (catalogo) · `company` (dati azienda)
 - `users` · `backup` · `notifications`
-- `orders.materials` (Ordini materiali — lista + PDF + storico + sblocco flag)
+- `orders.materials` (Ordini materiali — lista + CSV + storico + sblocco flag)
 - `orders.tools` (Ordini utensili — crea + CSV + elimina)
 - `tools` (Anagrafica/catalogo utensili — **NON** gli ordini utensili)
 - `officina` (Officina — lettura documenti / reference / calcolatori)
 - `officina.write` (Officina — upload/modifica documenti **e** gestione categorie)
-- `dies.create` · `dies.archive` · `dies.pdf` · `dies.settings` (modulo Preventivatore Stampi)
+- `dies.create` · `dies.archive` · `dies.settings` (modulo Preventivatore Stampi)
 
 ### Regola di gating (modello dinamico)
 
@@ -379,7 +379,7 @@ Regole:
 **Nucleo unico backend (tema E, 2026-07-02)**: tutte le formule pure vivono in
 `backend/app/services/costing/primitives.py` (`material_cost`, `phase_cost`,
 `part_totals`, `treatment_cost_per_part`, `quote_total`, `quote_total_die`,
-`round4`). `recalculate_quote/part` (`services/calculation.py`) e `pdf.py` le
+`round4`). `recalculate_quote/part` (`services/calculation.py`) le
 **compongono**: è la fonte autoritativa. I golden test le chiamano direttamente.
 
 **Una sola formula, copie da tenere identiche su backend e frontend**:
@@ -452,8 +452,8 @@ L2 Normalizzati       = Σ (qty × unit_price) + Σ shipping_cost per fornitore 
 L3 Lavorazioni        = featureCost × coeff_dim × coeff_diff + cost_per_plate_base × n_plates
 L4 Accessori          = design_hours[diff] × design_hourly_rate + assembly_forfeit[diff] + extras
 L5 Industriale        = (override_material ?? L1) + (override_normalized ?? L2) + (override_machining ?? L3) + (override_accessories ?? L4)
-L6 Markup (UI/PDF)    = L5 × (1 + global_margin_percent / 100)
-L7 Sconto (UI/PDF)    = L6 × (1 - global_discount_percent / 100)
+L6 Markup             = L5 × (1 + global_margin_percent / 100)
+L7 Sconto             = L6 × (1 - global_discount_percent / 100)
 ```
 
 - `featureCost` = Σ (n_bends_{simple,medium,complex} × cost_bend_{simple,medium,complex}) + Σ (n_punches_* × cost_punch_*)
@@ -463,11 +463,11 @@ L7 Sconto (UI/PDF)    = L6 × (1 - global_discount_percent / 100)
 - **Override matita**: `DieSpec.override_{material,normalized,machining,accessories}` — null-coalesce; impostarli forza la riga corrispondente in L5 ignorando il calcolato.
 - **Auto-fill X/Y piastre**: in `recalculate_quote`, per Part con `plate_role != NULL`, se `raw_x_mm/raw_y_mm IS NULL` vengono popolati dal castello calcolato (override esplicito utente preservato, anche se 0).
 
-> Nota dalle ricognizioni: `L6/L7` (markup e sconto) sono applicati lato
-> UI/PDF e **non persistiti** nel DB — `DieSpec.cost_industrial` salvato è al
-> lordo. Report estratti direttamente dal DB non corrispondono ai PDF.
-> Inoltre il live preview frontend non gestisce i trattamenti a €/dm³ e in
-> alcuni casi il totale stampo somma solo le piastre: vedi lista lavori.
+> Nota: `DieSpec.cost_industrial` salvato è L5 (al lordo di markup/sconto).
+> Il totale finale L7 è però ora persistito in `Quote.final_total` (B1,
+> ricalcolato da `recalculate_quote`) — fonte unica per archivio/dashboard.
+> Il live preview frontend non gestisce i trattamenti a €/dm³ (ramo usato solo
+> dai rivestimenti, non ancora nel progetto).
 
 Gemelli geometria/lookup (devono restare identici):
 - `_compute_castle_dimensions(spec)` ↔ `computeDieGeometry(input)`
@@ -602,12 +602,12 @@ Se TS o startup o i test falliscono, **non committare**. Se commit, **non pushar
 ```
 backend/app/
   api/             # Un file per resource group:
-                   #  Quotes/Costing: quotes, quotes_archive, parts, phases, pdf
+                   #  Quotes/Costing: quotes, quotes_archive, parts, phases
                    #  Stampi: dies, die_normalized_items, die_settings
                    #  Catalog: customers, materials, machines, treatments, catalog,
                    #           operations, workflow_templates, normalized_suppliers
                    #  Officina: officina
-                   #  Orders: orders, orders_pdf, orders_tools
+                   #  Orders: orders, orders_tools, orders_from_file, normalized_from_file
                    #  Tools: tools
                    #  EDM: edm
                    #  Sistema: auth, roles, users, company, dashboard, notifications, backup

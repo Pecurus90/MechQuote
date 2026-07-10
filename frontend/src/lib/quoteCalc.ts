@@ -182,10 +182,10 @@ export function calcPartTotals(
 }
 
 export function calcQuoteTotal(quote: Quote): number {
-  // Modulo Stampi: formula gemella di backend/app/api/pdf.py _render_die_quote.
-  // Industriale = L1+L2+L3+L4 con override matita (null-coalesce sui calcolati);
-  // poi margine globale e sconto globale. NON include transport/packaging:
-  // il PDF stampo non li somma al prezzo finale industriale.
+  // Modulo Stampi: formula gemella di backend calculation._apply_quote_final_total
+  // (L6/L7 su cost_industrial). Industriale = L1+L2+L3+L4 con override matita
+  // (null-coalesce sui calcolati); poi margine globale e sconto globale. NON
+  // include transport/packaging: il totale stampo non li somma all'industriale.
   if (quote.quote_type === 'die' && quote.die_spec) {
     const spec = quote.die_spec
     const effMaterial    = spec.override_material    ?? spec.cost_material

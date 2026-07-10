@@ -2,11 +2,9 @@ import { useEffect, useState, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Box, FileText, Upload, Trash2, Search, ExternalLink, ChevronLeft, X } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Box, Upload, Trash2, Search, ExternalLink, ChevronLeft, X } from 'lucide-react'
+import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
-import PageContainer from '@/components/ui/page-container'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
@@ -15,18 +13,19 @@ import ConfirmDialog from '@/components/ui/confirm-dialog'
 import { familyLabel } from '@/lib/materialFamilies'
 import type { Material } from '@/types'
 
-const FAMILY_COLORS: Record<string, string> = {
-  acciaio:        'bg-slate-100 text-slate-700',
-  acciaio_inox:   'bg-blue-100 text-primary',
-  acciaio_legato: 'bg-indigo-100 text-indigo-700',
-  alluminio:      'bg-sky-100 text-sky-700',
-  ottone:         'bg-amber-100 text-amber-700',
-  rame:           'bg-orange-100 text-orange-700',
-  bronzo:         'bg-yellow-100 text-yellow-800',
-  plastica:       'bg-green-100 text-green-700',
-  altro:          'bg-muted text-muted-foreground',
+// Famiglia → classi token dark-aware (--fam-*).
+const FAM_CLS: Record<string, string> = {
+  acciaio:        'bg-fam-acciaio/[0.14] text-fam-acciaio',
+  acciaio_inox:   'bg-fam-inox/[0.14] text-fam-inox',
+  acciaio_legato: 'bg-fam-legato/[0.14] text-fam-legato',
+  alluminio:      'bg-fam-alluminio/[0.14] text-fam-alluminio',
+  ottone:         'bg-fam-ottone/[0.14] text-fam-ottone',
+  rame:           'bg-fam-rame/[0.14] text-fam-rame',
+  bronzo:         'bg-fam-bronzo/[0.14] text-fam-bronzo',
+  plastica:       'bg-fam-plastica/[0.14] text-fam-plastica',
+  altro:          'bg-fam-altro/[0.14] text-fam-altro',
 }
-const familyClass = (f: string | null | undefined) => f && FAMILY_COLORS[f] ? FAMILY_COLORS[f] : FAMILY_COLORS.altro
+const famClass = (f: string | null | undefined) => (f && FAM_CLS[f]) || FAM_CLS.altro
 
 export default function OfficinaMaterialsPage() {
   const { hasPermission } = useAuth()
@@ -47,17 +46,12 @@ export default function OfficinaMaterialsPage() {
 
   const load = () => {
     setLoading(true)
-    api.get('/materials')
-      .then(r => setMaterials(r.data))
-      .catch(() => toast.error('Errore caricamento materiali'))
-      .finally(() => setLoading(false))
+    api.get('/materials').then(r => setMaterials(r.data)).catch(() => toast.error('Errore caricamento materiali')).finally(() => setLoading(false))
   }
-
   useEffect(() => { load() }, [])
 
   const families = useMemo(() =>
-    Array.from(new Set(materials.map(m => m.family).filter(Boolean))).sort() as string[],
-    [materials])
+    Array.from(new Set(materials.map(m => m.family).filter(Boolean))).sort() as string[], [materials])
 
   const visible = useMemo(() => {
     const s = search.trim().toLowerCase()
@@ -78,196 +72,151 @@ export default function OfficinaMaterialsPage() {
       .catch(() => toast.error('Errore apertura scheda PDF'))
   }
 
-  const startUpload = (m: Material) => {
-    setUploadFor(m)
-    setSelectedFile(null)
-  }
-
   const handleUpload = async () => {
     if (!uploadFor || !selectedFile) return
     setUploading(true)
     const fd = new FormData()
     fd.append('file', selectedFile)
     try {
-      await api.post(`/materials/${uploadFor.id}/datasheet`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      await api.post(`/materials/${uploadFor.id}/datasheet`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       toast.success('Scheda PDF allegata')
       setUploadFor(null); setSelectedFile(null); load()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore upload')
-    } finally {
-      setUploading(false)
-    }
+    } finally { setUploading(false) }
   }
 
   const confirmDelete = async () => {
     if (!pendingDelete) return
     const id = pendingDelete.id
     setPendingDelete(null)
-    try {
-      await api.delete(`/materials/${id}/datasheet`)
-      toast.success('Scheda rimossa')
-      load()
-    } catch { toast.error('Errore eliminazione') }
+    try { await api.delete(`/materials/${id}/datasheet`); toast.success('Scheda rimossa'); load() }
+    catch { toast.error('Errore eliminazione') }
   }
 
   return (
-    <PageContainer>
-      <div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-          <Link to="/officina" className="hover:text-emerald-700 flex items-center gap-1">
-            <ChevronLeft className="w-3 h-3" /> Officina
-          </Link>
+    <StandardPage
+      icon={Box}
+      color="officina"
+      width="xl"
+      title="Materiali"
+      subtitle={`${visible.length} material${visible.length === 1 ? 'e' : 'i'} a catalogo · sola consultazione per l'officina`}
+      breadcrumb={
+        <div className="mb-1 flex items-center gap-1 text-[12.5px] font-semibold text-muted-foreground">
+          <Link to="/officina" className="flex items-center gap-1 hover:text-officina"><ChevronLeft className="h-3.5 w-3.5" /> Officina</Link>
         </div>
-        <SettingsPageHeader
-          icon={Box}
-          color="emerald"
-          title="Materiali"
-          subtitle={canWrite
-            ? "Catalogo materiali con schede tecniche PDF. Allega o sostituisci una scheda per renderla consultabile dall'officinista."
-            : "Catalogo materiali con schede tecniche PDF consultabili."}
-        />
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="Cerca per nome..." value={search}
-            onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+      }
+      actions={
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative w-[240px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Cerca per nome…" value={search} onChange={e => setSearch(e.target.value)} className="h-9 pl-9 text-sm" />
+          </div>
+          <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" value={filterFamily} onChange={e => setFilterFamily(e.target.value)}>
+            <option value="">Tutte le famiglie</option>
+            {families.map(f => <option key={f} value={f}>{familyLabel(f)}</option>)}
+          </select>
         </div>
-        <select
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          value={filterFamily}
-          onChange={e => setFilterFamily(e.target.value)}
-        >
-          <option value="">Tutte le famiglie</option>
-          {families.map(f => <option key={f} value={f}>{familyLabel(f)}</option>)}
-        </select>
-      </div>
-
-      {loading ? (
-        <div className="p-8 text-center text-muted-foreground">Caricamento...</div>
-      ) : visible.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-muted-foreground">
-          {search || filterFamily ? 'Nessun materiale corrisponde ai filtri.' : 'Nessun materiale in catalogo.'}
-        </CardContent></Card>
-      ) : (
-        <div className="space-y-2">
-          {visible.map(m => (
-            <Card key={m.id} className="hover:bg-muted/40 transition-colors">
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-foreground text-base">{m.name}</span>
-                    {m.family && (
-                      <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${familyClass(m.family)}`}>
-                        {familyLabel(m.family)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-                    {m.density_kg_dm3?.toFixed(2) ?? '—'} kg/dm³
-                    {' · '}{m.cost_per_kg?.toFixed(2) ?? '—'} €/kg
-                    {m.default_scrap_percent != null && <> · scrap {m.default_scrap_percent}%</>}
-                  </div>
-                  {m.material_supplier && (
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
-                      Fornitore: {m.material_supplier.name}
+      }
+    >
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <colgroup><col /><col style={{ width: 150 }} /><col style={{ width: '22%' }} /><col style={{ width: 230 }} /></colgroup>
+            <thead>
+              <tr className="border-b border-border bg-card-muted text-[11px] uppercase tracking-wide text-muted-foreground">
+                <th className="p-2.5 text-left font-medium">Materiale</th>
+                <th className="p-2.5 text-left font-medium">Famiglia</th>
+                <th className="p-2.5 text-left font-medium">Fornitore abituale</th>
+                <th className="p-2.5 text-right font-medium">Scheda tecnica</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">Caricamento…</td></tr>
+              ) : visible.length === 0 ? (
+                <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">{search || filterFamily ? 'Nessun materiale corrisponde ai filtri.' : 'Nessun materiale in catalogo.'}</td></tr>
+              ) : visible.map(m => (
+                <tr key={m.id} className="border-b border-border transition-colors hover:bg-muted/[0.45]">
+                  <td className="p-2.5">
+                    <div className="font-mono font-semibold text-foreground">{m.name}</div>
+                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                      {m.density_kg_dm3?.toFixed(2) ?? '—'} kg/dm³ · {m.cost_per_kg?.toFixed(2) ?? '—'} €/kg
+                      {m.default_scrap_percent != null && <> · scrap {m.default_scrap_percent}%</>}
                     </div>
-                  )}
-                </div>
-                <div className="shrink-0 flex items-center gap-1">
-                  {m.has_datasheet ? (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => openDatasheet(m)}>
-                        <FileText className="w-4 h-4 mr-1" /> Apri scheda
-                      </Button>
-                      {canWrite && (
-                        <button onClick={() => setPendingDelete(m)}
-                          className="p-1.5 hover:bg-red-50 rounded text-red-600"
-                          title="Rimuovi scheda">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                  </td>
+                  <td className="p-2.5">
+                    {m.family && (
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${famClass(m.family)}`}>{familyLabel(m.family)}</span>
+                    )}
+                  </td>
+                  <td className="truncate p-2.5 text-muted-foreground">{m.material_supplier?.name ?? '—'}</td>
+                  <td className="p-2.5">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {m.has_datasheet ? (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => openDatasheet(m)}>
+                            <ExternalLink className="mr-1 h-4 w-4" /> Visualizza
+                          </Button>
+                          {canWrite && (
+                            <>
+                              <button onClick={() => { setUploadFor(m); setSelectedFile(null) }} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Sostituisci scheda"><Upload className="h-4 w-4" /></button>
+                              <button onClick={() => setPendingDelete(m)} className="rounded p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="Rimuovi scheda"><Trash2 className="h-4 w-4" /></button>
+                            </>
+                          )}
+                        </>
+                      ) : canWrite ? (
+                        <Button size="sm" variant="outline" className="border-officina/[0.45] text-officina" onClick={() => { setUploadFor(m); setSelectedFile(null) }}>
+                          <Upload className="mr-1 h-4 w-4" /> Carica
+                        </Button>
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground">nessuna scheda</span>
                       )}
-                      {canWrite && (
-                        <button onClick={() => startUpload(m)}
-                          className="p-1.5 hover:bg-primary/10 rounded text-blue-600"
-                          title="Sostituisci scheda">
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
-                      )}
-                    </>
-                  ) : canWrite ? (
-                    <Button size="sm" variant="outline" onClick={() => startUpload(m)}>
-                      <Upload className="w-4 h-4 mr-1" /> Allega scheda
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground italic">nessuna scheda</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {uploadFor && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg bg-card shadow-xl">
-            <div className="flex items-center justify-between px-5 py-3 border-b">
-              <h3 className="font-semibold">
-                {uploadFor.has_datasheet ? 'Sostituisci scheda' : 'Allega scheda'} — {uploadFor.name}
-              </h3>
-              <button onClick={() => { setUploadFor(null); setSelectedFile(null) }}
-                className="p-1 hover:bg-muted rounded">
-                <X className="w-4 h-4" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-[500px] overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+              <h3 className="font-semibold text-foreground">{uploadFor.has_datasheet ? 'Sostituisci scheda' : 'Allega scheda'} — <span className="font-mono">{uploadFor.name}</span></h3>
+              <button onClick={() => { setUploadFor(null); setSelectedFile(null) }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <CardContent className="pt-4 space-y-3">
+            <div className="space-y-3 px-5 py-4">
               <div>
-                <label className="text-sm font-medium">File PDF *</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={e => setSelectedFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-blue-100 cursor-pointer mt-1"
-                />
-                {selectedFile && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                  </p>
-                )}
-                <p className="text-[11px] text-muted-foreground mt-0.5">Max 50 MB, solo PDF.</p>
-                {uploadFor.has_datasheet && (
-                  <p className="text-[11px] text-amber-600 mt-1">
-                    ⚠ La scheda esistente verrà sostituita.
-                  </p>
-                )}
+                <label className="mb-1 block text-[12px] font-medium text-foreground">File PDF *</label>
+                <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                  className="block w-full cursor-pointer text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-officina/[0.12] file:px-3 file:py-1.5 file:font-medium file:text-officina" />
+                {selectedFile && <p className="mt-1 text-[11px] text-muted-foreground">{selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</p>}
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Max 50 MB, solo PDF.</p>
+                {uploadFor.has_datasheet && <p className="mt-1 text-[11px] text-warning">La scheda esistente verrà sostituita.</p>}
               </div>
-              <div className="flex gap-2 mt-4">
-                <PrimaryCtaButton color="emerald" onClick={handleUpload} disabled={uploading || !selectedFile}>
-                  <Upload className="w-4 h-4" /> {uploading ? 'Caricamento...' : 'Carica'}
-                </PrimaryCtaButton>
-                <Button variant="outline" onClick={() => { setUploadFor(null); setSelectedFile(null) }} disabled={uploading}>
-                  Annulla
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border bg-card-muted px-5 py-3">
+              <Button variant="outline" onClick={() => { setUploadFor(null); setSelectedFile(null) }} disabled={uploading}>Annulla</Button>
+              <PrimaryCtaButton color="officina" onClick={handleUpload} disabled={uploading || !selectedFile}>
+                <Upload className="h-4 w-4" /> {uploading ? 'Caricamento…' : 'Carica'}
+              </PrimaryCtaButton>
+            </div>
+          </div>
         </div>
       )}
 
       <ConfirmDialog
         open={pendingDelete != null}
-        title={`Rimuovere la scheda di "${pendingDelete?.name ?? ''}"?`}
-        description="Il PDF verrà cancellato dal disco e non sarà più recuperabile."
+        title="Rimuovere la scheda tecnica?"
+        description="Il PDF allegato verrà eliminato."
         confirmLabel="Rimuovi"
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { FileText, Hammer, Box, Plus, Pencil, Trash2, Factory, Flame } from 'lucide-react'
-import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
-import PageContainer from '@/components/ui/page-container'
+import { useNavigate } from 'react-router-dom'
+import { FileText, Box, Flame, Pencil, Trash2, Factory, ChevronRight, FolderPlus } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
@@ -14,6 +12,7 @@ import { getIcon } from '@/lib/icons'
 import type { OfficinaCategory } from '@/types'
 
 export default function OfficinaHub() {
+  const navigate = useNavigate()
   const { hasPermission } = useAuth()
   const canRead = hasPermission('officina')
   const canManageCategories = hasPermission('officina.write')
@@ -23,15 +22,8 @@ export default function OfficinaHub() {
   const [editing, setEditing] = useState<OfficinaCategory | null>(null)
   const [pendingDelete, setPendingDelete] = useState<OfficinaCategory | null>(null)
 
-  const load = () => {
-    api.get('/officina/categories-full')
-      .then(r => setCategories(r.data))
-      .catch(() => undefined)
-  }
+  const load = () => { api.get('/officina/categories-full').then(r => setCategories(r.data)).catch(() => undefined) }
   useEffect(() => { load() }, [])
-
-  const openCreate = () => { setEditing(null); setShowForm(true) }
-  const openEdit = (c: OfficinaCategory) => { setEditing(c); setShowForm(true) }
 
   const confirmDelete = async () => {
     if (!pendingDelete) return
@@ -49,115 +41,87 @@ export default function OfficinaHub() {
 
   if (!canRead) return null
 
+  const Tile = ({ Icon, title, desc, onClick, children }: {
+    Icon: LucideIcon; title: string; desc: string; onClick: () => void; children?: React.ReactNode
+  }) => (
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex h-full w-full items-center gap-3.5 rounded-[14px] border border-border bg-card p-[18px] text-left transition-all hover:border-officina/[0.45] hover:shadow-[0_2px_10px_rgba(0,0,0,0.05)]"
+      >
+        <div className="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-[11px] bg-officina/[0.13] text-officina">
+          <Icon className="h-[21px] w-[21px]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14.5px] font-semibold text-foreground">{title}</div>
+          <div className="truncate text-[12.5px] text-muted-foreground">{desc}</div>
+        </div>
+        <ChevronRight className="h-[18px] w-[18px] flex-none text-muted-foreground" />
+      </button>
+      {children}
+    </div>
+  )
+
   return (
-    <PageContainer>
-      <SettingsPageHeader
-        icon={Factory}
-        color="emerald"
-        title="Officina"
-        subtitle="Documentazione operativa per il personale di produzione"
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Card fisse */}
-        <Link to="/officina/materiali" className="block">
-          <Card className="hover:bg-primary/10/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-start gap-3">
-              <div className="shrink-0 mt-0.5">
-                <Box className="w-7 h-7 text-primary" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-foreground">Materiali</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Catalogo materiali con schede tecniche PDF.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/officina/documenti" className="block">
-          <Card className="hover:bg-primary/10/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-start gap-3">
-              <div className="shrink-0 mt-0.5">
-                <FileText className="w-7 h-7 text-primary" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-foreground">Tutti i documenti</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Vista completa: PDF, Word, Excel, immagini, DXF.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link to="/officina/tempra" className="block">
-          <Card className="hover:bg-primary/10/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-start gap-3">
-              <div className="shrink-0 mt-0.5">
-                <Flame className="w-7 h-7 text-primary" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-foreground">Tempra e deformazioni</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Registro misure pre/post tempra e deformazioni rilevate.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        {/* Card dinamiche per ogni categoria */}
-        {categories.map(c => {
-          const Icon = getIcon(c.icon)
-          return (
-            <div key={c.id} className="relative group">
-              <Link to={`/officina/documenti?category=${encodeURIComponent(c.name)}`} className="block">
-                <Card className="hover:bg-primary/10/50 hover:border-blue-200 transition-colors cursor-pointer h-full">
-                  <CardContent className="p-4 flex items-start gap-3">
-                    <div className="shrink-0 mt-0.5">
-                      <Icon className="w-7 h-7 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="font-semibold text-foreground truncate">{c.name}</h2>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        Documenti categoria "{c.name}".
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-              {canManageCategories && (
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                  <button
-                    onClick={e => { e.preventDefault(); openEdit(c) }}
-                    className="p-1 bg-card border border-border hover:bg-muted rounded shadow-sm"
-                    title="Modifica categoria"
-                  >
-                    <Pencil className="w-3.5 h-3.5 text-blue-600" />
-                  </button>
-                  <button
-                    onClick={e => { e.preventDefault(); setPendingDelete(c) }}
-                    className="p-1 bg-card border border-border hover:bg-red-50 rounded shadow-sm"
-                    title="Elimina categoria"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )
-        })}
+    <StandardPage
+      icon={Factory}
+      color="officina"
+      width="xl"
+      title="Officina"
+      subtitle="Documentazione operativa per il personale di produzione"
+    >
+      {/* Sezioni fisse */}
+      <div>
+        <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sezioni</h2>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          <Tile Icon={Box} title="Materiali" desc="Catalogo materiali con schede tecniche PDF." onClick={() => navigate('/officina/materiali')} />
+          <Tile Icon={FileText} title="Tutti i documenti" desc="PDF, Word, Excel, immagini e DXF." onClick={() => navigate('/officina/documenti')} />
+          <Tile Icon={Flame} title="Tempra e deformazioni" desc="Registro misure pre/post tempra." onClick={() => navigate('/officina/tempra')} />
+        </div>
       </div>
 
-      {canManageCategories && (
-        <div className="pt-2">
-          <Button size="sm" variant="outline" onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-1" /> Nuova categoria
-          </Button>
+      {/* Categorie documenti */}
+      <div>
+        <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Categorie documenti</h2>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map(c => {
+            const Icon = getIcon(c.icon)
+            return (
+              <Tile
+                key={c.id}
+                Icon={Icon}
+                title={c.name}
+                desc={`Documenti della categoria "${c.name}".`}
+                onClick={() => navigate(`/officina/documenti?category=${encodeURIComponent(c.name)}`)}
+              >
+                {canManageCategories && (
+                  <div className="absolute right-2.5 top-2.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button onClick={() => { setEditing(c); setShowForm(true) }}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground shadow-sm hover:text-foreground" title="Modifica categoria">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setPendingDelete(c)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground shadow-sm hover:text-danger" title="Elimina categoria">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </Tile>
+            )
+          })}
+
+          {canManageCategories && (
+            <button
+              type="button"
+              onClick={() => { setEditing(null); setShowForm(true) }}
+              className="flex h-full min-h-[80px] items-center justify-center gap-2 rounded-[14px] border border-dashed border-border p-[18px] text-sm font-medium text-muted-foreground transition-colors hover:border-officina/[0.45] hover:text-officina"
+            >
+              <FolderPlus className="h-[18px] w-[18px]" /> Nuova categoria
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {showForm && (
         <CategoryFormModal
@@ -175,6 +139,6 @@ export default function OfficinaHub() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </PageContainer>
+    </StandardPage>
   )
 }

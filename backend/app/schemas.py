@@ -455,6 +455,9 @@ class QuoteOut(QuoteBase):
     material_ordered_at: Optional[datetime] = None
     material_ordered_by_user_id: Optional[int] = None
     material_ordered_by: Optional[UserMinimal] = None
+    # B1: totale finale persistito (Σ parti + trasporto + imballaggio − sconto;
+    # stampi = L7). NULL per preventivi mai ricalcolati dopo la migrazione.
+    final_total: Optional[float] = None
     created_at: datetime
     updated_at: datetime
     parts: List[PartOut] = []

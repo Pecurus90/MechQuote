@@ -78,6 +78,13 @@ class Quote(Base):
     global_discount_percent = Column(Float, default=0.0)
     transport_cost = Column(Float, default=0.0)
     packaging_cost = Column(Float, default=0.0)
+    # Totale finale del preventivo PERSISTITO (B1). Standard: Σ prezzi parte +
+    # trasporto + imballaggio − sconto globale. Stampi: L5 (cost_industrial) ×
+    # margine (L6) × sconto (L7). Ricalcolato da recalculate_quote e da
+    # update_quote quando cambiano i campi di prezzo. Fonte unica per
+    # archivio/dashboard: prima ognuno lo ricalcolava a modo suo (l'archivio
+    # ignorava lo sconto → cifra diversa dal PDF). NULL = mai ricalcolato.
+    final_total = Column(Float, nullable=True)
     notes_customer = Column(Text)
     notes_internal = Column(Text)
     # Spec 18: bozza|inviato|letto|in_attesa_cliente|confermato|completo|

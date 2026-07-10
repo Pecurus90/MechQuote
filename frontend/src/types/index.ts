@@ -237,6 +237,8 @@ export interface Quote {
   // Sprint G — tracking storico (popolabili solo su status='completo')
   sold_price?: number | null
   actual_cost?: number | null
+  // B1 — totale finale persistito dal backend (fonte unica archivio/dashboard).
+  final_total?: number | null
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
@@ -424,6 +426,10 @@ export interface QuoteListItem {
   status: string
   global_margin_percent?: number
   global_discount_percent?: number
+  transport_cost?: number
+  packaging_cost?: number
+  // B1 — totale finale persistito dal backend (fonte unica archivio/dashboard).
+  final_total?: number | null
   created_by_user_id?: number | null
   material_ordered_at?: string | null
   material_ordered_by?: UserMinimal | null

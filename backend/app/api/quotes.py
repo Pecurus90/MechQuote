@@ -16,7 +16,11 @@ from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate, Q
 from app.core.quote_types import is_die
 from app.services import quote_workflow as wf
 from app.services.material_status import unassigned_supplier_parts
-from app.services.calculation import recalculate_part
+from app.services.calculation import (
+    recalculate_part,
+    recalculate_quote as svc_recalculate_quote,
+    recompute_final_total,
+)
 from app.services.notifications import create_notification
 
 logger = logging.getLogger(__name__)
@@ -610,6 +614,20 @@ def update_quote(
     for key, value in payload.items():
         setattr(quote, key, value)
     db.commit()
+
+    # B1 — mantieni `final_total` allineato ai campi di prezzo appena scritti.
+    # Il margine globale su preventivi standard cambia i totali PARTE (fallback
+    # margine): serve un recalc completo. Sconto/trasporto/imballaggio (e il
+    # margine sugli stampi, che agisce solo su L6) non toccano le parti → basta
+    # ricalcolare il totale. Il ramo closeout-only non cambia prezzi: skip.
+    if not closeout_only:
+        pricing_fields = {'global_discount_percent', 'transport_cost',
+                          'packaging_cost', 'global_margin_percent'}
+        if payload.keys() & pricing_fields:
+            if 'global_margin_percent' in payload and not is_die(quote):
+                svc_recalculate_quote(quote_id, db)
+            else:
+                recompute_final_total(quote_id, db)
     return _load_quote(quote_id, db)
 
 

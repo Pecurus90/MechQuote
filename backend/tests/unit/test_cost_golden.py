@@ -416,6 +416,32 @@ def test_scale_canary(db_session):
             f"Part {p.part_code}: total_price={p.total_price} atteso={can['expected_total_price_per_part']}"
 
 
+def test_final_total_persisted_standard(db_session):
+    """B1 — recalculate_quote persiste quote.final_total = Σ prezzi parte +
+    trasporto + imballaggio − sconto globale (fonte unica archivio/dashboard)."""
+    quote = Quote(quote_number="FT-26X_001", quote_type="single",
+                  global_margin_percent=0.0, global_discount_percent=10.0,
+                  transport_cost=50.0, packaging_cost=30.0)
+    db_session.add(quote); db_session.flush()
+    machine = Machine(name="M-final-total", hourly_rate=60.0)
+    db_session.add(machine); db_session.flush()
+    for code in ("A", "B"):
+        part = Part(quote_id=quote.id, part_code=code, quantity=1, minimum_price=0.0)
+        db_session.add(part); db_session.flush()
+        db_session.add(ManufacturingPhase(
+            part_id=part.id, sequence_number=10, phase_type="manual",
+            machine_id=machine.id, setup_hours=0, cycle_hours_per_part=1.0,
+            fixed_cost=0, variable_cost_per_part=0))
+    db_session.flush()
+
+    recalculate_quote(quote.id, db_session)
+    db_session.expire_all()
+    quote = db_session.query(Quote).filter(Quote.id == quote.id).first()
+    # margine 0 → ogni parte = 1h × 60 = 60; Σ = 120; +80 trasporto/imballaggio
+    # = 200; −10% sconto = 180.
+    assert abs((quote.final_total or 0) - 180.0) < EUR
+
+
 # ─── Regressivi su bug già corretti ────────────────────────────────────────
 
 @pytest.mark.parametrize("case", CASES['regression_already_fixed'], ids=lambda c: c['id'])

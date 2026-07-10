@@ -11,7 +11,7 @@ def _fake_quote(**kw):
         status='confermato', quote_type='single',
         material_ordered_at=None, material_ordered_by_user_id=None,
         completed_at=None, completed_by_user_id=None,
-        sold_price=None, actual_cost=None,
+        sold_price=None, actual_cost=None, final_total=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -46,20 +46,38 @@ def test_maybe_complete_die_confirmed_goes_complete():
     die = SimpleNamespace(
         status='confermato', quote_type='die',
         completed_at=None, completed_by_user_id=None,
+        sold_price=None, final_total=1234.0,
     )
     assert wf.maybe_complete(None, die, actor_id=7) is True
     assert die.status == 'completo'
     assert die.completed_by_user_id == 7
     assert die.completed_at is not None
+    # B2 — al completamento il venduto viene inizializzato col preventivato.
+    assert die.sold_price == 1234.0
 
 
 def test_maybe_complete_noop_when_not_confirmed():
     die = SimpleNamespace(
         status='letto', quote_type='die',
         completed_at=None, completed_by_user_id=None,
+        sold_price=None, final_total=1234.0,
     )
     assert wf.maybe_complete(None, die, actor_id=7) is False
     assert die.status == 'letto'
+    # Nessun passaggio a completo → il venduto non viene toccato.
+    assert die.sold_price is None
+
+
+def test_autofill_sold_price_preserves_manual_value():
+    # B2 — se il venduto è già stato compilato a mano, il completamento non lo
+    # sovrascrive col preventivato.
+    die = SimpleNamespace(
+        status='confermato', quote_type='die',
+        completed_at=None, completed_by_user_id=None,
+        sold_price=999.0, final_total=1234.0,
+    )
+    assert wf.maybe_complete(None, die, actor_id=7) is True
+    assert die.sold_price == 999.0
 
 
 # ─── reconcile_material_state (radice asse materiale) ───────────────────────

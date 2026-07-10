@@ -177,13 +177,20 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   }
 
   const quoteTotal = (q: Quote): number => {
+    // B1: usa il totale persistito dal backend (fonte unica, allineato al PDF:
+    // Σ parti + trasporto + imballaggio − sconto; stampi = L7). Il fallback
+    // sotto (stessa formula) copre solo i preventivi mai ricalcolati dopo la
+    // migrazione, per cui final_total è ancora null.
+    if (q.final_total != null) return q.final_total
     if (q.quote_type === 'die' && q.die_spec) {
       const ind = q.die_spec.cost_industrial || 0
       const margin = q.global_margin_percent || 0
       const discount = q.global_discount_percent || 0
       return ind * (1 + margin / 100) * (1 - discount / 100)
     }
-    return q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
+    const sum = q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
+    const after = sum + (q.transport_cost || 0) + (q.packaging_cost || 0)
+    return after * (1 - (q.global_discount_percent || 0) / 100)
   }
 
   // ─── props presentazionali ───────────────────────────────────────────────

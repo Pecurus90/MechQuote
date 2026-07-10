@@ -13,7 +13,48 @@ from app.services.costing.primitives import (
     material_cost as _compute_material_cost,
     raw_volume_dm3 as _raw_volume_dm3,
     raw_weight_kg as _raw_weight_kg,
+    quote_total as _quote_total,
 )
+
+
+def _apply_quote_final_total(quote: Quote, parts) -> None:
+    """Calcola e persiste `quote.final_total` (B1) — la fonte unica del totale.
+
+    Standard: Σ prezzi parte + trasporto + imballaggio − sconto globale (gemello
+    di `quoteCalc.calcQuoteTotal`). Stampi: L5 (`cost_industrial`, già con
+    override matita) × margine (L6) × sconto (L7), come UI/PDF. Va chiamata
+    DOPO che i totali parte / i livelli die sono aggiornati.
+    """
+    if is_die(quote):
+        spec = quote.die_spec
+        industrial = (spec.cost_industrial or 0.0) if spec else 0.0
+        with_margin = industrial * (1 + (quote.global_margin_percent or 0.0) / 100)
+        quote.final_total = round(with_margin * (1 - (quote.global_discount_percent or 0.0) / 100), 2)
+    else:
+        parts_sum = sum((p.total_price or 0.0) for p in parts)
+        quote.final_total = _quote_total(
+            parts_total_price_sum=parts_sum,
+            transport_cost=quote.transport_cost,
+            packaging_cost=quote.packaging_cost,
+            global_discount_percent=quote.global_discount_percent,
+        )
+
+
+def recompute_final_total(quote_id: int, db: Session) -> None:
+    """Ricalcola SOLO `final_total` (senza toccare i totali parte) e committa.
+
+    Usato da `update_quote` quando cambiano campi di prezzo a livello preventivo
+    (sconto/trasporto/imballaggio, e margine per gli stampi) che non richiedono
+    un recalc completo delle parti. Per il margine su preventivi standard il
+    chiamante usa invece `recalculate_quote` (i totali parte dipendono dal
+    margine globale).
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        return
+    parts = db.query(Part).filter(Part.quote_id == quote_id).all()
+    _apply_quote_final_total(quote, parts)
+    db.commit()
 
 
 def _compute_edm_hours_pure(
@@ -147,6 +188,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         # così l'utente vede una stima anche prima di aggiungere le piastre.
         if is_die(quote):
             _recalculate_die_levels(quote, [], db)
+            _apply_quote_final_total(quote, [])
             db.commit()
         return
 
@@ -385,6 +427,9 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
     # aggrega L2-L5 nello snapshot DieSpec. La commit finale è sotto.
     if is_die(quote):
         _recalculate_die_levels(quote, parts, db)
+
+    # B1 — totale finale persistito (fonte unica archivio/dashboard).
+    _apply_quote_final_total(quote, parts)
 
     db.commit()
 

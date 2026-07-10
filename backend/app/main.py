@@ -896,6 +896,10 @@ def _run_migrations():
         "SELECT r.id, 'sales.direct' FROM roles r "
         "WHERE r.name = 'ufficio_tecnico' "
         "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'sales.direct')",
+        # B1: totale finale preventivo persistito (fonte unica archivio/dashboard).
+        # Popolato al primo recalculate_quote di ogni preventivo; NULL per i
+        # preventivi mai ricalcolati dopo la migrazione (fallback client).
+        "ALTER TABLE quotes ADD COLUMN final_total FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

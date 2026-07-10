@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import {
+  Cog, FileText, Drill, Truck, UserRound, LockKeyhole, Eye, EyeOff, LogIn, LoaderCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { setUser } = useAuth()
@@ -19,67 +21,102 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await api.post('/auth/login', new URLSearchParams({ username, password }), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
       localStorage.setItem('token', res.data.access_token)
       const me = await api.get('/auth/me')
       setUser(me.data)
       navigate('/')
     } catch (e) {
-      // Mostra il messaggio dal backend (es. 429 rate limit, 403 disattivato),
-      // fallback al generico "Credenziali non valide" su 401
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Credenziali non valide')
+      // Preferisci il messaggio del backend (già localizzato); fallback per stato.
+      const err = e as { response?: { status?: number; data?: { detail?: string } } }
+      const byStatus: Record<number, string> = {
+        401: 'Credenziali non valide',
+        429: 'Troppi tentativi, riprova tra poco',
+        403: 'Account disattivato, contatta l\'amministratore',
+      }
+      const status = err?.response?.status
+      toast.error(err?.response?.data?.detail || (status && byStatus[status]) || 'Credenziali non valide')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 px-4">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=&quot;60&quot; height=&quot;60&quot; viewBox=&quot;0 0 60 60&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cg fill=&quot;none&quot; fill-rule=&quot;evenodd&quot;%3E%3Cg fill=&quot;%239C92AC&quot; fill-opacity=&quot;0.05&quot;%3E%3Cpath d=&quot;M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z&quot;/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40" />
+  // Superficie "tecnica" scura, COSTANTE in entrambi i temi (non tokenizzata).
+  const brandBg: React.CSSProperties = {
+    backgroundColor: 'hsl(220 25% 11%)',
+    backgroundImage: [
+      'radial-gradient(circle at 12% 14%, hsl(217 91% 60% / 0.16), transparent 42%)',
+      'linear-gradient(hsl(217 40% 40% / 0.14) 1px, transparent 1px)',
+      'linear-gradient(90deg, hsl(217 40% 40% / 0.14) 1px, transparent 1px)',
+    ].join(', '),
+    backgroundSize: '100% 100%, 36px 36px, 36px 36px',
+  }
 
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-0">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.75 15.75l-.557-.278a2 2 0 00-1.022.547m0 0a2 2 0 011.022.547l.557.278m0 0a2 2 0 001.022.547m0 0l.557.278m0 0a2 2 0 001.022.547m0 0l2.387.477a6 6 0 003.86-.517l.318-.158m0 0a6 6 0 013.86-.517l2.387.477" />
-            </svg>
+  return (
+    <div className="min-h-screen bg-background md:grid md:grid-cols-[1.1fr_1fr]">
+      {/* Pannello brand — scuro fisso */}
+      <div style={brandBg} className="relative flex flex-col justify-between px-8 py-8 text-white md:px-12 md:py-14">
+        <div className="flex items-center gap-3">
+          <div className="flex h-[46px] w-[46px] items-center justify-center rounded-xl" style={{ backgroundColor: 'hsl(217 91% 60%)' }}>
+            <Cog className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">MechQuote</CardTitle>
-          <CardDescription className="text-gray-500">Fratelli Dalla Via</CardDescription>
-        </CardHeader>
-        <CardContent>
+          <div>
+            <div className="text-[21px] font-bold leading-none">MechQuote</div>
+            <div className="mt-1 text-[12px] text-white/55">Fratelli Dalla Via · lavorazioni meccaniche di precisione</div>
+          </div>
+        </div>
+
+        <div className="hidden md:block">
+          <div className="space-y-1.5 font-mono text-[12px] text-white/45">
+            <div className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> preventivazione tecnica</div>
+            <div className="flex items-center gap-2"><Drill className="h-3.5 w-3.5" /> anagrafica utensili &amp; magazzino</div>
+            <div className="flex items-center gap-2"><Truck className="h-3.5 w-3.5" /> ordini materiali e utensili</div>
+          </div>
+          <div className="my-4 h-px w-full bg-white/10" />
+          <div className="text-[12px] text-white/40">Strumento interno · accesso riservato al personale</div>
+        </div>
+      </div>
+
+      {/* Pannello form — sui token, segue il tema */}
+      <div className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[360px]">
+          <h1 className="text-[20px] font-bold text-foreground">Accedi</h1>
+          <p className="mb-6 mt-1 text-sm text-muted-foreground">Inserisci le tue credenziali per continuare.</p>
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Username</label>
-              <Input
-                type="text"
-                placeholder="Inserisci username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
+              <label className="mb-1 block text-[12px] font-medium text-foreground">Username</label>
+              <div className="relative">
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
+                <Input type="text" placeholder="Il tuo username" value={username}
+                  onChange={e => setUsername(e.target.value)} required autoFocus
+                  className="h-11 pl-10" />
+              </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Password</label>
-              <Input
-                type="password"
-                placeholder="Inserisci password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <label className="mb-1 block text-[12px] font-medium text-foreground">Password</label>
+              <div className="relative">
+                <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
+                <Input type={showPw ? 'text' : 'password'} placeholder="La tua password" value={password}
+                  onChange={e => setPassword(e.target.value)} required
+                  className="h-11 pl-10 pr-10" />
+                <button type="button" onClick={() => setShowPw(v => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                  title={showPw ? 'Nascondi' : 'Mostra'}>
+                  {showPw ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                </button>
+              </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Accesso...' : 'Accedi'}
-            </Button>
+            <button type="submit" disabled={loading}
+              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[10px] bg-primary text-sm font-semibold text-primary-foreground transition-[filter] hover:brightness-110 disabled:opacity-70">
+              {loading
+                ? <><LoaderCircle className="h-[18px] w-[18px] animate-spin" /> Accesso…</>
+                : <><LogIn className="h-[18px] w-[18px]" /> Accedi</>}
+            </button>
           </form>
-          <p className="text-xs text-center text-gray-400 mt-4">
-            Inserisci le tue credenziali per accedere al sistema di preventivi
-          </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

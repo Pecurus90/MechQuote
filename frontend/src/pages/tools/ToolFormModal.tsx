@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { X } from 'lucide-react'
+import { X, Drill } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -40,6 +39,9 @@ const fromTool = (t: Tool | null): FormState => ({
   active: t?.active ?? true,
 })
 
+const selectCls = 'flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm'
+const labelCls = 'mb-1 block text-[12px] font-medium text-foreground'
+
 /** Dropdown vincolato + fallback testuale per valori legacy non più in catalogo. */
 function AttributeSelect({
   value, options, onChange, placeholder,
@@ -54,19 +56,15 @@ function AttributeSelect({
   if (isLegacy) {
     return (
       <div className="flex gap-1">
-        <Input value={value} readOnly className="bg-amber-50" title="Valore non in catalogo — modificalo per riallinearti" />
+        <Input value={value} readOnly className="bg-warning/10" title="Valore fuori catalogo — modificalo per riallinearti" />
         <button type="button" onClick={() => onChange('')} className="px-2 text-muted-foreground hover:text-foreground" title="Pulisci e scegli dal catalogo">
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
       </div>
     )
   }
   return (
-    <select
-      className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-    >
+    <select className={selectCls} value={value} onChange={e => onChange(e.target.value)}>
       <option value="">{placeholder ?? '— Seleziona —'}</option>
       {activeNames.map(n => <option key={n} value={n}>{n}</option>)}
     </select>
@@ -121,81 +119,97 @@ export default function ToolFormModal({ tool, types, brands, suppliers, onClose,
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl bg-card shadow-xl">
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="font-semibold">{tool ? 'Modifica' : 'Nuovo'} Utensile</h3>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
-            <X className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-[560px] overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-tools/[0.14] text-tools">
+              <Drill className="h-[17px] w-[17px]" />
+            </div>
+            <h3 className="font-semibold text-foreground">{tool ? 'Modifica utensile' : 'Nuovo utensile'}</h3>
+          </div>
+          <button onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X className="h-4 w-4" />
           </button>
         </div>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="text-sm font-medium">Codice *</label>
-              <Input className="font-mono" value={form.code} onChange={e => set('code', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Tipo</label>
-              <AttributeSelect value={form.tool_type} options={types}
-                onChange={v => set('tool_type', v)} placeholder="— Seleziona —" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Marchio</label>
-              <AttributeSelect value={form.brand} options={brands}
-                onChange={v => set('brand', v)} placeholder="— Seleziona —" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Modello</label>
-              <Input value={form.model} onChange={e => set('model', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Diametro (mm)</label>
-              <Input type="number" step="0.01" value={form.diameter_mm} onChange={e => set('diameter_mm', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Raggio torico (mm)</label>
-              <Input type="number" step="0.01" value={form.toroidal_mm} onChange={e => set('toroidal_mm', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Quantità</label>
-              <Input type="number" min={0} value={form.quantity} onChange={e => set('quantity', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Quantità minima</label>
-              <Input type="number" min={0} value={form.minimum_quantity} onChange={e => set('minimum_quantity', e.target.value)} />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Posizione</label>
-              <Input value={form.location} onChange={e => set('location', e.target.value)} placeholder="es. 1-C-2" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Fornitore</label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-                value={form.tool_supplier_id} onChange={e => set('tool_supplier_id', e.target.value)}
-              >
-                <option value="">Nessuno</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div className="col-span-2">
-              <label className="text-sm font-medium">Note</label>
-              <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
-            </div>
-            <div className="col-span-2">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4" />
-                Attivo
-              </label>
-            </div>
+
+        <div className="grid grid-cols-2 gap-x-3.5 gap-y-3 px-5 py-4">
+          <div className="col-span-2">
+            <label className={labelCls}>Codice *</label>
+            <Input className="font-mono" value={form.code} onChange={e => set('code', e.target.value)} />
           </div>
-          <div className="flex gap-2 mt-5">
-            <PrimaryCtaButton color="violet" onClick={handleSave} disabled={saving}>Salva</PrimaryCtaButton>
+          <div>
+            <label className={labelCls}>Tipo</label>
+            <AttributeSelect value={form.tool_type} options={types} onChange={v => set('tool_type', v)} />
+          </div>
+          <div>
+            <label className={labelCls}>Marchio</label>
+            <AttributeSelect value={form.brand} options={brands} onChange={v => set('brand', v)} />
+          </div>
+          <div className="col-span-2">
+            <label className={labelCls}>Modello</label>
+            <Input value={form.model} onChange={e => set('model', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Diametro (mm)</label>
+            <Input type="number" step="0.01" className="font-mono" value={form.diameter_mm} onChange={e => set('diameter_mm', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Raggio torico (mm)</label>
+            <Input type="number" step="0.01" className="font-mono" value={form.toroidal_mm} onChange={e => set('toroidal_mm', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Quantità</label>
+            <Input type="number" min={0} className="font-mono" value={form.quantity} onChange={e => set('quantity', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Quantità minima</label>
+            <Input type="number" min={0} className="font-mono" value={form.minimum_quantity} onChange={e => set('minimum_quantity', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Posizione</label>
+            <Input className="font-mono" value={form.location} onChange={e => set('location', e.target.value)} placeholder="es. 1-C-2" />
+          </div>
+          <div>
+            <label className={labelCls}>Fornitore</label>
+            <select className={selectCls} value={form.tool_supplier_id} onChange={e => set('tool_supplier_id', e.target.value)}>
+              <option value="">Nessuno</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className={labelCls}>Note</label>
+            <Input value={form.notes} onChange={e => set('notes', e.target.value)} />
+          </div>
+
+          {/* Attivo — switch in box card-muted */}
+          <div className="col-span-2 flex items-center justify-between rounded-[10px] bg-card-muted px-3.5 py-3">
+            <div className="pr-4">
+              <div className="text-sm font-medium text-foreground">Attivo</div>
+              <div className="text-[11px] text-muted-foreground">Se spento l'utensile è "ritirato" e resta in archivio, non più selezionabile.</div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.active}
+              onClick={() => set('active', !form.active)}
+              className={`relative h-6 w-11 flex-none rounded-full transition-colors ${form.active ? 'bg-tools' : 'bg-input'}`}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${form.active ? 'left-[22px]' : 'left-0.5'}`} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border bg-card-muted px-5 py-3">
+          <span className="text-[11px] text-muted-foreground">Tipo e Marchio si scelgono dal catalogo utensili.</span>
+          <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} disabled={saving}>Annulla</Button>
+            <PrimaryCtaButton color="tools" onClick={handleSave} disabled={saving}>
+              {saving ? 'Salvataggio…' : 'Salva utensile'}
+            </PrimaryCtaButton>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

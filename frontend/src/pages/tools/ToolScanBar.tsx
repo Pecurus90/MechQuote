@@ -1,15 +1,15 @@
 import { useRef, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { ScanBarcode, Barcode, PlusCircle, MinusCircle, Keyboard } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { Tool } from '@/types'
 
 type ScanMode = 'load' | 'unload'
 
-// Barra scan codice a barre: +1 / -1 quantità per ogni "sparo". Auto-contenuta:
-// gestisce modalità, input e refocus per scan rapidi consecutivi.
+// Barra scan codice a barre (protagonista): +1 / -1 quantità per ogni "sparo".
+// Auto-contenuta: gestisce modalità, input e refocus per scan rapidi consecutivi.
+// Tutto da tastiera — pensata per l'uso al bancone con la pistola barcode.
 export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
   const [scanMode, setScanMode] = useState<ScanMode>('unload')
   const [scanCode, setScanCode] = useState('')
@@ -22,10 +22,13 @@ export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
     try {
       const res = await api.post('/tools/scan', { code, mode: scanMode, quantity: 1 })
       const t = res.data as Tool
-      const symbol = scanMode === 'load' ? '+1' : '−1'
-      toast.success(`${t.code}: ${symbol} → qty ${t.quantity}`, {
-        description: t.quantity < t.minimum_quantity ? `⚠ Sotto minimo (${t.minimum_quantity})` : undefined,
-      })
+      const symbol = scanMode === 'load' ? 'carico +1' : 'scarico −1'
+      const below = t.quantity < t.minimum_quantity && t.minimum_quantity > 0
+      if (below) {
+        toast.warning(`${t.code} · ${symbol} → ${t.quantity} / ${t.minimum_quantity} sotto scorta minima`)
+      } else {
+        toast.success(`${t.code} · ${symbol} → quantità ${t.quantity}`)
+      }
       setScanCode('')
       onScanned()
     } catch (e) {
@@ -37,45 +40,54 @@ export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
     }
   }
 
+  const segBtn = (mode: ScanMode, active: string, label: string, Icon: typeof PlusCircle) => (
+    <button
+      type="button"
+      onClick={() => { setScanMode(mode); scanInputRef.current?.focus() }}
+      className={`flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+        scanMode === mode ? `${active} text-white shadow-sm` : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <Icon className="h-4 w-4" /> {label}
+    </button>
+  )
+
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex border rounded-md overflow-hidden shrink-0">
-            <button
-              type="button"
-              onClick={() => setScanMode('load')}
-              className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                scanMode === 'load' ? 'bg-green-600 text-white' : 'bg-card text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              <ArrowUp className="w-4 h-4" /> Carico
-            </button>
-            <button
-              type="button"
-              onClick={() => setScanMode('unload')}
-              className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                scanMode === 'unload' ? 'bg-rose-600 text-white' : 'bg-card text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              <ArrowDown className="w-4 h-4" /> Scarico
-            </button>
+    <div className="rounded-[14px] border border-tools/[0.35] bg-tools/[0.06] px-4 py-[18px]">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-tools/[0.14] text-tools">
+            <ScanBarcode className="h-[18px] w-[18px]" />
           </div>
-          <form onSubmit={handleScan} className="flex-1 min-w-[260px]">
-            <Input
-              ref={scanInputRef}
-              value={scanCode}
-              onChange={e => setScanCode(e.target.value)}
-              placeholder={scanMode === 'load' ? 'Spara il codice per AGGIUNGERE 1 pz...' : 'Spara il codice per RIMUOVERE 1 pz...'}
-              autoFocus
-              className="h-11 text-base font-mono"
-            />
-          </form>
-          <span className="text-xs text-muted-foreground">
-            Pistola barcode → premi Enter per confermare automaticamente
-          </span>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold text-foreground">Scansione rapida</div>
+            <div className="text-[11px] text-muted-foreground">Enter conferma · il campo si rimette a fuoco da solo</div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Toggle segmentato Carico / Scarico */}
+        <div className="flex flex-none gap-1 rounded-[10px] bg-muted p-[3px]">
+          {segBtn('load', 'bg-success', 'Carico +1', PlusCircle)}
+          {segBtn('unload', 'bg-danger', 'Scarico −1', MinusCircle)}
+        </div>
+
+        {/* Campo scan */}
+        <form onSubmit={handleScan} className="relative min-w-[240px] flex-1">
+          <Barcode className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
+          <Input
+            ref={scanInputRef}
+            value={scanCode}
+            onChange={e => setScanCode(e.target.value)}
+            placeholder="Spara il codice a barre…"
+            autoFocus
+            className="h-11 pl-10 font-mono text-[15px]"
+          />
+        </form>
+
+        <span className="flex flex-none items-center gap-1.5 text-xs text-muted-foreground">
+          <Keyboard className="h-4 w-4" /> Tutto da tastiera
+        </span>
+      </div>
+    </div>
   )
 }

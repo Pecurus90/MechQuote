@@ -49,6 +49,10 @@
     --danger: 0 74% 50%;
     --info: 214 90% 52%;
     --confirmed: 262 78% 56%;
+
+    /* Accenti d'area (handoff Utensili/Vendite/Login) */
+    --tools: 262 78% 56%;   /* Utensili (viola, = confirmed) */
+    --sales: 152 60% 36%;   /* Vendite dirette (smeraldo) */
   }
 
   .dark {
@@ -87,6 +91,9 @@
     --danger: 0 78% 63%;
     --info: 213 93% 66%;
     --confirmed: 263 84% 72%;
+
+    --tools: 263 84% 72%;
+    --sales: 152 55% 55%;
   }
 
   * {

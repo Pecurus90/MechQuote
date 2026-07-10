@@ -6,6 +6,7 @@ import type { LucideIcon } from 'lucide-react'
 export type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
+  | 'tools' | 'sales'
 
 const COLOR_MAP: Record<Color, string> = {
   blue:    'bg-blue-100 text-primary',
@@ -18,6 +19,9 @@ const COLOR_MAP: Record<Color, string> = {
   orange:  'bg-orange-100 text-orange-700',
   sky:     'bg-sky-100 text-sky-700',
   red:     'bg-red-100 text-red-700',
+  // Accenti d'area token-based (dark-aware, handoff).
+  tools:   'bg-tools/[0.13] text-tools',
+  sales:   'bg-sales/[0.13] text-sales',
 }
 
 interface Props {

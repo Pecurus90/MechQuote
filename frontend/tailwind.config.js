@@ -40,6 +40,8 @@ export default {
         danger: 'hsl(var(--danger) / <alpha-value>)',
         info: 'hsl(var(--info) / <alpha-value>)',
         confirmed: 'hsl(var(--confirmed) / <alpha-value>)',
+        tools: 'hsl(var(--tools) / <alpha-value>)',
+        sales: 'hsl(var(--sales) / <alpha-value>)',
         popover: {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',

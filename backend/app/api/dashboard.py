@@ -875,6 +875,11 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
     Confronto mese per mese di quanto è costato vs quanto ha reso. Le
     statistiche più profonde (per stato/categoria) vivono nella sezione
     Statistiche, non qui.
+
+    Convenzione (B4): preventivi con `sold_price` e vendite dirette sono
+    sorgenti MUTUAMENTE ESCLUSIVE per lo stesso ricavo — un preventivo venduto
+    NON va anche registrato come vendita diretta, altrimenti il mese conta due
+    volte. Non c'è un vincolo tecnico che lo impedisca: è una regola d'uso.
     """
     rows = db.execute(text(
         """

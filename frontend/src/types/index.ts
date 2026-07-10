@@ -239,6 +239,8 @@ export interface Quote {
   actual_cost?: number | null
   // B1 — totale finale persistito dal backend (fonte unica archivio/dashboard).
   final_total?: number | null
+  // Versione dell'aggregato per il rilevamento concorrenza (bump a ogni modifica).
+  updated_at?: string
   notes_customer?: string
   notes_internal?: string
   parts: Part[]

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
+from app.core.database import utc_now
 from app.models import (
     Part, ManufacturingPhase, Quote, Material, Machine,
     EdmConfig, EdmCutSpeed, CuttingCycle, Treatment, MaterialSupplier, Supplier,
@@ -189,6 +190,7 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
         if is_die(quote):
             _recalculate_die_levels(quote, [], db)
             _apply_quote_final_total(quote, [])
+            quote.updated_at = utc_now()
             db.commit()
         return
 
@@ -430,6 +432,13 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
 
     # B1 — totale finale persistito (fonte unica archivio/dashboard).
     _apply_quote_final_total(quote, parts)
+
+    # Optimistic locking: `updated_at` è la versione dell'INTERO aggregato
+    # preventivo (parti + fasi comprese). Bump esplicito qui — che scriviamo una
+    # parte o una fase, il ricalcolo passa sempre di qui — così l'editor può
+    # rilevare che un'altra persona ha modificato e avvisare prima di
+    # sovrascrivere (last-write-wins silente, spec Blocco B).
+    quote.updated_at = utc_now()
 
     db.commit()
 

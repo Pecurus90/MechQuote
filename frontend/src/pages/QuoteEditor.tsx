@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
@@ -45,6 +45,10 @@ export default function QuoteEditor() {
   const [confirmUnconfirm, setConfirmUnconfirm] = useState(false)
   const [confirmRisky, setConfirmRisky] = useState(false)
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
+  // Rilevamento concorrenza: versione dell'aggregato vista dal server all'ultimo
+  // sync (bump a ogni modifica). `staleConflict` = un'altra persona ha modificato.
+  const serverVersion = useRef<string | undefined>(undefined)
+  const [staleConflict, setStaleConflict] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -103,6 +107,27 @@ export default function QuoteEditor() {
     } catch { toast.error('Errore nel ricaricamento del preventivo') }
   }
 
+  // Rilevamento concorrenza: polla la versione leggera dell'aggregato ogni 15s
+  // e al focus della finestra. Se il server ha una updated_at diversa da quella
+  // dell'ultimo sync, un'altra persona ha modificato il preventivo → banner
+  // (avviso, non blocco: evita i falsi conflitti che frustrano).
+  useEffect(() => {
+    if (isNew || !id) return
+    let alive = true
+    const check = async () => {
+      try {
+        const res = await api.get(`/quotes/${id}/version`)
+        if (!alive) return
+        const v = res.data?.updated_at as string | undefined
+        if (serverVersion.current && v && v !== serverVersion.current) setStaleConflict(true)
+      } catch { /* rete assente: riprova al prossimo tick */ }
+    }
+    const timer = window.setInterval(check, 15000)
+    const onFocus = () => check()
+    window.addEventListener('focus', onFocus)
+    return () => { alive = false; window.clearInterval(timer); window.removeEventListener('focus', onFocus) }
+  }, [isNew, id])
+
   const savePart = async (idx: number, override?: Partial<Part>) => {
     if (!quote) return
     const part = { ...quote.parts[idx], ...(override ?? {}) }
@@ -130,8 +155,8 @@ export default function QuoteEditor() {
     const part = quote.parts[idx]
     if (!part.id) return
     try {
-      const res = await api.post(`/parts/${part.id}/duplicate`)
-      setQuote(q => q ? { ...q, parts: [...q.parts, { ...res.data, phases: res.data.phases || [] }] } : q)
+      await api.post(`/parts/${part.id}/duplicate`)
+      await reloadQuote()   // riallinea anche la versione dell'aggregato
       toast.success('Parte duplicata')
     } catch { toast.error('Errore nella duplicazione') }
   }
@@ -154,14 +179,19 @@ export default function QuoteEditor() {
     if (!quote?.id) return
     try {
       const partCode = `${quote.quote_number}_${String(quote.parts.length + 1).padStart(2, '0')}`
-      const res = await api.post(`/quotes/${quote.id}/parts`, { part_code: partCode })
-      const newPart = { ...res.data, phases: res.data.phases || [] }
-      setQuote(q => q ? { ...q, parts: [...q.parts, newPart] } : q)
-      setSelectedPartIdx(quote.parts.length)
+      const targetIdx = quote.parts.length
+      await api.post(`/quotes/${quote.id}/parts`, { part_code: partCode })
+      await reloadQuote()   // riallinea anche la versione dell'aggregato
+      setSelectedPartIdx(targetIdx)
     } catch { toast.error("Errore nell'aggiunta della parte") }
   }
 
   const applyQuoteData = (q: Quote & { transport_cost?: number; packaging_cost?: number; global_discount_percent?: number; validity_days?: number }) => {
+    // Sync della versione: ogni volta che riceviamo il preventivo fresco dal
+    // server (dopo un nostro salvataggio o un reload) allineiamo la versione
+    // nota, così un conflitto rilevato è sempre una modifica ALTRUI.
+    serverVersion.current = q.updated_at
+    setStaleConflict(false)
     const currentSelectedId = selectedPartIdx >= 0 ? quote?.parts?.[selectedPartIdx]?.id : null
     const newParts = (q.parts || []).map((p: Part) => ({ ...p, phases: p.phases || [] }))
     setQuote({
@@ -381,6 +411,23 @@ export default function QuoteEditor() {
         lockedText={quote.status === 'confermato' ? 'Preventivo confermato — non più modificabile.' : 'Preventivo completo — non più modificabile.'}
         onBack={() => navigate('/quotes/active')}
       />
+
+      {staleConflict && (
+        <div className="flex items-center gap-3 border-b border-warning/30 bg-warning/10 px-5 py-2.5 text-sm text-foreground">
+          <RotateCcw className="h-4 w-4 flex-none text-warning" />
+          <span className="flex-1">
+            Questo preventivo è stato modificato da un'altra persona mentre lo avevi aperto.
+            Ricarica per vedere le modifiche prima di salvare, o rischi di sovrascriverle.
+          </span>
+          <button
+            type="button"
+            onClick={reloadQuote}
+            className="flex-none rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-white transition-[filter] hover:brightness-105"
+          >
+            Ricarica
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <PartsSidebar

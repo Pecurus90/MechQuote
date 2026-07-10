@@ -226,6 +226,23 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     return quote
 
 
+@router.get("/{quote_id}/version")
+def get_quote_version(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Versione leggera dell'aggregato preventivo (`updated_at`) per il
+    rilevamento concorrenza dell'editor: polling economico senza caricare
+    parti/fasi. `updated_at` viene bumpato a ogni ricalcolo (services/calculation)
+    e a ogni PUT quote, quindi cambia per qualsiasi modifica al preventivo."""
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)
+    return {"id": quote.id, "updated_at": quote.updated_at}
+
+
 @router.patch("/{quote_id}/status", response_model=QuoteOut)
 def update_quote_status(
     quote_id: int,

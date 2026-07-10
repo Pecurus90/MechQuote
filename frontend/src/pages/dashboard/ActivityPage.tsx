@@ -2,16 +2,23 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
 import api from '@/lib/api'
 import { timeAgo } from '@/lib/timeAgo'
-import { ACTIVITY_KIND } from '@/lib/activity'
 import type { ActivityRow } from '@/types'
-import { Activity as ActivityIcon, Search } from 'lucide-react'
+import { Activity as ActivityIcon, Search, Send, PackageCheck, Truck, TriangleAlert } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 
 type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert'
+
+// Tipo evento → etichetta + icona + classi token (dark-aware), allineate all'handoff.
+const KIND: Record<string, { label: string; Icon: LucideIcon; cls: string; system?: boolean }> = {
+  quote_submitted:      { label: 'Inviato',                Icon: Send,         cls: 'bg-info/[0.13] text-info' },
+  quote_completed:      { label: 'Completato',             Icon: PackageCheck, cls: 'bg-success/[0.13] text-success' },
+  materials_ordered:    { label: 'Ordine materiale',       Icon: Truck,        cls: 'bg-info/[0.13] text-info' },
+  tools_low_stock_alert:{ label: 'Utensili sotto minimo',  Icon: TriangleAlert, cls: 'bg-warning/[0.14] text-warning', system: true },
+}
 
 export default function ActivityPage() {
   const navigate = useNavigate()
@@ -41,6 +48,9 @@ export default function ActivityPage() {
     if (quoteId) navigate(`/quotes/${quoteId}`)
   }
 
+  const rangeStart = items.length ? (page - 1) * pageSize + 1 : 0
+  const rangeEnd = (page - 1) * pageSize + items.length
+
   return (
     <StandardPage
       icon={ActivityIcon}
@@ -49,93 +59,90 @@ export default function ActivityPage() {
       title="Attività del team"
       subtitle="Log delle modifiche ai preventivi (chi, quando, cosa)"
       actions={
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="w-72">
-            <label className="text-sm font-medium text-muted-foreground mb-1 block">Cerca</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="titolo, preventivo, autore..."
-                value={search}
-                onChange={e => { setPage(1); setSearch(e.target.value) }}
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="titolo, preventivo, autore…" value={search}
+              onChange={e => { setPage(1); setSearch(e.target.value) }} className="h-9 pl-9 text-sm" />
           </div>
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1 block">Filtro tipo</label>
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={typeFilter}
-              onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}
-            >
-              <option value="all">Tutti</option>
-              <option value="quote_submitted">Inviati</option>
-              <option value="quote_completed">Completati</option>
-              <option value="materials_ordered">Ordini materiali</option>
-              <option value="tools_low_stock_alert">Utensili sotto minimo</option>
-            </select>
-          </div>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}>
+            <option value="all">Tutti i tipi</option>
+            <option value="quote_submitted">Inviati</option>
+            <option value="quote_completed">Completati</option>
+            <option value="materials_ordered">Ordini materiali</option>
+            <option value="tools_low_stock_alert">Utensili sotto minimo</option>
+          </select>
         </div>
       }
     >
-      {loading ? (
-        <div className="p-8 text-center text-muted-foreground">Caricamento...</div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            {items.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">Nessuna attività</div>
-            ) : (
-              <ul>
-                {items.map(a => {
-                  const kind = ACTIVITY_KIND[a.type]
-                  const isCompleted = a.type === 'quote_completed'
-                  const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
-                  const actorName = a.created_by?.full_name || a.created_by?.username || '—'
-                  return (
-                    <li
-                      key={a.id}
-                      onClick={() => onRowClick(a)}
-                      className={`border-b last:border-0 px-4 py-3 ${quoteId ? 'cursor-pointer hover:bg-muted' : ''} ${isCompleted ? 'bg-green-50/40' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="text-xs text-muted-foreground w-20 shrink-0 pt-0.5">{timeAgo(a.created_at)}</div>
-                        {kind ? (
-                          <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${kind.pillClass}`}>
-                            {kind.icon}
-                            {kind.label}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        {loading ? (
+          <div className="p-10 text-center text-muted-foreground">Caricamento…</div>
+        ) : items.length === 0 ? (
+          <div className="p-10">
+            <div className="mx-auto flex max-w-sm flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-center">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-muted-foreground"><ActivityIcon className="h-5 w-5" /></div>
+              <div className="text-sm font-medium text-foreground">Nessuna attività</div>
+              {(search || typeFilter !== 'all') && (
+                <button onClick={() => { setSearch(''); setTypeFilter('all'); setPage(1) }} className="mt-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">Azzera filtri</button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <ul className="px-4 py-1.5">
+            {items.map((a, i) => {
+              const kind = KIND[a.type]
+              const Icon = kind?.Icon ?? ActivityIcon
+              const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
+              const actorName = kind?.system ? 'Sistema' : (a.created_by?.full_name || a.created_by?.username || '—')
+              const isCompleted = a.type === 'quote_completed'
+              const last = i === items.length - 1
+              return (
+                <li key={a.id} className="relative flex gap-3 pb-4">
+                  {/* Connettore verticale */}
+                  {!last && <span className="absolute left-[15px] top-8 h-[calc(100%-1rem)] w-px bg-border" />}
+                  <div className={`z-10 flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full ${kind?.cls ?? 'bg-muted text-muted-foreground'}`}>
+                    <Icon className="h-[15px] w-[15px]" />
+                  </div>
+                  <div
+                    onClick={() => onRowClick(a)}
+                    onKeyDown={e => { if (quoteId && e.key === 'Enter') onRowClick(a) }}
+                    role={quoteId ? 'link' : undefined}
+                    tabIndex={quoteId ? 0 : undefined}
+                    className={`min-w-0 flex-1 rounded-lg px-3 py-2 ${quoteId ? 'cursor-pointer hover:bg-muted/[0.45]' : ''} ${isCompleted ? 'bg-success/[0.05]' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-[13.5px] font-semibold text-foreground">{a.title}</span>
+                          <span className={`inline-flex flex-none items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${kind?.cls ?? 'bg-muted text-muted-foreground'}`}>
+                            <Icon className="h-2.5 w-2.5" />{kind?.label ?? a.type}
                           </span>
-                        ) : (
-                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
-                            {a.type}
-                          </span>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
-                          {a.body && <p className="text-xs text-muted-foreground truncate">{a.body}</p>}
                         </div>
-                        <div className="text-xs text-muted-foreground shrink-0 max-w-[160px] truncate" title={actorName}>
-                          {actorName}
-                        </div>
+                        {a.body && <p className="mt-0.5 truncate text-xs text-muted-foreground">{a.body}</p>}
                       </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                      <div className="flex-none text-right">
+                        <div className="max-w-[160px] truncate text-[12.5px] font-semibold text-foreground" title={actorName}>{actorName}</div>
+                        <div className="font-mono text-[11px] text-muted-foreground">{timeAgo(a.created_at)}</div>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
 
-      <div className="flex justify-center gap-2">
-        {page > 1 && (
-          <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)}>← Precedente</Button>
-        )}
-        <span className="flex items-center px-4 text-sm text-muted-foreground">Pagina {page}</span>
-        {items.length >= pageSize && (
-          <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)}>Successiva →</Button>
-        )}
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-xs text-muted-foreground">
+          {items.length ? `Mostrate ${rangeStart}–${rangeEnd}` : '—'}
+        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>← Precedente</Button>
+          <Button variant="outline" size="sm" disabled={items.length < pageSize} onClick={() => setPage(p => p + 1)}>Successiva →</Button>
+        </div>
       </div>
     </StandardPage>
   )

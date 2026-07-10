@@ -50,9 +50,16 @@
     --info: 214 90% 52%;
     --confirmed: 262 78% 56%;
 
-    /* Accenti d'area (handoff Utensili/Vendite/Login) */
+    /* Accenti d'area (handoff Utensili/Vendite/Login/Clienti/Officina) */
     --tools: 262 78% 56%;   /* Utensili (viola, = confirmed) */
     --sales: 152 60% 36%;   /* Vendite dirette (smeraldo) */
+    --customers: 243 75% 59%;  /* Clienti (indaco) */
+    --officina: 28 88% 48%;    /* Officina (ambra/arancio) */
+
+    /* Famiglie materiali (badge dark-aware) */
+    --fam-acciaio: 215 25% 45%; --fam-inox: 199 89% 40%; --fam-legato: 262 78% 56%;
+    --fam-alluminio: 217 91% 53%; --fam-ottone: 45 90% 38%; --fam-rame: 20 90% 48%;
+    --fam-bronzo: 30 55% 40%; --fam-plastica: 330 75% 50%; --fam-altro: 220 10% 44%;
   }
 
   .dark {
@@ -94,6 +101,12 @@
 
     --tools: 263 84% 72%;
     --sales: 152 55% 55%;
+    --customers: 244 80% 74%;
+    --officina: 30 92% 62%;
+
+    --fam-acciaio: 215 20% 65%; --fam-inox: 199 90% 62%; --fam-legato: 263 84% 72%;
+    --fam-alluminio: 217 91% 66%; --fam-ottone: 48 95% 58%; --fam-rame: 22 92% 62%;
+    --fam-bronzo: 32 55% 58%; --fam-plastica: 330 80% 70%; --fam-altro: 220 9% 60%;
   }
 
   * {

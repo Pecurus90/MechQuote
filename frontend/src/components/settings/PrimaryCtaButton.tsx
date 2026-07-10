@@ -8,7 +8,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
-  | 'tools' | 'sales'
+  | 'tools' | 'sales' | 'customers' | 'officina'
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
@@ -32,8 +32,10 @@ const VARIANTS: Record<Color, string> = {
   sky:     'bg-sky-600 border-sky-700 hover:bg-sky-700',
   red:     'bg-red-600 border-red-700 hover:bg-red-700',
   // Accenti d'area token-based (dark-aware, handoff): fondo pieno + hover lift.
-  tools:   'bg-tools border-tools hover:brightness-110',
-  sales:   'bg-sales border-sales hover:brightness-110',
+  tools:     'bg-tools border-tools hover:brightness-110',
+  sales:     'bg-sales border-sales hover:brightness-110',
+  customers: 'bg-customers border-customers hover:brightness-110',
+  officina:  'bg-officina border-officina hover:brightness-110',
 }
 
 export default function PrimaryCtaButton({

@@ -48,6 +48,101 @@ assorbiti nei temi corrispondenti.
 
 ---
 
+## 🔎 AUDIT 2026-07-13 — findings consolidati (3 audit paralleli)
+
+Tre revisioni parallele di **sola lettura** (logica/bug backend · estetica
+frontend · walkthrough utente su tutti i workflow) su tutto il progetto.
+Findings **verificati** nel codice, falsi positivi scartati. Raggruppati in
+sprint per esecuzione "un lavoro alla volta". Diverse voci rimandano a ID già
+esistenti (A4, B1, CAT-5, cantiere Stampi): **non duplicare**, si chiudono lì.
+
+### Sprint 1 — quick-win sicuri — ✅ FATTO 2026-07-13 (AUD-1…6)
+- **AUD-1** — KPI margine di confronto = 0 con filtro "Stampi" nella tab
+  Preventivi (`dashboard.py` `_quotes_comparison`, introdotto col Batch C
+  Statistiche): la query margine eredita `AND quote_type='die'` → sempre falsa.
+  Fix: saltare il margine di confronto quando `quote_type='die'`. ~2 righe.
+- **AUD-2** — `statistics/statsShared.tsx`: toolkit grafico **morto**
+  (CHART_COLORS/useChartColors/EmptyChart/TrendArea/RankBars/FineDonut) che
+  duplica `components/charts/*` con palette hardcoded. Rimuovere, lasciare solo
+  `Period`/`Loading`. Previene drift.
+- **AUD-3** — `transport_cost`/`packaging_cost` senza `Field(ge=0)`
+  (`schemas.py:~395`) → valori negativi abbassano/negano `final_total` fino a
+  PDF/dashboard. Aggiungere floor 0 (ovvio, come gli altri campi €). Affine A4/D2.
+- **AUD-4** — doc↔codice: gli stati preventivo sono **7** nel codice
+  (`quote_workflow.py`), **5** in CLAUDE.md §4 e RIFERIMENTO. Allineare i doc
+  (`in_attesa_cliente`, `non_ordinato`).
+- **AUD-5** — doc↔codice: ruolo `officina` — RIFERIMENTO §4 dice "sola lettura +
+  archivio", il codice dà `officina.write`+`tools` e **non** `quotes.archive`.
+  Allineare il doc al codice.
+- **AUD-6** — errori delete catalogo a volte generici (Machines/Operations
+  scartano `err.response.data.detail`): propagare sempre il detail. Affine CAT-5.
+
+### Sprint 2 — sicurezza azioni / conferme uniformi
+- **AUD-7** — ✅ **FATTO 2026-07-13** — OGNI azione di workflow / avanzamento del
+  preventivo (editor standard, editor stampi, azioni rapide in lista) mostra un
+  `ConfirmDialog` che **dichiara la conseguenza**, non un generico "stai
+  modificando". Mai `confirm()` nativo. Include AUD-11 (Ripristina in Archivio).
+  Inventario (fotografia 2026-07-13 — cosa manca oggi):
+  - `QuoteEditor.tsx` (standard): mancano conferma su **Conferma** (normale, oggi
+    dialog solo su totale≤0/margine<0), **In attesa cliente**, **Non ordinato**,
+    **Ripristina**, **Rimanda in bozza**. Già ok: Invia, Annulla conferma.
+  - `QuoteStatusActions.tsx` (usato da editor Stampi): mancano su **Conferma** e
+    **Rimanda in bozza**. Già ok: Annulla conferma.
+  - `components/quotes/QuotesListView.tsx` (azioni rapide lista): manca su **In
+    attesa cliente**; **Ripristina** assente del tutto (= AUD-11). Già ok:
+    Conferma, Non ordinato, Elimina.
+  - Approccio suggerito: un unico "gate" di conferma (stato `pendingAction` +
+    un solo `ConfirmDialog`) per azione, invece di N dialog sparsi.
+- **AUD-8** — `window.confirm()` nativo → `ConfirmDialog` in: applica workflow
+  template (`PhaseEditor:~165`), sblocco EDM manuale (`PhaseEditor:~139`),
+  elimina ordine/sblocco flag materiale (Ordini materiali).
+- **AUD-9** — azioni distruttive senza conferma né toast: elimina fase
+  (`PhaseEditor:~128`), elimina scheda PDF materiale (`officina/MaterialsPage`).
+- **AUD-10** — tile del chooser `/quotes/new` non gated per permesso → click
+  morto su Stampi/2D (rimbalzo a `/`). Legare `available` a `hasPermission`.
+- **AUD-11** — `Ripristina` un preventivo "non ordinato" non è nella lista
+  Archivio (solo dentro l'editor). Aggiungere `onRestore` alla lista Archivio.
+
+### Sprint 3 — decisioni di prodotto (servono all'utente)
+- **AUD-12** — soglia minima margine = **A4** (già in Blocco A): decidere la
+  soglia (0%? −5%?), poi 1 riga `Field(ge=…)`.
+- **AUD-13** — cambio password self-service (menu profilo in TopBar). Affine A7
+  (oggi solo un admin cambia la password altrui).
+- **AUD-14** — gating **Backup** incoerente: `/settings/system` è gated solo
+  `users` ma mostra il tab Backup; la sidebar linka su `canBackup`. Per ruoli
+  custom → bottoni inefficaci / link morti. Decidere gating per-tab.
+- **AUD-15** — "costo" degli stampi nel grafico Dashboard = `cost_industrial`
+  (L5), non un costo reale → marginalità stampi sottostimata. Decisione di
+  rappresentazione (etichettare "industriale"? escludere? costo reale stampo?).
+  Affine cantiere Stampi.
+
+### Bundle Stampi — DIFFERITO col cantiere stampi (Fase 5 "G" / P2 / P3)
+Non toccare ora: si accorpano alla riscrittura funzionale del modulo stampi.
+- **AUD-16** — die `clone` (rev2/3) e `apply-template`: endpoint backend esistono
+  (`dies.py:~255,365`), **zero caller frontend** → feature non raggiungibile.
+  Aggiungere i bottoni nell'editor (o documentare come non-esposto di proposito).
+- **AUD-17** — `DieQuoteEditor`: colori hardcoded che rompono il dark mode
+  (`border-gray-800`/`text-green-700`/`bg-rose-100`…) + badge stato/tipo rifatti
+  a mano invece di `StatusBadge`/`TypeBadge`. Tokenizzare.
+- **AUD-18** — editor Stampi con set azioni stato **ridotto** (manca
+  await-client/non-ordinato/restore; stato mostrato come testo grezzo, non
+  `StatusStepper`) vs editor standard.
+
+### Minori (en passant, quando si tocca la zona)
+- **AUD-19** — alert "chiari fissi" fuori dagli stampi che rompono il dark mode:
+  `DxfPreviewModal`, `TempraFormModal`, `ToolFormModal`, `NewDieQuotePage`,
+  `StepColorRulesPage`, `UploadModal` → tokenizzare.
+- **AUD-20** — `dashboard/MonthlyChart.tsx` re-inlina il tema grafico invece di
+  usare `useChartTheme()` (solo DRY, nessun bug).
+- **AUD-21** — `<Alert variant>` e `<Modal>` wrapper condivisi mancanti (~10
+  form-modali duplicano `fixed inset-0 flex…`): refactor da concordare (§13,
+  affine CAT-3).
+
+> Nota: nessun file di codice è stato modificato dall'audit. Le voci qui sono
+> solo pianificazione. Verifica per singola voce prima di chiuderla.
+
+---
+
 ## 📋 C — Import ordine materiale (manuale + tabella SolidWorks) — SOSPESO (2026-07-02)
 
 Feature concordata con l'utente il 2026-07-02, **sospesa su sua richiesta**

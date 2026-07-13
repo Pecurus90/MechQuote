@@ -177,7 +177,11 @@ da tutti gli altri. Un bug ti fa *perdere tempo*; un backup difettoso ti fa
   catalogo, tutti i preventivi e gli stampi.
 - **ufficio_tecnico** — crea e modifica preventivi e stampi, gestisce clienti,
   scarica PDF. NON vede i preventivi altrui, NON gestisce utenti/azienda/backup.
-- **officina** — sola lettura: archivio preventivi, PDF, documenti officina.
+- **officina** — solo la propria area: Officina (documenti/tabelle/calcolatori,
+  con upload e modifica via `officina.write`) e anagrafica/catalogo utensili
+  (`tools`). NON vede preventivi/archivio/PDF, NON gestisce ordini, dashboard o
+  notifiche. (Default: `officina`, `officina.write`, `tools` — vedi
+  `permissions.py`.)
 - **amministrazione** — dashboard, archivio completo, PDF, ordini materiali.
   NON crea/modifica preventivi.
 

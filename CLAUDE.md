@@ -354,7 +354,7 @@ Niente `version_id_col` sui modelli: update concorrenti producono **lost update 
 > lavoro pianificato — vedi `MECHQUOTE_LISTA_LAVORI.md`, Blocco B. Finché non
 > è fatto, l'uso in contemporanea sullo stesso preventivo non è sicuro.
 
-### Workflow stati preventivo (interno, 5 stati — spec 18)
+### Workflow stati preventivo (interno, 7 stati — spec 18)
 
 Fonte autoritativa: `backend/app/services/quote_workflow.py`.
 
@@ -368,6 +368,12 @@ Regole:
 - `inviato → letto`: automatico quando amministrazione apre un `inviato`.
 - `letto → confermato`: click manuale di chi ha `quotes.confirm`; da qui il preventivo è **bloccato**.
 - `confermato → completo`: automatico quando il materiale è risolto (evaso o non necessario); gli Stampi (`die`) sono sempre risolti → conferma = completo.
+- `inviato`/`letto` → `in_attesa_cliente`: click manuale di chi ha `quotes.confirm` (offerta mandata al cliente, in attesa di risposta). Reversibile: da qui si può ancora confermare o segnare non ordinato.
+- `inviato`/`letto`/`in_attesa_cliente` → `non_ordinato`: click manuale (`quotes.confirm`) = il cliente non ha ordinato (perso). Stato terminale ma **reversibile**: `restore` riporta a `letto`.
+
+> Il diagramma sopra mostra il percorso principale (esito positivo);
+> `in_attesa_cliente` e `non_ordinato` sono i due rami descritti in queste
+> due righe. Sono i 7 stati totali. Fonte autoritativa: `quote_workflow.py`.
 - **Modifica di un preventivo bloccato** (`confermato`/`completo`): serve `quotes.edit_locked` (`ensure_editable()` in `quotes.py`; default solo admin).
 - **Annulla conferma** (`confermato`/`completo` → `letto`): serve `quotes.confirm` **o** `quotes.edit_locked` (chi conferma può disfare la propria conferma); azzera le evasioni materiale (ordini restano nello storico) e il consuntivo venduto/costo + `awaiting_client_at`.
 - **Eliminazione preventivo**: il creatore (`Quote.created_by_user_id`) o chi ha `quotes.delete`.

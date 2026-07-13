@@ -48,7 +48,7 @@ export default function MachinesPage() {
     if (pendingDelete == null) return
     const id = pendingDelete; setPendingDelete(null)
     try { await api.delete(`/machines/${id}`); toast.success('Centro di costo eliminato'); loadData() }
-    catch { toast.error('Errore nell\'eliminazione') }
+    catch (e) { const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail; toast.error(msg || 'Errore nell\'eliminazione') }
   }
 
   const visible = [...machines].sort((a, b) => a.name.localeCompare(b.name, 'it')).filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()) || typeLabel(m.machine_type).toLowerCase().includes(search.toLowerCase()))

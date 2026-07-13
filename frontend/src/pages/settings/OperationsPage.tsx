@@ -35,7 +35,7 @@ export default function OperationsPage() {
     if (pendingDelete == null) return
     const id = pendingDelete; setPendingDelete(null)
     try { await api.delete(`/operations/${id}`); toast.success('Lavorazione eliminata'); load() }
-    catch { toast.error('Errore nell\'eliminazione (controlla che non sia usata in un Template flusso)') }
+    catch (e) { const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail; toast.error(msg || 'Errore nell\'eliminazione (controlla che non sia usata in un Template flusso)') }
   }
 
   const visible = [...operations].sort((a, b) => a.name.localeCompare(b.name, 'it')).filter(o => !search || o.name.toLowerCase().includes(search.toLowerCase()))

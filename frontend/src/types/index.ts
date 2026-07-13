@@ -705,7 +705,7 @@ export interface StatsQuotesComparison {
   total_value: number
   count: number
   conversion_rate: number
-  avg_margin: number
+  avg_margin: number | null
   trend_total: StatsCmpPoint[]
   margin_by_month: StatsCmpPoint[]
 }

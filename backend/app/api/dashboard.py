@@ -245,7 +245,10 @@ def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id)
         margin_by_month.append(StatsCmpPoint(month=r.m, value=round(pct, 2)))
         msum += pct
         mn += 1
-    avg_margin = round(msum / mn, 2) if mn else 0.0
+    # None (non 0.0) quando non c'è margine confrontabile: es. filtro "Stampi",
+    # dove la query margine (solo standard) non restituisce righe → il KPI di
+    # confronto non mostra una pill "0pt" fuorviante.
+    avg_margin = round(msum / mn, 2) if mn else None
 
     orow = db.execute(text(
         f"""

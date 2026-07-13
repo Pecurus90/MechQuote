@@ -392,8 +392,8 @@ class QuoteBase(BaseModel):
     currency: Optional[str] = "EUR"
     global_margin_percent: Optional[float] = Field(default=20.0, ge=-99, le=1000)
     global_discount_percent: Optional[float] = Field(default=0.0, ge=0, le=100)
-    transport_cost: Optional[float] = 0.0
-    packaging_cost: Optional[float] = 0.0
+    transport_cost: Optional[float] = Field(default=0.0, ge=0)
+    packaging_cost: Optional[float] = Field(default=0.0, ge=0)
     notes_customer: Optional[str] = None
     notes_internal: Optional[str] = None
     status: Optional[str] = "bozza"
@@ -804,7 +804,9 @@ class StatsQuotesComparison(BaseModel):
     total_value: float = 0.0
     count: int = 0
     conversion_rate: float = 0.0
-    avg_margin: float = 0.0
+    # None quando non c'è margine confrontabile (es. filtro "Stampi": i preventivi
+    # die non hanno margine parti) → il frontend non mostra una pill fuorviante.
+    avg_margin: Optional[float] = None
     trend_total: List[StatsCmpPoint] = []     # € totale/mese (standard+stampi)
     margin_by_month: List[StatsCmpPoint] = []  # margine %/mese
 

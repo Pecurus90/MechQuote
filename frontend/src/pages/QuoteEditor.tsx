@@ -43,7 +43,13 @@ export default function QuoteEditor() {
   const [saving, setSaving] = useState(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [confirmUnconfirm, setConfirmUnconfirm] = useState(false)
-  const [confirmRisky, setConfirmRisky] = useState(false)
+  // AUD-7: gate di conferma unico per le azioni di workflow (conferma, attesa,
+  // non ordinato, ripristina, rimanda). Porta con sé il testo-conseguenza.
+  const [pendingStatus, setPendingStatus] = useState<{
+    path: 'confirm' | 'reopen' | 'await-client' | 'mark-not-ordered' | 'restore'
+    okMsg: string; title: string; description: string; confirmLabel: string
+    variant?: 'default' | 'destructive'
+  } | null>(null)
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
   // Rilevamento concorrenza: versione dell'aggregato vista dal server all'ultimo
   // sync (bump a ogni modifica). `staleConflict` = un'altra persona ha modificato.
@@ -317,10 +323,14 @@ export default function QuoteEditor() {
     total <= 0 ? 'Il totale del preventivo è € 0 o negativo.'
     : (quote.global_margin_percent ?? 0) < 0 ? 'Il margine globale è negativo (vendita sottocosto).'
     : null
-  const tryConfirm = () => {
-    if (confirmRiskReason) setConfirmRisky(true)
-    else doStatus('confirm', 'Preventivo confermato')
-  }
+  const askConfirm = () => setPendingStatus({
+    path: 'confirm', okMsg: 'Preventivo confermato',
+    title: 'Confermare il preventivo?',
+    description: (confirmRiskReason ? `${confirmRiskReason} Di solito è un errore di battitura. ` : '')
+      + 'Da qui il preventivo sarà bloccato in modifica. Procedere?',
+    confirmLabel: 'Conferma',
+    variant: confirmRiskReason ? 'destructive' : 'default',
+  })
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   const isLocked = !['bozza', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
 
@@ -332,11 +342,11 @@ export default function QuoteEditor() {
   const showUnconfirm = (hasPermission('quotes.edit_locked') || hasPermission('quotes.confirm')) && (st === 'confermato' || st === 'completo')
   const actions: EditorAction[] = [
     { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: st === 'bozza' && hasPermission('quotes.send') },
-    { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => doStatus('await-client', 'Offerta in attesa del cliente'), show: canConfirm && inReview },
-    { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: tryConfirm, show: canConfirm && preConfirm },
-    { key: 'notordered', label: 'Non ordinato', icon: XCircle, variant: 'muted', onClick: () => doStatus('mark-not-ordered', 'Segnato come non ordinato'), show: canConfirm && preConfirm },
-    { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => doStatus('restore', 'Preventivo ripristinato'), show: canConfirm && st === 'non_ordinato' },
-    { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => doStatus('reopen', 'Rimandato in bozza'), show: canConfirm && preConfirm },
+    { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => setPendingStatus({ path: 'await-client', okMsg: 'Offerta in attesa del cliente', title: 'Mettere in attesa del cliente?', description: "L'offerta risulterà in attesa della risposta del cliente.", confirmLabel: 'In attesa cliente' }), show: canConfirm && inReview },
+    { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: askConfirm, show: canConfirm && preConfirm },
+    { key: 'notordered', label: 'Non ordinato', icon: XCircle, variant: 'muted', onClick: () => setPendingStatus({ path: 'mark-not-ordered', okMsg: 'Segnato come non ordinato', title: 'Segnare come non ordinato?', description: 'Il preventivo risulterà non ordinato (perso). Potrai ripristinarlo in seguito.', confirmLabel: 'Non ordinato', variant: 'destructive' }), show: canConfirm && preConfirm },
+    { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => setPendingStatus({ path: 'restore', okMsg: 'Preventivo ripristinato', title: 'Ripristinare il preventivo?', description: 'Il preventivo torna in lavorazione.', confirmLabel: 'Ripristina' }), show: canConfirm && st === 'non_ordinato' },
+    { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => setPendingStatus({ path: 'reopen', okMsg: 'Rimandato in bozza', title: 'Rimandare in bozza?', description: 'Il preventivo tornerà modificabile come bozza.', confirmLabel: 'Rimanda in bozza' }), show: canConfirm && preConfirm },
     { key: 'unconfirm', label: 'Annulla conferma', icon: RotateCcw, variant: 'muted', onClick: () => setConfirmUnconfirm(true), show: showUnconfirm },
     { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !isLocked },
   ]
@@ -520,13 +530,13 @@ export default function QuoteEditor() {
         onCancel={() => setConfirmSubmit(false)}
       />
       <ConfirmDialog
-        open={confirmRisky}
-        variant="destructive"
-        title="Confermare comunque?"
-        description={`${confirmRiskReason ?? ''} Di solito è un errore di battitura (sconto o margine sbagliato). Confermando, il preventivo si blocca con questo valore. Procedere?`}
-        confirmLabel="Conferma comunque"
-        onConfirm={() => { setConfirmRisky(false); doStatus('confirm', 'Preventivo confermato') }}
-        onCancel={() => setConfirmRisky(false)}
+        open={pendingStatus !== null}
+        variant={pendingStatus?.variant ?? 'default'}
+        title={pendingStatus?.title ?? ''}
+        description={pendingStatus?.description}
+        confirmLabel={pendingStatus?.confirmLabel ?? 'Conferma'}
+        onConfirm={() => { const p = pendingStatus; setPendingStatus(null); if (p) doStatus(p.path, p.okMsg) }}
+        onCancel={() => setPendingStatus(null)}
       />
       <ConfirmDialog
         open={confirmUnconfirm}

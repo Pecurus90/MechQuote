@@ -10,6 +10,7 @@ import {
   Hourglass,
   CheckCheck,
   XCircle,
+  RotateCcw,
   Trash2,
   SearchX,
 } from 'lucide-react'
@@ -64,11 +65,13 @@ interface Props {
   onAwaitClient?: (id: number) => void
   onConfirm?: (id: number) => void
   onNotOrdered?: (id: number) => void
+  onRestore?: (id: number) => void
   onMaterialCsv?: (id: number) => void
   onDelete?: (id: number) => void
   canAwaitClient?: (row: QuotesListRow) => boolean
   canConfirm?: (row: QuotesListRow) => boolean
   canNotOrdered?: (row: QuotesListRow) => boolean
+  canRestore?: (row: QuotesListRow) => boolean
   canMaterialCsv?: (row: QuotesListRow) => boolean
   canDelete?: (row: QuotesListRow) => boolean
 
@@ -161,8 +164,8 @@ export function QuotesListView(props: Props) {
     title, icon: Icon, subtitle, onNew, rows, emptyText,
     expandedId, onToggleExpand, articleRows,
     filters, onFilterChange, years, statusOptions,
-    onOpen, onAwaitClient, onConfirm, onNotOrdered, onMaterialCsv, onDelete,
-    canAwaitClient, canConfirm, canNotOrdered, canMaterialCsv, canDelete,
+    onOpen, onAwaitClient, onConfirm, onNotOrdered, onRestore, onMaterialCsv, onDelete,
+    canAwaitClient, canConfirm, canNotOrdered, canRestore, canMaterialCsv, canDelete,
     showPrices = false, onSavePrice, pagination,
   } = props
 
@@ -285,6 +288,7 @@ export function QuotesListView(props: Props) {
             const showAwaitClient = !!onAwaitClient && (canAwaitClient ? canAwaitClient(r) : true)
             const showConfirm = !!onConfirm && (canConfirm ? canConfirm(r) : true)
             const showNotOrdered = !!onNotOrdered && (canNotOrdered ? canNotOrdered(r) : true)
+            const showRestore = !!onRestore && (canRestore ? canRestore(r) : true)
             const showMaterialCsv = !!onMaterialCsv && (canMaterialCsv ? canMaterialCsv(r) : true)
             const showDelete = !!onDelete && (canDelete ? canDelete(r) : true)
             // Consuntivo (Archivio): compilabile solo sui completi.
@@ -360,6 +364,12 @@ export function QuotesListView(props: Props) {
                       <button type="button" title="Segna come non ordinato" aria-label="Segna come non ordinato"
                         className="text-state-perso transition-[filter] hover:brightness-110" onClick={() => onNotOrdered?.(r.id)}>
                         <XCircle className="h-4 w-4" />
+                      </button>
+                    )}
+                    {showRestore && (
+                      <button type="button" title="Ripristina preventivo" aria-label="Ripristina preventivo"
+                        className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onRestore?.(r.id)}>
+                        <RotateCcw className="h-4 w-4" />
                       </button>
                     )}
                     {showMaterialCsv && (

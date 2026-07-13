@@ -61,6 +61,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const [confirming, setConfirming] = useState(false)
   const [notOrderedId, setNotOrderedId] = useState<number | null>(null)
   const [markingNotOrdered, setMarkingNotOrdered] = useState(false)
+  const [awaitClientId, setAwaitClientId] = useState<number | null>(null)
+  const [restoreId, setRestoreId] = useState<number | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [detailCache, setDetailCache] = useState<Record<number, QuoteMaterialDetail | 'loading'>>({})
 
@@ -127,7 +129,12 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   }
 
   const doAwaitClient = async (id: number) => {
-    try { await api.post(`/quotes/${id}/await-client`); toast.success('Offerta in attesa del cliente'); loadQuotes() }
+    try { await api.post(`/quotes/${id}/await-client`); setAwaitClientId(null); toast.success('Offerta in attesa del cliente'); loadQuotes() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+  }
+
+  const doRestore = async (id: number) => {
+    try { await api.post(`/quotes/${id}/restore`); setRestoreId(null); toast.success('Preventivo ripristinato'); loadQuotes() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
   }
 
@@ -246,6 +253,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const quoteToDelete = quotes.find(q => q.id === confirmDeleteId)
   const quoteToConfirm = quotes.find(q => q.id === confirmQuoteId)
   const quoteNotOrdered = quotes.find(q => q.id === notOrderedId)
+  const quoteAwaitClient = quotes.find(q => q.id === awaitClientId)
+  const quoteToRestore = quotes.find(q => q.id === restoreId)
 
   return (
     <PageContainer width="xl">
@@ -264,12 +273,14 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         years={yearOptions}
         statusOptions={statusOptions}
         onOpen={(id) => navigate(`/quotes/${id}`)}
-        onAwaitClient={showQuickActions && canConfirmPerm ? (id) => doAwaitClient(id) : undefined}
+        onAwaitClient={showQuickActions && canConfirmPerm ? (id) => setAwaitClientId(id) : undefined}
         canAwaitClient={(r) => ['inviato', 'letto'].includes(r.status)}
         onConfirm={showQuickActions && canConfirmPerm ? (id) => setConfirmQuoteId(id) : undefined}
         canConfirm={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
         onNotOrdered={showQuickActions && canConfirmPerm ? (id) => setNotOrderedId(id) : undefined}
         canNotOrdered={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
+        onRestore={canConfirmPerm ? (id) => setRestoreId(id) : undefined}
+        canRestore={(r) => r.status === 'non_ordinato'}
         onMaterialCsv={showQuickActions && canMaterials ? (id) => downloadMaterialCsv(id) : undefined}
         canMaterialCsv={(r) => r.quote_type !== 'die' && ['confermato', 'completo'].includes(r.status)}
         onDelete={(id) => setConfirmDeleteId(id)}
@@ -332,6 +343,34 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         confirmLabel={markingNotOrdered ? 'Attendere...' : 'Segna non ordinato'}
         onConfirm={() => { if (notOrderedId !== null) doMarkNotOrdered(notOrderedId) }}
         onCancel={() => setNotOrderedId(null)}
+      />
+
+      <ConfirmDialog
+        open={awaitClientId !== null && !!quoteAwaitClient}
+        variant="default"
+        title="Mettere in attesa del cliente?"
+        description={
+          quoteAwaitClient
+            ? `L'offerta ${quoteAwaitClient.quote_number}${quoteAwaitClient.customer_name ? ` (${quoteAwaitClient.customer_name})` : ''} risulterà in attesa della risposta del cliente.`
+            : undefined
+        }
+        confirmLabel="In attesa cliente"
+        onConfirm={() => { if (awaitClientId !== null) doAwaitClient(awaitClientId) }}
+        onCancel={() => setAwaitClientId(null)}
+      />
+
+      <ConfirmDialog
+        open={restoreId !== null && !!quoteToRestore}
+        variant="default"
+        title="Ripristinare il preventivo?"
+        description={
+          quoteToRestore
+            ? `Il preventivo ${quoteToRestore.quote_number}${quoteToRestore.customer_name ? ` (${quoteToRestore.customer_name})` : ''} torna in lavorazione (stato "letto").`
+            : undefined
+        }
+        confirmLabel="Ripristina"
+        onConfirm={() => { if (restoreId !== null) doRestore(restoreId) }}
+        onCancel={() => setRestoreId(null)}
       />
     </PageContainer>
   )

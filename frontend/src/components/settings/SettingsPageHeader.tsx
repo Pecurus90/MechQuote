@@ -6,9 +6,10 @@ import type { LucideIcon } from 'lucide-react'
 export type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
-  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies'
+  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies' | 'primary'
 
 const COLOR_MAP: Record<Color, string> = {
+  primary: 'bg-primary/[0.13] text-primary',
   blue:    'bg-blue-100 text-primary',
   indigo:  'bg-indigo-100 text-indigo-700',
   rose:    'bg-rose-100 text-rose-700',

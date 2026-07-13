@@ -8,7 +8,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
-  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies'
+  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies' | 'primary'
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
@@ -21,6 +21,7 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 // Tailwind ha bisogno delle classi scritte per esteso (no string interpolation
 // runtime), quindi mappiamo esplicitamente ogni colore a tutto lo stato.
 const VARIANTS: Record<Color, string> = {
+  primary: 'bg-primary border-primary hover:brightness-110',
   blue:    'bg-blue-600 border-blue-700 hover:bg-blue-700',
   indigo:  'bg-indigo-600 border-indigo-700 hover:bg-indigo-700',
   rose:    'bg-rose-600 border-rose-700 hover:bg-rose-700',

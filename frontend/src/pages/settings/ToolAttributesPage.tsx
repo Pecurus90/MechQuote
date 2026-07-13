@@ -1,40 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Pencil, Trash2, Check, X, Wrench } from 'lucide-react'
+import { Plus, Wrench } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import { tHead, tRow, editRowStyle, RowActions, EditActions } from '@/components/settings/inlineEdit'
 import type { ToolAttribute } from '@/types'
 
 type SectionKey = 'types' | 'brands'
-
-interface Section {
-  key: SectionKey
-  title: string
-  description: string
-  endpoint: string  // /tools/types | /tools/brands | /tools/locations
-  newPlaceholder: string
-}
+interface Section { key: SectionKey; title: string; description: string; endpoint: string; newPlaceholder: string }
 
 const SECTIONS: Section[] = [
-  {
-    key: 'types',
-    title: 'Tipi utensile',
-    description: 'es. Cilindrica, Sferica, Conica',
-    endpoint: '/tools/types',
-    newPlaceholder: 'es. Cilindrica',
-  },
-  {
-    key: 'brands',
-    title: 'Marchi',
-    description: 'es. Sandvik, JJ Tools, OSG',
-    endpoint: '/tools/brands',
-    newPlaceholder: 'es. Sandvik',
-  },
+  { key: 'types', title: 'Tipi utensile', description: 'es. Cilindrica, Sferica, Conica', endpoint: '/tools/types', newPlaceholder: 'es. Cilindrica' },
+  { key: 'brands', title: 'Marchi', description: 'es. Sandvik, JJ Tools, OSG', endpoint: '/tools/brands', newPlaceholder: 'es. Sandvik' },
 ]
 
 function AttributeTable({ section }: { section: Section }) {
@@ -46,158 +26,75 @@ function AttributeTable({ section }: { section: Section }) {
   const [showNew, setShowNew] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
-  const load = () => {
-    setLoading(true)
-    api.get(section.endpoint)
-      .then(r => setItems(r.data))
-      .catch(() => toast.error('Errore caricamento'))
-      .finally(() => setLoading(false))
-  }
-
+  const load = () => { setLoading(true); api.get(section.endpoint).then(r => setItems(r.data)).catch(() => toast.error('Errore caricamento')).finally(() => setLoading(false)) }
   useEffect(() => { load() }, [])
-
-  const startEdit = (it: ToolAttribute) => {
-    setEditingId(it.id)
-    setEditName(it.name)
-  }
 
   const saveEdit = async (id: number) => {
     const name = editName.trim()
     if (!name) { toast.error('Nome obbligatorio'); return }
-    try {
-      await api.put(`${section.endpoint}/${id}`, { name })
-      toast.success('Salvato')
-      setEditingId(null); load()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore nel salvataggio')
-    }
+    try { await api.put(`${section.endpoint}/${id}`, { name }); toast.success('Salvato'); setEditingId(null); load() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nel salvataggio') }
   }
-
-  const remove = (id: number) => setPendingDelete(id)
   const confirmRemove = async () => {
     if (pendingDelete == null) return
-    const id = pendingDelete
-    setPendingDelete(null)
-    try {
-      await api.delete(`${section.endpoint}/${id}`)
-      toast.success('Eliminato'); load()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore eliminazione')
-    }
+    const id = pendingDelete; setPendingDelete(null)
+    try { await api.delete(`${section.endpoint}/${id}`); toast.success('Eliminato'); load() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore eliminazione') }
   }
-
   const create = async () => {
     const name = newName.trim()
     if (!name) return
-    try {
-      await api.post(section.endpoint, { name, active: true })
-      toast.success('Creato')
-      setNewName(''); setShowNew(false); load()
-    } catch (e) {
-      const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore creazione')
-    }
+    try { await api.post(section.endpoint, { name, active: true }); toast.success('Creato'); setNewName(''); setShowNew(false); load() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore creazione') }
   }
 
   return (
-    <Card>
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
-          <h2 className="font-semibold">{section.title}</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">{section.title}</h2>
           <p className="text-xs text-muted-foreground">{section.description}</p>
         </div>
-        <PrimaryCtaButton color="violet" size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
-          <Plus className="w-4 h-4" /> Aggiungi
+        <PrimaryCtaButton color="tools" size="sm" onClick={() => setShowNew(true)} disabled={showNew}>
+          <Plus className="h-4 w-4" /> Aggiungi
         </PrimaryCtaButton>
       </div>
-      <CardContent className="p-0">
-        <table className="table-fixed w-full text-sm">
-          <thead className="bg-muted border-b">
-            <tr>
-              <th className="text-left p-2 font-medium text-muted-foreground">Nome</th>
-              <th className="text-center p-2 w-[18%] font-medium text-muted-foreground">Azioni</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={2} className="p-4 text-center text-muted-foreground">Caricamento...</td></tr>
-            ) : (
-              <>
-                {items.map(it => (
-                  <tr key={it.id} className="border-b hover:bg-muted">
-                    {editingId === it.id ? (
-                      <>
-                        <td className="p-2">
-                          <Input className="h-8 text-sm" value={editName}
-                            onChange={e => setEditName(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveEdit(it.id)}
-                            autoFocus />
-                        </td>
-                        <td className="p-2 text-center">
-                          <button onClick={() => saveEdit(it.id)} className="p-1 text-green-600 hover:bg-green-50 rounded mr-1">
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="p-1 text-muted-foreground hover:bg-muted rounded">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-3">{it.name}</td>
-                        <td className="p-3 text-center">
-                          <div className="flex gap-2 justify-center">
-                            <button onClick={() => startEdit(it)} className="p-1 hover:bg-muted rounded">
-                              <Pencil className="w-4 h-4 text-blue-600" />
-                            </button>
-                            <button onClick={() => remove(it.id)} className="p-1 hover:bg-red-50 rounded">
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-
-                {showNew && (
-                  <tr className="border-b bg-primary/10">
-                    <td className="p-2">
-                      <Input className="h-8 text-sm" placeholder={section.newPlaceholder}
-                        value={newName} onChange={e => setNewName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && create()}
-                        autoFocus />
-                    </td>
-                    <td className="p-2 text-center">
-                      <button onClick={create} className="p-1 text-green-600 hover:bg-green-100 rounded mr-1">
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => { setShowNew(false); setNewName('') }}
-                        className="p-1 text-muted-foreground hover:bg-muted rounded">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                )}
-
-                {items.length === 0 && !showNew && (
-                  <tr><td colSpan={2} className="p-6 text-center text-muted-foreground">Nessuna voce.</td></tr>
-                )}
-              </>
-            )}
-          </tbody>
-        </table>
-      </CardContent>
-      <ConfirmDialog
-        open={pendingDelete != null}
-        title="Eliminare definitivamente?"
-        confirmLabel="Elimina"
-        onConfirm={confirmRemove}
-        onCancel={() => setPendingDelete(null)}
-      />
-    </Card>
+      <table className="w-full text-sm">
+        <colgroup><col /><col style={{ width: 110 }} /></colgroup>
+        <thead>
+          <tr className={tHead}><th className="p-2.5 text-left font-medium">Nome</th><th className="p-2.5 text-center font-medium">Azioni</th></tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr><td colSpan={2} className="p-6 text-center text-muted-foreground">Caricamento…</td></tr>
+          ) : (
+            <>
+              {items.map(it => editingId === it.id ? (
+                <tr key={it.id} className="border-b border-border bg-tools/[0.05]" style={editRowStyle('tools')}>
+                  <td className="p-2"><Input className="h-8 text-sm" value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEdit(it.id); if (e.key === 'Escape') setEditingId(null) }} autoFocus /></td>
+                  <td className="p-2"><EditActions onSave={() => saveEdit(it.id)} onCancel={() => setEditingId(null)} /></td>
+                </tr>
+              ) : (
+                <tr key={it.id} className={tRow}>
+                  <td className="p-2.5 text-foreground">{it.name}</td>
+                  <td className="p-2.5"><RowActions onEdit={() => { setEditingId(it.id); setEditName(it.name) }} onDelete={() => setPendingDelete(it.id)} /></td>
+                </tr>
+              ))}
+              {showNew && (
+                <tr className="border-t-2 border-dashed border-border bg-tools/[0.04]">
+                  <td className="p-2"><Input className="h-8 text-sm" placeholder={section.newPlaceholder} value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') { setShowNew(false); setNewName('') } }} autoFocus /></td>
+                  <td className="p-2"><EditActions onSave={create} onCancel={() => { setShowNew(false); setNewName('') }} /></td>
+                </tr>
+              )}
+              {items.length === 0 && !showNew && (
+                <tr><td colSpan={2} className="p-8 text-center text-muted-foreground">Nessuna voce.</td></tr>
+              )}
+            </>
+          )}
+        </tbody>
+      </table>
+      <ConfirmDialog open={pendingDelete != null} title="Eliminare definitivamente?" confirmLabel="Elimina" onConfirm={confirmRemove} onCancel={() => setPendingDelete(null)} />
+    </div>
   )
 }
 
@@ -205,7 +102,7 @@ export default function ToolAttributesPage() {
   return (
     <StandardPage
       icon={Wrench}
-      color="violet"
+      color="tools"
       title="Attributi utensili"
       subtitle="Valori usati nei dropdown del catalogo utensili. Aggiungere/rimuovere voci qui non modifica gli utensili esistenti."
       width="lg"

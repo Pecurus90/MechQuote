@@ -113,10 +113,10 @@ export default function StepColorRulesPage() {
                   <td className="p-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <button onClick={() => startEdit(r)} className="p-1 hover:bg-muted rounded">
-                        <Pencil className="w-4 h-4 text-blue-600" />
+                        <Pencil className="w-4 h-4 text-info" />
                       </button>
-                      <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-red-50 rounded">
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                      <button onClick={() => handleDelete(r.id)} className="p-1 hover:bg-danger/10 rounded">
+                        <Trash2 className="w-4 h-4 text-danger" />
                       </button>
                     </div>
                   </td>

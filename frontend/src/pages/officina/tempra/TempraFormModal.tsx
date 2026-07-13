@@ -175,8 +175,8 @@ export default function TempraFormModal({
                   onClick={() => set('shape', v)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md border text-sm capitalize transition-colors ${
                     form.shape === v
-                      ? 'bg-emerald-600 text-white border-emerald-700'
-                      : 'bg-card text-foreground border-gray-300 hover:bg-muted'
+                      ? 'bg-success text-white border-success'
+                      : 'bg-card text-foreground border-border hover:bg-muted'
                   }`}
                 >
                   <Icon className="w-4 h-4" /> {v}

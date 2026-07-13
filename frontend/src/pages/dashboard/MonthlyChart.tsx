@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts'
+import { useChartTheme } from '@/components/charts/chartTheme'
 import { useTheme } from '@/lib/theme'
 import type { MonthlyData } from '@/types'
 
@@ -25,34 +26,13 @@ const eur = (v: number) =>
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
 export default function MonthlyChart({ data }: Props) {
-  const { theme } = useTheme()
-  const dark = theme === 'dark'
-
-  const c = dark
-    ? {
-        grid: 'hsl(220 7% 24%)',
-        axis: 'hsl(220 9% 62%)',
-        tipBg: 'hsl(220 8% 14%)',
-        tipBorder: 'hsl(220 7% 24%)',
-        text: 'hsl(210 16% 90%)',
-        cursor: 'hsl(220 7% 30% / .35)',
-        vendutoBar: 'hsl(142 58% 52% / .38)',
-        venduto: 'hsl(142 58% 52%)',
-        costoBar: 'hsl(28 92% 62% / .32)',
-        costo: 'hsl(28 92% 62%)',
-      }
-    : {
-        grid: 'hsl(220 14% 90%)',
-        axis: 'hsl(220 10% 46%)',
-        tipBg: 'hsl(0 0% 100%)',
-        tipBorder: 'hsl(220 14% 89%)',
-        text: 'hsl(220 18% 16%)',
-        cursor: 'hsl(220 16% 92% / .6)',
-        vendutoBar: 'hsl(142 66% 38% / .32)',
-        venduto: 'hsl(142 66% 38%)',
-        costoBar: 'hsl(28 85% 48% / .28)',
-        costo: 'hsl(28 85% 48%)',
-      }
+  // AUD-20: grid/assi/tooltip/cursor dalla palette centralizzata (unica fonte);
+  // solo i colori serie (venduto verde / costo arancio) restano locali.
+  const c = useChartTheme()
+  const dark = useTheme().theme === 'dark'
+  const s = dark
+    ? { vendutoBar: 'hsl(142 58% 52% / .38)', venduto: 'hsl(142 58% 52%)', costoBar: 'hsl(28 92% 62% / .32)', costo: 'hsl(28 92% 62%)' }
+    : { vendutoBar: 'hsl(142 66% 38% / .32)', venduto: 'hsl(142 66% 38%)', costoBar: 'hsl(28 85% 48% / .28)', costo: 'hsl(28 85% 48%)' }
 
   const axisTick = { fill: c.axis, fontSize: 11, fontFamily: '"IBM Plex Mono", monospace' }
 
@@ -89,8 +69,8 @@ export default function MonthlyChart({ data }: Props) {
     return (
       <div style={{ background: c.tipBg, border: `1px solid ${c.tipBorder}`, borderRadius: 10, padding: '8px 10px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ color: c.text, fontWeight: 600, marginBottom: 4 }}>{label} {year}</div>
-        <div style={{ color: c.costo }}>Costo preventivato: {eur(r?.costo ?? 0)}</div>
-        <div style={{ color: c.venduto }}>Venduto: {eur(r?.venduto ?? 0)}</div>
+        <div style={{ color: s.costo }}>Costo preventivato: {eur(r?.costo ?? 0)}</div>
+        <div style={{ color: s.venduto }}>Venduto: {eur(r?.venduto ?? 0)}</div>
       </div>
     )
   }
@@ -129,11 +109,11 @@ export default function MonthlyChart({ data }: Props) {
             <Tooltip cursor={{ fill: c.cursor }} content={renderTooltip} />
             <Legend wrapperStyle={{ fontSize: 12, color: c.text, paddingTop: 8 }} />
             {/* Due barre affiancate per il confronto del mese */}
-            <Bar dataKey="costo" name="Costo preventivato" fill={c.costoBar} radius={[4, 4, 0, 0]} barSize={11} />
-            <Bar dataKey="venduto" name="Venduto" fill={c.vendutoBar} radius={[4, 4, 0, 0]} barSize={11} />
+            <Bar dataKey="costo" name="Costo preventivato" fill={s.costoBar} radius={[4, 4, 0, 0]} barSize={11} />
+            <Bar dataKey="venduto" name="Venduto" fill={s.vendutoBar} radius={[4, 4, 0, 0]} barSize={11} />
             {/* Due linee di tendenza (dente di sega sui mesi senza vendite) */}
-            <Line dataKey="costo" stroke={c.costo} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />
-            <Line dataKey="venduto" stroke={c.venduto} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />
+            <Line dataKey="costo" stroke={s.costo} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />
+            <Line dataKey="venduto" stroke={s.venduto} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

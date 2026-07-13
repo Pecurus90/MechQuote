@@ -150,7 +150,7 @@ export default function UploadModal({
                 const f = e.target.files?.[0]
                 if (f) setFile(f)
               }}
-              className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-blue-100 cursor-pointer mt-1"
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium hover:file:bg-primary/20 cursor-pointer mt-1"
             />
             {file && (
               <p className="text-[11px] text-muted-foreground mt-1">

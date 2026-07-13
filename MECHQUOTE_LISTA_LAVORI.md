@@ -136,11 +136,16 @@ Non toccare ora: si accorpano alla riscrittura funzionale del modulo stampi.
   `StatusStepper`) vs editor standard.
 
 ### Minori (en passant, quando si tocca la zona)
-- **AUD-19** — alert "chiari fissi" fuori dagli stampi che rompono il dark mode:
-  `DxfPreviewModal`, `TempraFormModal`, `ToolFormModal`, `NewDieQuotePage`,
-  `StepColorRulesPage`, `UploadModal` → tokenizzare.
-- **AUD-20** — `dashboard/MonthlyChart.tsx` re-inlina il tema grafico invece di
-  usare `useChartTheme()` (solo DRY, nessun bug).
+- **AUD-19** — ✅ **FATTO 2026-07-13** — tokenizzati gli alert "chiari fissi":
+  `DxfPreviewModal` (box errore/avviso → danger/warning token), `TempraFormModal`
+  (emerald/gray → success/border), `StepColorRulesPage` (blue/red → info/danger),
+  `UploadModal` (blue-100 → primary/20). NB: il toggle `bg-white` di `ToolFormModal`
+  è **corretto** (thumb bianco su track colorato in entrambi i temi; `bg-card` lo
+  renderebbe invisibile in dark) → non toccato. `NewDieQuotePage` **spostato al
+  bundle Stampi** (AUD-17): si tokenizza col resto del modulo.
+- **AUD-20** — ✅ **FATTO 2026-07-13** — `dashboard/MonthlyChart.tsx` ora prende
+  grid/assi/tooltip/cursor da `useChartTheme()` (fonte unica); restano locali solo
+  i colori serie venduto/costo.
 - **AUD-21** — `<Alert variant>` e `<Modal>` wrapper condivisi mancanti (~10
   form-modali duplicano `fixed inset-0 flex…`): refactor da concordare (§13,
   affine CAT-3).

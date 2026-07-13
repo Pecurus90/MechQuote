@@ -78,11 +78,11 @@ export default function DxfPreviewModal({ documentId, documentTitle, onClose }: 
             <div className="text-center text-muted-foreground py-12">Analisi DXF in corso...</div>
           )}
           {error && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-md">
-              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-danger/10 border border-danger/30 rounded-md">
+              <AlertTriangle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
               <div className="flex-1 text-sm">
-                <div className="font-medium text-red-800">Anteprima non disponibile</div>
-                <div className="text-red-700 mt-1">{error}</div>
+                <div className="font-medium text-danger">Anteprima non disponibile</div>
+                <div className="text-danger mt-1">{error}</div>
               </div>
             </div>
           )}
@@ -102,7 +102,7 @@ export default function DxfPreviewModal({ documentId, documentTitle, onClose }: 
                 {analysis.units && <span>Unità: <strong>{analysis.units}</strong></span>}
               </div>
               {analysis.warnings && analysis.warnings.length > 0 && (
-                <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                <div className="mt-3 text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2">
                   <div className="font-medium mb-1">⚠ Avvisi:</div>
                   <ul className="list-disc pl-4 space-y-0.5">
                     {analysis.warnings.map((w, i) => <li key={i}>{w}</li>)}

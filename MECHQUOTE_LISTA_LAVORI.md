@@ -107,17 +107,21 @@ esistenti (A4, B1, CAT-5, cantiere Stampi): **non duplicare**, si chiudono lì.
   Archivio (solo dentro l'editor). Aggiungere `onRestore` alla lista Archivio.
 
 ### Sprint 3 — decisioni di prodotto (servono all'utente)
-- **AUD-12** — soglia minima margine = **A4** (già in Blocco A): decidere la
-  soglia (0%? −5%?), poi 1 riga `Field(ge=…)`.
-- **AUD-13** — cambio password self-service (menu profilo in TopBar). Affine A7
-  (oggi solo un admin cambia la password altrui).
-- **AUD-14** — gating **Backup** incoerente: `/settings/system` è gated solo
-  `users` ma mostra il tab Backup; la sidebar linka su `canBackup`. Per ruoli
-  custom → bottoni inefficaci / link morti. Decidere gating per-tab.
-- **AUD-15** — "costo" degli stampi nel grafico Dashboard = `cost_industrial`
-  (L5), non un costo reale → marginalità stampi sottostimata. Decisione di
-  rappresentazione (etichettare "industriale"? escludere? costo reale stampo?).
-  Affine cantiere Stampi.
+- **AUD-12** — ✅ **FATTO 2026-07-13** (decisione: **floor 0%**) — margine parte e
+  globale a `Field(ge=0)`: non si salva più un margine negativo. Verificato che
+  nessun preventivo esistente ha margine <0. Chiude anche **A4**.
+- **AUD-13** — ✅ **FATTO 2026-07-13** — cambio password self-service: endpoint
+  `POST /api/auth/change-password` (verifica vecchia + min 8) + `ChangePasswordModal`
+  aperto dal footer sidebar ("Cambia password"). Affine A7.
+- **AUD-14** — ✅ **FATTO 2026-07-13** — gating Backup separato: route
+  `/settings/system` ammette `users` OPPURE `backup`; i tab sono gate per
+  permesso (Utenti/Ruoli = `users`, Backup = `backup`). Niente più bottoni
+  inefficaci / link morti per ruoli custom.
+- **AUD-15** — ❌ **FALSO POSITIVO** (verificato 2026-07-13) — `cost_industrial`
+  (L5) NON è una base di prezzo: è il **costo stimato pre-margine** (L1 usa
+  `Part.total_cost`, il margine è L6 applicato solo a UI/PDF). Il grafico "Costo
+  **preventivato** vs Venduto" quindi usa correttamente L5 come costo degli
+  stampi. Nessun cambio: rietichettarlo sarebbe meno chiaro.
 
 ### Bundle Stampi — DIFFERITO col cantiere stampi (Fase 5 "G" / P2 / P3)
 Non toccare ora: si accorpano alla riscrittura funzionale del modulo stampi.

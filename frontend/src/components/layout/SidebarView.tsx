@@ -1,7 +1,7 @@
 // src/components/layout/SidebarView.tsx
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Gauge, Sun, Moon, LogOut, ChevronDown } from 'lucide-react'
+import { Gauge, Sun, Moon, LogOut, ChevronDown, KeyRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavLeaf {
@@ -27,6 +27,7 @@ interface SidebarViewProps {
   user: { name: string; roleLabel: string; initials: string }
   theme: 'light' | 'dark'
   onToggleTheme: () => void
+  onChangePassword: () => void
   onLogout: () => void
 }
 
@@ -111,6 +112,7 @@ export function SidebarView({
   user,
   theme,
   onToggleTheme,
+  onChangePassword,
   onLogout,
 }: SidebarViewProps) {
   const ThemeIcon = theme === 'dark' ? Sun : Moon
@@ -150,6 +152,14 @@ export function SidebarView({
         >
           <ThemeIcon className="h-[17px] w-[17px]" />
           {theme === 'dark' ? 'Tema chiaro' : 'Tema scuro'}
+        </button>
+        <button
+          type="button"
+          onClick={onChangePassword}
+          className="mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-[9px] text-[13px] font-medium text-foreground transition-colors hover:bg-muted/70"
+        >
+          <KeyRound className="h-[17px] w-[17px]" />
+          Cambia password
         </button>
         <div className="flex items-center gap-2.5 rounded-[9px] px-2.5 py-2">
           <div className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">

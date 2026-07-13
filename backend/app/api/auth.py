@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user, require_permission
 from app.models import User
-from app.schemas import Token, UserCreate, UserUpdate, UserOut
+from app.schemas import Token, UserCreate, UserUpdate, UserOut, ChangePasswordIn
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -85,6 +85,25 @@ def login(
     logger.info("Login OK: username=%s role=%s", user.username, user.role)
     token = create_access_token({"sub": user.username})
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cambio password self-service (AUD-13): l'utente cambia la propria
+    password verificando quella attuale. Nessun permesso richiesto oltre
+    all'essere autenticato."""
+    if not verify_password(data.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="La password attuale non è corretta")
+    if data.new_password == data.old_password:
+        raise HTTPException(status_code=400, detail="La nuova password deve essere diversa da quella attuale")
+    current_user.hashed_password = get_password_hash(data.new_password)
+    db.commit()
+    logger.info("Password cambiata (self-service): username=%s", current_user.username)
+    return {"ok": True}
 
 
 @router.get("/me")

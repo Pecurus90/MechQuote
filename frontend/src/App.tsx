@@ -102,7 +102,7 @@ function AppRoutes() {
         <Route path="settings/suppliers" element={<ProtectedRoute permission="settings"><SuppliersSettingsPage /></ProtectedRoute>} />
         <Route path="settings/edm"       element={<ProtectedRoute permission="settings"><EdmSettingsPage /></ProtectedRoute>} />
         <Route path="settings/catalog"   element={<ProtectedRoute permission="settings"><CatalogSettingsPage /></ProtectedRoute>} />
-        <Route path="settings/system"    element={<ProtectedRoute permission="users"><SystemSettingsPage /></ProtectedRoute>} />
+        <Route path="settings/system"    element={<ProtectedRoute anyPermission={['users', 'backup']}><SystemSettingsPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

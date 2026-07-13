@@ -10,6 +10,7 @@ import api from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
 import { SidebarView } from '@/components/layout/SidebarView'
+import ChangePasswordModal from '@/components/layout/ChangePasswordModal'
 
 // Container: costruisce il modello di navigazione (route + permessi + badge
 // reali) e lo passa a SidebarView (grafica handoff). Nessuna grafica qui.
@@ -36,6 +37,7 @@ export default function Sidebar() {
   const navigate = useNavigate()
   const { user, hasPermission, logout } = useAuth()
   const { theme, toggle: toggleTheme } = useTheme()
+  const [pwOpen, setPwOpen] = useState(false)
   const path = location.pathname
   const at = (p: string) => path === p || path.startsWith(p + '/') || path.startsWith(p + '?')
 
@@ -120,13 +122,17 @@ export default function Sidebar() {
   const name = user?.full_name || user?.username || '—'
 
   return (
-    <SidebarView
-      sections={sections}
-      onNavigate={(key) => { if (key.startsWith('/')) navigate(key) }}
-      user={{ name, roleLabel: user ? (ROLE_LABELS[user.role] ?? user.role) : '', initials: initials(name) }}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-      onLogout={() => { logout(); navigate('/login') }}
-    />
+    <>
+      <SidebarView
+        sections={sections}
+        onNavigate={(key) => { if (key.startsWith('/')) navigate(key) }}
+        user={{ name, roleLabel: user ? (ROLE_LABELS[user.role] ?? user.role) : '', initials: initials(name) }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onChangePassword={() => setPwOpen(true)}
+        onLogout={() => { logout(); navigate('/login') }}
+      />
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+    </>
   )
 }

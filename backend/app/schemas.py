@@ -126,6 +126,13 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class ChangePasswordIn(BaseModel):
+    """Cambio password self-service (AUD-13): l'utente cambia la PROPRIA
+    password fornendo quella attuale. Min 8 caratteri per la nuova."""
+    old_password: str
+    new_password: str = Field(min_length=8)
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -336,7 +343,7 @@ class PartBase(BaseModel):
     material_delivery_cost: Optional[float] = Field(default=0.0, ge=0)
     customer_supplied_material: Optional[bool] = False
     material_from_stock: Optional[bool] = False
-    margin_percent: Optional[float] = Field(default=None, ge=-99, le=1000)
+    margin_percent: Optional[float] = Field(default=None, ge=0, le=1000)
     minimum_price: Optional[float] = Field(default=None, ge=0)
     customer_notes: Optional[str] = None
     internal_notes: Optional[str] = None
@@ -390,7 +397,7 @@ class QuoteBase(BaseModel):
     validity_days: Optional[int] = 30
     delivery_text: Optional[str] = None
     currency: Optional[str] = "EUR"
-    global_margin_percent: Optional[float] = Field(default=20.0, ge=-99, le=1000)
+    global_margin_percent: Optional[float] = Field(default=20.0, ge=0, le=1000)
     global_discount_percent: Optional[float] = Field(default=0.0, ge=0, le=100)
     transport_cost: Optional[float] = Field(default=0.0, ge=0)
     packaging_cost: Optional[float] = Field(default=0.0, ge=0)

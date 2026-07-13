@@ -19,6 +19,7 @@ import { MarginStatsView } from '@/pages/statistics/MarginStatsView'
 import { MaterialsStatsView } from '@/pages/statistics/MaterialsStatsView'
 import { ToolsStatsView } from '@/pages/statistics/ToolsStatsView'
 import { type Period, Loading } from '@/pages/statistics/statsShared'
+import { buildDelta } from '@/pages/statistics/statDelta'
 import { MATERIAL_FAMILIES } from '@/lib/materialFamilies'
 
 // I preset del redesign ↔ i valori attesi dagli endpoint /dashboard/statistics.
@@ -92,10 +93,13 @@ export default function StatisticsPage() {
       const params = new URLSearchParams({ period: p })
       if (quoteType !== 'all') params.set('quote_type', quoteType)
       if (customer !== 'all') params.set('customer_id', customer)
+      if (compare !== 'none') params.set('compare', compare)
       api.get(`/dashboard/statistics?${params}`).then(r => setQData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche preventivi')).finally(done)
     } else if (tab === 'margin') {
-      api.get(`/dashboard/statistics/margin?period=${p}`).then(r => setGData(r.data))
+      const params = new URLSearchParams({ period: p })
+      if (compare !== 'none') params.set('compare', compare)
+      api.get(`/dashboard/statistics/margin?${params}`).then(r => setGData(r.data))
         .catch(() => toast.error('Errore caricamento marginalità')).finally(done)
     } else if (tab === 'materials') {
       const params = new URLSearchParams({ period: p })
@@ -110,7 +114,11 @@ export default function StatisticsPage() {
       api.get(`/dashboard/statistics/tools?${params}`).then(r => setTData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche utensili')).finally(done)
     }
-  }, [tab, period, quoteType, customer, matSupplier, matFamily, toolType, toolSupplier])
+  }, [tab, period, compare, quoteType, customer, matSupplier, matFamily, toolType, toolSupplier])
+
+  // Etichette del confronto (MoM/YoY) — usate su pill KPI e serie cmp.
+  const vs = compare === 'prev' ? 'vs periodo prec.' : compare === 'yoy' ? 'vs anno scorso' : ''
+  const cmpSeriesName = compare === 'prev' ? 'Periodo prec.' : compare === 'yoy' ? 'Anno scorso' : undefined
 
   return (
     <div className="px-6 pb-10 pt-[22px]">
@@ -133,14 +141,21 @@ export default function StatisticsPage() {
                 ...customers.map(c => ({ value: String(c.id), label: c.name })),
               ]}
               onCustomerChange={setCustomer}
-              kpis={buildQuoteKpis(qData)}
+              kpis={buildQuoteKpis(qData, vs)}
+              cmpName={qData.comparison ? cmpSeriesName : undefined}
               outcome={[
                 { name: 'Vinti', value: (qData.outcome ?? EMPTY_OUTCOME).won_value, color: 'hsl(142 66% 40%)' },
                 { name: 'Persi', value: (qData.outcome ?? EMPTY_OUTCOME).lost_value, color: 'hsl(349 75% 52%)' },
                 { name: 'Aperti', value: (qData.outcome ?? EMPTY_OUTCOME).open_value, color: 'hsl(220 9% 60%)' },
               ]}
-              trendByType={qData.trend_monthly.map(p => ({ month: monthLabel(p.month), standard: p.standard, stampi: p.dies }))}
-              monthlyMargin={qData.margin_monthly.map(p => ({ month: monthLabel(p.month), margine: p.margin_percent }))}
+              trendByType={qData.trend_monthly.map((p, i) => ({
+                month: monthLabel(p.month), standard: p.standard, stampi: p.dies,
+                ...(qData.comparison ? { cmp: qData.comparison.trend_total[i]?.value ?? 0 } : {}),
+              }))}
+              monthlyMargin={qData.margin_monthly.map((p, i) => ({
+                month: monthLabel(p.month), margine: p.margin_percent,
+                ...(qData.comparison ? { cmp: qData.comparison.margin_by_month[i]?.value ?? 0 } : {}),
+              }))}
               topCustomers={qData.top_customers.map(c => ({ name: c.customer_name ?? '—', value: c.total }))}
               byCategory={qData.by_category.map(c => ({ name: c.category_code, value: c.count }))}
               hoursByMachine={qData.hours_by_machine.map(h => ({ name: h.label, value: h.hours }))}
@@ -152,12 +167,16 @@ export default function StatisticsPage() {
         {tab === 'margin' && (
           (loading || !gData) ? <Loading /> : (
             <MarginStatsView
-              kpis={buildMarginKpis(gData)}
+              kpis={buildMarginKpis(gData, vs)}
               coverage={{ completed: gData.completed_count, withSold: gData.with_sold_count, withCost: gData.with_cost_count }}
-              monthly={gData.monthly}
-              profit={gData.profit_monthly}
+              monthly={gData.monthly.map(m => ({ ...m, month: monthLabel(m.month) }))}
+              profit={gData.profit_monthly.map((p, i) => ({
+                month: monthLabel(p.month), profit: p.profit,
+                ...(gData.comparison ? { cmp: gData.comparison.profit_by_month[i]?.profit ?? 0 } : {}),
+              }))}
               distribution={gData.distribution}
               worst={gData.worst}
+              cmpName={gData.comparison ? cmpSeriesName : undefined}
             />
           )
         )}
@@ -214,27 +233,30 @@ export default function StatisticsPage() {
   )
 }
 
-function buildQuoteKpis(data: Statistics): StatKpi[] {
+function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {
   const totalValue = data.trend_monthly.reduce((s, p) => s + p.standard + p.dies, 0)
+  const count = data.standard_count + data.dies_count
   const avgMargin = data.margin_monthly.length === 0
     ? 0
     : data.margin_monthly.reduce((s, p) => s + p.margin_percent, 0) / data.margin_monthly.length
   const o = data.outcome ?? EMPTY_OUTCOME
+  const c = data.comparison
   return [
-    { key: 'count', label: 'Preventivi', value: data.standard_count + data.dies_count, hint: `${data.standard_count} std · ${data.dies_count} stampi`, icon: FileText, tone: 'primary' },
-    { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi · ${o.conversion_rate_value.toFixed(0)}% a valore`, icon: Target, tone: 'confirmed' },
-    { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'valore nel periodo', icon: Euro, tone: 'success' },
-    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'info' },
+    { key: 'count', label: 'Preventivi', value: count, hint: `${data.standard_count} std · ${data.dies_count} stampi`, icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
+    { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi`, icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
+    { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'valore nel periodo', icon: Euro, tone: 'success', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
+    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },
   ]
 }
 
-function buildMarginKpis(d: MarginStats): StatKpi[] {
+function buildMarginKpis(d: MarginStats, vs: string): StatKpi[] {
   const ratio = (v: number | null): string =>
     v == null ? '—' : v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const c = d.comparison
   return [
-    { key: 'profit', label: 'Guadagno reale', value: d.guadagno_reale == null ? '—' : eur(d.guadagno_reale), hint: 'venduto − costo reale', icon: Wallet, tone: 'success', valueToned: true },
-    { key: 'price', label: 'Scostamento prezzo', value: ratio(d.taratura_prezzo), hint: 'venduto ÷ preventivato', icon: Tag, tone: 'warning' },
-    { key: 'cost', label: 'Precisione costo', value: ratio(d.taratura_costo), hint: 'costo reale ÷ stimato', icon: Crosshair, tone: 'danger' },
+    { key: 'profit', label: 'Guadagno reale', value: d.guadagno_reale == null ? '—' : eur(d.guadagno_reale), hint: 'venduto − costo reale', icon: Wallet, tone: 'success', valueToned: true, delta: buildDelta(d.guadagno_reale, c?.guadagno_reale, 'eur', 'higher', vs) },
+    { key: 'price', label: 'Scostamento prezzo', value: ratio(d.taratura_prezzo), hint: 'venduto ÷ preventivato', icon: Tag, tone: 'warning', delta: buildDelta(d.taratura_prezzo, c?.taratura_prezzo, 'ratio_point', 'higher', vs) },
+    { key: 'cost', label: 'Precisione costo', value: ratio(d.taratura_costo), hint: 'costo reale ÷ stimato', icon: Crosshair, tone: 'danger', delta: buildDelta(d.taratura_costo, c?.taratura_costo, 'ratio_point', 'closer_to_1', vs) },
     { key: 'coverage', label: 'Copertura dato', value: `${d.with_sold_count}/${d.completed_count}`, hint: `${d.with_sold_count} col venduto · ${d.with_cost_count} col costo reale`, icon: Database, tone: 'info' },
   ]
 }

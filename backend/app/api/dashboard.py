@@ -26,6 +26,7 @@ from app.schemas import (
     StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
     StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow, StatsOutcome,
     MarginStatsOut, MarginMonthlyPoint, MarginProfitPoint, MarginBandRow, MarginWorstRow,
+    StatsCmpPoint, StatsQuotesComparison, MarginComparison,
 )
 from app.api.notifications import serialize_notification
 
@@ -161,11 +162,116 @@ def _period_range(period: str):
     return (None, None)
 
 
+def _comparison_range(compare: str, date_from, date_to):
+    """Finestra di confronto per il toggle MoM/YoY.
+    - 'prev' = finestra immediatamente precedente della stessa lunghezza.
+    - 'yoy'  = stessa finestra shiftata di ~1 anno (365 giorni, robusto ai
+      bisestili).
+    Richiede un periodo con bound espliciti: su 'Tutto' (date_from None) il
+    confronto non è definito → (None, None).
+    """
+    if date_from is None or date_to is None:
+        return (None, None)
+    if compare == 'yoy':
+        return (date_from - timedelta(days=365), date_to - timedelta(days=365))
+    if compare == 'prev':
+        length = (date_to - date_from).days
+        cmp_to = date_from - timedelta(days=1)
+        return (cmp_to - timedelta(days=length), cmp_to)
+    return (None, None)
+
+
+def _quotes_where(date_from, date_to, quote_type, customer_id):
+    """Costruisce (date_filter, params) per le query della tab Preventivi.
+    Riusato da periodo corrente e finestra di confronto."""
+    parts: list = []
+    params: dict = {}
+    if date_from is not None:
+        parts.append("q.quote_date >= :date_from")
+        params['date_from'] = date_from
+    if date_to is not None:
+        parts.append("q.quote_date <= :date_to")
+        params['date_to'] = date_to
+    if customer_id is not None:
+        parts.append("q.customer_id = :customer_id")
+        params['customer_id'] = customer_id
+    if quote_type == 'die':
+        parts.append("q.quote_type = 'die'")
+    elif quote_type == 'standard':
+        parts.append("(q.quote_type != 'die' OR q.quote_type IS NULL)")
+    date_filter = (' AND ' + ' AND '.join(parts)) if parts else ''
+    return date_filter, params
+
+
+def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id) -> StatsQuotesComparison:
+    """Aggregati della finestra di confronto (tab Preventivi): € totale e
+    margine % per mese (per la serie `cmp`) + scalari per i delta KPI."""
+    df, params = _quotes_where(date_from, date_to, quote_type, customer_id)
+    rows = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM(
+            CASE WHEN q.quote_type = 'die'
+                 THEN ds.cost_industrial
+                      * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
+                      * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
+                 ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+            END), 0) AS total
+        FROM quotes q LEFT JOIN die_specs ds ON ds.quote_id = q.id
+        WHERE 1=1 {df}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    trend_total = [StatsCmpPoint(month=r.m, value=round(float(r.total or 0), 2)) for r in rows]
+    total_value = round(sum(float(r.total or 0) for r in rows), 2)
+
+    count = db.execute(text(f"SELECT COUNT(*) FROM quotes q WHERE 1=1 {df}"), params).scalar() or 0
+
+    mrows = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
+          COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
+        FROM parts p JOIN quotes q ON q.id = p.quote_id
+        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL) AND p.total_cost > 0 {df}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    margin_by_month = []
+    msum, mn = 0.0, 0
+    for r in mrows:
+        cost = float(r.cost or 0)
+        pct = ((float(r.revenue or 0) - cost) / cost * 100.0) if cost > 0 else 0.0
+        margin_by_month.append(StatsCmpPoint(month=r.m, value=round(pct, 2)))
+        msum += pct
+        mn += 1
+    avg_margin = round(msum / mn, 2) if mn else 0.0
+
+    orow = db.execute(text(
+        f"""
+        SELECT
+          SUM(CASE WHEN q.status IN ('confermato', 'completo') THEN 1 ELSE 0 END) AS won,
+          SUM(CASE WHEN q.status = 'non_ordinato' THEN 1 ELSE 0 END) AS lost
+        FROM quotes q WHERE 1=1 {df}
+        """
+    ), params).first()
+    won = int(orow.won or 0) if orow else 0
+    lost = int(orow.lost or 0) if orow else 0
+    conv = round(won / (won + lost) * 100.0, 1) if (won + lost) > 0 else 0.0
+
+    return StatsQuotesComparison(
+        total_value=total_value, count=int(count),
+        conversion_rate=conv, avg_margin=avg_margin,
+        trend_total=trend_total, margin_by_month=margin_by_month,
+    )
+
+
 @router.get("/dashboard/statistics", response_model=StatisticsOut)
 def get_statistics(
     period: str = 'year',
     quote_type: Optional[str] = None,   # 'standard' | 'die' | None=tutti
     customer_id: Optional[int] = None,
+    compare: Optional[str] = None,      # 'prev' | 'yoy' | None
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
@@ -173,24 +279,10 @@ def get_statistics(
     """Dataset aggregato per la pagina /statistics (tab Preventivi).
     Param `period`: year (default) | 12m | prev_year | all.
     Filtri opzionali: `quote_type` (standard|die), `customer_id`.
+    `compare` (prev|yoy) aggiunge gli aggregati della finestra di confronto.
     """
     date_from, date_to = _period_range(period)
-    where_parts = []
-    params: dict = {}
-    if date_from is not None:
-        where_parts.append("q.quote_date >= :date_from")
-        params['date_from'] = date_from
-    if date_to is not None:
-        where_parts.append("q.quote_date <= :date_to")
-        params['date_to'] = date_to
-    if customer_id is not None:
-        where_parts.append("q.customer_id = :customer_id")
-        params['customer_id'] = customer_id
-    if quote_type == 'die':
-        where_parts.append("q.quote_type = 'die'")
-    elif quote_type == 'standard':
-        where_parts.append("(q.quote_type != 'die' OR q.quote_type IS NULL)")
-    date_filter = (' AND ' + ' AND '.join(where_parts)) if where_parts else ''
+    date_filter, params = _quotes_where(date_from, date_to, quote_type, customer_id)
 
     # ─── 1. Trend mensile per tipo (standard vs dies) ──────────────────
     # Standard: somma parts.total_price (escluso die).
@@ -410,6 +502,12 @@ def get_statistics(
         conversion_rate_value=round(won_v / decided_v * 100.0, 1) if decided_v > 0 else 0.0,
     )
 
+    comparison = None
+    if compare in ('prev', 'yoy'):
+        cmp_from, cmp_to = _comparison_range(compare, date_from, date_to)
+        if cmp_from is not None:
+            comparison = _quotes_comparison(db, cmp_from, cmp_to, quote_type, customer_id)
+
     return StatisticsOut(
         period=period,
         standard_count=standard_count,
@@ -421,41 +519,30 @@ def get_statistics(
         margin_monthly=margin_monthly,
         hours_by_machine=hours_by_machine,
         hours_by_operation=hours_by_operation,
+        comparison=comparison,
     )
 
 
-@router.get("/dashboard/statistics/margin", response_model=MarginStatsOut)
-def get_margin_stats(
-    period: str = 'year',
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _=_can_view,
-):
-    """Tab Marginalità & taratura: guadagno reale e taratura prezzo/costo sui
-    preventivi in stato 'completo' (Stampi esclusi: non hanno sold_price).
-
-    - Guadagno reale  = venduto (sold_price) − costo reale (actual_cost)
-    - Taratura prezzo = venduto ÷ preventivato (final_total)
-    - Taratura costo  = costo reale ÷ costo stimato (Σ parti total_cost×qty)
-
-    I KPI degradano a None quando manca il dato (nessun costo reale compilato):
-    il frontend mostra la sola parte prezzo + avviso. `with_*_count` danno la
-    copertura per valutare l'affidabilità delle medie.
-    """
-    date_from, date_to = _period_range(period)
-    where_parts = ["q.status = 'completo'", "(q.quote_type != 'die' OR q.quote_type IS NULL)"]
+def _margin_where(date_from, date_to):
+    """(where, params) per la tab Marginalità: solo preventivi completi non-die,
+    con bound di periodo. Riusato da periodo corrente e finestra di confronto."""
+    parts = ["q.status = 'completo'", "(q.quote_type != 'die' OR q.quote_type IS NULL)"]
     params: dict = {}
     if date_from is not None:
-        where_parts.append("q.quote_date >= :date_from")
+        parts.append("q.quote_date >= :date_from")
         params['date_from'] = date_from
     if date_to is not None:
-        where_parts.append("q.quote_date <= :date_to")
+        parts.append("q.quote_date <= :date_to")
         params['date_to'] = date_to
-    where = ' AND '.join(where_parts)
-    # Costo stimato per preventivo: Σ parti (total_cost × quantità).
-    est_cost = "(SELECT COALESCE(SUM(p.total_cost * p.quantity), 0) FROM parts p WHERE p.quote_id = q.id)"
+    return ' AND '.join(parts), params
 
-    # ─── KPI aggregati + copertura ────────────────────────────────────
+
+def _margin_core(db: Session, date_from, date_to):
+    """KPI marginalità + guadagno mensile per una finestra temporale.
+    Ritorna (guadagno_reale, taratura_prezzo, taratura_costo,
+    (completed, with_sold, with_cost), profit_monthly)."""
+    where, params = _margin_where(date_from, date_to)
+    est_cost = "(SELECT COALESCE(SUM(p.total_cost * p.quantity), 0) FROM parts p WHERE p.quote_id = q.id)"
     agg = db.execute(text(
         f"""
         SELECT
@@ -485,6 +572,47 @@ def get_margin_stats(
     taratura_costo = round(cost_sum / est_for_cost, 4) if (with_cost and est_for_cost > 0) else None
     guadagno_reale = round(profit_sum, 2) if with_cost else None
 
+    rows_p = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM(q.sold_price - q.actual_cost), 0) AS profit
+        FROM quotes q
+        WHERE {where} AND q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    profit_monthly = [MarginProfitPoint(month=r.m, profit=round(float(r.profit or 0), 2)) for r in rows_p]
+
+    return guadagno_reale, taratura_prezzo, taratura_costo, (completed, with_sold, with_cost), profit_monthly
+
+
+@router.get("/dashboard/statistics/margin", response_model=MarginStatsOut)
+def get_margin_stats(
+    period: str = 'year',
+    compare: Optional[str] = None,      # 'prev' | 'yoy' | None
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """Tab Marginalità & taratura: guadagno reale e taratura prezzo/costo sui
+    preventivi in stato 'completo' (Stampi esclusi: non hanno sold_price).
+
+    - Guadagno reale  = venduto (sold_price) − costo reale (actual_cost)
+    - Taratura prezzo = venduto ÷ preventivato (final_total)
+    - Taratura costo  = costo reale ÷ costo stimato (Σ parti total_cost×qty)
+
+    I KPI degradano a None quando manca il dato (nessun costo reale compilato):
+    il frontend mostra la sola parte prezzo + avviso. `with_*_count` danno la
+    copertura per valutare l'affidabilità delle medie. `compare` (prev|yoy)
+    aggiunge gli aggregati della finestra di confronto.
+    """
+    date_from, date_to = _period_range(period)
+    where, params = _margin_where(date_from, date_to)
+
+    # ─── KPI + guadagno mensile (via core riusabile) ──────────────────
+    guadagno_reale, taratura_prezzo, taratura_costo, counts, profit_monthly = _margin_core(db, date_from, date_to)
+    completed, with_sold, with_cost = counts
+
     # ─── Andamento preventivato / venduto / costo reale (mensile) ─────
     rows_m = db.execute(text(
         f"""
@@ -503,18 +631,6 @@ def get_margin_stats(
             venduto=round(float(r.venduto or 0), 2), costo=round(float(r.costo or 0), 2),
         ) for r in rows_m
     ]
-
-    # ─── Guadagno reale mensile (solo con venduto E costo) ────────────
-    rows_p = db.execute(text(
-        f"""
-        SELECT strftime('%Y-%m', q.quote_date) AS m,
-          COALESCE(SUM(q.sold_price - q.actual_cost), 0) AS profit
-        FROM quotes q
-        WHERE {where} AND q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
-        GROUP BY m ORDER BY m
-        """
-    ), params).all()
-    profit_monthly = [MarginProfitPoint(month=r.m, profit=round(float(r.profit or 0), 2)) for r in rows_p]
 
     # ─── Distribuzione scostamento prezzo (venduto ÷ preventivato) ────
     rows_r = db.execute(text(
@@ -563,6 +679,16 @@ def get_margin_stats(
         ) for r in rows_w
     ]
 
+    comparison = None
+    if compare in ('prev', 'yoy'):
+        cmp_from, cmp_to = _comparison_range(compare, date_from, date_to)
+        if cmp_from is not None:
+            c_g, c_tp, c_tc, _c_counts, c_profit = _margin_core(db, cmp_from, cmp_to)
+            comparison = MarginComparison(
+                guadagno_reale=c_g, taratura_prezzo=c_tp, taratura_costo=c_tc,
+                profit_by_month=c_profit,
+            )
+
     return MarginStatsOut(
         period=period,
         guadagno_reale=guadagno_reale,
@@ -575,6 +701,7 @@ def get_margin_stats(
         profit_monthly=profit_monthly,
         distribution=distribution,
         worst=worst,
+        comparison=comparison,
     )
 
 

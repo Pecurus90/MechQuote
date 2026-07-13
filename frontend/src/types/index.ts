@@ -696,6 +696,20 @@ export interface StatsOutcome {
   conversion_rate_value: number   // % sul valore € dei preventivi decisi
 }
 
+export interface StatsCmpPoint {
+  month: string
+  value: number
+}
+
+export interface StatsQuotesComparison {
+  total_value: number
+  count: number
+  conversion_rate: number
+  avg_margin: number
+  trend_total: StatsCmpPoint[]
+  margin_by_month: StatsCmpPoint[]
+}
+
 export interface Statistics {
   period: 'year' | '12m' | 'prev_year' | 'all'
   standard_count: number
@@ -707,6 +721,7 @@ export interface Statistics {
   margin_monthly: StatsMarginPoint[]
   hours_by_machine: StatsHoursRow[]
   hours_by_operation: StatsHoursRow[]
+  comparison?: StatsQuotesComparison | null
 }
 
 // Tab "Materiali" — statistiche ordini materiali
@@ -810,6 +825,13 @@ export interface MarginWorstRow {
   delta_percent: number
 }
 
+export interface MarginComparison {
+  guadagno_reale: number | null
+  taratura_prezzo: number | null
+  taratura_costo: number | null
+  profit_by_month: MarginProfitPoint[]
+}
+
 export interface MarginStats {
   period: string
   guadagno_reale: number | null
@@ -822,6 +844,7 @@ export interface MarginStats {
   profit_monthly: MarginProfitPoint[]
   distribution: MarginBandRow[]
   worst: MarginWorstRow[]
+  comparison?: MarginComparison | null
 }
 
 

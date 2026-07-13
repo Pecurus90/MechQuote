@@ -792,6 +792,23 @@ class StatsOutcome(BaseModel):
     conversion_rate_value: float = 0.0  # % sul valore € dei preventivi decisi
 
 
+class StatsCmpPoint(BaseModel):
+    """Punto della serie di confronto (MoM/YoY), allineato per posizione."""
+    month: str
+    value: float
+
+
+class StatsQuotesComparison(BaseModel):
+    """Aggregati del periodo di confronto (tab Preventivi). Il frontend ne
+    ricava i delta dei KPI e la serie tratteggiata `cmp` sui trend."""
+    total_value: float = 0.0
+    count: int = 0
+    conversion_rate: float = 0.0
+    avg_margin: float = 0.0
+    trend_total: List[StatsCmpPoint] = []     # € totale/mese (standard+stampi)
+    margin_by_month: List[StatsCmpPoint] = []  # margine %/mese
+
+
 class StatisticsOut(BaseModel):
     period: str                              # 'year' | '12m' | 'prev_year' | 'all'
     standard_count: int = 0                  # n° preventivi standard nel periodo
@@ -803,6 +820,7 @@ class StatisticsOut(BaseModel):
     margin_monthly: List[StatsMarginPoint]
     hours_by_machine: List[StatsHoursRow] = []
     hours_by_operation: List[StatsHoursRow] = []
+    comparison: Optional[StatsQuotesComparison] = None  # popolato se compare attivo
 
 
 # ─── Statistics: tab Materiali ────────────────────────────────────────────
@@ -919,6 +937,14 @@ class MarginWorstRow(BaseModel):
     delta_percent: float                            # (venduto − preventivato)/preventivato ×100
 
 
+class MarginComparison(BaseModel):
+    """Aggregati del periodo di confronto (tab Marginalità)."""
+    guadagno_reale: Optional[float] = None
+    taratura_prezzo: Optional[float] = None
+    taratura_costo: Optional[float] = None
+    profit_by_month: List[MarginProfitPoint] = []
+
+
 class MarginStatsOut(BaseModel):
     period: str
     # KPI (None quando il dato è insufficiente → degradazione graziosa)
@@ -933,6 +959,7 @@ class MarginStatsOut(BaseModel):
     profit_monthly: List[MarginProfitPoint] = []
     distribution: List[MarginBandRow] = []
     worst: List[MarginWorstRow] = []
+    comparison: Optional[MarginComparison] = None  # popolato se compare attivo
 
 
 class DashboardQuoteRow(BaseModel):

@@ -40,6 +40,8 @@ interface Props {
   hoursByProcess: Array<Record<string, string | number>>
   /** chiave asse X delle serie temporali (default "month") */
   xKey?: string
+  /** nome serie di confronto (MoM/YoY); assente = nessun confronto */
+  cmpName?: string
 }
 
 const TYPE_SEG: { key: QuoteStatType; label: string }[] = [
@@ -68,6 +70,7 @@ export function QuotesStatsView({
   hoursByMachine,
   hoursByProcess,
   xKey = 'month',
+  cmpName,
 }: Props) {
   const { theme } = useTheme()
   const dark = theme === 'dark'
@@ -141,6 +144,8 @@ export function QuotesStatsView({
           ]}
           yFmt={eurK}
           tipFmt={(v, n) => [eur(v), n]}
+          cmpKey={cmpName ? 'cmp' : undefined}
+          cmpName={cmpName}
         />
         <TrendAreaCard
           title="Margine medio mensile"
@@ -150,6 +155,8 @@ export function QuotesStatsView({
           series={[{ key: 'margine', name: 'Margine %', color: col.margine }]}
           yFmt={(v) => `${v}%`}
           tipFmt={(v, n) => [`${v}%`, n]}
+          cmpKey={cmpName ? 'cmp' : undefined}
+          cmpName={cmpName}
         />
         <DonutCard
           title="Esito preventivi (€)"

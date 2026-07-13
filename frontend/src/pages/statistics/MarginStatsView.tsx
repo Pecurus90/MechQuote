@@ -6,9 +6,10 @@ import { KpiCard } from '@/components/dashboard/KpiCard'
 import { useChartTheme } from '@/components/charts/chartTheme'
 import GroupedBarsCard from '@/components/charts/GroupedBarsCard'
 import SignedBarsCard from '@/components/charts/SignedBarsCard'
+import TrendAreaCard from '@/components/charts/TrendAreaCard'
 import ChartEmpty from '@/components/charts/ChartEmpty'
 import type { StatKpi } from '@/pages/statistics/StatisticsView'
-import type { MarginMonthlyPoint, MarginProfitPoint, MarginBandRow, MarginWorstRow } from '@/types'
+import type { MarginMonthlyPoint, MarginBandRow, MarginWorstRow } from '@/types'
 
 interface Coverage {
   completed: number
@@ -19,13 +20,15 @@ interface Coverage {
 interface Props {
   kpis: StatKpi[]
   coverage: Coverage
-  /** { month, preventivato, venduto, costo } */
+  /** { month, preventivato, venduto, costo } (month già etichettato) */
   monthly: MarginMonthlyPoint[]
-  /** { month, profit } */
-  profit: MarginProfitPoint[]
+  /** { month, profit, cmp? } */
+  profit: Array<Record<string, string | number>>
   /** { band, count } — istogramma scostamento prezzo */
   distribution: MarginBandRow[]
   worst: MarginWorstRow[]
+  /** nome serie di confronto (MoM/YoY); presente = degrada Guadagno ad Area+cmp */
+  cmpName?: string
 }
 
 const eur = (v: number): string =>
@@ -34,7 +37,7 @@ const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const eurSigned = (v: number): string =>
   (v < 0 ? '−€ ' : '€ ') + Math.abs(Math.round(v || 0)).toLocaleString('it-IT')
 
-export function MarginStatsView({ kpis, coverage, monthly, profit, distribution, worst }: Props) {
+export function MarginStatsView({ kpis, coverage, monthly, profit, distribution, worst, cmpName }: Props) {
   const c = useChartTheme()
   // Degradazione graziosa: se il costo reale è raramente compilato, mostriamo
   // la sola parte prezzo e avvisiamo. Soglia: nessun costo, o < 60% di copertura.
@@ -94,16 +97,30 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
           yFmt={eurK}
           tipFmt={(v, n) => [eur(v), n]}
         />
-        <SignedBarsCard
-          title="Guadagno reale mensile"
-          subtitle="Venduto − costo reale"
-          data={profit as unknown as Array<Record<string, string | number>>}
-          xKey="month"
-          valueKey="profit"
-          yFmt={eurK}
-          tipFmt={(v, n) => [eurSigned(v), n]}
-          valueName="Guadagno"
-        />
+        {cmpName ? (
+          <TrendAreaCard
+            title="Guadagno reale mensile"
+            subtitle="Venduto − costo reale"
+            data={profit}
+            xKey="month"
+            series={[{ key: 'profit', name: 'Guadagno', color: c.succ }]}
+            yFmt={eurK}
+            tipFmt={(v, n) => [eurSigned(v), n]}
+            cmpKey="cmp"
+            cmpName={cmpName}
+          />
+        ) : (
+          <SignedBarsCard
+            title="Guadagno reale mensile"
+            subtitle="Venduto − costo reale"
+            data={profit}
+            xKey="month"
+            valueKey="profit"
+            yFmt={eurK}
+            tipFmt={(v, n) => [eurSigned(v), n]}
+            valueName="Guadagno"
+          />
+        )}
         <GroupedBarsCard
           title="Distribuzione scostamento prezzo"
           subtitle="Venduto ÷ preventivato · n. preventivi per fascia"

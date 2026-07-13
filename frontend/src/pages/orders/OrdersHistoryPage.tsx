@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import PageContainer from '@/components/ui/page-container'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import {
   OrderHistoryView, type HistoryTab,
   type MaterialOrder as VMaterialOrder, type ToolOrder as VToolOrder, type NormOrder as VNormOrder,
@@ -42,6 +43,8 @@ export default function OrdersHistoryPage() {
   const [matOrders, setMatOrders] = useState<MaterialOrder[]>([])
   const [toolOrders, setToolOrders] = useState<ToolOrder[]>([])
   const [normOrders, setNormOrders] = useState<NormalizedOrderApi[]>([])
+  // AUD-8: gate di conferma unico per l'eliminazione ordini (era window.confirm).
+  const [pendingDelete, setPendingDelete] = useState<{ title: string; description: string; run: () => void } | null>(null)
 
   const loadMaterials = (term = search) => {
     const p = new URLSearchParams(); if (term.trim()) p.set('q', term.trim())
@@ -63,7 +66,6 @@ export default function OrdersHistoryPage() {
 
   const deleteMaterial = async (id: number) => {
     const num = `MO-${String(id).padStart(4, '0')}`
-    if (!window.confirm(`Eliminare l'ordine ${num}?\n\nI preventivi inclusi torneranno "da ordinare" e riselezionabili; quelli già completati verranno riaperti (da completo a confermato). Non reversibile.`)) return
     try {
       const res = await api.delete(`/orders/materials/${id}`)
       const { reopened = [] } = res.data as { reverted?: string[]; reopened?: string[] }
@@ -78,13 +80,11 @@ export default function OrdersHistoryPage() {
   }
   const deleteTool = async (id: number) => {
     const num = `UO-${String(id).padStart(4, '0')}`
-    if (!window.confirm(`Eliminare l'ordine ${num} dallo storico?\n\nNon reversibile.`)) return
     try { await api.delete(`/orders/tools/${id}`); toast.success(`Ordine ${num} eliminato`); loadTools() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nell\'eliminazione dell\'ordine') }
   }
   const deleteNormalized = async (id: number) => {
     const num = `NO-${String(id).padStart(4, '0')}`
-    if (!window.confirm(`Eliminare l'ordine ${num} dallo storico?\n\nNon reversibile.`)) return
     try { await api.delete(`/orders/normalized/${id}`); toast.success(`Ordine ${num} eliminato`); loadNormalized() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Errore nell\'eliminazione dell\'ordine') }
   }
@@ -133,10 +133,26 @@ export default function OrdersHistoryPage() {
           return downloadBlob(`/orders/tools/${id}/csv`, `ordine_utensili_UO${id}.csv`).catch(() => toast.error('Errore download CSV'))
         }}
         onDelete={(o) => {
-          if (tab === 'materials') return deleteMaterial(o.id)
-          if (tab === 'normalized') return deleteNormalized(o.id)
-          return deleteTool(o.id)
+          if (tab === 'materials') {
+            const num = `MO-${String(o.id).padStart(4, '0')}`
+            setPendingDelete({ title: `Eliminare l'ordine ${num}?`, description: 'I preventivi inclusi torneranno "da ordinare" e riselezionabili; quelli già completati verranno riaperti (da completo a confermato). Non reversibile.', run: () => deleteMaterial(o.id) })
+          } else if (tab === 'normalized') {
+            const num = `NO-${String(o.id).padStart(4, '0')}`
+            setPendingDelete({ title: `Eliminare l'ordine ${num}?`, description: "Rimosso dallo storico. Non reversibile.", run: () => deleteNormalized(o.id) })
+          } else {
+            const num = `UO-${String(o.id).padStart(4, '0')}`
+            setPendingDelete({ title: `Eliminare l'ordine ${num}?`, description: "Rimosso dallo storico. Non reversibile.", run: () => deleteTool(o.id) })
+          }
         }}
+      />
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        variant="destructive"
+        title={pendingDelete?.title ?? ''}
+        description={pendingDelete?.description}
+        confirmLabel="Elimina"
+        onConfirm={() => { const p = pendingDelete; setPendingDelete(null); p?.run() }}
+        onCancel={() => setPendingDelete(null)}
       />
     </PageContainer>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
@@ -63,6 +64,12 @@ export default function PhaseEditor({
   const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
   const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([])
   const [operations, setOperations] = useState<Operation[]>([])
+  // AUD-8/9: gate di conferma per le azioni distruttive (elimina fase, sblocco
+  // EDM manuale, sostituzione fasi da flusso). Sostituisce i confirm() nativi.
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string; description: string; confirmLabel: string
+    variant?: 'default' | 'destructive'; run: () => void
+  } | null>(null)
 
   useEffect(() => {
     const devWarn = (label: string) => (e: unknown) => { if (import.meta.env.DEV) console.warn(`[PhaseEditor] load ${label} failed`, e) }
@@ -127,9 +134,13 @@ export default function PhaseEditor({
 
   const removePhase = async (idx: number) => {
     const phase = phases[idx]
-    if (phase.id) { try { await api.delete(`/phases/${phase.id}`) } catch { toast.error("Errore nell'eliminazione della fase") } }
+    if (phase.id) {
+      try { await api.delete(`/phases/${phase.id}`) }
+      catch { toast.error("Errore nell'eliminazione della fase"); return }
+    }
     const remaining = phases.filter((_, i) => i !== idx).map((p, i) => ({ ...p, sequence_number: (i + 1) * 10 }))
     onChange(remaining)
+    toast.success('Fase eliminata')
     if (partId && remaining.length > 0) {
       const ids = remaining.filter(p => p.id).map(p => p.id as number)
       if (ids.length > 0) api.post(`/parts/${partId}/phases/reorder`, ids).catch(() => toast.error('Errore nella rinumerazione delle fasi'))
@@ -162,7 +173,6 @@ export default function PhaseEditor({
   const applyWorkflow = async (wf: WorkflowTemplate) => {
     if (!partId) { toast.error('Salva prima il preventivo per applicare un flusso'); return }
     if (wf.steps.length === 0) { toast.error('Il flusso non ha fasi'); return }
-    if (phases.length > 0 && !confirm(`Applicare "${wf.name}" sostituirà le ${phases.length} fasi esistenti con le ${wf.steps.length} del flusso. Procedere?`)) return
     try {
       await api.post(`/parts/${partId}/apply-workflow/${wf.id}`)
       toast.success(`${wf.steps.length} fasi caricate da "${wf.name}"`)
@@ -292,7 +302,7 @@ export default function PhaseEditor({
         onReload={onReload}
         onChange={(field, value) => updateField(idx, field, value)}
         onBlur={() => savePhase(idx)}
-        onUnlockManual={() => unlockManualEdm(idx)}
+        onUnlockManual={() => setPendingConfirm({ title: 'Sbloccare i campi EDM manuali?', description: 'I valori calcolati da DXF (lunghezza, altezza, ciclo, fori) verranno azzerati: potrai inserirli a mano.', confirmLabel: 'Sblocca', variant: 'destructive', run: () => unlockManualEdm(idx) })}
         onPatch={(updates) => updateMany(idx, updates)}
         onSaveImmediate={(updates) => saveImmediate(idx, updates)}
       />
@@ -328,22 +338,41 @@ export default function PhaseEditor({
   }
 
   return (
-    <PhaseListView
-      phases={vms}
-      locked={readOnly}
-      workflowTemplates={partId ? workflowOpts : []}
-      operations={operationOpts}
-      machines={machineOpts}
-      treatments={treatmentOpts}
-      suppliers={supplierOpts}
-      onAdd={addPhase}
-      onApplyTemplate={(tid) => { const wf = workflows.find(w => String(w.id) === tid); if (wf) applyWorkflow(wf) }}
-      onChange={onFieldChange}
-      onBlurField={onBlurField}
-      onDelete={(id) => { const idx = idxById(id); if (idx >= 0) removePhase(idx) }}
-      onReorder={(fromId, toId) => { const f = idxById(fromId), t = idxById(toId); if (f >= 0 && t >= 0) reorder(f, t) }}
-      renderEdm={renderEdm}
-      renderTreatmentInfo={renderTreatmentInfo}
-    />
+    <>
+      <PhaseListView
+        phases={vms}
+        locked={readOnly}
+        workflowTemplates={partId ? workflowOpts : []}
+        operations={operationOpts}
+        machines={machineOpts}
+        treatments={treatmentOpts}
+        suppliers={supplierOpts}
+        onAdd={addPhase}
+        onApplyTemplate={(tid) => {
+          const wf = workflows.find(w => String(w.id) === tid); if (!wf) return
+          if (phases.length > 0) setPendingConfirm({
+            title: 'Sostituire le fasi esistenti?',
+            description: `Applicare "${wf.name}" sostituirà le ${phases.length} fasi esistenti con le ${wf.steps.length} del flusso.`,
+            confirmLabel: 'Applica flusso', variant: 'destructive', run: () => applyWorkflow(wf),
+          })
+          else applyWorkflow(wf)
+        }}
+        onChange={onFieldChange}
+        onBlurField={onBlurField}
+        onDelete={(id) => { const idx = idxById(id); if (idx >= 0) setPendingConfirm({ title: 'Eliminare la fase?', description: 'La fase verrà rimossa dalla parte.', confirmLabel: 'Elimina', variant: 'destructive', run: () => removePhase(idx) }) }}
+        onReorder={(fromId, toId) => { const f = idxById(fromId), t = idxById(toId); if (f >= 0 && t >= 0) reorder(f, t) }}
+        renderEdm={renderEdm}
+        renderTreatmentInfo={renderTreatmentInfo}
+      />
+      <ConfirmDialog
+        open={pendingConfirm !== null}
+        variant={pendingConfirm?.variant ?? 'default'}
+        title={pendingConfirm?.title ?? ''}
+        description={pendingConfirm?.description}
+        confirmLabel={pendingConfirm?.confirmLabel ?? 'Conferma'}
+        onConfirm={() => { const p = pendingConfirm; setPendingConfirm(null); p?.run() }}
+        onCancel={() => setPendingConfirm(null)}
+      />
+    </>
   )
 }

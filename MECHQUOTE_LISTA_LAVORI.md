@@ -93,13 +93,16 @@ esistenti (A4, B1, CAT-5, cantiere Stampi): **non duplicare**, si chiudono lì.
     Conferma, Non ordinato, Elimina.
   - Approccio suggerito: un unico "gate" di conferma (stato `pendingAction` +
     un solo `ConfirmDialog`) per azione, invece di N dialog sparsi.
-- **AUD-8** — `window.confirm()` nativo → `ConfirmDialog` in: applica workflow
-  template (`PhaseEditor:~165`), sblocco EDM manuale (`PhaseEditor:~139`),
-  elimina ordine/sblocco flag materiale (Ordini materiali).
-- **AUD-9** — azioni distruttive senza conferma né toast: elimina fase
-  (`PhaseEditor:~128`), elimina scheda PDF materiale (`officina/MaterialsPage`).
-- **AUD-10** — tile del chooser `/quotes/new` non gated per permesso → click
-  morto su Stampi/2D (rimbalzo a `/`). Legare `available` a `hasPermission`.
+- **AUD-8** — ✅ **FATTO 2026-07-13** — `window.confirm()` nativo → `ConfirmDialog`:
+  applica workflow template + sblocco EDM manuale (`PhaseEditor`), elimina ordine
+  materiali/utensili/normalizzati (`OrdersHistoryPage`). Nessun `window.confirm`
+  vivo resta nel frontend.
+- **AUD-9** — ✅ **FATTO 2026-07-13** — elimina fase (`PhaseEditor`): ora conferma
+  + toast di successo. NB: elimina scheda PDF materiale (`officina/MaterialsPage`)
+  **aveva già** il `ConfirmDialog` → falso positivo del walkthrough, non toccato.
+- **AUD-10** — ✅ **FATTO 2026-07-13** — tile del chooser `/quotes/new` gated per
+  permesso: i modi senza permesso sono **nascosti** (non disabilitati con "In
+  sviluppo" fuorviante); il 3D resta "In sviluppo". Niente più click morto.
 - **AUD-11** — `Ripristina` un preventivo "non ordinato" non è nella lista
   Archivio (solo dentro l'editor). Aggiungere `onRestore` alla lista Archivio.
 

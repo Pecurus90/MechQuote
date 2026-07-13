@@ -57,6 +57,7 @@
     --officina: 28 88% 48%;    /* Officina (ambra/arancio) */
     --edm: 33 92% 45%;         /* Modulo Wire EDM (ambra) */
     --dies: 330 75% 50%;       /* Modulo Stampi (rosa/magenta) */
+    --stats: 187 74% 34%;      /* Statistiche (teal) */
 
     /* Famiglie materiali (badge dark-aware) */
     --fam-acciaio: 215 25% 45%; --fam-inox: 199 89% 40%; --fam-legato: 262 78% 56%;
@@ -107,6 +108,7 @@
     --officina: 30 92% 62%;
     --edm: 36 96% 56%;
     --dies: 330 80% 70%;
+    --stats: 187 78% 52%;
 
     --fam-acciaio: 215 20% 65%; --fam-inox: 199 90% 62%; --fam-legato: 263 84% 72%;
     --fam-alluminio: 217 91% 66%; --fam-ottone: 48 95% 58%; --fam-rame: 22 92% 62%;

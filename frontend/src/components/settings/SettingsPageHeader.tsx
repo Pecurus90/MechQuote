@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react'
 export type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
-  | 'tools' | 'sales' | 'customers' | 'officina'
+  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies'
 
 const COLOR_MAP: Record<Color, string> = {
   blue:    'bg-blue-100 text-primary',
@@ -24,6 +24,8 @@ const COLOR_MAP: Record<Color, string> = {
   sales:     'bg-sales/[0.13] text-sales',
   customers: 'bg-customers/[0.13] text-customers',
   officina:  'bg-officina/[0.13] text-officina',
+  edm:       'bg-edm/[0.13] text-edm',
+  dies:      'bg-dies/[0.13] text-dies',
 }
 
 interface Props {

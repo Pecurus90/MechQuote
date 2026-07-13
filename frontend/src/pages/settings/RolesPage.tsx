@@ -1,32 +1,23 @@
 import { useState, useEffect, Fragment } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
-import { Plus, Trash2, Check, X, Minus, ShieldCheck } from 'lucide-react'
+import { Plus, Trash2, Check, X, Minus, ShieldCheck, Loader2 } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import { tWrap } from '@/components/settings/inlineEdit'
+import { RoleBadge, roleBadgeClass, ROLE_COLOR_OPTIONS } from '@/components/settings/RoleBadge'
 import type { Role } from '@/types'
 
-const COLOR_OPTIONS = [
-  { value: 'green',  label: 'Verde',   cls: 'bg-green-100 text-green-800' },
-  { value: 'blue',   label: 'Blu',     cls: 'bg-blue-100 text-blue-800' },
-  { value: 'gray',   label: 'Grigio',  cls: 'bg-muted text-foreground' },
-  { value: 'purple', label: 'Viola',   cls: 'bg-purple-100 text-purple-800' },
-  { value: 'amber',  label: 'Ambra',   cls: 'bg-amber-100 text-amber-800' },
-  { value: 'red',    label: 'Rosso',   cls: 'bg-red-100 text-red-800' },
-  { value: 'indigo', label: 'Indaco',  cls: 'bg-indigo-100 text-indigo-800' },
-]
-
-const colorClass = (color: string) =>
-  COLOR_OPTIONS.find(c => c.value === color)?.cls ?? 'bg-muted text-foreground'
-
+const COLOR_LABEL: Record<string, string> = { green: 'Verde', blue: 'Blu', gray: 'Grigio', purple: 'Viola', amber: 'Ambra', red: 'Rosso', indigo: 'Indaco' }
 const emptyNew = () => ({ name: '', label: '', color: 'gray' })
 
 interface PermItem { key: string; label: string }
 interface PermGroup { group: string; items: PermItem[] }
+
+const cellBase = 'mx-auto flex h-5 w-5 items-center justify-center rounded border-2 transition-colors'
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([])
@@ -35,180 +26,100 @@ export default function RolesPage() {
   const [showNew, setShowNew] = useState(false)
   const [newRole, setNewRole] = useState(emptyNew())
   const [pendingDelete, setPendingDelete] = useState<Role | null>(null)
-  const [toggling, setToggling] = useState<string | null>(null)       // "roleId:key"
-  const [togglingGroup, setTogglingGroup] = useState<string | null>(null)  // "roleId:group"
+  const [toggling, setToggling] = useState<string | null>(null)
+  const [togglingGroup, setTogglingGroup] = useState<string | null>(null)
 
   useEffect(() => { load() }, [])
-
   const load = async () => {
     setLoading(true)
     try {
-      const [rolesRes, permsRes] = await Promise.all([
-        api.get('/roles'),
-        api.get('/permissions/grouped'),
-      ])
-      setRoles(rolesRes.data)
-      setGroups(permsRes.data)
-    } finally {
-      setLoading(false)
-    }
+      const [rolesRes, permsRes] = await Promise.all([api.get('/roles'), api.get('/permissions/grouped')])
+      setRoles(rolesRes.data); setGroups(permsRes.data)
+    } finally { setLoading(false) }
   }
 
   const togglePermission = async (roleId: number, key: string) => {
     const tid = `${roleId}:${key}`
     if (toggling === tid) return
     setToggling(tid)
-    try {
-      const res = await api.patch(`/roles/${roleId}/permissions/${key}`)
-      setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: res.data.permissions } : r))
-    } catch {
-      toast.error('Errore nel salvataggio del permesso')
-    } finally {
-      setToggling(null)
-    }
+    try { const res = await api.patch(`/roles/${roleId}/permissions/${key}`); setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: res.data.permissions } : r)) }
+    catch { toast.error('Errore nel salvataggio del permesso') } finally { setToggling(null) }
   }
-
-  // Toggle di gruppo: se tutte le chiavi del gruppo sono attive per il ruolo le
-  // spegne, altrimenti le accende tutte (una sola chiamata bulk).
   const toggleGroup = async (roleId: number, group: PermGroup) => {
     const gid = `${roleId}:${group.group}`
     if (togglingGroup === gid) return
-    const role = roles.find(r => r.id === roleId)
-    if (!role) return
+    const role = roles.find(r => r.id === roleId); if (!role) return
     const keys = group.items.map(i => i.key)
-    const perms = role.permissions ?? []
-    const value = !keys.every(k => perms.includes(k))
+    const value = !keys.every(k => (role.permissions ?? []).includes(k))
     setTogglingGroup(gid)
-    try {
-      const res = await api.patch(`/roles/${roleId}/permissions`, { keys, value })
-      setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: res.data.permissions } : r))
-    } catch {
-      toast.error('Errore nel salvataggio del gruppo')
-    } finally {
-      setTogglingGroup(null)
-    }
+    try { const res = await api.patch(`/roles/${roleId}/permissions`, { keys, value }); setRoles(prev => prev.map(r => r.id === roleId ? { ...r, permissions: res.data.permissions } : r)) }
+    catch { toast.error('Errore nel salvataggio del gruppo') } finally { setTogglingGroup(null) }
   }
-
   const createRole = async () => {
     if (!newRole.name) { toast.error('Nome slug obbligatorio'); return }
     if (!newRole.label) { toast.error('Etichetta obbligatoria'); return }
     if (/\s/.test(newRole.name)) { toast.error('Il nome slug non può contenere spazi'); return }
-    try {
-      const res = await api.post('/roles', newRole)
-      setRoles(prev => [...prev, res.data])
-      setShowNew(false)
-      setNewRole(emptyNew())
-      toast.success('Ruolo creato')
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      toast.error(msg ?? 'Errore nella creazione')
-    }
+    try { const res = await api.post('/roles', newRole); setRoles(prev => [...prev, res.data]); setShowNew(false); setNewRole(emptyNew()); toast.success('Ruolo creato') }
+    catch (e) { const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail; toast.error(msg ?? 'Errore nella creazione') }
   }
-
-  const deleteRole = (role: Role) => setPendingDelete(role)
   const confirmDeleteRole = async () => {
     if (!pendingDelete) return
-    const role = pendingDelete
-    setPendingDelete(null)
-    try {
-      await api.delete(`/roles/${role.id}`)
-      setRoles(prev => prev.filter(r => r.id !== role.id))
-      toast.success('Ruolo eliminato')
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      toast.error(msg ?? 'Errore: il ruolo potrebbe essere in uso')
-    }
+    const role = pendingDelete; setPendingDelete(null)
+    try { await api.delete(`/roles/${role.id}`); setRoles(prev => prev.filter(r => r.id !== role.id)); toast.success('Ruolo eliminato') }
+    catch (e) { const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail; toast.error(msg ?? 'Errore: il ruolo potrebbe essere in uso') }
   }
 
   return (
     <StandardPage
-      icon={ShieldCheck}
-      color="gray"
+      icon={ShieldCheck} color="gray" width="xl"
       title="Ruoli e Permessi"
       subtitle="Configura i permessi per ogni ruolo — salvato al click"
-      width="xl"
-      actions={
-          !showNew ? (
-            <PrimaryCtaButton color="gray" size="sm" onClick={() => setShowNew(true)}>
-              <Plus className="w-4 h-4" /> Nuovo Ruolo
-            </PrimaryCtaButton>
-          ) : undefined
-      }
+      actions={!showNew ? <PrimaryCtaButton color="primary" size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Nuovo ruolo</PrimaryCtaButton> : undefined}
     >
-
-      {/* New role form */}
       {showNew && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-foreground mb-3">Nuovo ruolo</p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Nome slug (senza spazi)</label>
-                <Input
-                  className="h-8 text-sm w-44"
-                  placeholder="es. commerciale"
-                  value={newRole.name}
-                  onChange={e => setNewRole(r => ({ ...r, name: e.target.value.toLowerCase().replace(/\s/g, '_') }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Etichetta</label>
-                <Input
-                  className="h-8 text-sm w-48"
-                  placeholder="es. Ufficio Commerciale"
-                  value={newRole.label}
-                  onChange={e => setNewRole(r => ({ ...r, label: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Colore</label>
-                <select
-                  className="h-8 text-sm border rounded px-2 bg-card"
-                  value={newRole.color}
-                  onChange={e => setNewRole(r => ({ ...r, color: e.target.value }))}
-                >
-                  {COLOR_OPTIONS.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end gap-1 pb-0.5 mt-4">
-                <button onClick={createRole} className="p-1.5 text-green-600 hover:bg-green-50 rounded">
-                  <Check className="w-4 h-4" />
-                </button>
-                <button onClick={() => { setShowNew(false); setNewRole(emptyNew()) }}
-                  className="p-1.5 text-muted-foreground hover:bg-muted rounded">
-                  <X className="w-4 h-4" />
-                </button>
+        <div className="rounded-2xl border border-border bg-card-muted p-4">
+          <p className="mb-3 text-sm font-medium text-foreground">Nuovo ruolo</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-foreground">Nome slug (senza spazi)</label>
+              <Input className="h-9 w-44 font-mono" placeholder="es. commerciale" value={newRole.name} onChange={e => setNewRole(r => ({ ...r, name: e.target.value.toLowerCase().replace(/\s/g, '_') }))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-foreground">Etichetta</label>
+              <Input className="h-9 w-48" placeholder="es. Ufficio commerciale" value={newRole.label} onChange={e => setNewRole(r => ({ ...r, label: e.target.value }))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-medium text-foreground">Colore</label>
+              <div className="flex gap-1.5">
+                {ROLE_COLOR_OPTIONS.map(c => (
+                  <button key={c} type="button" onClick={() => setNewRole(r => ({ ...r, color: c }))} title={COLOR_LABEL[c]}
+                    className={`h-7 w-7 rounded-full ${roleBadgeClass(c)} ${newRole.color === c ? 'ring-2 ring-ring ring-offset-1 ring-offset-card-muted' : ''}`}>
+                    <span className="mx-auto block h-2 w-2 rounded-full bg-current" />
+                  </button>
+                ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setShowNew(false); setNewRole(emptyNew()) }}>Annulla</Button>
+              <PrimaryCtaButton color="primary" size="sm" onClick={createRole}><Check className="h-4 w-4" /> Crea ruolo</PrimaryCtaButton>
+            </div>
+          </div>
+        </div>
       )}
 
-      {loading ? (
-        <div className="p-6 text-sm text-muted-foreground">Caricamento...</div>
-      ) : (
-        <Card>
-          <CardContent className="p-0 overflow-x-auto">
+      {loading ? <div className="p-6 text-sm text-muted-foreground">Caricamento…</div> : (
+        <div className={tWrap}>
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs w-56">Permesso</th>
+                <tr className="border-b border-border bg-card-muted">
+                  <th className="w-56 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Permesso</th>
                   {roles.map(role => (
                     <th key={role.id} className="px-4 py-3 text-center">
                       <div className="flex flex-col items-center gap-1">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colorClass(role.color)}`}>
-                          {role.label}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono">{role.name}</span>
-                        <button
-                          onClick={() => deleteRole(role)}
-                          className="p-0.5 text-muted-foreground/50 hover:text-red-400 transition-colors"
-                          title="Elimina ruolo"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        <RoleBadge label={role.label} color={role.color} />
+                        <span className="font-mono text-[10px] text-muted-foreground">{role.name}</span>
+                        <button onClick={() => setPendingDelete(role)} className="text-muted-foreground/50 transition-colors hover:text-danger" title="Elimina ruolo"><Trash2 className="h-3 w-3" /></button>
                       </div>
                     </th>
                   ))}
@@ -219,61 +130,41 @@ export default function RolesPage() {
                   const keys = group.items.map(i => i.key)
                   return (
                     <Fragment key={group.group}>
-                      {/* Riga intestazione gruppo + toggle "tutto il gruppo" per ruolo */}
-                      <tr className="bg-muted/60 border-b border-t">
-                        <td className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {group.group}
-                        </td>
+                      <tr className="border-y border-border bg-muted/[0.5]">
+                        <td className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.group}</td>
                         {roles.map(role => {
                           const perms = role.permissions ?? []
                           const onCount = keys.filter(k => perms.includes(k)).length
                           const allOn = onCount === keys.length && keys.length > 0
                           const some = onCount > 0 && !allOn
                           const gid = `${role.id}:${group.group}`
+                          const busy = togglingGroup === gid
                           return (
                             <td key={role.id} className="px-4 py-1.5 text-center">
-                              <button
-                                onClick={() => toggleGroup(role.id, group)}
-                                disabled={togglingGroup === gid}
+                              <button onClick={() => toggleGroup(role.id, group)} disabled={busy}
                                 title={allOn ? 'Disattiva tutto il gruppo' : 'Attiva tutto il gruppo'}
-                                className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
-                                  allOn
-                                    ? 'bg-blue-500 border-blue-500 text-white'
-                                    : some
-                                      ? 'bg-blue-100 border-blue-400 text-blue-600'
-                                      : 'border-gray-300 hover:border-blue-400'
-                                } ${togglingGroup === gid ? 'opacity-50' : ''}`}
-                              >
-                                {allOn ? <Check className="w-3 h-3" /> : some ? <Minus className="w-3 h-3" /> : null}
+                                className={`${cellBase} ${allOn ? 'border-success bg-success text-white' : some ? 'border-warning bg-warning/[0.18] text-warning' : 'border-input bg-card hover:border-primary'}`}>
+                                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : allOn ? <Check className="h-3 w-3" /> : some ? <Minus className="h-3 w-3" /> : null}
                               </button>
                             </td>
                           )
                         })}
                       </tr>
-                      {/* Righe delle singole chiavi del gruppo */}
                       {group.items.map(item => (
-                        <tr key={item.key} className="border-b last:border-0 hover:bg-muted">
+                        <tr key={item.key} className="border-b border-border transition-colors last:border-0 hover:bg-muted/[0.45]">
                           <td className="px-4 py-2.5 pl-8">
-                            <div>
-                              <p className="text-xs font-medium text-foreground">{item.label}</p>
-                              <p className="text-[10px] text-muted-foreground font-mono">{item.key}</p>
-                            </div>
+                            <p className="text-xs font-medium text-foreground">{item.label}</p>
+                            <p className="font-mono text-[10px] text-muted-foreground">{item.key}</p>
                           </td>
                           {roles.map(role => {
                             const checked = (role.permissions ?? []).includes(item.key)
                             const tid = `${role.id}:${item.key}`
+                            const busy = toggling === tid
                             return (
                               <td key={role.id} className="px-4 py-2.5 text-center">
-                                <button
-                                  onClick={() => togglePermission(role.id, item.key)}
-                                  disabled={toggling === tid}
-                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
-                                    checked
-                                      ? 'bg-blue-500 border-blue-500 text-white'
-                                      : 'border-gray-300 hover:border-blue-400'
-                                  } ${toggling === tid ? 'opacity-50' : ''}`}
-                                >
-                                  {checked && <Check className="w-3 h-3" />}
+                                <button onClick={() => togglePermission(role.id, item.key)} disabled={busy}
+                                  className={`${cellBase} ${checked ? 'border-success bg-success text-white' : 'border-input bg-card hover:border-primary'}`}>
+                                  {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : checked ? <Check className="h-3 w-3" /> : null}
                                 </button>
                               </td>
                             )
@@ -285,16 +176,10 @@ export default function RolesPage() {
                 })}
               </tbody>
             </table>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
-      <ConfirmDialog
-        open={pendingDelete != null}
-        title={`Eliminare il ruolo "${pendingDelete?.label ?? ''}"?`}
-        confirmLabel="Elimina"
-        onConfirm={confirmDeleteRole}
-        onCancel={() => setPendingDelete(null)}
-      />
+      <ConfirmDialog open={pendingDelete != null} title={`Eliminare il ruolo "${pendingDelete?.label ?? ''}"?`} confirmLabel="Elimina" onConfirm={confirmDeleteRole} onCancel={() => setPendingDelete(null)} />
     </StandardPage>
   )
 }

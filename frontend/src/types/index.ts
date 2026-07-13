@@ -783,6 +783,47 @@ export interface ToolsStats {
   low_stock_by_brand: StatsToolBrandRow[]
 }
 
+// ── Statistiche: tab Marginalità & taratura ──
+export interface MarginMonthlyPoint {
+  month: string
+  preventivato: number
+  venduto: number
+  costo: number
+}
+
+export interface MarginProfitPoint {
+  month: string
+  profit: number
+}
+
+export interface MarginBandRow {
+  band: string
+  count: number
+}
+
+export interface MarginWorstRow {
+  quote_number: string
+  customer_name: string
+  preventivato: number
+  venduto: number
+  costo_reale: number | null
+  delta_percent: number
+}
+
+export interface MarginStats {
+  period: string
+  guadagno_reale: number | null
+  taratura_prezzo: number | null
+  taratura_costo: number | null
+  completed_count: number
+  with_sold_count: number
+  with_cost_count: number
+  monthly: MarginMonthlyPoint[]
+  profit_monthly: MarginProfitPoint[]
+  distribution: MarginBandRow[]
+  worst: MarginWorstRow[]
+}
+
 
 export interface OfficinaCategory {
   id: number

@@ -886,6 +886,55 @@ class ToolsStatsOut(BaseModel):
     low_stock_by_brand: List[StatsToolBrandRow] = []  # sotto scorta per marca
 
 
+# ─── Statistics: tab Marginalità & taratura ───────────────────────────────
+# Solo preventivi in stato 'completo' (esclusi Stampi: non hanno sold_price).
+# Guadagno reale = venduto − costo reale. Taratura prezzo = venduto ÷
+# preventivato. Taratura costo = costo reale ÷ costo stimato.
+
+class MarginMonthlyPoint(BaseModel):
+    month: str                                      # YYYY-MM
+    preventivato: float                             # Σ final_total
+    venduto: float                                  # Σ sold_price
+    costo: float                                    # Σ actual_cost
+
+
+class MarginProfitPoint(BaseModel):
+    month: str
+    profit: float                                   # Σ (sold_price − actual_cost)
+
+
+class MarginBandRow(BaseModel):
+    """Fascia dell'istogramma di distribuzione dello scostamento prezzo."""
+    band: str                                       # es. '0,90–0,95'
+    count: int
+
+
+class MarginWorstRow(BaseModel):
+    """Riga della tabella 'peggiori scostamenti' (venduto ≪ preventivato)."""
+    quote_number: str
+    customer_name: str
+    preventivato: float
+    venduto: float
+    costo_reale: Optional[float] = None
+    delta_percent: float                            # (venduto − preventivato)/preventivato ×100
+
+
+class MarginStatsOut(BaseModel):
+    period: str
+    # KPI (None quando il dato è insufficiente → degradazione graziosa)
+    guadagno_reale: Optional[float] = None          # € venduto − costo reale
+    taratura_prezzo: Optional[float] = None         # ratio venduto ÷ preventivato
+    taratura_costo: Optional[float] = None          # ratio costo reale ÷ costo stimato
+    # Copertura dato (affidabilità delle medie)
+    completed_count: int = 0                         # preventivi completi nel periodo
+    with_sold_count: int = 0                         # con prezzo venduto compilato
+    with_cost_count: int = 0                         # con costo reale compilato
+    monthly: List[MarginMonthlyPoint] = []
+    profit_monthly: List[MarginProfitPoint] = []
+    distribution: List[MarginBandRow] = []
+    worst: List[MarginWorstRow] = []
+
+
 class DashboardQuoteRow(BaseModel):
     id: int
     quote_number: str

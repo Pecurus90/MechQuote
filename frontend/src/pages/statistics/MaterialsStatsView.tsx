@@ -71,6 +71,8 @@ export function MaterialsStatsView({
             hint={k.hint}
             icon={k.icon}
             tone={k.tone}
+            valueToned={k.valueToned}
+            delta={k.delta}
           />
         ))}
       </div>

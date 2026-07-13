@@ -6,14 +6,16 @@
 import { useEffect, useState } from 'react'
 import {
   FileText, Target, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
+  Wallet, Tag, Crosshair, Database,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import type { Statistics, MaterialsStats, ToolsStats } from '@/types'
+import type { Statistics, MaterialsStats, ToolsStats, MarginStats } from '@/types'
 import { StatisticsView } from '@/pages/statistics/StatisticsView'
-import type { StatTab, StatPeriod, StatKpi } from '@/pages/statistics/StatisticsView'
+import type { StatTab, StatPeriod, StatCompare, StatKpi } from '@/pages/statistics/StatisticsView'
 import { QuotesStatsView } from '@/pages/statistics/QuotesStatsView'
 import type { QuoteStatType } from '@/pages/statistics/QuotesStatsView'
+import { MarginStatsView } from '@/pages/statistics/MarginStatsView'
 import { MaterialsStatsView } from '@/pages/statistics/MaterialsStatsView'
 import { ToolsStatsView } from '@/pages/statistics/ToolsStatsView'
 import { type Period, Loading } from '@/pages/statistics/statsShared'
@@ -53,6 +55,7 @@ interface NamedOpt { id: number; name: string }
 export default function StatisticsPage() {
   const [tab, setTab] = useState<StatTab>('quotes')
   const [period, setPeriod] = useState<StatPeriod>('current_year')
+  const [compare, setCompare] = useState<StatCompare>('none')
 
   // Filtri locali tab Preventivi.
   const [quoteType, setQuoteType] = useState<QuoteStatType>('all')
@@ -69,6 +72,7 @@ export default function StatisticsPage() {
   const [toolSuppliers, setToolSuppliers] = useState<NamedOpt[]>([])
 
   const [qData, setQData] = useState<Statistics | null>(null)
+  const [gData, setGData] = useState<MarginStats | null>(null)
   const [mData, setMData] = useState<MaterialsStats | null>(null)
   const [tData, setTData] = useState<ToolsStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -90,6 +94,9 @@ export default function StatisticsPage() {
       if (customer !== 'all') params.set('customer_id', customer)
       api.get(`/dashboard/statistics?${params}`).then(r => setQData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche preventivi')).finally(done)
+    } else if (tab === 'margin') {
+      api.get(`/dashboard/statistics/margin?period=${p}`).then(r => setGData(r.data))
+        .catch(() => toast.error('Errore caricamento marginalità')).finally(done)
     } else if (tab === 'materials') {
       const params = new URLSearchParams({ period: p })
       if (matSupplier !== 'all') params.set('supplier_id', matSupplier)
@@ -107,7 +114,14 @@ export default function StatisticsPage() {
 
   return (
     <div className="px-6 pb-10 pt-[22px]">
-      <StatisticsView activeTab={tab} onTabChange={setTab} period={period} onPeriodChange={setPeriod}>
+      <StatisticsView
+        activeTab={tab}
+        onTabChange={setTab}
+        period={period}
+        onPeriodChange={setPeriod}
+        compare={compare}
+        onCompareChange={setCompare}
+      >
         {tab === 'quotes' && (
           (loading || !qData) ? <Loading /> : (
             <QuotesStatsView
@@ -131,6 +145,19 @@ export default function StatisticsPage() {
               byCategory={qData.by_category.map(c => ({ name: c.category_code, value: c.count }))}
               hoursByMachine={qData.hours_by_machine.map(h => ({ name: h.label, value: h.hours }))}
               hoursByProcess={qData.hours_by_operation.map(h => ({ name: h.label, value: h.hours }))}
+            />
+          )
+        )}
+
+        {tab === 'margin' && (
+          (loading || !gData) ? <Loading /> : (
+            <MarginStatsView
+              kpis={buildMarginKpis(gData)}
+              coverage={{ completed: gData.completed_count, withSold: gData.with_sold_count, withCost: gData.with_cost_count }}
+              monthly={gData.monthly}
+              profit={gData.profit_monthly}
+              distribution={gData.distribution}
+              worst={gData.worst}
             />
           )
         )}
@@ -198,6 +225,17 @@ function buildQuoteKpis(data: Statistics): StatKpi[] {
     { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi · ${o.conversion_rate_value.toFixed(0)}% a valore`, icon: Target, tone: 'confirmed' },
     { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'valore nel periodo', icon: Euro, tone: 'success' },
     { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'info' },
+  ]
+}
+
+function buildMarginKpis(d: MarginStats): StatKpi[] {
+  const ratio = (v: number | null): string =>
+    v == null ? '—' : v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return [
+    { key: 'profit', label: 'Guadagno reale', value: d.guadagno_reale == null ? '—' : eur(d.guadagno_reale), hint: 'venduto − costo reale', icon: Wallet, tone: 'success', valueToned: true },
+    { key: 'price', label: 'Scostamento prezzo', value: ratio(d.taratura_prezzo), hint: 'venduto ÷ preventivato', icon: Tag, tone: 'warning' },
+    { key: 'cost', label: 'Precisione costo', value: ratio(d.taratura_costo), hint: 'costo reale ÷ stimato', icon: Crosshair, tone: 'danger' },
+    { key: 'coverage', label: 'Copertura dato', value: `${d.with_sold_count}/${d.completed_count}`, hint: `${d.with_sold_count} col venduto · ${d.with_cost_count} col costo reale`, icon: Database, tone: 'info' },
   ]
 }
 

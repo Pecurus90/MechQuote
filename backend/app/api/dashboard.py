@@ -25,6 +25,7 @@ from app.schemas import (
     StatsHoursRow, MaterialsStatsOut, ToolsStatsOut, StatsCountPoint, StatsSupplierRow,
     StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
     StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow, StatsOutcome,
+    MarginStatsOut, MarginMonthlyPoint, MarginProfitPoint, MarginBandRow, MarginWorstRow,
 )
 from app.api.notifications import serialize_notification
 
@@ -420,6 +421,160 @@ def get_statistics(
         margin_monthly=margin_monthly,
         hours_by_machine=hours_by_machine,
         hours_by_operation=hours_by_operation,
+    )
+
+
+@router.get("/dashboard/statistics/margin", response_model=MarginStatsOut)
+def get_margin_stats(
+    period: str = 'year',
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
+    """Tab Marginalità & taratura: guadagno reale e taratura prezzo/costo sui
+    preventivi in stato 'completo' (Stampi esclusi: non hanno sold_price).
+
+    - Guadagno reale  = venduto (sold_price) − costo reale (actual_cost)
+    - Taratura prezzo = venduto ÷ preventivato (final_total)
+    - Taratura costo  = costo reale ÷ costo stimato (Σ parti total_cost×qty)
+
+    I KPI degradano a None quando manca il dato (nessun costo reale compilato):
+    il frontend mostra la sola parte prezzo + avviso. `with_*_count` danno la
+    copertura per valutare l'affidabilità delle medie.
+    """
+    date_from, date_to = _period_range(period)
+    where_parts = ["q.status = 'completo'", "(q.quote_type != 'die' OR q.quote_type IS NULL)"]
+    params: dict = {}
+    if date_from is not None:
+        where_parts.append("q.quote_date >= :date_from")
+        params['date_from'] = date_from
+    if date_to is not None:
+        where_parts.append("q.quote_date <= :date_to")
+        params['date_to'] = date_to
+    where = ' AND '.join(where_parts)
+    # Costo stimato per preventivo: Σ parti (total_cost × quantità).
+    est_cost = "(SELECT COALESCE(SUM(p.total_cost * p.quantity), 0) FROM parts p WHERE p.quote_id = q.id)"
+
+    # ─── KPI aggregati + copertura ────────────────────────────────────
+    agg = db.execute(text(
+        f"""
+        SELECT
+          COUNT(*) AS completed,
+          SUM(CASE WHEN q.sold_price IS NOT NULL THEN 1 ELSE 0 END) AS with_sold,
+          SUM(CASE WHEN q.actual_cost IS NOT NULL THEN 1 ELSE 0 END) AS with_cost,
+          COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL THEN q.sold_price END), 0) AS sold_sum,
+          COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL THEN q.final_total END), 0) AS quoted_for_sold,
+          COALESCE(SUM(CASE WHEN q.actual_cost IS NOT NULL THEN q.actual_cost END), 0) AS cost_sum,
+          COALESCE(SUM(CASE WHEN q.actual_cost IS NOT NULL THEN {est_cost} END), 0) AS est_for_cost,
+          COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
+                           THEN (q.sold_price - q.actual_cost) END), 0) AS profit_sum
+        FROM quotes q
+        WHERE {where}
+        """
+    ), params).first()
+    completed = int(agg.completed or 0) if agg else 0
+    with_sold = int(agg.with_sold or 0) if agg else 0
+    with_cost = int(agg.with_cost or 0) if agg else 0
+    quoted_for_sold = float(agg.quoted_for_sold or 0) if agg else 0.0
+    sold_sum = float(agg.sold_sum or 0) if agg else 0.0
+    cost_sum = float(agg.cost_sum or 0) if agg else 0.0
+    est_for_cost = float(agg.est_for_cost or 0) if agg else 0.0
+    profit_sum = float(agg.profit_sum or 0) if agg else 0.0
+
+    taratura_prezzo = round(sold_sum / quoted_for_sold, 4) if (with_sold and quoted_for_sold > 0) else None
+    taratura_costo = round(cost_sum / est_for_cost, 4) if (with_cost and est_for_cost > 0) else None
+    guadagno_reale = round(profit_sum, 2) if with_cost else None
+
+    # ─── Andamento preventivato / venduto / costo reale (mensile) ─────
+    rows_m = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM(q.final_total), 0) AS preventivato,
+          COALESCE(SUM(q.sold_price), 0) AS venduto,
+          COALESCE(SUM(q.actual_cost), 0) AS costo
+        FROM quotes q
+        WHERE {where}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    monthly = [
+        MarginMonthlyPoint(
+            month=r.m, preventivato=round(float(r.preventivato or 0), 2),
+            venduto=round(float(r.venduto or 0), 2), costo=round(float(r.costo or 0), 2),
+        ) for r in rows_m
+    ]
+
+    # ─── Guadagno reale mensile (solo con venduto E costo) ────────────
+    rows_p = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM(q.sold_price - q.actual_cost), 0) AS profit
+        FROM quotes q
+        WHERE {where} AND q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    profit_monthly = [MarginProfitPoint(month=r.m, profit=round(float(r.profit or 0), 2)) for r in rows_p]
+
+    # ─── Distribuzione scostamento prezzo (venduto ÷ preventivato) ────
+    rows_r = db.execute(text(
+        f"""
+        SELECT q.sold_price * 1.0 / q.final_total AS ratio
+        FROM quotes q
+        WHERE {where} AND q.sold_price IS NOT NULL AND q.final_total > 0
+        """
+    ), params).all()
+    bands = [
+        ('<0,80', lambda x: x < 0.80),
+        ('0,80–0,85', lambda x: 0.80 <= x < 0.85),
+        ('0,85–0,90', lambda x: 0.85 <= x < 0.90),
+        ('0,90–0,95', lambda x: 0.90 <= x < 0.95),
+        ('0,95–1,00', lambda x: 0.95 <= x < 1.00),
+        ('≥1,00', lambda x: x >= 1.00),
+    ]
+    band_counts = {label: 0 for label, _ in bands}
+    for r in rows_r:
+        ratio = float(r.ratio or 0)
+        for label, pred in bands:
+            if pred(ratio):
+                band_counts[label] += 1
+                break
+    distribution = [MarginBandRow(band=label, count=band_counts[label]) for label, _ in bands]
+
+    # ─── Peggiori scostamenti (venduto molto sotto il preventivato) ───
+    rows_w = db.execute(text(
+        f"""
+        SELECT q.quote_number, q.customer_name, q.final_total, q.sold_price, q.actual_cost,
+          (q.sold_price - q.final_total) * 100.0 / q.final_total AS delta_pct
+        FROM quotes q
+        WHERE {where} AND q.sold_price IS NOT NULL AND q.final_total > 0
+        ORDER BY delta_pct ASC
+        LIMIT 10
+        """
+    ), params).all()
+    worst = [
+        MarginWorstRow(
+            quote_number=r.quote_number or '—',
+            customer_name=r.customer_name or '—',
+            preventivato=round(float(r.final_total or 0), 2),
+            venduto=round(float(r.sold_price or 0), 2),
+            costo_reale=round(float(r.actual_cost), 2) if r.actual_cost is not None else None,
+            delta_percent=round(float(r.delta_pct or 0), 1),
+        ) for r in rows_w
+    ]
+
+    return MarginStatsOut(
+        period=period,
+        guadagno_reale=guadagno_reale,
+        taratura_prezzo=taratura_prezzo,
+        taratura_costo=taratura_costo,
+        completed_count=completed,
+        with_sold_count=with_sold,
+        with_cost_count=with_cost,
+        monthly=monthly,
+        profit_monthly=profit_monthly,
+        distribution=distribution,
+        worst=worst,
     )
 
 

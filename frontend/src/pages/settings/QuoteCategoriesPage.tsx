@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import { Plus, Search, Tag } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
@@ -28,18 +28,18 @@ export default function QuoteCategoriesPage() {
 
   const saveEdit = async (id: number) => {
     try { await api.put(`/quote-categories/${id}`, editRow); toast.success('Categoria salvata'); setEditingId(null); load() }
-    catch { toast.error('Errore nel salvataggio') }
+    catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio')) }
   }
   const confirmDelete = async () => {
     if (pendingDelete == null) return
     const id = pendingDelete; setPendingDelete(null)
     try { await api.delete(`/quote-categories/${id}`); toast.success('Categoria eliminata'); load() }
-    catch { toast.error('Errore nell\'eliminazione') }
+    catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'eliminazione')) }
   }
   const createCategory = async () => {
     if (!newRow.code || !newRow.name) return
     try { await api.post('/quote-categories', newRow); toast.success('Categoria creata'); setNewRow({ code: '', name: '', sort_order: 0 }); setShowNew(false); load() }
-    catch { toast.error('Errore nella creazione') }
+    catch (e) { toast.error(getApiErrorDetail(e, 'Errore nella creazione')) }
   }
 
   const visible = categories.filter(c => !search || c.code.toLowerCase().includes(search.toLowerCase()) || c.name.toLowerCase().includes(search.toLowerCase()))

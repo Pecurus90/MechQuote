@@ -5,7 +5,7 @@ import { FileText, Upload, Search, ChevronLeft } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import type { OfficinaDocument, OfficinaCategory, Customer, MaterialSupplier, ToolSupplier, NormalizedSupplier } from '@/types'
@@ -146,7 +146,7 @@ export default function OfficinaDocumentsPage() {
       await api.delete(`/officina/documents/${id}`)
       toast.success('Documento eliminato')
       load()
-    } catch { toast.error('Errore eliminazione') }
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore eliminazione')) }
   }
 
   // Default per il modal upload, dal filtro attivo.

@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Trash2, ChevronUp, ChevronDown, X, Workflow, Pencil } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
-import api from '@/lib/api'
+import api, { getApiErrorDetail } from '@/lib/api'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import { tHead } from '@/components/settings/inlineEdit'
@@ -47,12 +47,12 @@ export default function WorkflowTemplatesPage() {
     if (edit.steps.length === 0) { toast.error('Almeno una riga richiesta'); return }
     const payload = { name: edit.name.trim(), description: edit.description || null, steps: edit.steps.map((s, i) => ({ sequence_number: i + 1, machine_id: s.machine_id ?? null, operation_id: s.operation_id })) }
     try { if (editingId === 0) await api.post('/workflow-templates', payload); else await api.put(`/workflow-templates/${editingId}`, payload); toast.success('Template flusso salvato'); setEditingId(null); load() }
-    catch { toast.error('Errore nel salvataggio') }
+    catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio')) }
   }
   const confirmRemove = async () => {
     if (pendingDelete == null) return
     const id = pendingDelete; setPendingDelete(null)
-    try { await api.delete(`/workflow-templates/${id}`); toast.success('Flusso eliminato'); load() } catch { toast.error('Errore') }
+    try { await api.delete(`/workflow-templates/${id}`); toast.success('Flusso eliminato'); load() } catch (e) { toast.error(getApiErrorDetail(e, 'Errore eliminazione')) }
   }
   const machineName = (id?: number | null) => id != null ? (machines.find(m => m.id === id)?.name ?? `#${id}`) : '—'
   const operationName = (id: number) => operations.find(o => o.id === id)?.name ?? `#${id}`

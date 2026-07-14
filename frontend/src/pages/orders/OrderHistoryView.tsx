@@ -65,16 +65,27 @@ const dateShort = (iso: string | null): string =>
     : '—'
 
 function RowActions({ onCsv, onDel }: { onCsv: () => void; onDel: () => void }) {
+  // AUD-42: button accessibili (focus da tastiera + nome) invece di SVG nudi.
   return (
-    <div className="flex justify-end gap-3 text-muted-foreground">
-      <FileDown
-        className="h-4 w-4 cursor-pointer transition-colors hover:text-foreground"
+    <div className="flex justify-end gap-2 text-muted-foreground">
+      <button
+        type="button"
         onClick={onCsv}
-      />
-      <Trash2
-        className="h-4 w-4 cursor-pointer transition-colors hover:text-danger"
+        title="Scarica CSV"
+        aria-label="Scarica CSV dell'ordine"
+        className="flex h-7 w-7 items-center justify-center rounded-[7px] transition-colors hover:text-foreground"
+      >
+        <FileDown className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
         onClick={onDel}
-      />
+        title="Elimina ordine"
+        aria-label="Elimina ordine"
+        className="flex h-7 w-7 items-center justify-center rounded-[7px] transition-colors hover:text-danger"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   )
 }

@@ -29,7 +29,7 @@ const dateShort = (iso: string | null): string =>
     : '—'
 
 function toQuoteType(t?: string | null): QuoteType {
-  return t === 'die' ? 'die' : t === 'commessa' ? 'commessa' : 'single'
+  return t === 'commessa' ? 'commessa' : 'single'
 }
 
 // QuoteListItem non ha un total_price piatto: si somma dalle parti.

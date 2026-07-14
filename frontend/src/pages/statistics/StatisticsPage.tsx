@@ -14,7 +14,6 @@ import type { Statistics, MaterialsStats, ToolsStats, MarginStats } from '@/type
 import { StatisticsView } from '@/pages/statistics/StatisticsView'
 import type { StatTab, StatPeriod, StatCompare, StatKpi } from '@/pages/statistics/StatisticsView'
 import { QuotesStatsView } from '@/pages/statistics/QuotesStatsView'
-import type { QuoteStatType } from '@/pages/statistics/QuotesStatsView'
 import { MarginStatsView } from '@/pages/statistics/MarginStatsView'
 import { MaterialsStatsView } from '@/pages/statistics/MaterialsStatsView'
 import { ToolsStatsView } from '@/pages/statistics/ToolsStatsView'
@@ -59,7 +58,6 @@ export default function StatisticsPage() {
   const [compare, setCompare] = useState<StatCompare>('none')
 
   // Filtri locali tab Preventivi.
-  const [quoteType, setQuoteType] = useState<QuoteStatType>('all')
   const [customer, setCustomer] = useState<string>('all')
   const [customers, setCustomers] = useState<NamedOpt[]>([])
 
@@ -91,7 +89,6 @@ export default function StatisticsPage() {
     const done = () => setLoading(false)
     if (tab === 'quotes') {
       const params = new URLSearchParams({ period: p })
-      if (quoteType !== 'all') params.set('quote_type', quoteType)
       if (customer !== 'all') params.set('customer_id', customer)
       if (compare !== 'none') params.set('compare', compare)
       api.get(`/dashboard/statistics?${params}`).then(r => setQData(r.data))
@@ -114,7 +111,7 @@ export default function StatisticsPage() {
       api.get(`/dashboard/statistics/tools?${params}`).then(r => setTData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche utensili')).finally(done)
     }
-  }, [tab, period, compare, quoteType, customer, matSupplier, matFamily, toolType, toolSupplier])
+  }, [tab, period, compare, customer, matSupplier, matFamily, toolType, toolSupplier])
 
   // Etichette del confronto (MoM/YoY) — usate su pill KPI e serie cmp.
   const vs = compare === 'prev' ? 'vs periodo prec.' : compare === 'yoy' ? 'vs anno scorso' : ''
@@ -133,8 +130,6 @@ export default function StatisticsPage() {
         {tab === 'quotes' && (
           (loading || !qData) ? <Loading /> : (
             <QuotesStatsView
-              type={quoteType}
-              onTypeChange={setQuoteType}
               customer={customer}
               customers={[
                 { value: 'all', label: 'Cliente · tutti' },
@@ -149,7 +144,7 @@ export default function StatisticsPage() {
                 { name: 'Aperti', value: (qData.outcome ?? EMPTY_OUTCOME).open_value, color: 'hsl(220 9% 60%)' },
               ]}
               trendByType={qData.trend_monthly.map((p, i) => ({
-                month: monthLabel(p.month), standard: p.standard, stampi: p.dies,
+                month: monthLabel(p.month), standard: p.standard,
                 ...(qData.comparison ? { cmp: qData.comparison.trend_total[i]?.value ?? 0 } : {}),
               }))}
               monthlyMargin={qData.margin_monthly.map((p, i) => ({
@@ -234,15 +229,15 @@ export default function StatisticsPage() {
 }
 
 function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {
-  const totalValue = data.trend_monthly.reduce((s, p) => s + p.standard + p.dies, 0)
-  const count = data.standard_count + data.dies_count
+  const totalValue = data.trend_monthly.reduce((s, p) => s + p.standard, 0)
+  const count = data.standard_count
   const avgMargin = data.margin_monthly.length === 0
     ? 0
     : data.margin_monthly.reduce((s, p) => s + p.margin_percent, 0) / data.margin_monthly.length
   const o = data.outcome ?? EMPTY_OUTCOME
   const c = data.comparison
   return [
-    { key: 'count', label: 'Preventivi', value: count, hint: `${data.standard_count} std · ${data.dies_count} stampi`, icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
+    { key: 'count', label: 'Preventivi', value: count, hint: 'nel periodo', icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
     { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi`, icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
     { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'valore nel periodo', icon: Euro, tone: 'success', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
     { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },

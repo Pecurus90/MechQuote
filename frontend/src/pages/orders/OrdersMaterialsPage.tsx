@@ -18,7 +18,7 @@ interface MaterialsStats {
   to_order: number; orders_this_month: number; orders_total: number; last_order_at: string | null
 }
 
-const toQuoteType = (t?: string | null): QuoteType => (t === 'die' ? 'die' : t === 'commessa' ? 'commessa' : 'single')
+const toQuoteType = (t?: string | null): QuoteType => (t === 'commessa' ? 'commessa' : 'single')
 const quoteTotal = (q: QuoteListItem): number => q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
 // Peso 0 = non calcolabile (manca densità materiale o dimensioni grezzo): "—"
 // invece di "0 kg", che sembrerebbe un dato reale.

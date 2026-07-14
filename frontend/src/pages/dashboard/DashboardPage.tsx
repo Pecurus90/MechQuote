@@ -111,7 +111,6 @@ export default function DashboardPage() {
       monthly={monthly}
       byStatus={stats.by_status}
       standardCount={stats.standard_count ?? 0}
-      dieCount={stats.die_count ?? 0}
       onSelectStatus={(s) => navigate(
         ['completo', 'non_ordinato'].includes(s)
           ? `/quotes/archive?status=${s}`

@@ -22,7 +22,7 @@ const eur0 = (v: number) =>
   Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 function typeLabel(t?: string | null): string {
-  return t === 'die' ? 'Stampo' : t === 'commessa' ? 'Commessa' : 'Singolo'
+  return t === 'commessa' ? 'Commessa' : 'Singolo'
 }
 
 export function QuoteTable({

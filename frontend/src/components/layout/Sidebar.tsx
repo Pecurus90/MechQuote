@@ -55,7 +55,6 @@ export default function Sidebar() {
   const canOrdersTools = hasPermission('orders.tools')
   const canTools = hasPermission('tools')
   const canOfficina = hasPermission('officina')
-  const canDies = hasPermission('dies.settings')
 
   // Badge numerici reali.
   const [ordersBadge, setOrdersBadge] = useState(0)
@@ -92,7 +91,7 @@ export default function Sidebar() {
   if (canDashboard) operativita.push({ key: '/activity', label: 'Attività', icon: Activity, active: at('/activity') })
 
   const impostazioni: Node[] = []
-  const showCatalog = canSettings || canTools || canDies
+  const showCatalog = canSettings || canTools
   if (showCatalog) {
     const children: Leaf[] = []
     if (canSettings) {
@@ -104,7 +103,6 @@ export default function Sidebar() {
     if (canTools) children.push({ key: '/settings/tool-attributes', label: 'Attributi utensili', icon: Sliders, active: at('/settings/tool-attributes') })
     if (canSettings || canTools) children.push({ key: '/settings/suppliers', label: 'Fornitori', icon: Handshake, active: at('/settings/suppliers') })
     if (canSettings) children.push({ key: '/settings/edm', label: 'Wire EDM', icon: Zap, active: at('/settings/edm') })
-    if (canDies) children.push({ key: '/settings/dies', label: 'Stampi', icon: Hammer, active: at('/settings/dies') })
     impostazioni.push({ key: 'catalogo', label: 'Catalogo', icon: Library, children })
   }
   if (canCompany || canUsers || canBackup) {

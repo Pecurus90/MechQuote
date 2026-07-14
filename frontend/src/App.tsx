@@ -10,7 +10,6 @@ import QuoteArchivePage from '@/pages/QuoteArchivePage'
 import QuotesActivePage from '@/pages/QuotesActivePage'
 import NewQuotePage from '@/pages/NewQuotePage'
 import NewQuote2DPage from '@/pages/NewQuote2DPage'
-import NewDieQuotePage from '@/pages/NewDieQuotePage'
 import MaterialsPage from '@/pages/settings/MaterialsPage'
 import NormalizedItemsPage from '@/pages/settings/NormalizedItemsPage'
 import StepColorRulesPage from '@/pages/settings/StepColorRulesPage'
@@ -31,7 +30,6 @@ import OfficinaDocumentsPage from '@/pages/officina/documenti/DocumentsPage'
 import OfficinaMaterialsPage from '@/pages/officina/MaterialsPage'
 import TempraResultsPage from '@/pages/officina/tempra/TempraResultsPage'
 import ToolAttributesPage from '@/pages/settings/ToolAttributesPage'
-import DiesSettingsPage from '@/pages/settings/DiesSettingsPage'
 // Container "raggruppati" — ognuno ospita più tab interni:
 import SuppliersSettingsPage from '@/pages/settings/SuppliersSettingsPage'
 import EdmSettingsPage from '@/pages/settings/EdmSettingsPage'
@@ -70,7 +68,6 @@ function AppRoutes() {
         <Route path="quotes/new" element={<NewQuotePage />} />
         <Route path="quotes/manual/new" element={<QuoteEditor />} />
         <Route path="quotes/2d/new" element={<ProtectedRoute permission="quotes.create"><NewQuote2DPage /></ProtectedRoute>} />
-        <Route path="quotes/die/new" element={<ProtectedRoute permission="dies.create"><NewDieQuotePage /></ProtectedRoute>} />
         <Route path="quotes/:id" element={<QuoteEditor />} />
         <Route path="quotes/active" element={<ProtectedRoute permission="quotes.archive"><QuotesActivePage /></ProtectedRoute>} />
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
@@ -96,7 +93,6 @@ function AppRoutes() {
         <Route path="settings/categories" element={<ProtectedRoute permission="settings"><QuoteCategoriesPage /></ProtectedRoute>} />
         <Route path="settings/company"    element={<ProtectedRoute permission="company"><CompanySettingsPage /></ProtectedRoute>} />
         <Route path="settings/customers"  element={<ProtectedRoute permission="customers"><CustomersPage /></ProtectedRoute>} />
-        <Route path="settings/dies"       element={<ProtectedRoute permission="dies.settings"><DiesSettingsPage /></ProtectedRoute>} />
 
         {/* Settings — container "raggruppati" con tab interni */}
         <Route path="settings/suppliers" element={<ProtectedRoute permission="settings"><SuppliersSettingsPage /></ProtectedRoute>} />

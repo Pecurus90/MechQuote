@@ -23,9 +23,9 @@ interface Pending {
 }
 
 /** Azioni di workflow del preventivo (spec 18): Conferma / Rimanda in bozza /
- *  Annulla conferma. Condiviso tra QuoteEditor e DieQuoteEditor — è il cuore
- *  del ciclo di vita, un solo punto per le chiamate API. Ogni azione passa da
- *  un ConfirmDialog che ne dichiara la conseguenza (AUD-7). */
+ *  Annulla conferma. È il cuore del ciclo di vita, un solo punto per le
+ *  chiamate API. Ogni azione passa da un ConfirmDialog che ne dichiara la
+ *  conseguenza (AUD-7). */
 export default function QuoteStatusActions({ quote, onChanged }: Props) {
   const { hasPermission } = useAuth()
   const [busy, setBusy] = useState(false)

@@ -177,14 +177,6 @@ export interface Part {
   material_from_stock?: boolean         // a magazzino: override shipping/cutting da CompanySettings
   margin_percent?: number
   minimum_price?: number
-  // Modulo Stampi: ruolo piastra nel castello.
-  plate_role?: string | null
-  // Sprint B — snapshot produttività piastra (NULL = fallback default per ruolo).
-  die_setup_h?: number | null
-  die_n_milled_faces?: number | null
-  die_n_ground_faces?: number | null
-  die_n_drilled_faces?: number | null
-  die_station_bonus_h?: number | null
   total_cost: number
   unit_price: number
   total_price: number
@@ -244,9 +236,6 @@ export interface Quote {
   notes_customer?: string
   notes_internal?: string
   parts: Part[]
-  // Modulo Stampi: popolati solo per quote_type='die'.
-  die_spec?: DieSpec | null
-  die_normalized_items?: DieNormalizedItem[]
 }
 
 // ─── Ordini materiali ──────────────────────────────────────────────────────
@@ -402,7 +391,6 @@ export interface WorkflowStats {
   awaiting_client_count: number
   completed_missing_price_count: number
   standard_count: number
-  die_count: number
 }
 
 export interface DashboardQuoteRow {
@@ -422,7 +410,7 @@ export interface DashboardQuoteRow {
 export interface QuoteListItem {
   id: number
   quote_number: string
-  quote_type?: string             // 'single' | 'commessa' | 'die'
+  quote_type?: string             // 'single' | 'commessa'
   customer_name: string
   quote_date: string
   status: string
@@ -438,9 +426,6 @@ export interface QuoteListItem {
   // Spec 18: stato materiale derivato (solo lista archivio). null per stampi.
   material_status?: string | null
   parts: { total_price?: number }[]
-  // Modulo Stampi: presente solo per quote_type==='die'. Usato per calcolare
-  // il `display_price` dell'archivio (cost_industrial × margin × discount).
-  die_spec?: { cost_industrial: number } | null
   // Consuntivo commessa (spec G): prezzo venduto al cliente + costo reale.
   // Compilabili solo su status='completo'. Mostrati/editabili in Archivio.
   sold_price?: number | null
@@ -659,8 +644,7 @@ export interface OfficinaDocument {
 
 export interface StatsTrendPoint {
   month: string         // YYYY-MM
-  standard: number      // € preventivati per quote_type single+commessa
-  dies: number          // € preventivati per quote_type='die'
+  standard: number      // € preventivati (tutti i preventivi standard)
 }
 
 export interface StatsCustomerRow {
@@ -713,7 +697,6 @@ export interface StatsQuotesComparison {
 export interface Statistics {
   period: 'year' | '12m' | 'prev_year' | 'all'
   standard_count: number
-  dies_count: number
   outcome?: StatsOutcome
   trend_monthly: StatsTrendPoint[]
   top_customers: StatsCustomerRow[]
@@ -886,178 +869,3 @@ export interface HeatTreatmentResult {
   created_at?: string
   created_by?: UserMinimal | null
 }
-
-// ─── Modulo Preventivatore Stampi ───────────────────────────────────────────
-
-export type DieSubtype = 'passo' | 'blocco'
-export type DieDifficulty = 'base' | 'medium' | 'hard'
-
-export interface DieSpec {
-  quote_id: number
-  die_subtype: DieSubtype
-  bbox_x_mm: number
-  bbox_y_mm: number
-  sheet_thickness_mm: number
-  // Perimetro pezzo (Sprint A): driver chiave per stima ore EDM filo.
-  // NULL → cost engine usa fallback 2*(X+Y)*complexity_factor.
-  perimeter_pezzo_mm?: number | null
-  // Moltiplicatore complessità per fallback senza DXF.
-  // 1.0 rettangolare / 1.3 sagoma media / 1.6 sagoma complessa / 1.9 molto articolato
-  complexity_factor?: number | null
-  // Passo
-  n_stations?: number | null
-  pitch_mm?: number | null
-  strip_offset_y_mm: number
-  // Blocco
-  n_operations?: number | null
-  block_strip_offset_mm: number
-  // Castello
-  castle_offset_x_mm?: number | null
-  castle_offset_y_mm?: number | null
-  // Feature
-  difficulty: DieDifficulty
-  n_bends_simple: number
-  n_bends_medium: number
-  n_bends_complex: number
-  n_punches_simple: number
-  n_punches_medium: number
-  n_punches_complex: number
-  // Misc
-  delivery_days?: number | null
-  technical_notes?: string | null
-  extras_amount: number
-  extras_description?: string | null
-  // Snapshot costi (popolati dal cost engine)
-  cost_material: number
-  cost_normalized: number
-  cost_machining: number
-  cost_machining_edm: number   // Sprint A: breakdown EDM (incluso in cost_machining)
-  cost_machining_mech: number  // Sprint B: breakdown lavorazioni meccaniche piastre
-  cost_accessories: number
-  cost_industrial: number
-  // Override matita (NULL = usa calcolato)
-  override_material?: number | null
-  override_normalized?: number | null
-  override_machining?: number | null
-  override_accessories?: number | null
-}
-
-export interface DieNormalizedItem {
-  id: number
-  quote_id: number
-  normalized_supplier_id?: number | null
-  description: string
-  quantity: number
-  unit_price: number
-  notes?: string | null
-  supplier?: NormalizedSupplier | null
-  // D1: provenienza dal catalogo NormalizedItem (snapshot). null = testo libero.
-  normalized_item_id?: number | null
-}
-
-export interface DieSettings {
-  id: number
-  hourly_rate_milling: number
-  hourly_rate_grinding: number
-  hourly_rate_edm_wire: number
-  hourly_rate_edm_die: number
-  cost_bend_simple: number
-  cost_bend_medium: number
-  cost_bend_complex: number
-  cost_punch_simple: number
-  cost_punch_medium: number
-  cost_punch_complex: number
-  cost_per_plate_base: number
-  diff_mult_base: number
-  diff_mult_medium: number
-  diff_mult_hard: number
-  design_hours_base: number
-  design_hours_medium: number
-  design_hours_hard: number
-  design_hourly_rate: number
-  assembly_forfeit_base: number
-  assembly_forfeit_medium: number
-  assembly_forfeit_hard: number
-  default_margin_percent: number
-  default_castle_offset_x_mm: number
-  default_castle_offset_y_mm: number
-  // Sprint A — driver EDM filo per piastre stampo
-  wire_edm_cycle_id?: number | null
-  edm_extractor_factor: number
-  edm_punch_factor: number
-  // Sprint B — produttività macchine officina (h/dm² per operazione)
-  milling_h_per_dm2: number
-  grinding_h_per_dm2: number
-  drilling_h_per_dm2: number
-  // Sprint F: dormienti (la scala piastra ora usa DieDimensionBracket lookup).
-  // Lasciati nel type per retro-compat (qualche record DB potrebbe ancora avere
-  // valori). Non usati dal cost engine.
-  large_plate_threshold_dm2: number
-  large_plate_factor: number
-  // Sprint F — aggancio Machine FK (NULL = usa hourly_rate_* esplicita)
-  milling_machine_id?: number | null
-  grinding_machine_id?: number | null
-  drilling_machine_id?: number | null
-  edm_wire_machine_id?: number | null
-  // Sprint F — bonus design configurabile
-  design_h_per_bend: number
-  design_h_per_punch: number
-}
-
-export interface DieDimensionBracket {
-  id: number
-  label: string
-  area_min_dm2: number
-  area_max_dm2?: number | null
-  coefficient: number
-  sort_order: number
-}
-
-export interface DieTemplatePlate {
-  id: number
-  plate_role: string
-  default_thickness_mm: number
-  default_material_id?: number | null
-  default_treatment_id?: number | null
-  sort_order: number
-  // Sprint B — costanti "tipiche per ruolo" per stima ore meccaniche piastra.
-  setup_hours_fixed: number
-  n_milled_faces: number
-  n_ground_faces: number
-  n_drilled_faces: number
-  station_bonus_hours: number
-}
-
-// Sprint C — BoM normalizzati scalabile sul template stampo.
-// Le formule scalano i pezzi con dimensioni/feature dello stampo
-// (variabili: n_stations, n_bends_total, n_punches_total, area_castello_dm2,
-//  castle_x_mm, castle_y_mm, bbox_x_mm, bbox_y_mm).
-export interface DieTemplateNormalized {
-  id: number
-  description: string
-  normalized_supplier_id?: number | null
-  quantity_formula: string
-  unit_price_default: number
-  sort_order: number
-}
-
-export interface DieTemplate {
-  id: number
-  name: string
-  description?: string | null
-  die_subtype: DieSubtype
-  suggested_stations?: number | null
-  suggested_pitch_mm?: number | null
-  suggested_n_bends_simple: number
-  suggested_n_bends_medium: number
-  suggested_n_bends_complex: number
-  suggested_n_punches_simple: number
-  suggested_n_punches_medium: number
-  suggested_n_punches_complex: number
-  default_difficulty: DieDifficulty
-  active: boolean
-  created_at: string
-  plates: DieTemplatePlate[]
-  normalized_items: DieTemplateNormalized[]
-}
-

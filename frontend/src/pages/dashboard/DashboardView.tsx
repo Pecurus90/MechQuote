@@ -30,7 +30,6 @@ interface DashboardViewProps {
   monthly: MonthlyData[]
   byStatus: Record<string, number>
   standardCount: number
-  dieCount: number
   onSelectStatus: (status: string) => void
 
   toReview?: DashboardQuoteRow[]
@@ -62,7 +61,6 @@ export function DashboardView(props: DashboardViewProps) {
     monthly,
     byStatus,
     standardCount,
-    dieCount,
     onSelectStatus,
     toReview,
     onSeeAllReview,
@@ -128,7 +126,6 @@ export function DashboardView(props: DashboardViewProps) {
           <PerStatusChart
             byStatus={byStatus}
             standardCount={standardCount}
-            dieCount={dieCount}
             onSelect={onSelectStatus}
           />
           {toReview && (

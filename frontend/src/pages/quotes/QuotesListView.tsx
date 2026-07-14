@@ -92,7 +92,6 @@ const TYPE_FILTERS: { key: QuoteTypeFilter; label: string }[] = [
   { key: 'all', label: 'Tutti' },
   { key: 'single', label: 'Singolo' },
   { key: 'commessa', label: 'Commessa' },
-  { key: 'die', label: 'Stampo' },
 ]
 
 const eur0 = (v: number): string =>
@@ -104,7 +103,7 @@ const dateShort = (iso: string | null): string =>
     : '—'
 
 function toQuoteType(t?: string | null): QuoteType {
-  return t === 'die' ? 'die' : t === 'commessa' ? 'commessa' : 'single'
+  return t === 'commessa' ? 'commessa' : 'single'
 }
 
 /** Cella prezzo editabile inline (Archivio). Click → input; Invio/blur salva,

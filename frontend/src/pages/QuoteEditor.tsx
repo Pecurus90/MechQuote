@@ -9,7 +9,6 @@ import { useAuth } from '@/lib/auth'
 import QuoteWizard from '@/components/quotes/QuoteWizard'
 import PartCard from '@/components/quotes/PartCard'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
-import DieQuoteEditor from '@/pages/DieQuoteEditor'
 import { validateQuote } from '@/lib/quoteValidation'
 import { toast } from 'sonner'
 // Guscio editor (design handoff)
@@ -310,7 +309,6 @@ export default function QuoteEditor() {
 
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Caricamento...</div>
   if (!quote) return null
-  if (quote.quote_type === 'die') return <DieQuoteEditor />
 
   const selectedPart = quote.parts[selectedPartIdx] ?? null
   const total = calcQuoteTotal(quote)

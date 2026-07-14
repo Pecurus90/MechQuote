@@ -15,7 +15,6 @@ import { StatusChip } from '@/components/dashboard/StatusBadges'
 interface Props {
   byStatus: Record<string, number>
   standardCount: number
-  dieCount: number
   onSelect: (status: string) => void
 }
 
@@ -35,7 +34,7 @@ const ORDER: { key: string; label: string }[] = [
 // completi (drill-down verso l'archivio anche per completo/non_ordinato).
 const CHART_STATES = new Set(['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'])
 
-export default function PerStatusChart({ byStatus, standardCount, dieCount, onSelect }: Props) {
+export default function PerStatusChart({ byStatus, standardCount, onSelect }: Props) {
   const { theme } = useTheme()
   const dark = theme === 'dark'
 
@@ -99,8 +98,7 @@ export default function PerStatusChart({ byStatus, standardCount, dieCount, onSe
         <div>
           <div className="text-[15px] font-semibold text-foreground">Preventivi per stato</div>
           <div className="text-xs text-muted-foreground">
-            Standard <b className="text-foreground font-mono">{standardCount}</b> · Stampi{' '}
-            <b className="text-foreground font-mono">{dieCount}</b>
+            Totale <b className="text-foreground font-mono">{standardCount}</b>
           </div>
         </div>
       </div>

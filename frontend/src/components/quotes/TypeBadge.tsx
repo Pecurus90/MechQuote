@@ -1,9 +1,9 @@
 // src/components/quotes/TypeBadge.tsx
-import { Box, Layers, Component } from 'lucide-react'
+import { Box, Layers } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type QuoteType = 'single' | 'commessa' | 'die'
+export type QuoteType = 'single' | 'commessa'
 
 const META: Record<QuoteType, { label: string; icon: LucideIcon; cls: string }> = {
   single: {
@@ -15,11 +15,6 @@ const META: Record<QuoteType, { label: string; icon: LucideIcon; cls: string }> 
     label: 'Commessa',
     icon: Layers,
     cls: 'border-info/40 bg-info/[0.08] text-info',
-  },
-  die: {
-    label: 'Stampo',
-    icon: Component,
-    cls: 'border-confirmed/40 bg-confirmed/[0.08] text-confirmed',
   },
 }
 

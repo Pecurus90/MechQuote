@@ -8,8 +8,6 @@ import RankBarsCard from '@/components/charts/RankBarsCard'
 import DonutCard from '@/components/charts/DonutCard'
 import type { StatKpi } from '@/pages/statistics/StatisticsView'
 
-export type QuoteStatType = 'all' | 'standard' | 'die'
-
 interface CustomerOption {
   value: string
   label: string
@@ -17,8 +15,6 @@ interface CustomerOption {
 
 interface Props {
   /** local filters */
-  type: QuoteStatType
-  onTypeChange: (t: QuoteStatType) => void
   customer: string
   customers: CustomerOption[]
   onCustomerChange: (v: string) => void
@@ -44,20 +40,12 @@ interface Props {
   cmpName?: string
 }
 
-const TYPE_SEG: { key: QuoteStatType; label: string }[] = [
-  { key: 'all', label: 'Tutti' },
-  { key: 'standard', label: 'Standard' },
-  { key: 'die', label: 'Stampi' },
-]
-
 const eur = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const hours = (v: number): string => `${v} h`
 
 export function QuotesStatsView({
-  type,
-  onTypeChange,
   customer,
   customers,
   onCustomerChange,
@@ -75,30 +63,13 @@ export function QuotesStatsView({
   const { theme } = useTheme()
   const dark = theme === 'dark'
   const col = dark
-    ? { standard: 'hsl(213 93% 66%)', stampi: 'hsl(263 84% 72%)', margine: 'hsl(142 58% 52%)' }
-    : { standard: 'hsl(214 90% 52%)', stampi: 'hsl(262 78% 56%)', margine: 'hsl(142 66% 38%)' }
+    ? { standard: 'hsl(213 93% 66%)', margine: 'hsl(142 58% 52%)' }
+    : { standard: 'hsl(214 90% 52%)', margine: 'hsl(142 66% 38%)' }
 
   return (
     <div>
       {/* Local filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        <div className="flex h-[38px] gap-[3px] rounded-[9px] bg-muted p-[3px]">
-          {TYPE_SEG.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => onTypeChange(s.key)}
-              className={cn(
-                'flex items-center rounded-[7px] px-3.5 text-[12.5px] font-semibold transition-colors',
-                type === s.key
-                  ? 'bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
-                  : 'text-muted-foreground',
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
         <div className="relative w-[210px]">
           <select
             value={customer}
@@ -134,13 +105,12 @@ export function QuotesStatsView({
       {/* Chart grid */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TrendAreaCard
-          title="Andamento per tipo (€)"
-          subtitle="Standard vs Stampi · mensile"
+          title="Andamento preventivi (€)"
+          subtitle="€ preventivato · mensile"
           data={trendByType}
           xKey={xKey}
           series={[
-            { key: 'standard', name: 'Standard', color: col.standard },
-            { key: 'stampi', name: 'Stampi', color: col.stampi },
+            { key: 'standard', name: 'Preventivato', color: col.standard },
           ]}
           yFmt={eurK}
           tipFmt={(v, n) => [eur(v), n]}

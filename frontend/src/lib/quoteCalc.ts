@@ -182,21 +182,6 @@ export function calcPartTotals(
 }
 
 export function calcQuoteTotal(quote: Quote): number {
-  // Modulo Stampi: formula gemella di backend calculation._apply_quote_final_total
-  // (L6/L7 su cost_industrial). Industriale = L1+L2+L3+L4 con override matita
-  // (null-coalesce sui calcolati); poi margine globale e sconto globale. NON
-  // include transport/packaging: il totale stampo non li somma all'industriale.
-  if (quote.quote_type === 'die' && quote.die_spec) {
-    const spec = quote.die_spec
-    const effMaterial    = spec.override_material    ?? spec.cost_material
-    const effNormalized  = spec.override_normalized  ?? spec.cost_normalized
-    const effMachining   = spec.override_machining   ?? spec.cost_machining
-    const effAccessories = spec.override_accessories ?? spec.cost_accessories
-    const industrial = effMaterial + effNormalized + effMachining + effAccessories
-    const withMargin = industrial * (1 + (quote.global_margin_percent || 0) / 100)
-    const finalPrice = withMargin * (1 - (quote.global_discount_percent || 0) / 100)
-    return Math.round(finalPrice * 100) / 100
-  }
   const sub = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const afterExtras = sub + (quote.transport_cost || 0) + (quote.packaging_cost || 0)
   const discount = afterExtras * ((quote.global_discount_percent || 0) / 100)

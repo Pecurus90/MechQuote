@@ -748,18 +748,16 @@ class WorkflowStats(BaseModel):
     to_review_count: int
     awaiting_client_count: int = 0        # offerte in attesa risposta cliente
     completed_missing_price_count: int = 0  # ordini completi senza prezzo di vendita
-    standard_count: int = 0   # preventivi standard (single/commessa/NULL)
-    die_count: int = 0        # preventivi stampo
+    standard_count: int = 0   # totale preventivi
 
 
 # ─── Statistics page (StatisticsOut) ──────────────────────────────────────
-# 4 dataset aggregati per la pagina /statistics. Tutti calcolati lato BE
+# Dataset aggregati per la pagina /statistics. Tutti calcolati lato BE
 # con SQL aggregato (no row idratate in Python).
 
 class StatsTrendPoint(BaseModel):
     month: str        # YYYY-MM
-    standard: float   # € preventivati per quote_type single+commessa
-    dies: float       # € preventivati per quote_type='die'
+    standard: float   # € preventivati nel mese
 
 
 class StatsCustomerRow(BaseModel):
@@ -823,8 +821,7 @@ class StatsQuotesComparison(BaseModel):
 
 class StatisticsOut(BaseModel):
     period: str                              # 'year' | '12m' | 'prev_year' | 'all'
-    standard_count: int = 0                  # n° preventivi standard nel periodo
-    dies_count: int = 0                      # n° preventivi stampo nel periodo
+    standard_count: int = 0                  # n° preventivi nel periodo
     outcome: StatsOutcome = StatsOutcome()   # esito vinto/perso/aperto
     trend_monthly: List[StatsTrendPoint]
     top_customers: List[StatsCustomerRow]

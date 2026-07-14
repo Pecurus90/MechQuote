@@ -10,7 +10,7 @@ from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import Customer, Quote
-from app.schemas import CustomerCreate, CustomerUpdate, CustomerOut
+from app.schemas import CustomerCreate, CustomerUpdate, CustomerOut, normalize_phone_number
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/customers", tags=["customers"])
@@ -118,11 +118,10 @@ def _normalize_email(s: str) -> str:
 
 
 def _normalize_phone_raw(s: str) -> str:
-    """Strip basico; il vero normalize è fatto da Pydantic.normalize_phone."""
-    if not s:
-        return None
-    p = re.sub(r'\s+', ' ', s).strip()
-    return p or None
+    """AUD-27: usa la STESSA normalizzazione del path API (fonte unica in
+    schemas.normalize_phone_number), così i telefoni importati da CSV non
+    divergono più dal formato canonico (+39, parentesi, interni, separatori)."""
+    return normalize_phone_number(s)
 
 
 def _compose_address(via: str, cap: str, prov: str) -> str:

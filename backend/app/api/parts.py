@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 import logging
 import os
+import uuid
 
 from app.core.database import get_db
 from app.core.security import require_any_permission, get_current_user
@@ -13,7 +14,7 @@ from app.services.calculation import recalculate_part, recalculate_quote
 from app.services.material_status import unassigned_supplier_parts
 from app.services import quote_workflow as wf
 from app.services.notifications import create_notification
-from app.api.quotes import ensure_editable
+from app.api.quotes import ensure_editable, ensure_quote_visible
 
 logger = logging.getLogger(__name__)
 # Endpoint condiviso tra preventivi standard e stampi: chi modifica una Part
@@ -123,7 +124,11 @@ def add_part(
 
 
 @router.get("/parts/{part_id}", response_model=PartOut)
-def get_part(part_id: int, db: Session = Depends(get_db)):
+def get_part(
+    part_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     part = db.query(Part).options(
         joinedload(Part.phases).options(
             # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
@@ -140,6 +145,9 @@ def get_part(part_id: int, db: Session = Depends(get_db)):
     ).filter(Part.id == part_id).first()
     if not part:
         raise HTTPException(status_code=404, detail="Parte non trovata")
+    # AUD-23: ACL di proprietà, come le scritture di questo file. Senza,
+    # chiunque leggeva costi/fasi/materiale di parti altrui iterando l'id.
+    ensure_quote_visible(_quote_for_part(part_id, db), current_user)
     return part
 
 
@@ -329,10 +337,20 @@ def upload_file(
     elif ext in ('.png', '.jpg', '.jpeg', '.gif', '.bmp'):
         file_type = 'image'
     else:
-        file_type = 'other'
+        # AUD-24: whitelist estensioni (come officina.py/materials.py). Il
+        # catch-all 'other' accettava qualsiasi tipo → un .html/.svg servito
+        # same-origin dal mount statico /uploads era stored XSS. Rifiuta.
+        # NB: niente .svg (immagine ma eseguibile come markup).
+        raise HTTPException(
+            status_code=400,
+            detail=f"Estensione non supportata: {ext or '(nessuna)'}. "
+                   "Accettati: DXF, STEP/STP, PDF, immagini (PNG/JPG/GIF/BMP)",
+        )
 
     os.makedirs("uploads", exist_ok=True)
-    file_path = f"uploads/part_{part_id}_{safe_filename}"
+    # Prefisso uuid nel path su disco: due upload con lo stesso nome non si
+    # sovrascrivono più a vicenda (il nome originale resta come display in DB).
+    file_path = f"uploads/part_{part_id}_{uuid.uuid4().hex[:8]}_{safe_filename}"
     MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
     bytes_written = 0
     with open(file_path, "wb") as buffer:

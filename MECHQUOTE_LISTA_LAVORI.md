@@ -155,6 +155,165 @@ Non toccare ora: si accorpano alla riscrittura funzionale del modulo stampi.
 
 ---
 
+## 🔎 AUDIT 2026-07-14 — findings consolidati (4 audit paralleli)
+
+Quattro revisioni parallele di **sola lettura** (logica/funzioni backend ·
+UI grafica · UX/flussi · sicurezza & produzione) su tutto il progetto, in vista
+del go-live. Findings **verificati** nel codice, falsi positivi scartati.
+Numerazione continua da AUD-21. Le voci del **modulo Stampi** sono marcate
+**DIFFERITE**: su decisione utente (2026-07-14) il modulo preventivo stampi
+verrà **totalmente riscritto**, quindi non ci si interviene ora.
+
+### Sprint A — Sicurezza / integrità dati (bloccanti pre-server)
+- **AUD-22** — `_run_migrations()` ingoia ogni errore con `try/except: pass`
+  (`main.py:~909`). Va bene per gli `ADD COLUMN` idempotenti, ma la stessa lista
+  ha grant di permessi, indici UNIQUE e backfill: un fallimento reale lascia il
+  DB *sbagliato* in silenzio (permesso mai concesso, indice anti-doppione
+  inesistente). Fix: `logger.warning(sql, exc)` invece del `pass`. ~1 riga.
+- **AUD-23** — IDOR: `GET /api/parts/{part_id}` (`parts.py:~125-143`) non prende
+  `current_user`, nessun permesso, nessun controllo proprietà → chiunque legge
+  costi/fasi/materiale di parti altrui iterando l'id. Fix: `current_user` +
+  `ensure_quote_visible(quote, current_user)` (le scritture del file lo fanno già).
+- **AUD-24** — Upload `parts.py:~319-367` senza whitelist estensioni (accetta
+  qualsiasi tipo) + `/uploads` montato statico **senza auth** (`main.py:~1226`)
+  → stored XSS same-origin (carico `evil.html/.svg`, giro il link). Fix:
+  whitelist estensioni (come `officina.py`/`materials.py`) + nome con uuid +
+  `Content-Disposition: attachment`. Affine B4.
+- **AUD-25** — Doppio ordine materiale sotto concorrenza (`orders.py:~474-514`):
+  check idempotenza legge-poi-inserisce non atomico → 2 click rapidi creano
+  documenti d'ordine duplicati. Fix: UNIQUE su
+  `QuoteSupplierOrder(quote_id, material_supplier_id)` + catch `IntegrityError`.
+- **AUD-26** — Import "da file" scrivono `material_id`/`normalized_item_id` dal
+  payload senza verificarne l'esistenza, sia negli order item sia negli **alias
+  appresi** (`orders_from_file.py:~316-343`, `normalized_from_file.py:~205-232`)
+  → item orfani + alias avvelenati che sbagliano i match futuri. Fix: batch-
+  validare gli id prima di creare item/alias; null o rifiuto se assenti.
+- **AUD-27** — Import CSV clienti costruisce `Customer(...)` da CSV grezzo
+  saltando il validatore `normalize_phone` di `CustomerCreate`
+  (`customers.py:~264-271`). Fix: passare le righe per `CustomerCreate` (valida
+  poi `model_dump()`).
+
+### Sprint B — UX / flussi (non-stampi)
+- **AUD-28** — Lavoro perso nei wizard su refresh/back: stato solo in `useState`,
+  nessun `beforeunload`/guard (`NewQuote2DPage.tsx`, `QuoteWizard.tsx`). Fix:
+  avviso `beforeunload` quando il wizard è "dirty". *(NewDieQuotePage → DIFFERITO
+  col modulo stampi.)*
+- **AUD-29** — Delete degli alias appresi senza conferma, click singolo
+  (`MaterialsFileView.tsx:~383`, `NormalizedFileView.tsx:~224`). Fix: passare per
+  `ConfirmDialog` mostrando `csv_name → material_name`.
+- **AUD-30** — Qty degli ordini "da file" è un `<input>` testo che accetta
+  0/negativi/garbage (`MaterialsFileView.tsx:~327`, `NormalizedFileView.tsx:~187`).
+  Fix: `type="number" min="1" step="1"` + bordo rosso se invalido.
+- **AUD-31** — Errori scan generici e campo già svuotato (`ToolScanBar.tsx`): non
+  si sa quale codice ha fallito. Fix: includere il codice nel messaggio, non
+  svuotare il campo in errore.
+- **AUD-32** — Upload senza pre-check client di dimensione/tipo (officina
+  `UploadModal`, datasheet `officina/MaterialsPage`, `ToolImportButtons`, DXF):
+  file oversize inviati interi poi rifiutati con errore generico. Fix: validare
+  `file.size`+estensione prima della POST.
+- **AUD-33** — `ConfirmDialog` (confirm-dialog.tsx) non disabilita il pulsante
+  durante l'azione async → doppio-tap = doppia esecuzione (è il dialog condiviso
+  dietro quasi tutti i delete). Fix: prop `busy` che disabilita entrambi i bottoni.
+- **AUD-34** — Bottoni di workflow della top-bar editor cliccabili durante
+  `saving` (`QuoteEditorTopBar.tsx` + `QuoteEditor.tsx`): `doStatus`/`doSubmit`
+  ri-entrabili. Fix: passare `saving` e disabilitare le azioni in transito.
+
+### Sprint C — UI / estetica (non-stampi)
+- **AUD-35** — `EdmPhaseFields.tsx:~173-257`: pannello parametri EDM con palette
+  ambra hardcoded (`bg-amber-50/50`, `text-amber-*`, `bg-blue-100`) mentre esiste
+  il token `warning`. In dark resta giallo pallido "rotto". Fix: migrare a
+  `border-warning/30 bg-warning/[0.12] text-warning`.
+- **AUD-36** — Pattern "light-tint" che non inverte in dark (~12 spot): alone
+  `bg-red-50` in `confirm-dialog.tsx:43` (in OGNI delete), chip
+  `bg-blue-100/amber-100/red-100` in `SettingsPageHeader.tsx:13/16/22`, hover
+  tint in `Dxf2dProfileList`, `DxfProfilePicker`, `CategoryFormModal`,
+  `NotificationPanel`. Fix: forma a token/opacità (`bg-destructive/10`, ecc.).
+- **AUD-37** — Nessun primitive `dialog.tsx`: **19 modali** fatte a mano
+  ripetono lo scrim `fixed inset-0 bg-gray-900/50…` con drift (`/50`÷`/70`,
+  z-index vari). I body usano `bg-card` (ok in dark) → è tech-debt/DRY, non
+  rottura visiva. Fix: un `ModalShell` condiviso. Assorbe/estende AUD-21.
+- **AUD-38** — 5 `<select>` nativi dove lo standard è shadcn `Select`
+  (`QuotesListView:201-227`, `ActivityPage:68`, `DirectSalesPage:40`,
+  `MaterialFormModal:112`, `EdmPhaseFields:240`). Token-corretti (dark-safe) →
+  solo coerenza visiva.
+- **AUD-39** — Loading a testo "Caricamento…" invece di skeleton in modo
+  incoerente (QuoteEditor, NewQuote2DPage, ecc.; solo ToolsPage/DocumentsTable
+  usano skeleton); empty state solo-testo in `orders/NormalizedFileView`,
+  `orders/MaterialOrdersView`. Fix: uniformare a skeleton + empty con icona.
+- **AUD-40** — `QuotesListView.tsx:251` e `DirectSalesPage.tsx:62` usano colgroup
+  a larghezza fissa dentro `overflow-hidden` senza `overflow-x-auto` → clipping su
+  finestre strette. Fix: wrapper con scroll.
+
+### Sprint D — Minori (non-stampi)
+- **AUD-41** — Alcuni `catch { toast.error('Errore') }` scartano il `detail`
+  utile del backend (es. "in uso in 3 preventivi"): `WorkflowTemplatesPage`,
+  `officina/documenti/DocumentsPage` (delete), `QuoteCategoriesPage`. Fix: usare
+  l'helper esistente `getApiErrorDetail(e, 'fallback')`. Affine AUD-6/CAT-5.
+- **AUD-42** — Controlli icona-only come `<Trash2 onClick>`/`<FileDown onClick>`
+  nudi: non focusabili, senza `aria-label`/`title` (`MaterialsFileView`,
+  `NormalizedFileView`, `OrderHistoryView:67-80`). Fix: wrappare in `<button>`
+  con `title`/`aria-label`.
+- **AUD-43** — `.env.example:10` dice `ACCESS_TOKEN_EXPIRE_MINUTES=1440` ma il
+  default del codice è `0` (mai scade): allineare l'esempio al default intenzionale.
+
+### Sprint E — Performance / robustezza (con la crescita dei dati)
+- **AUD-44** — Indici mancanti sulle colonne più filtrate di `quotes`:
+  `created_by_user_id` (ogni lista/archivio/dashboard per chi non ha `view_all`),
+  `status` (~5 COUNT per dashboard), `quote_date`/`completed_at`, +
+  `notifications.created_at` (`main.py:~545-553`). Fix: blocco additivo
+  `CREATE INDEX IF NOT EXISTS`. Concretizza B7. *(tocca §0-quater — aggiungere con
+  cura.)*
+- **AUD-45** — `list_quotes` (`quotes.py:~103-121`) fa collection-joinedload
+  dell'albero parts→phases→material → prodotto cartesiano per la lista.
+  `quotes_archive.py` usa già `selectinload`. Fix: `selectinload` o schema header
+  leggero.
+- **AUD-46** — `list_customers` (`customers.py:~26`) senza limit/skip →
+  materializza tutta la tabella a ogni pagina/picker clienti. Fix: paginazione
+  (pattern già in `list_quotes`).
+- **AUD-47** — Seed a import-time non protetti (`main.py:~1212-1217`): un seed che
+  fallisce fa fallire `import app.main` → uvicorn non parte. Fix: spostare in
+  lifespan/startup o wrappare ogni seed in try/except con log.
+- **AUD-48** — `PRAGMA foreign_keys` OFF (`database.py:~26-27`): nessun backstop
+  DB agli orfani (è la modalità dell'incidente 2026-05). Fix: audit orfani su
+  prod, poi `PRAGMA foreign_keys=ON` nel connect listener. *(Da fare con cautela,
+  non a cuor leggero.)*
+
+### DIFFERITO — Bundle Stampi (col rifacimento del modulo, decisione 2026-07-14)
+Non toccare: si accorpano alla riscrittura funzionale del modulo preventivo
+stampi. ⚠️ **AUD-49 e AUD-50 restano falle aperte fino al rifacimento** — se il
+rifacimento non è imminente, valutare di applicare almeno il guard ACL di AUD-49
+(una riga, non tocca il calcolo).
+- **AUD-49** — ⚠️ IDOR: i read stampi saltano la ACL di proprietà
+  (`dies.py:204`, `die_normalized_items.py:35`, `dies.py:475/509` find-similar →
+  espone anche margini venduto/costo di stampi altrui). Fix: `ensure_quote_visible`
+  su ogni read; find-similar limitato ai propri (o anonimizzato) senza `view_all`.
+- **AUD-50** — `apply_template` bulk-delete (`dies.py:~387`) bypassa il cascade
+  ORM e il cleanup file → fasi/`part_files` orfani + blob DXF leakati su disco.
+  Fix: iterare `db.delete(part)`.
+- **AUD-51** — `create_die_quote` (`dies.py:~163-196`) committa Quote+DieSpec
+  prima di validare `template_id` → template errato lascia un `bozza` orfano e il
+  retry dà "numero già esistente". Fix: validare il template prima del commit.
+- **AUD-52** — `DieNormalizedItem.normalized_supplier_id` mai validato
+  (`die_normalized_items.py:~47-92`) → id inesistente fa saltare in silenzio lo
+  shipping L2 (`calculation.py:~694`) → prezzo stampo sottostimato. Fix: 400 se
+  supplier assente.
+- **AUD-53** — `find_similar` ordina per `created_at` eventualmente NULL
+  (`dies.py:~449-453`) → `TypeError`/500 su righe legacy. Fix: `key=lambda q:
+  q.created_at or datetime.min`.
+- **AUD-54** — Selezione template stampo sovrascrive gli input manuali senza
+  conferma (`NewDieQuotePage.tsx:~244-254`): azzera difficoltà + 6 conteggi
+  feature. Fix: auto-fill solo campi vuoti o `ConfirmDialog`.
+- **AUD-55** — Dark-mode rotto nel modulo stampi: `DieSideView.tsx`,
+  `DieTopView.tsx` (`bg-white`/`bg-gray-50`/`text-gray-*` → etichette invisibili),
+  `DieQuoteEditor.tsx` L399/439/820/829. Estende AUD-17 al resto del modulo.
+- **AUD-56** — Delete "Fasce dimensionali" senza conferma (`DiesSettingsPage.tsx:228`),
+  incoerente col resto delle impostazioni. Fix: `ConfirmDialog`.
+
+> Nota: nessun file di codice è stato modificato da questo audit. Le voci sono
+> pianificazione; verifica per singola voce prima di chiuderla.
+
+---
+
 ## 📋 C — Import ordine materiale (manuale + tabella SolidWorks) — SOSPESO (2026-07-02)
 
 Feature concordata con l'utente il 2026-07-02, **sospesa su sua richiesta**

@@ -296,6 +296,21 @@ def create_file_orders(
             detail="Completa le misure grezzo di: " + ', '.join(missing_dim[:5]),
         )
 
+    # AUD-26: gli id materiale arrivano dal payload client. Validali contro il
+    # catalogo PRIMA di scriverli negli order item e negli alias appresi: un
+    # payload stantio/craftato con un material_id inesistente creerebbe item
+    # orfani e — peggio — un alias avvelenato che sbaglia i match CSV futuri.
+    # Coerente col check `missing_dim` poco sopra.
+    ref_mat_ids = {r.material_id for r in rows if r.material_id}
+    if ref_mat_ids:
+        known = {row.id for row in db.query(Material.id).filter(Material.id.in_(ref_mat_ids)).all()}
+        if ref_mat_ids - known:
+            raise HTTPException(
+                status_code=400,
+                detail="Uno o più materiali abbinati non esistono più a catalogo. "
+                       "Ricontrolla gli abbinamenti prima di creare l'ordine.",
+            )
+
     by_supplier: dict = defaultdict(list)
     for r in rows:
         by_supplier[r.supplier_id].append(r)

@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.csv_import import csv_export_response, sanitize_filename_part
@@ -512,7 +513,19 @@ def create_order(
         ))
     # B6 — congela lo snapshot delle righe ordinate (fedeltà alla ristampa CSV).
     _persist_order_snapshot(order, list(new_ids), supplier.id, db)
-    db.flush()
+    # AUD-25: il check di idempotenza sopra (legge `existing`) non è atomico —
+    # due POST concorrenti per (preventivo × fornitore) lo superano entrambi.
+    # Il vincolo UNIQUE(quote_id, material_supplier_id) impedisce il doppio
+    # ordine a livello DB; qui traduciamo l'IntegrityError del perdente in un
+    # 409 pulito invece di un 500 opaco.
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Materiale già ordinato per {supplier.name} (ordine concorrente)",
+        )
 
     completed_quotes = []
     for qid in new_ids:

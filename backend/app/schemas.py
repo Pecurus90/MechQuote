@@ -28,6 +28,27 @@ class QuoteCategoryOut(QuoteCategoryBase):
 
 
 # --- Customer ---
+def normalize_phone_number(v):
+    """Normalizza un numero di telefono IT: toglie prefisso +39, parentesi,
+    interni ('int. 3'), unifica separatori (- / .) in spazi. None/senza cifre → None.
+
+    Fonte UNICA (DRY): usata sia dal validator `CustomerBase.phone` (path API)
+    sia dall'import CSV clienti (AUD-27), che prima faceva solo uno strip e
+    divergeva dal formato canonico.
+    """
+    if not v:
+        return None
+    s = str(v).strip()
+    if not re.search(r'\d', s):
+        return None
+    s = re.sub(r'^\+\s*39\s*', '', s)
+    s = s.replace('(', '').replace(')', '')
+    s = re.sub(r'\s*int\.?\s*\d+.*$', '', s, flags=re.IGNORECASE)
+    s = s.replace('-', ' ').replace('/', ' ').replace('.', ' ')
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s or None
+
+
 class CustomerBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     vat_number: Optional[str] = None
@@ -41,17 +62,7 @@ class CustomerBase(BaseModel):
     @field_validator('phone', mode='before')
     @classmethod
     def normalize_phone(cls, v):
-        if not v:
-            return v
-        s = str(v).strip()
-        if not re.search(r'\d', s):
-            return None
-        s = re.sub(r'^\+\s*39\s*', '', s)
-        s = s.replace('(', '').replace(')', '')
-        s = re.sub(r'\s*int\.?\s*\d+.*$', '', s, flags=re.IGNORECASE)
-        s = s.replace('-', ' ').replace('/', ' ').replace('.', ' ')
-        s = re.sub(r'\s+', ' ', s).strip()
-        return s or None
+        return normalize_phone_number(v)
 
 
 class CustomerCreate(CustomerBase):

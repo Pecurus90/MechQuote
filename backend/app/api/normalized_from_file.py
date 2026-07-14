@@ -185,6 +185,18 @@ def create_file_orders(
             detail="Assegna un tipo (con fornitore) a: " + ', '.join(missing[:5]),
         )
 
+    # AUD-26: valida gli id normalizzato dal payload prima di scriverli negli
+    # order item e negli alias appresi (evita item orfani + alias avvelenati).
+    ref_item_ids = {r.normalized_item_id for r in rows if r.normalized_item_id}
+    if ref_item_ids:
+        known = {row.id for row in db.query(NormalizedItem.id).filter(NormalizedItem.id.in_(ref_item_ids)).all()}
+        if ref_item_ids - known:
+            raise HTTPException(
+                status_code=400,
+                detail="Uno o più articoli normalizzati abbinati non esistono più a "
+                       "catalogo. Ricontrolla gli abbinamenti prima di creare l'ordine.",
+            )
+
     by_sup: dict = defaultdict(list)
     for r in rows:
         by_sup[r.supplier_id].append(r)

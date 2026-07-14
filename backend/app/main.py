@@ -906,8 +906,24 @@ def _run_migrations():
             try:
                 conn.execute(text(sql))
                 conn.commit()
-            except Exception:
-                pass  # column already exists
+            except Exception as exc:
+                # AUD-22: prima ingoiavamo TUTTO con `pass`. La maggior parte
+                # dei fallimenti è benigna e attesa (colonna/tabella/indice già
+                # esistente sugli statement idempotenti) → DEBUG. Ma la lista
+                # contiene anche grant di permessi, UNIQUE index e backfill: un
+                # fallimento *reale* lì lascia il DB sbagliato in silenzio →
+                # WARNING con SQL+errore, così è visibile nei log.
+                conn.rollback()
+                msg = str(exc).lower()
+                benign = (
+                    "duplicate column name" in msg
+                    or "already exists" in msg
+                )
+                log = logging.getLogger("mechquote.migrations")
+                if benign:
+                    log.debug("migrazione idempotente saltata: %s -- %s", sql, exc)
+                else:
+                    log.warning("migrazione fallita: %s -- %s", sql, exc)
 
 
 def _seed_categories():

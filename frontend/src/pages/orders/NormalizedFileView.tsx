@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Upload, Plus, Trash2, ChevronDown, Bolt, Info, FilePlus2, AlertTriangle, Link2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 /** Tipo normalizzato selezionabile (voce di catalogo NormalizedItem). */
 export interface TypeOption {
@@ -46,9 +47,15 @@ interface Props {
 const GRID =
   'grid grid-cols-[140px_minmax(170px,1.3fr)_minmax(150px,1fr)_minmax(130px,0.9fr)_84px_32px] items-center gap-2.5'
 
-/** Riga invalida: tipo non abbinato o descrizione vuota. */
+/** Qtà valida = intero ≥ 1 (AUD-30). */
+function isQtyInvalid(qty: string): boolean {
+  const n = Number(qty)
+  return !qty.trim() || !Number.isFinite(n) || n < 1
+}
+
+/** Riga invalida: tipo non abbinato, descrizione vuota o qtà non valida. */
 function isRowInvalid(r: NormRow): boolean {
-  return r.typeId == null || !r.description.trim()
+  return r.typeId == null || !r.description.trim() || isQtyInvalid(r.qty)
 }
 
 export function NormalizedFileView({
@@ -67,6 +74,7 @@ export function NormalizedFileView({
 }: Props) {
   const invalidCount = rows.filter(isRowInvalid).length
   const [aliasesOpen, setAliasesOpen] = useState(false)
+  const [pendingAlias, setPendingAlias] = useState<NormAliasEntry | null>(null)
 
   return (
     <div className="rounded-2xl border border-border bg-card px-[26px] pb-[26px] pt-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -184,13 +192,29 @@ export function NormalizedFileView({
                     )}
                   </div>
                   <div className="text-[12.5px] text-muted-foreground">{row.supplierName ?? '—'}</div>
+                  {/* Qtà (AUD-30: numerica, min 1, bordo rosso se non valida) */}
                   <input
+                    type="number"
+                    min={1}
+                    step={1}
                     value={row.qty}
                     onChange={(e) => onPatchRow(row.id, { qty: e.target.value })}
-                    className="h-[34px] w-full rounded-[8px] border border-input bg-background px-2 text-right font-mono text-[12.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
+                    className={cn(
+                      'h-[34px] w-full rounded-[8px] border bg-background px-2 text-right font-mono text-[12.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]',
+                      isQtyInvalid(row.qty) ? 'border-danger/60' : 'border-input',
+                    )}
                   />
+                  {/* AUD-42: button accessibile invece di SVG nudo */}
                   <div className="flex justify-center">
-                    <Trash2 className="h-4 w-4 cursor-pointer text-muted-foreground transition-colors hover:text-danger" onClick={() => onRemoveRow(row.id)} />
+                    <button
+                      type="button"
+                      onClick={() => onRemoveRow(row.id)}
+                      title="Rimuovi riga"
+                      aria-label="Rimuovi riga"
+                      className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-danger"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               )
@@ -221,13 +245,38 @@ export function NormalizedFileView({
                   <span className="min-w-0 flex-1 truncate font-mono text-foreground" title={a.csv_name}>{a.csv_name}</span>
                   <ArrowRight className="h-3.5 w-3.5 flex-none text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate text-muted-foreground" title={a.item_code}>{a.item_code}</span>
-                  <Trash2 className="h-4 w-4 flex-none cursor-pointer text-muted-foreground transition-colors hover:text-danger" onClick={() => onDeleteAlias(a.id)} />
+                  {/* AUD-29: conferma delete alias · AUD-42: button accessibile */}
+                  <button
+                    type="button"
+                    onClick={() => setPendingAlias(a)}
+                    title="Rimuovi alias"
+                    aria-label="Rimuovi alias appreso"
+                    className="flex h-7 w-7 flex-none items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingAlias != null}
+        title="Rimuovere l'alias appreso?"
+        description={
+          pendingAlias
+            ? `"${pendingAlias.csv_name}" → ${pendingAlias.item_code}. Al prossimo import questo nome non verrà più abbinato in automatico.`
+            : undefined
+        }
+        confirmLabel="Rimuovi"
+        onConfirm={() => {
+          if (pendingAlias) onDeleteAlias?.(pendingAlias.id)
+          setPendingAlias(null)
+        }}
+        onCancel={() => setPendingAlias(null)}
+      />
     </div>
   )
 }

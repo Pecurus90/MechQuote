@@ -9,6 +9,8 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { buildCatalogOptions } from '@/lib/catalogSelect'
 import { parseDecimal } from '@/lib/decimalInput'
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard'
+import { checkUploadFile } from '@/lib/uploadValidation'
 import type {
   Category, Customer, Material, CuttingCycle, DrillingTime,
   EdmConfig, Machine, Operation, Phase, DxfAnalysis, DxfBbox,
@@ -91,6 +93,10 @@ export default function NewQuote2DPage() {
   const [submitting, setSubmitting] = useState(false)
   const loadedRef = useRef(false)
 
+  // AUD-28: una volta caricato il DXF c'è lavoro reale (profili + campi) →
+  // avvisa se si tenta di ricaricare/chiudere la tab. Disattivo mentre salvo.
+  useUnsavedGuard(!!dxfFile && !submitting)
+
   useEffect(() => {
     Promise.all([
       api.get('/quote-categories'), api.get('/customers'), api.get('/materials?active=true'),
@@ -150,6 +156,8 @@ export default function NewQuote2DPage() {
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.dxf')) { toast.error('Solo file .dxf supportati'); return }
+    const fileErr = checkUploadFile(file, { maxMB: 50 })  // AUD-32: evita l'invio di file oversize
+    if (fileErr) { toast.error(fileErr); return }
     setDxfFile(file); setAnalyzing(true)
     try {
       const fd = new FormData(); fd.append('file', file)

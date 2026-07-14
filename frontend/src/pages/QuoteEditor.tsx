@@ -420,6 +420,7 @@ export default function QuoteEditor() {
         locked={isLocked}
         lockedText={quote.status === 'confermato' ? 'Preventivo confermato — non più modificabile.' : 'Preventivo completo — non più modificabile.'}
         onBack={() => navigate('/quotes/active')}
+        busy={saving}
       />
 
       {staleConflict && (

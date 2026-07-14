@@ -7,8 +7,11 @@ import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import { checkUploadFile } from '@/lib/uploadValidation'
 import type { OfficinaCategory, Customer, MaterialSupplier, ToolSupplier, NormalizedSupplier } from '@/types'
 import { fmtBytes, fmtCustomer, ALLOWED_ACCEPT, type RefKind } from './documentsUtil'
+
+const DOC_EXTS = ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.png', '.jpg', '.jpeg', '.gif', '.dxf']
 
 interface Props {
   categories: OfficinaCategory[]       // già ordinate
@@ -40,6 +43,11 @@ export default function UploadModal({
   const handleUpload = async () => {
     if (!file || !title.trim()) {
       toast.error('Titolo e file sono obbligatori')
+      return
+    }
+    const fileErr = checkUploadFile(file, { maxMB: 50, exts: DOC_EXTS })
+    if (fileErr) {
+      toast.error(fileErr)
       return
     }
     setUploading(true)

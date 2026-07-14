@@ -15,6 +15,7 @@ export interface EditorAction {
   variant: ActionVariant
   onClick: () => void
   show?: boolean
+  disabled?: boolean
 }
 
 interface Props {
@@ -27,6 +28,9 @@ interface Props {
   locked: boolean
   lockedText?: string
   onBack?: () => void
+  /** AUD-34: quando true (es. salvataggio/transizione in corso) disabilita
+   *  tutte le azioni di workflow, così non si ri-entra in doStatus/doSubmit. */
+  busy?: boolean
 }
 
 const ACTION_CLASS: Record<ActionVariant, string> = {
@@ -49,6 +53,7 @@ export function QuoteEditorTopBar(props: Props) {
     locked,
     lockedText = 'Preventivo non più modificabile.',
     onBack,
+    busy = false,
   } = props
 
   const visibleActions = actions.filter((a) => a.show !== false)
@@ -82,14 +87,17 @@ export function QuoteEditorTopBar(props: Props) {
         <span className="flex-1" />
         {visibleActions.map((a) => {
           const Icon = a.icon
+          const isDisabled = busy || a.disabled
           return (
             <button
               key={a.key}
               type="button"
               onClick={a.onClick}
+              disabled={isDisabled}
               className={cn(
                 'inline-flex h-9 flex-none items-center gap-[7px] rounded-[9px] border px-[13px] text-[13px] font-semibold transition-[filter] hover:brightness-105',
                 ACTION_CLASS[a.variant],
+                isDisabled && 'cursor-not-allowed opacity-50 hover:brightness-100',
               )}
             >
               <Icon className="h-[15px] w-[15px]" />

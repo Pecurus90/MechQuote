@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Category, Customer } from '@/types'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard'
 import { ManualQuoteWizardView, type ManualQuoteValue } from '@/pages/quotes/ManualQuoteWizardView'
 
 interface Props {
@@ -25,6 +26,9 @@ export default function QuoteWizard({ categories, customers, onCreated }: Props)
   const [categoryCode, setCategoryCode] = useState(categories[0]?.code || 'A')
   const [progressive, setProgressive] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // AUD-28: avvisa se si ricarica/chiude con campi compilati non ancora salvati.
+  useUnsavedGuard(!saving && !!(customerName || customerCode || progressive || customerReference))
 
   const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')
   const filtered = useMemo(() => {

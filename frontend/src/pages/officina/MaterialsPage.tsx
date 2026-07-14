@@ -9,6 +9,7 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import { checkUploadFile } from '@/lib/uploadValidation'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import { familyLabel } from '@/lib/materialFamilies'
 import type { Material } from '@/types'
@@ -74,6 +75,8 @@ export default function OfficinaMaterialsPage() {
 
   const handleUpload = async () => {
     if (!uploadFor || !selectedFile) return
+    const fileErr = checkUploadFile(selectedFile, { maxMB: 50, exts: ['.pdf'] })
+    if (fileErr) { toast.error(fileErr); return }
     setUploading(true)
     const fd = new FormData()
     fd.append('file', selectedFile)

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Upload, Plus, Check, Trash2, ChevronDown, FileSpreadsheet, Info, FilePlus2, AlertTriangle, Link2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 
 /* ---------------------------------------------------------------------------
  * Forma grezzo + misure dinamiche.
@@ -83,11 +84,17 @@ interface Props {
 const GRID =
   'grid grid-cols-[150px_minmax(150px,1.2fr)_minmax(130px,0.8fr)_110px_110px_190px_52px_32px] items-center gap-2.5'
 
-/** Una riga con misure mancanti o materiale non abbinato è "invalida". */
+/** Qtà valida = numero intero ≥ 1 (AUD-30: prima era testo libero → 0/negativi). */
+function isQtyInvalid(qty: string): boolean {
+  const n = Number(qty)
+  return !qty.trim() || !Number.isFinite(n) || n < 1
+}
+
+/** Una riga con misure mancanti, materiale non abbinato o qtà non valida è "invalida". */
 function isRowInvalid(row: FileRow): boolean {
   const unmatched = row.materialId == null
   const missingDims = SHAPE_FIELDS[row.shape].some((f) => !f.optional && !row.dims[f.key]?.trim())
-  return unmatched || missingDims
+  return unmatched || missingDims || isQtyInvalid(row.qty)
 }
 
 export function MaterialsFileView({
@@ -108,6 +115,7 @@ export function MaterialsFileView({
   // (il backend rifiuta comunque, ma qui evitiamo il round-trip e spieghiamo).
   const invalidCount = rows.filter(isRowInvalid).length
   const [aliasesOpen, setAliasesOpen] = useState(false)
+  const [pendingAlias, setPendingAlias] = useState<AliasEntry | null>(null)
   return (
     <div className="rounded-2xl border border-border bg-card px-[26px] pb-[26px] pt-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       {/* StandardPage header + azioni */}
@@ -323,18 +331,29 @@ export function MaterialsFileView({
                       )
                     })}
                   </div>
-                  {/* Qtà */}
+                  {/* Qtà (AUD-30: numerica, min 1, bordo rosso se non valida) */}
                   <input
+                    type="number"
+                    min={1}
+                    step={1}
                     value={row.qty}
                     onChange={(e) => onPatchRow(row.id, { qty: e.target.value })}
-                    className="h-[34px] w-full rounded-[8px] border border-input bg-background px-2 text-right font-mono text-[12.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
+                    className={cn(
+                      'h-[34px] w-full rounded-[8px] border bg-background px-2 text-right font-mono text-[12.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]',
+                      isQtyInvalid(row.qty) ? 'border-danger/60' : 'border-input',
+                    )}
                   />
-                  {/* Elimina */}
+                  {/* Elimina (AUD-42: button accessibile, non SVG nudo) */}
                   <div className="flex justify-center">
-                    <Trash2
-                      className="h-4 w-4 cursor-pointer text-muted-foreground transition-colors hover:text-danger"
+                    <button
+                      type="button"
                       onClick={() => onRemoveRow(row.id)}
-                    />
+                      title="Rimuovi riga"
+                      aria-label="Rimuovi riga"
+                      className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-danger"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               )
@@ -380,16 +399,40 @@ export function MaterialsFileView({
                   <span className="min-w-0 flex-1 truncate text-muted-foreground" title={a.material_name}>
                     {a.material_name}
                   </span>
-                  <Trash2
-                    className="h-4 w-4 flex-none cursor-pointer text-muted-foreground transition-colors hover:text-danger"
-                    onClick={() => onDeleteAlias(a.id)}
-                  />
+                  {/* AUD-29: conferma prima di eliminare un alias appreso (un
+                      click accidentale perdeva una mappatura senza avviso).
+                      AUD-42: button accessibile invece di SVG nudo. */}
+                  <button
+                    type="button"
+                    onClick={() => setPendingAlias(a)}
+                    title="Rimuovi alias"
+                    aria-label="Rimuovi alias appreso"
+                    className="flex h-7 w-7 flex-none items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingAlias != null}
+        title="Rimuovere l'alias appreso?"
+        description={
+          pendingAlias
+            ? `"${pendingAlias.csv_name}" → ${pendingAlias.material_name}. Al prossimo import questo nome non verrà più abbinato in automatico.`
+            : undefined
+        }
+        confirmLabel="Rimuovi"
+        onConfirm={() => {
+          if (pendingAlias) onDeleteAlias?.(pendingAlias.id)
+          setPendingAlias(null)
+        }}
+        onCancel={() => setPendingAlias(null)}
+      />
     </div>
   )
 }

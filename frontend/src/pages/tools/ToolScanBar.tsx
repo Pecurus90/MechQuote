@@ -31,12 +31,15 @@ export default function ToolScanBar({ onScanned }: { onScanned: () => void }) {
       }
       setScanCode('')
       onScanned()
+      scanInputRef.current?.focus()
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || 'Errore scan')
-      setScanCode('')
-    } finally {
-      scanInputRef.current?.focus()
+      // AUD-31: nomina il codice che ha fallito e NON svuotare il campo, così
+      // al bancone si vede quale "sparo" non è andato. Selezioniamo il testo:
+      // il prossimo scan (che digita+Enter) lo sostituisce automaticamente.
+      toast.error(`${code}: ${err?.response?.data?.detail || 'codice non trovato'}`)
+      const el = scanInputRef.current
+      if (el) { el.focus(); el.select() }
     }
   }
 

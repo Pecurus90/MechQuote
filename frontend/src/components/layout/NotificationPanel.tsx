@@ -69,7 +69,7 @@ export default function NotificationPanel({
             {unreadCount > 0 && (
               <button
                 onClick={onMarkAllRead}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-primary hover:bg-primary/10"
                 title="Segna tutte come lette"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -79,7 +79,7 @@ export default function NotificationPanel({
             {readCount > 0 && (
               <button
                 onClick={handleClearRead}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 title="Svuota notifiche lette"
               >
                 <Trash2 className="w-3.5 h-3.5" />

@@ -170,15 +170,15 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
   }
 
   return (
-    <div className="rounded-md border border-amber-200 bg-amber-50/50 p-3">
+    <div className="rounded-md border border-warning/30 bg-warning/[0.12] p-3">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-warning">
           <Zap className="w-3.5 h-3.5" />
           Parametri taglio EDM
-          {edmAuto && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-amber-200 text-amber-800">auto</span>}
+          {edmAuto && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-warning/25 text-warning">auto</span>}
           {phase.dxf_profile_ids && phase.dxf_profile_ids.length > 0 && (
             <span
-              className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-primary"
+              className="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary"
               title="Profili importati da DXF — riapri 'Carica da DXF' per cambiare selezione"
             >
               <Paperclip className="w-3 h-3" /> {phase.dxf_profile_ids.length} profili DXF
@@ -190,7 +190,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             <button
               type="button"
               onClick={() => setShowReselectModal(true)}
-              className="flex items-center gap-1 text-[11px] text-amber-700 hover:underline"
+              className="flex items-center gap-1 text-[11px] text-warning hover:underline"
               title="Riapri la selezione dei profili sul DXF già allegato"
             >
               <Edit3 className="w-3 h-3" /> Modifica selezione DXF
@@ -199,7 +199,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             <button
               type="button"
               onClick={() => setShowDxfModal(true)}
-              className="flex items-center gap-1 text-[11px] text-amber-700 hover:underline"
+              className="flex items-center gap-1 text-[11px] text-warning hover:underline"
               title="Carica un DXF per popolare lunghezza profilo e numero pierce"
             >
               <FileText className="w-3 h-3" /> Carica da DXF
@@ -209,7 +209,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             <button
               type="button"
               onClick={onUnlockManual}
-              className="flex items-center gap-1 text-[11px] text-amber-700 hover:underline"
+              className="flex items-center gap-1 text-[11px] text-warning hover:underline"
               title="Sblocca per inserire le ore manualmente"
             >
               <Unlock className="w-3 h-3" /> Modifica manualmente
@@ -254,7 +254,7 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
             ))}
           </select>
           {cuttingCycles.length === 0 && (
-            <p className="text-[10px] text-amber-700 mt-0.5">
+            <p className="text-[10px] text-warning mt-0.5">
               Configura i cicli in Impostazioni → Wire EDM
             </p>
           )}

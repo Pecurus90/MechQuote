@@ -188,9 +188,9 @@ export default function DxfProfilePicker({ onChange, viewerHeight = 420, rawX, r
             </span>
           </div>
           {analysis.warnings.length > 0 && (
-            <div className="mt-2 p-2 rounded bg-amber-50 border border-amber-200">
+            <div className="mt-2 p-2 rounded bg-warning/[0.12] border border-warning/30">
               {analysis.warnings.map((w, i) => (
-                <p key={i} className="text-[11px] text-amber-800 flex items-start gap-1">
+                <p key={i} className="text-[11px] text-warning flex items-start gap-1">
                   <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {w}
                 </p>
               ))}

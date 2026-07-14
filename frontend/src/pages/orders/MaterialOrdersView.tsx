@@ -142,6 +142,11 @@ export function MaterialOrdersView({
           <div>Stato materiale</div>
         </div>
         {/* rows */}
+        {selectableQuotes.length === 0 && (
+          <div className="px-6 py-10 text-center text-[13px] text-muted-foreground">
+            Nessun preventivo confermato con materiale da ordinare.
+          </div>
+        )}
         {selectableQuotes.map((q, i) => {
           const checked = selectedIds.includes(q.id)
           const last = i === selectableQuotes.length - 1
@@ -187,6 +192,11 @@ export function MaterialOrdersView({
         Anteprima materiali per fornitore
       </div>
       <div className="flex flex-col gap-4">
+        {aggregate.length === 0 && (
+          <div className="rounded-[14px] border border-dashed border-border px-6 py-8 text-center text-[13px] text-muted-foreground">
+            Seleziona uno o più preventivi qui sopra per comporre l'ordine per fornitore.
+          </div>
+        )}
         {aggregate.map((g) => (
           <div key={g.supplierId} className="overflow-hidden rounded-[14px] border border-border">
             <div className="flex items-center justify-between border-b border-border bg-card-muted px-[18px] py-[13px]">

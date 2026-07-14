@@ -8,18 +8,22 @@ export type Color =
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
   | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies' | 'primary'
 
+// AUD-36: i chip generici erano tint chiari (`bg-*-100`) che non invertono in
+// dark. Forma a opacità (fill semitrasparente sul card + testo con variante
+// dark) → coerente in entrambi i temi. Fonte unica: cambia qui, cambiano tutte
+// le intestazioni impostazioni.
 const COLOR_MAP: Record<Color, string> = {
   primary: 'bg-primary/[0.13] text-primary',
-  blue:    'bg-blue-100 text-primary',
-  indigo:  'bg-indigo-100 text-indigo-700',
-  rose:    'bg-rose-100 text-rose-700',
-  amber:   'bg-amber-100 text-amber-700',
+  blue:    'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  indigo:  'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
+  rose:    'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+  amber:   'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   gray:    'bg-muted text-foreground',
-  emerald: 'bg-emerald-100 text-emerald-700',
-  violet:  'bg-violet-100 text-violet-700',
-  orange:  'bg-orange-100 text-orange-700',
-  sky:     'bg-sky-100 text-sky-700',
-  red:     'bg-red-100 text-red-700',
+  emerald: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  violet:  'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  orange:  'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+  sky:     'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+  red:     'bg-red-500/15 text-red-600 dark:text-red-400',
   // Accenti d'area token-based (dark-aware, handoff).
   tools:     'bg-tools/[0.13] text-tools',
   sales:     'bg-sales/[0.13] text-sales',

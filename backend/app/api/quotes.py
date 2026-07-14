@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List
 
 from app.core.database import get_db, utc_now
@@ -110,9 +110,15 @@ def list_quotes(
     # ACL: chi non ha 'quotes.view_all' (default: admin + amministrazione)
     # vede solo i preventivi che ha creato lui. Allineato a dashboard.my-quotes
     # filter (created_by_user_id).
+    # AUD-45: selectinload sulle collezioni (parts, phases) invece di
+    # joinedload. Il joinedload di collezioni produce un prodotto cartesiano
+    # parts×phases per preventivo E rende ambiguo il LIMIT (applicato alle
+    # righe del join, non ai preventivi distinti). selectinload usa query IN
+    # separate → niente cartesiano, LIMIT corretto. material resta joinedload
+    # (many-to-one, singola riga). Stesso pattern di quotes_archive.py.
     query = db.query(Quote).options(
-        joinedload(Quote.parts).options(
-            joinedload(Part.phases),
+        selectinload(Quote.parts).options(
+            selectinload(Part.phases),
             joinedload(Part.material),
         )
     )

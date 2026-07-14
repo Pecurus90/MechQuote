@@ -1,7 +1,7 @@
 import csv
 import io
 import logging
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -19,11 +19,27 @@ _can_write = require_permission('customers')
 
 
 @router.get("", response_model=List[CustomerOut])
-def list_customers(db: Session = Depends(get_db), active_only: bool = False):
+def list_customers(
+    db: Session = Depends(get_db),
+    active_only: bool = False,
+    q: Optional[str] = None,
+    skip: int = 0,
+    limit: Optional[int] = None,
+):
+    # AUD-46: paginazione/ricerca OPZIONALI (capacità server-side per quando la
+    # tabella crescerà). Default invariato — limit=None ritorna tutto — così gli
+    # autocomplete client che filtrano sull'intera lista non si rompono. Il
+    # frontend può adottare `q`/`limit` in un secondo momento senza cambi API.
     query = db.query(Customer)
     if active_only:
         query = query.filter(Customer.active == True)
-    return query.order_by(Customer.customer_number).all()
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(Customer.name.ilike(like))
+    query = query.order_by(Customer.customer_number).offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 @router.post("", response_model=CustomerOut)

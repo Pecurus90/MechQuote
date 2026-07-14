@@ -551,6 +551,15 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_material_order_quotes_order_id ON material_order_quotes(material_order_id)",
         "CREATE INDEX IF NOT EXISTS idx_material_order_quotes_quote_id ON material_order_quotes(quote_id)",
         "CREATE INDEX IF NOT EXISTS idx_tool_order_items_order_id ON tool_order_items(tool_order_id)",
+        # AUD-44: colonne di quotes filtrate/ordinate su OGNI lista/archivio/
+        # dashboard. created_by_user_id → ACL per chi non ha view_all (la
+        # maggioranza); status → COUNT dashboard + filtri archivio/ordini;
+        # quote_date → ordinamento + raggruppamento mensile. notifications.
+        # created_at → ordinamento pannello notifiche. Additivi/idempotenti.
+        "CREATE INDEX IF NOT EXISTS idx_quotes_created_by_user_id ON quotes(created_by_user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status)",
+        "CREATE INDEX IF NOT EXISTS idx_quotes_quote_date ON quotes(quote_date)",
+        "CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)",
 
         # ═══ ACL: quotes.view_all ═══
         # Permesso per vedere TUTTI i preventivi (non solo i propri). Senza,
@@ -1226,11 +1235,18 @@ def _seed_die_templates():
 
 
 _run_migrations()
-_seed_categories()
-_seed_roles()
-_seed_operations()
-_seed_edm_defaults()
-_seed_die_templates()
+# AUD-47: i seed girano a import-time. Prima, un seed che sollevava (DB
+# parzialmente migrato, lock transitorio) faceva fallire `import app.main` →
+# uvicorn non partiva affatto. Ora ogni seed è isolato: se uno fallisce viene
+# loggato e l'app parte comunque (degradazione parziale invece di down totale).
+for _seed in (_seed_categories, _seed_roles, _seed_operations,
+              _seed_edm_defaults, _seed_die_templates):
+    try:
+        _seed()
+    except Exception as exc:
+        logging.getLogger("mechquote.seed").warning(
+            "seed %s fallito: %s", _seed.__name__, exc
+        )
 
 
 @app.get("/api/health")

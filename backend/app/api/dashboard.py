@@ -71,20 +71,9 @@ def get_activity(
 
 def _quote_to_row(q: Quote) -> DashboardQuoteRow:
     """Serializza un Quote nella shape compatta usata dalle liste in dashboard."""
-    # Valore preventivato: per gli Stampi è il prezzo industriale
-    # (cost_industrial × markup × sconto, L5→L7), NON la somma delle piastre
-    # (che sarebbe solo L1). Stessa formula del trend in /statistics. Richiede
-    # joinedload(Quote.die_spec) nella query chiamante.
     if q.final_total is not None:
         # B1: totale persistito (fonte unica, allineato ad archivio e PDF).
         total = q.final_total
-    elif q.quote_type == 'die' and q.die_spec is not None:
-        base = q.die_spec.cost_industrial or 0.0
-        total = (
-            base
-            * (1 + (q.global_margin_percent or 0) / 100.0)
-            * (1 - (q.global_discount_percent or 0) / 100.0)
-        )
     else:
         total = sum((p.total_price or 0.0) for p in q.parts) if q.parts else 0.0
     return DashboardQuoteRow(
@@ -109,10 +98,7 @@ def get_workflow_stats(
     by_status_rows = db.query(Quote.status, func.count(Quote.id)).group_by(Quote.status).all()
     by_status = {status: cnt for status, cnt in by_status_rows}
 
-    # Split standard vs stampi (die) per il sottotitolo "Standard N · Stampi N".
-    total_all = sum(by_status.values())
-    die_count = db.query(func.count(Quote.id)).filter(Quote.quote_type == 'die').scalar() or 0
-    standard_count = total_all - die_count
+    standard_count = sum(by_status.values())
 
     # Visibilità pipeline: chi accede all'archivio (ufficio tecnico E
     # amministrazione) vede gli stessi KPI. La conferma resta gated altrove.
@@ -128,12 +114,9 @@ def get_workflow_stats(
 
     # Ordini completi senza prezzo di vendita: buchi nei dati statistici
     # (marginalità reale). Solo status='completo' con sold_price non compilato.
-    # Esclude gli Stampi: hanno il proprio prezzo industriale e passano
-    # confermato→completo senza sold_price, quindi gonfierebbero il KPI.
     missing_price = (
         db.query(func.count(Quote.id)).filter(
             Quote.status == 'completo', Quote.sold_price.is_(None),
-            or_(Quote.quote_type != 'die', Quote.quote_type.is_(None)),
         ).scalar() or 0
     ) if has_archive else 0
 
@@ -143,7 +126,6 @@ def get_workflow_stats(
         awaiting_client_count=awaiting_client,
         completed_missing_price_count=missing_price,
         standard_count=standard_count,
-        die_count=die_count,
     )
 
 
@@ -195,10 +177,6 @@ def _quotes_where(date_from, date_to, quote_type, customer_id):
     if customer_id is not None:
         parts.append("q.customer_id = :customer_id")
         params['customer_id'] = customer_id
-    if quote_type == 'die':
-        parts.append("q.quote_type = 'die'")
-    elif quote_type == 'standard':
-        parts.append("(q.quote_type != 'die' OR q.quote_type IS NULL)")
     date_filter = (' AND ' + ' AND '.join(parts)) if parts else ''
     return date_filter, params
 
@@ -211,13 +189,9 @@ def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id)
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m,
           COALESCE(SUM(
-            CASE WHEN q.quote_type = 'die'
-                 THEN ds.cost_industrial
-                      * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-                      * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-                 ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
-            END), 0) AS total
-        FROM quotes q LEFT JOIN die_specs ds ON ds.quote_id = q.id
+            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+          ), 0) AS total
+        FROM quotes q
         WHERE 1=1 {df}
         GROUP BY m ORDER BY m
         """
@@ -233,7 +207,7 @@ def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id)
           COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
           COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
         FROM parts p JOIN quotes q ON q.id = p.quote_id
-        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL) AND p.total_cost > 0 {df}
+        WHERE p.total_cost > 0 {df}
         GROUP BY m ORDER BY m
         """
     ), params).all()
@@ -287,53 +261,27 @@ def get_statistics(
     date_from, date_to = _period_range(period)
     date_filter, params = _quotes_where(date_from, date_to, quote_type, customer_id)
 
-    # ─── 1. Trend mensile per tipo (standard vs dies) ──────────────────
-    # Standard: somma parts.total_price (escluso die).
+    # ─── 1. Trend mensile (€ preventivato) ────────────────────────────
     rows_std = db.execute(text(
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(p.total_price), 0) AS v
         FROM parts p
         JOIN quotes q ON q.id = p.quote_id
-        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL)
+        WHERE 1=1
           {date_filter}
         GROUP BY m ORDER BY m
         """
     ), params).all()
-    # Stampi: cost_industrial × margin × discount.
-    rows_die = db.execute(text(
-        f"""
-        SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(
-          ds.cost_industrial
-          * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-          * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-        ), 0) AS v
-        FROM die_specs ds
-        JOIN quotes q ON q.id = ds.quote_id
-        WHERE q.quote_type = 'die'
-          {date_filter}
-        GROUP BY m ORDER BY m
-        """
-    ), params).all()
-    months = sorted({r.m for r in rows_std} | {r.m for r in rows_die})
-    std_map = {r.m: float(r.v or 0) for r in rows_std}
-    die_map = {r.m: float(r.v or 0) for r in rows_die}
-    trend = [StatsTrendPoint(month=m, standard=std_map.get(m, 0.0), dies=die_map.get(m, 0.0))
-             for m in months]
+    trend = [StatsTrendPoint(month=r.m, standard=float(r.v or 0)) for r in rows_std]
 
-    # ─── 2. Top 10 clienti (combinato standard + stampi) ──────────────
+    # ─── 2. Top 10 clienti ─────────────────────────────────────────────
     rows_cust = db.execute(text(
         f"""
         SELECT q.customer_id, q.customer_name,
           COALESCE(
-            CASE WHEN q.quote_type = 'die'
-                 THEN ds.cost_industrial
-                      * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-                      * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-                 ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
-            END, 0
+            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id), 0
           ) AS total
         FROM quotes q
-        LEFT JOIN die_specs ds ON ds.quote_id = q.id
         WHERE q.customer_name IS NOT NULL AND q.customer_name != ''
           {date_filter}
         """
@@ -364,17 +312,9 @@ def get_statistics(
           ) AS cat,
           COUNT(*) AS cnt,
           COALESCE(SUM(
-            COALESCE(
-              CASE WHEN q.quote_type = 'die'
-                   THEN ds.cost_industrial
-                        * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-                        * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-                   ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
-              END, 0
-            )
+            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
           ), 0) AS total
         FROM quotes q
-        LEFT JOIN die_specs ds ON ds.quote_id = q.id
         WHERE q.quote_number IS NOT NULL
           {date_filter}
         GROUP BY cat ORDER BY total DESC
@@ -410,8 +350,7 @@ def get_statistics(
           COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
         FROM parts p
         JOIN quotes q ON q.id = p.quote_id
-        WHERE (q.quote_type != 'die' OR q.quote_type IS NULL)
-          AND p.total_cost > 0
+        WHERE p.total_cost > 0
           {date_filter}
         GROUP BY m ORDER BY m
         """
@@ -425,18 +364,11 @@ def get_statistics(
 
     # ─── 5. Conteggi (KPI) ────────────────────────────────────────────
     cnt_row = db.execute(text(
-        f"""
-        SELECT
-          SUM(CASE WHEN q.quote_type = 'die' THEN 1 ELSE 0 END) AS dies,
-          SUM(CASE WHEN q.quote_type != 'die' OR q.quote_type IS NULL THEN 1 ELSE 0 END) AS standard
-        FROM quotes q
-        WHERE 1=1 {date_filter}
-        """
+        f"SELECT COUNT(*) AS n FROM quotes q WHERE 1=1 {date_filter}"
     ), params).first()
-    dies_count = int(cnt_row.dies or 0) if cnt_row else 0
-    standard_count = int(cnt_row.standard or 0) if cnt_row else 0
+    standard_count = int(cnt_row.n or 0) if cnt_row else 0
 
-    # ─── 6. Distribuzione ore (solo standard: gli stampi non hanno fasi) ──
+    # ─── 6. Distribuzione ore ─────────────────────────────────────────
     # Ore fase = setup + ciclo×qty. Raggruppate per macchina e per lavorazione.
     def _hours_by(join_sql: str, label_expr: str) -> List[StatsHoursRow]:
         rows = db.execute(text(
@@ -447,7 +379,7 @@ def get_statistics(
             JOIN parts p ON p.id = ph.part_id
             JOIN quotes q ON q.id = p.quote_id
             {join_sql}
-            WHERE (q.quote_type != 'die' OR q.quote_type IS NULL) {date_filter}
+            WHERE 1=1 {date_filter}
             GROUP BY label
             HAVING h > 0
             ORDER BY h DESC
@@ -466,8 +398,7 @@ def get_statistics(
     )
 
     # ─── 7. Esito commerciale: vinto/perso/aperto (conteggio + valore €) ──
-    # Valore per preventivo: stampi = industriale × margine × sconto, standard
-    # = Σ parts.total_price. Bucket per stato. Rispetta i filtri correnti.
+    # Valore per preventivo = Σ parts.total_price. Bucket per stato.
     rows_outcome = db.execute(text(
         f"""
         SELECT
@@ -478,16 +409,9 @@ def get_statistics(
           END AS outcome,
           COUNT(*) AS n,
           COALESCE(SUM(
-            COALESCE(
-              CASE WHEN q.quote_type = 'die'
-                   THEN ds.cost_industrial
-                        * (1 + COALESCE(q.global_margin_percent, 0) / 100.0)
-                        * (1 - COALESCE(q.global_discount_percent, 0) / 100.0)
-                   ELSE (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
-              END, 0)
+            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
           ), 0) AS value
         FROM quotes q
-        LEFT JOIN die_specs ds ON ds.quote_id = q.id
         WHERE 1=1 {date_filter}
         GROUP BY outcome
         """
@@ -514,7 +438,6 @@ def get_statistics(
     return StatisticsOut(
         period=period,
         standard_count=standard_count,
-        dies_count=dies_count,
         outcome=outcome,
         trend_monthly=trend,
         top_customers=top_customers,
@@ -527,9 +450,9 @@ def get_statistics(
 
 
 def _margin_where(date_from, date_to):
-    """(where, params) per la tab Marginalità: solo preventivi completi non-die,
+    """(where, params) per la tab Marginalità: solo preventivi completi,
     con bound di periodo. Riusato da periodo corrente e finestra di confronto."""
-    parts = ["q.status = 'completo'", "(q.quote_type != 'die' OR q.quote_type IS NULL)"]
+    parts = ["q.status = 'completo'"]
     params: dict = {}
     if date_from is not None:
         parts.append("q.quote_date >= :date_from")
@@ -1081,7 +1004,6 @@ def get_my_quotes(
     q = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
-        joinedload(Quote.die_spec),
     ).filter(Quote.created_by_user_id == current_user.id)
     if status is not None:
         q = q.filter(Quote.status == status)
@@ -1105,7 +1027,6 @@ def get_to_review(
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
-        joinedload(Quote.die_spec),
     ).filter(
         Quote.status.in_(['inviato', 'letto']),
     ).order_by(Quote.submitted_at.desc().nullslast()).limit(limit).all()
@@ -1130,11 +1051,9 @@ def get_awaiting_materials(
     quotes = db.query(Quote).options(
         joinedload(Quote.parts),
         joinedload(Quote.submitted_by),
-        joinedload(Quote.die_spec),
     ).filter(
         Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
-        or_(Quote.quote_type != 'die', Quote.quote_type.is_(None)),
     ).order_by(Quote.confirmed_at.desc().nullslast()).limit(limit).all()
     # Stato materiale reale per riga: `material_ordered_at` è NULL anche per i
     # PARZIALI (viene valorizzato solo a evasione totale), quindi il badge non
@@ -1172,16 +1091,12 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
           CAST(strftime('%Y', COALESCE(q.completed_at, q.quote_date), 'localtime') AS INTEGER) AS y,
           CAST(strftime('%m', COALESCE(q.completed_at, q.quote_date), 'localtime') AS INTEGER) AS m,
           COALESCE(SUM(
-            CASE WHEN q.quote_type = 'die'
-                 THEN COALESCE(ds.cost_industrial, 0)
-                 ELSE (SELECT COALESCE(SUM(p.total_cost * p.quantity), 0)
-                       FROM parts p WHERE p.quote_id = q.id)
-                      + COALESCE(q.transport_cost, 0) + COALESCE(q.packaging_cost, 0)
-            END
+            (SELECT COALESCE(SUM(p.total_cost * p.quantity), 0)
+             FROM parts p WHERE p.quote_id = q.id)
+            + COALESCE(q.transport_cost, 0) + COALESCE(q.packaging_cost, 0)
           ), 0) AS quoted_cost,
           COALESCE(SUM(q.sold_price), 0) AS sold
         FROM quotes q
-        LEFT JOIN die_specs ds ON ds.quote_id = q.id
         WHERE q.sold_price IS NOT NULL
           AND COALESCE(q.completed_at, q.quote_date) IS NOT NULL
         GROUP BY y, m

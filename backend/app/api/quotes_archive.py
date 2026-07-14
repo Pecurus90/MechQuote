@@ -6,7 +6,7 @@ from typing import List, Optional
 from app.api.orders import _format_dim
 from app.core.database import get_db
 from app.core.quote_types import is_die
-from app.core.security import require_any_permission, get_current_user
+from app.core.security import require_permission, get_current_user
 from app.models import (
     ManufacturingPhase, Material, Part, Quote, QuoteSupplierOrder, User,
 )
@@ -21,24 +21,11 @@ from app.services.quote_workflow import ORDERABLE_STATUSES
 
 router = APIRouter(prefix="/api", tags=["quotes-archive"])
 
-# Archivio: il permesso `quotes.archive` copre i preventivi standard; chi ha
-# solo `dies.archive` può accedere alla lista filtrata su quote_type='die'.
-# Il filtro applicativo è applicato sotto: senza `quotes.archive` la lista è
-# forzata a quote_type='die'.
-_can_view = require_any_permission('quotes.archive', 'dies.archive')
+_can_view = require_permission('quotes.archive')
 
 
 def _user_sees_all(current_user: User) -> bool:
     return 'quotes.view_all' in getattr(current_user, '_permissions', [])
-
-
-def _archive_quote_type_filter(current_user: User, requested: Optional[str]) -> Optional[str]:
-    """Se l'utente ha solo `dies.archive`, forza il filtro a 'die'.
-    Altrimenti rispetta la richiesta del client (può essere None = tutti)."""
-    perms = getattr(current_user, '_permissions', [])
-    if 'quotes.archive' not in perms and 'dies.archive' in perms:
-        return 'die'
-    return requested
 
 
 @router.get("/quotes/years")
@@ -52,9 +39,6 @@ def get_quote_years(
     query = db.query(func.strftime("%Y", Quote.quote_date)).distinct()
     if not _user_sees_all(current_user):
         query = query.filter(Quote.created_by_user_id == current_user.id)
-    forced_type = _archive_quote_type_filter(current_user, None)
-    if forced_type:
-        query = query.filter(Quote.quote_type == forced_type)
     results = query.all()
     years = sorted([int(r[0]) for r in results if r[0]], reverse=True)
     return years or [2026]
@@ -76,22 +60,16 @@ def list_archive(
     # Clamp parametri di paginazione: niente offset negativo, page_size in range sensato
     page = max(1, page)
     page_size = max(1, min(100, page_size))
-    # joinedload(die_spec) per dare al frontend cost_industrial/margin/discount
-    # senza una seconda chiamata per ogni riga. parts.material serve per lo
-    # stato materiale derivato (spec 18).
+    # parts.material serve per lo stato materiale derivato (spec 18).
     query = db.query(Quote).options(
         selectinload(Quote.parts).selectinload(Part.material),
-        joinedload(Quote.die_spec),
     )
     # ACL: senza quotes.view_all l'utente vede solo i preventivi che ha creato.
     if not _user_sees_all(current_user):
         query = query.filter(Quote.created_by_user_id == current_user.id)
     if year:
         query = query.filter(extract('year', Quote.quote_date) == year)
-    quote_type = _archive_quote_type_filter(current_user, quote_type)
     if quote_type:
-        # Modulo Stampi: tab dedicato all'archivio mostra solo quote_type='die'.
-        # Utente con solo `dies.archive` è forzato a 'die' (vedi helper).
         query = query.filter(Quote.quote_type == quote_type)
     if q:
         like = f"%{q.strip()}%"

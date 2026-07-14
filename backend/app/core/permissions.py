@@ -8,9 +8,6 @@ PERMISSION_KEYS: dict[str, str] = {
     "quotes.edit_locked": "Modifica preventivi bloccati (confermati/completi)",
     "quotes.delete": "Elimina preventivi (di chiunque)",
     "sales.direct":  "Vendite dirette (extra-preventivo)",
-    "dies.create":     "Crea/modifica preventivi stampi",
-    "dies.archive":    "Archivio preventivi stampi",
-    "dies.settings":   "Configura tariffe, fasce e template stampi",
     "customers":     "Gestione clienti",
     "settings":      "Impostazioni (materiali, macchine…)",
     "company":       "Modifica dati aziendali e default preventivi",
@@ -37,7 +34,6 @@ PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
         "quotes.archive", "quotes.edit_locked", "quotes.delete",
     ]),
     ("Vendite", ["sales.direct"]),
-    ("Preventivatore Stampi", ["dies.create", "dies.archive", "dies.settings"]),
     ("Ordini", ["orders.materials", "orders.normalized", "orders.tools"]),
     ("Officina & Utensili", ["officina", "officina.write", "tools"]),
     ("Impostazioni & Sistema", ["settings", "customers", "company", "users", "backup", "notifications"]),
@@ -49,7 +45,6 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "dashboard", "quotes.create", "quotes.archive",
         "quotes.send", "sales.direct", "customers", "notifications", "orders.materials",
         "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
-        "dies.create", "dies.archive",
     ],
     # Officina: solo la sua area + catalogo utensili. Nessun preventivo,
     # nessun ordine (materiali/utensili), niente dashboard né notifiche.
@@ -60,6 +55,5 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "dashboard", "quotes.archive", "quotes.view_all",
         "quotes.confirm", "sales.direct", "notifications", "orders.materials",
         "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
-        "dies.archive",
     ],
 }

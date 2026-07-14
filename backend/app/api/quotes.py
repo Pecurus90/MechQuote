@@ -10,7 +10,7 @@ from app.core.database import get_db, utc_now
 from app.core.security import require_permission, get_current_user
 from app.models import (
     Quote, Part, ManufacturingPhase, QuoteSupplierOrder, User,
-    CompanySettings, DieNormalizedItem,
+    CompanySettings,
 )
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate, QuoteCloseoutUpdate
 from app.core.quote_types import is_die
@@ -54,8 +54,6 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
         joinedload(Quote.read_by),
         joinedload(Quote.confirmed_by),
         joinedload(Quote.completed_by),
-        joinedload(Quote.die_spec),
-        joinedload(Quote.die_normalized_items).joinedload(DieNormalizedItem.supplier),
     ).filter(Quote.id == quote_id).first()
 
 

@@ -206,30 +206,3 @@ def quote_total(
     after = parts_total_price_sum + (transport_cost or 0.0) + (packaging_cost or 0.0)
     discount = after * ((global_discount_percent or 0.0) / 100)
     return round(after - discount, 2)
-
-
-def quote_total_die(
-    *,
-    cost_material: float,
-    cost_normalized: float,
-    cost_machining: float,
-    cost_accessories: float,
-    override_material: Optional[float] = None,
-    override_normalized: Optional[float] = None,
-    override_machining: Optional[float] = None,
-    override_accessories: Optional[float] = None,
-    global_margin_percent: Optional[float],
-    global_discount_percent: Optional[float],
-) -> float:
-    """Totale preventivo STAMPO. Gemello del ramo `die` di `calcQuoteTotal`.
-
-    Industriale (L5, con override matita null-coalesce) × margine globale (L6)
-    × sconto globale (L7). Arrotondato a 2 (una sola volta).
-    """
-    eff_m = override_material if override_material is not None else cost_material
-    eff_n = override_normalized if override_normalized is not None else cost_normalized
-    eff_mac = override_machining if override_machining is not None else cost_machining
-    eff_acc = override_accessories if override_accessories is not None else cost_accessories
-    industrial = (eff_m or 0.0) + (eff_n or 0.0) + (eff_mac or 0.0) + (eff_acc or 0.0)
-    with_margin = industrial * (1 + (global_margin_percent or 0.0) / 100)
-    return round(with_margin * (1 - (global_discount_percent or 0.0) / 100), 2)

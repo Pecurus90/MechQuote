@@ -30,7 +30,7 @@ from app.services.calculation import (
     _raw_volume_dm3,
 )
 from app.services.costing.primitives import (
-    phase_cost, part_totals, quote_total, quote_total_die, treatment_cost_per_part,
+    phase_cost, part_totals, quote_total, treatment_cost_per_part,
 )
 
 
@@ -155,20 +155,6 @@ def test_quote_total_standard(case):
         global_discount_percent=inp['global_discount_percent'],
     )
     assert abs(total - case['expected_quote_total']) < EUR
-
-
-@pytest.mark.parametrize("case", CASES['calc_quote_total_die'], ids=lambda c: c['id'])
-def test_quote_total_die(case):
-    inp = case['input']
-    final = quote_total_die(
-        cost_material=inp['cost_material'], cost_normalized=inp['cost_normalized'],
-        cost_machining=inp['cost_machining'], cost_accessories=inp['cost_accessories'],
-        override_material=inp['override_material'], override_normalized=inp['override_normalized'],
-        override_machining=inp['override_machining'], override_accessories=inp['override_accessories'],
-        global_margin_percent=inp['global_margin_percent'],
-        global_discount_percent=inp['global_discount_percent'],
-    )
-    assert abs(final - case['expected_quote_total']) < EUR
 
 
 # ─── calc_treatment_cost €/kg ───────────────────────────────────────────────

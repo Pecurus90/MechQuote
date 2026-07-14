@@ -76,9 +76,8 @@ def require_permission(key: str):
 def require_any_permission(*keys: str):
     """Return a Depends che passa se l'utente ha ALMENO UNA delle chiavi.
 
-    Usato per endpoint condivisi tra moduli (es. parts.py + phases.py usati
-    sia da preventivi standard che da preventivi stampi: chi modifica le
-    piastre deve avere `quotes.create` OPPURE `dies.create`)."""
+    Usato per endpoint accessibili con permessi alternativi (es. la pagina
+    Sistema con `users` OPPURE `backup`)."""
     def _check(current_user=Depends(get_current_user)):
         perms = getattr(current_user, '_permissions', [])
         if not any(k in perms for k in keys):

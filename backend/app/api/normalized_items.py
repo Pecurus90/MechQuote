@@ -1,16 +1,10 @@
 """CRUD catalogo voci normalizzate (Step 2 cantiere catalogo normalizzati).
 
-Catalogo globale di viti/cuscinetti/molle/colonne/boccole/spine — vive a sé
-rispetto a `DieTemplateNormalized` (BoM dei template stampo) e
-`DieNormalizedItem` (righe dentro un preventivo stampo). Gli agganci FK
-opzionali da quelle due tabelle al catalogo arriveranno negli Step 4-5
-(strategia snapshot: al collegamento i valori vengono copiati nella riga,
-poi indipendenti — preventivi storici restano congelati).
+Catalogo globale di viti/cuscinetti/molle/colonne/boccole/spine.
 
 Pattern coerente con `api/tools.py`: GET lista con filtri opzionali e
 ricerca testuale, GET singolo, POST con pre-check del codice univoco,
-PUT con stesso check incrociato, DELETE (per ora cancellazione semplice,
-predisposto per `block_if_in_use` quando le FK Step 4-5 saranno in piedi).
+PUT con stesso check incrociato, DELETE (cancellazione semplice).
 """
 from typing import List, Optional
 
@@ -20,9 +14,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.core.catalog_protect import block_if_in_use
 from app.core.csv_import import normalize_alias
-from app.models import NormalizedItem, NormalizedAlias, DieNormalizedItem, DieTemplateNormalized
+from app.models import NormalizedItem, NormalizedAlias
 from app.schemas import (
     NormalizedItemCreate, NormalizedItemOut, NormalizedItemUpdate, NormalizedAliasAdd,
 )
@@ -138,17 +131,6 @@ def delete_item(item_id: int, db: Session = Depends(get_db), _=_can_settings):
     item = db.query(NormalizedItem).filter(NormalizedItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Normalizzato non trovato")
-    # D1: ora le FK opzionali esistono → blocca la cancellazione se la voce è
-    # referenziata (da righe preventivo o template). Anche se i valori sono
-    # snapshot (copiati), evita FK orfane e avvisa l'utente. Per ritirare una
-    # voce ancora in uso si usa il flag `active`.
-    block_if_in_use(
-        db, f"Voce normalizzata '{item.code}'",
-        (DieNormalizedItem, DieNormalizedItem.normalized_item_id == item.id,
-         "riga di preventivo", "righe di preventivo"),
-        (DieTemplateNormalized, DieTemplateNormalized.normalized_item_id == item.id,
-         "riga di template", "righe di template"),
-    )
     db.delete(item)
     db.commit()
     return {"ok": True}

@@ -213,7 +213,13 @@ Chiavi (`PERMISSION_KEYS`):
 - `tools` (Anagrafica/catalogo utensili — **NON** gli ordini utensili)
 - `officina` (Officina — lettura documenti / reference / calcolatori)
 - `officina.write` (Officina — upload/modifica documenti **e** gestione categorie)
-- `dies.create` · `dies.archive` · `dies.settings` (modulo Preventivatore Stampi)
+
+> ⛔ **Modulo Preventivatore Stampi RIMOSSO (2026-07-14)** — verrà riscritto da
+> zero. I permessi `dies.*`, il `quote_type='die'`, i modelli/tabelle `Die*`, il
+> cost engine stampi e le pagine dedicate **non esistono più** nel codice.
+> Snapshot recuperabile dal tag git `stampi-pre-rimozione`. Ignora i riferimenti
+> "stampi/die" eventualmente rimasti in questo file: sono storici, da riscrivere
+> col nuovo modulo. Vedi `MECHQUOTE_LISTA_LAVORI.md` → "MODULO STAMPI RIMOSSO".
 
 ### Regola di gating (modello dinamico)
 
@@ -367,7 +373,7 @@ Regole:
 - `bozza` / `inviato` / `letto`: **modificabili** (`is_editable`), da chi ha `quotes.create`.
 - `inviato → letto`: automatico quando amministrazione apre un `inviato`.
 - `letto → confermato`: click manuale di chi ha `quotes.confirm`; da qui il preventivo è **bloccato**.
-- `confermato → completo`: automatico quando il materiale è risolto (evaso o non necessario); gli Stampi (`die`) sono sempre risolti → conferma = completo.
+- `confermato → completo`: automatico quando il materiale è risolto (evaso o non necessario).
 - `inviato`/`letto` → `in_attesa_cliente`: click manuale di chi ha `quotes.confirm` (offerta mandata al cliente, in attesa di risposta). Reversibile: da qui si può ancora confermare o segnare non ordinato.
 - `inviato`/`letto`/`in_attesa_cliente` → `non_ordinato`: click manuale (`quotes.confirm`) = il cliente non ha ordinato (perso). Stato terminale ma **reversibile**: `restore` riporta a `letto`.
 
@@ -384,7 +390,7 @@ Regole:
 
 **Nucleo unico backend (tema E, 2026-07-02)**: tutte le formule pure vivono in
 `backend/app/services/costing/primitives.py` (`material_cost`, `phase_cost`,
-`part_totals`, `treatment_cost_per_part`, `quote_total`, `quote_total_die`,
+`part_totals`, `treatment_cost_per_part`, `quote_total`,
 `round4`). `recalculate_quote/part` (`services/calculation.py`) le
 **compongono**: è la fonte autoritativa. I golden test le chiamano direttamente.
 
@@ -447,37 +453,6 @@ Margine: `part.margin_percent ?? quote.global_margin_percent`.
 - `default_packaging_cost` → `Quote.packaging_cost`
 
 **Archeologia DB** (campi deferred, colonne orfane, campi rimossi) → `docs/specs/16_legacy_columns.md`. **Regola operativa**: la fonte di verità è `models.py`. Colonne SQLite non mappate dal modello = inesistenti (non leggerle, non scriverle).
-
-### Cost engine Stampi (7 livelli, modulo Preventivatore Stampi)
-
-`Quote.quote_type='die'` attiva un secondo cost engine, allineato alla spec utente. Backend autoritativo in `backend/app/services/calculation.py` `_recalculate_die_levels()` (chiamato in coda a `recalculate_quote` se il preventivo è di tipo die). Frontend live preview (solo L3/L4) in `frontend/src/lib/dieCalc.ts` `computeDiePreviewCosts()` — gemello DRY.
-
-```
-L1 Materiale piastre  = Σ Part.total_cost × qty  (filtra per plate_role != NULL)
-L2 Normalizzati       = Σ (qty × unit_price) + Σ shipping_cost per fornitore distinto
-L3 Lavorazioni        = featureCost × coeff_dim × coeff_diff + cost_per_plate_base × n_plates
-L4 Accessori          = design_hours[diff] × design_hourly_rate + assembly_forfeit[diff] + extras
-L5 Industriale        = (override_material ?? L1) + (override_normalized ?? L2) + (override_machining ?? L3) + (override_accessories ?? L4)
-L6 Markup             = L5 × (1 + global_margin_percent / 100)
-L7 Sconto             = L6 × (1 - global_discount_percent / 100)
-```
-
-- `featureCost` = Σ (n_bends_{simple,medium,complex} × cost_bend_{simple,medium,complex}) + Σ (n_punches_* × cost_punch_*)
-- `coeff_dim` = lookup `DieDimensionBracket` per `area_castello_dm² ∈ [area_min, area_max)`, fallback 1.0
-- `coeff_diff` = `DieSettings.diff_mult_{base,medium,hard}` su `spec.difficulty`
-- `cost_per_plate_base`, `design_hours_*`, `assembly_forfeit_*`, tariffe → `DieSettings` (singleton id=1)
-- **Override matita**: `DieSpec.override_{material,normalized,machining,accessories}` — null-coalesce; impostarli forza la riga corrispondente in L5 ignorando il calcolato.
-- **Auto-fill X/Y piastre**: in `recalculate_quote`, per Part con `plate_role != NULL`, se `raw_x_mm/raw_y_mm IS NULL` vengono popolati dal castello calcolato (override esplicito utente preservato, anche se 0).
-
-> Nota: `DieSpec.cost_industrial` salvato è L5 (al lordo di markup/sconto).
-> Il totale finale L7 è però ora persistito in `Quote.final_total` (B1,
-> ricalcolato da `recalculate_quote`) — fonte unica per archivio/dashboard.
-> Il live preview frontend non gestisce i trattamenti a €/dm³ (ramo usato solo
-> dai rivestimenti, non ancora nel progetto).
-
-Gemelli geometria/lookup (devono restare identici):
-- `_compute_castle_dimensions(spec)` ↔ `computeDieGeometry(input)`
-- `_bracket_coefficient(area, brackets)` ↔ `bracketCoefficient(area, brackets)`
 
 ---
 
@@ -609,7 +584,6 @@ Se TS o startup o i test falliscono, **non committare**. Se commit, **non pushar
 backend/app/
   api/             # Un file per resource group:
                    #  Quotes/Costing: quotes, quotes_archive, parts, phases
-                   #  Stampi: dies, die_normalized_items, die_settings
                    #  Catalog: customers, materials, machines, treatments, catalog,
                    #           operations, workflow_templates, normalized_suppliers
                    #  Officina: officina
@@ -679,13 +653,6 @@ frontend/src/
 | `backend/app/api/orders.py` + `orders_tools.py` | Material/Tool orders, lista + aggregate + low-stock |
 | `backend/app/api/tools.py` | CRUD `Tool` + factory CRUD attributi (Type/Brand/Location) con cascade rename |
 | `backend/app/api/edm.py` | EdmConfig singleton + EdmCutSpeed + CuttingCycle + DrillingTime |
-| `backend/app/api/dies.py` | CRUD preventivo stampo + clone (rev2/3) + apply-template + find-similar |
-| `backend/app/api/die_normalized_items.py` | CRUD normalizzati su preventivo stampo |
-| `backend/app/api/die_settings.py` | DieSettings singleton + DieDimensionBracket + DieTemplate CRUD |
-| `frontend/src/pages/NewDieQuotePage.tsx` | Wizard creazione stampo (2 step + DXF + render live) |
-| `frontend/src/pages/DieQuoteEditor.tsx` | Editor preventivo stampo (form + cost table L1-L7 con override matita) |
-| `frontend/src/pages/settings/DiesSettingsPage.tsx` | Impostazioni Stampi (3 tab: tariffe, fasce, template) |
-| `frontend/src/lib/dieCalc.ts` | computeDieGeometry / bracketCoefficient / computeDiePreviewCosts (gemelli backend) |
 | `frontend/src/pages/QuoteEditor.tsx` | Editor preventivo (~600 righe) |
 | `frontend/src/pages/DashboardPage.tsx` | Dashboard role-aware (KPI + grafico multi-metrica + sezioni di lavoro) |
 | `frontend/src/pages/ToolsPage.tsx` | Anagrafica utensili + filtri + scan codice |

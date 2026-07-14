@@ -280,11 +280,30 @@ verrà **totalmente riscritto**, quindi non ci si interviene ora.
   prod, poi `PRAGMA foreign_keys=ON` nel connect listener. *(Da fare con cautela,
   non a cuor leggero.)*
 
-### DIFFERITO — Bundle Stampi (col rifacimento del modulo, decisione 2026-07-14)
-Non toccare: si accorpano alla riscrittura funzionale del modulo preventivo
-stampi. ⚠️ **AUD-49 e AUD-50 restano falle aperte fino al rifacimento** — se il
-rifacimento non è imminente, valutare di applicare almeno il guard ACL di AUD-49
-(una riga, non tocca il calcolo).
+### ⛔ MODULO STAMPI RIMOSSO (2026-07-14) — da ricostruire da zero
+
+**Decisione utente 2026-07-14**: il preventivatore stampi è stato **rimosso
+interamente** (frontend + backend + tabelle DB) per essere **riscritto da
+capo**. Snapshot completo del codice recuperabile dal tag git
+**`stampi-pre-rimozione`** (`git checkout stampi-pre-rimozione -- <path>`).
+
+Rimosso: pagine `NewDieQuotePage`/`DieQuoteEditor`/`DiesSettingsPage`,
+`lib/dieCalc.ts`, `components/quotes/die/*`, router `dies`/`die_normalized_items`/
+`die_settings`, 7 modelli `Die*` (+ tabelle droppate), schemi `Die*`, cost engine
+stampi (`_recalculate_die_levels` ecc.), permessi `dies.*`, tile chooser
+"Stampi" e "Preventivo 3D", split standard/stampi in dashboard/statistiche.
+Restano (SQLite no DROP COLUMN, non mappate): colonne `parts.die_*`/`plate_role`.
+
+Gli AUD-49…56 sotto sono quindi **SUPERATI dalla rimozione** (il codice che
+descrivevano non esiste più): vanno riconsiderati **al momento della
+riscrittura**, non prima. Restano qui come memoria dei problemi noti del
+vecchio modulo, da non ripetere nel nuovo.
+
+**➜ Lavoro futuro: Ricostruire il modulo Preventivatore Stampi** — quando si
+riparte, partire dalla spec utente (P2/P3 sotto) e dal tag `stampi-pre-rimozione`
+come riferimento di ciò che c'era; NON ripristinarlo così com'era (aveva i
+problemi AUD-49…56 + zone fragili). Reintrodurre i permessi `dies.*`, il
+`quote_type='die'`, i modelli e le migrazioni da capo.
 - **AUD-49** — ✅ **FATTO 2026-07-14** (read diretti) — `ensure_quote_visible`
   aggiunto a `get_die_quote` (`dies.py:204`) e `list_items`
   (`die_normalized_items.py:35`): niente più lettura di stampi/BoM altrui per id.

@@ -38,7 +38,7 @@ from app.services.calculation import (
     recalculate_die_quote, _compute_castle_dimensions,
 )
 from app.core.expression_eval import evaluate_quantity_formula
-from app.api.quotes import ensure_editable, _load_quote
+from app.api.quotes import ensure_editable, ensure_quote_visible, _load_quote
 
 logger = logging.getLogger(__name__)
 _can_write = require_permission('dies.create')
@@ -210,6 +210,9 @@ def get_die_quote(
     quote = _load_quote(quote_id, db)
     if not quote or not is_die(quote):
         raise HTTPException(status_code=404, detail="Preventivo stampo non trovato")
+    # AUD-49: ACL di proprietà come i preventivi standard. Senza, un utente
+    # senza 'quotes.view_all' leggeva stampi altrui iterando l'id.
+    ensure_quote_visible(quote, current_user)
     return quote
 
 

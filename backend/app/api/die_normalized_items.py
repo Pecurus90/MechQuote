@@ -11,7 +11,7 @@ from app.schemas import (
     DieNormalizedItemCreate, DieNormalizedItemUpdate, DieNormalizedItemOut,
 )
 from app.services.calculation import recalculate_die_quote
-from app.api.quotes import ensure_editable
+from app.api.quotes import ensure_editable, ensure_quote_visible
 
 _can_write = require_permission('dies.create')
 
@@ -38,7 +38,8 @@ def list_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _die_quote_or_404(quote_id, db)
+    # AUD-49: ACL di proprietà — non esporre la BoM/prezzi di stampi altrui per id.
+    ensure_quote_visible(_die_quote_or_404(quote_id, db), current_user)
     return db.query(DieNormalizedItem).options(
         joinedload(DieNormalizedItem.supplier)
     ).filter(DieNormalizedItem.quote_id == quote_id).all()

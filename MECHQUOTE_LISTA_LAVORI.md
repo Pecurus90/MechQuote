@@ -285,10 +285,13 @@ Non toccare: si accorpano alla riscrittura funzionale del modulo preventivo
 stampi. ⚠️ **AUD-49 e AUD-50 restano falle aperte fino al rifacimento** — se il
 rifacimento non è imminente, valutare di applicare almeno il guard ACL di AUD-49
 (una riga, non tocca il calcolo).
-- **AUD-49** — ⚠️ IDOR: i read stampi saltano la ACL di proprietà
-  (`dies.py:204`, `die_normalized_items.py:35`, `dies.py:475/509` find-similar →
-  espone anche margini venduto/costo di stampi altrui). Fix: `ensure_quote_visible`
-  su ogni read; find-similar limitato ai propri (o anonimizzato) senza `view_all`.
+- **AUD-49** — ✅ **FATTO 2026-07-14** (read diretti) — `ensure_quote_visible`
+  aggiunto a `get_die_quote` (`dies.py:204`) e `list_items`
+  (`die_normalized_items.py:35`): niente più lettura di stampi/BoM altrui per id.
+  Le scritture erano già coperte da `ensure_editable`. ⏳ **Resta aperto il ramo
+  find-similar** (`dies.py:475/509`): mostra top-5 stampi storici (con margini)
+  per riferimento prezzo; restringerlo ai propri svuoterebbe la feature →
+  decisione di prodotto, si valuta col rifacimento del modulo.
 - **AUD-50** — `apply_template` bulk-delete (`dies.py:~387`) bypassa il cascade
   ORM e il cleanup file → fasi/`part_files` orfani + blob DXF leakati su disco.
   Fix: iterare `db.delete(part)`.

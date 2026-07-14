@@ -164,8 +164,8 @@ Numerazione continua da AUD-21. Le voci del **modulo Stampi** sono marcate
 **DIFFERITE**: su decisione utente (2026-07-14) il modulo preventivo stampi
 verrà **totalmente riscritto**, quindi non ci si interviene ora.
 
-### Sprint A — Sicurezza / integrità dati (bloccanti pre-server)
-- **AUD-22** — `_run_migrations()` ingoia ogni errore con `try/except: pass`
+### Sprint A — Sicurezza / integrità dati — ✅ FATTO 2026-07-14 (AUD-22…27)
+- **AUD-22** — ✅ **FATTO** — `_run_migrations()` ingoia ogni errore con `try/except: pass`
   (`main.py:~909`). Va bene per gli `ADD COLUMN` idempotenti, ma la stessa lista
   ha grant di permessi, indici UNIQUE e backfill: un fallimento reale lascia il
   DB *sbagliato* in silenzio (permesso mai concesso, indice anti-doppione
@@ -193,8 +193,8 @@ verrà **totalmente riscritto**, quindi non ci si interviene ora.
   (`customers.py:~264-271`). Fix: passare le righe per `CustomerCreate` (valida
   poi `model_dump()`).
 
-### Sprint B — UX / flussi (non-stampi)
-- **AUD-28** — Lavoro perso nei wizard su refresh/back: stato solo in `useState`,
+### Sprint B — UX / flussi (non-stampi) — ✅ FATTO 2026-07-14 (AUD-28…34)
+- **AUD-28** — ✅ **FATTO** — Lavoro perso nei wizard su refresh/back: stato solo in `useState`,
   nessun `beforeunload`/guard (`NewQuote2DPage.tsx`, `QuoteWizard.tsx`). Fix:
   avviso `beforeunload` quando il wizard è "dirty". *(NewDieQuotePage → DIFFERITO
   col modulo stampi.)*
@@ -218,8 +218,8 @@ verrà **totalmente riscritto**, quindi non ci si interviene ora.
   `saving` (`QuoteEditorTopBar.tsx` + `QuoteEditor.tsx`): `doStatus`/`doSubmit`
   ri-entrabili. Fix: passare `saving` e disabilitare le azioni in transito.
 
-### Sprint C — UI / estetica (non-stampi)
-- **AUD-35** — `EdmPhaseFields.tsx:~173-257`: pannello parametri EDM con palette
+### Sprint C — UI / estetica (non-stampi) — ✅ FATTO 2026-07-14 (AUD-35/36/39)
+- **AUD-35** — ✅ **FATTO** — `EdmPhaseFields.tsx:~173-257`: pannello parametri EDM con palette
   ambra hardcoded (`bg-amber-50/50`, `text-amber-*`, `bg-blue-100`) mentre esiste
   il token `warning`. In dark resta giallo pallido "rotto". Fix: migrare a
   `border-warning/30 bg-warning/[0.12] text-warning`.
@@ -228,24 +228,26 @@ verrà **totalmente riscritto**, quindi non ci si interviene ora.
   `bg-blue-100/amber-100/red-100` in `SettingsPageHeader.tsx:13/16/22`, hover
   tint in `Dxf2dProfileList`, `DxfProfilePicker`, `CategoryFormModal`,
   `NotificationPanel`. Fix: forma a token/opacità (`bg-destructive/10`, ecc.).
-- **AUD-37** — Nessun primitive `dialog.tsx`: **19 modali** fatte a mano
+- **AUD-37** — ⏳ **DA CONCORDARE** (refactor a rischio diffuso, fuori quick-win) — Nessun primitive `dialog.tsx`: **19 modali** fatte a mano
   ripetono lo scrim `fixed inset-0 bg-gray-900/50…` con drift (`/50`÷`/70`,
   z-index vari). I body usano `bg-card` (ok in dark) → è tech-debt/DRY, non
   rottura visiva. Fix: un `ModalShell` condiviso. Assorbe/estende AUD-21.
-- **AUD-38** — 5 `<select>` nativi dove lo standard è shadcn `Select`
+- **AUD-38** — ⏳ **DA CONCORDARE** (cosmetico, tocca interazione su 5 punti) — 5 `<select>` nativi dove lo standard è shadcn `Select`
   (`QuotesListView:201-227`, `ActivityPage:68`, `DirectSalesPage:40`,
   `MaterialFormModal:112`, `EdmPhaseFields:240`). Token-corretti (dark-safe) →
   solo coerenza visiva.
-- **AUD-39** — Loading a testo "Caricamento…" invece di skeleton in modo
+- **AUD-39** — ✅ **FATTO** (empty state MaterialOrdersView; skeleton-consistency lasciata come polish minore) — Loading a testo "Caricamento…" invece di skeleton in modo
   incoerente (QuoteEditor, NewQuote2DPage, ecc.; solo ToolsPage/DocumentsTable
   usano skeleton); empty state solo-testo in `orders/NormalizedFileView`,
   `orders/MaterialOrdersView`. Fix: uniformare a skeleton + empty con icona.
-- **AUD-40** — `QuotesListView.tsx:251` e `DirectSalesPage.tsx:62` usano colgroup
-  a larghezza fissa dentro `overflow-hidden` senza `overflow-x-auto` → clipping su
-  finestre strette. Fix: wrapper con scroll.
+- **AUD-40** — ✅ **CHIUSO** (verificato 2026-07-14) — `DirectSalesPage` ha già
+  `overflow-x-auto`+`min-w` (falso positivo). `QuotesListView` usa una grid con
+  `minmax(0,…)` che adatta le colonne (clip solo <~640px, non nell'uso desktop);
+  wrapper min-width entrerebbe in conflitto con i pannelli riga espandibili →
+  non toccato per §0-bis.
 
-### Sprint D — Minori (non-stampi)
-- **AUD-41** — Alcuni `catch { toast.error('Errore') }` scartano il `detail`
+### Sprint D — Minori (non-stampi) — ✅ FATTO 2026-07-14 (AUD-41/42/43)
+- **AUD-41** — ✅ **FATTO** — Alcuni `catch { toast.error('Errore') }` scartano il `detail`
   utile del backend (es. "in uso in 3 preventivi"): `WorkflowTemplatesPage`,
   `officina/documenti/DocumentsPage` (delete), `QuoteCategoriesPage`. Fix: usare
   l'helper esistente `getApiErrorDetail(e, 'fallback')`. Affine AUD-6/CAT-5.
@@ -256,24 +258,24 @@ verrà **totalmente riscritto**, quindi non ci si interviene ora.
 - **AUD-43** — `.env.example:10` dice `ACCESS_TOKEN_EXPIRE_MINUTES=1440` ma il
   default del codice è `0` (mai scade): allineare l'esempio al default intenzionale.
 
-### Sprint E — Performance / robustezza (con la crescita dei dati)
-- **AUD-44** — Indici mancanti sulle colonne più filtrate di `quotes`:
+### Sprint E — Performance / robustezza — ✅ FATTO 2026-07-14 (AUD-44…47)
+- **AUD-44** — ✅ **FATTO** — Indici mancanti sulle colonne più filtrate di `quotes`:
   `created_by_user_id` (ogni lista/archivio/dashboard per chi non ha `view_all`),
   `status` (~5 COUNT per dashboard), `quote_date`/`completed_at`, +
   `notifications.created_at` (`main.py:~545-553`). Fix: blocco additivo
   `CREATE INDEX IF NOT EXISTS`. Concretizza B7. *(tocca §0-quater — aggiungere con
   cura.)*
-- **AUD-45** — `list_quotes` (`quotes.py:~103-121`) fa collection-joinedload
+- **AUD-45** — ✅ **FATTO** — `list_quotes` (`quotes.py:~103-121`) fa collection-joinedload
   dell'albero parts→phases→material → prodotto cartesiano per la lista.
   `quotes_archive.py` usa già `selectinload`. Fix: `selectinload` o schema header
   leggero.
-- **AUD-46** — `list_customers` (`customers.py:~26`) senza limit/skip →
+- **AUD-46** — ✅ **FATTO** (params opzionali, default invariato) — `list_customers` (`customers.py:~26`) senza limit/skip →
   materializza tutta la tabella a ogni pagina/picker clienti. Fix: paginazione
   (pattern già in `list_quotes`).
-- **AUD-47** — Seed a import-time non protetti (`main.py:~1212-1217`): un seed che
+- **AUD-47** — ✅ **FATTO** — Seed a import-time non protetti (`main.py:~1212-1217`): un seed che
   fallisce fa fallire `import app.main` → uvicorn non parte. Fix: spostare in
   lifespan/startup o wrappare ogni seed in try/except con log.
-- **AUD-48** — `PRAGMA foreign_keys` OFF (`database.py:~26-27`): nessun backstop
+- **AUD-48** — ⏳ **DA CONCORDARE** (op DB rischiosa: serve audit orfani prod PRIMA) — `PRAGMA foreign_keys` OFF (`database.py:~26-27`): nessun backstop
   DB agli orfani (è la modalità dell'incidente 2026-05). Fix: audit orfani su
   prod, poi `PRAGMA foreign_keys=ON` nel connect listener. *(Da fare con cautela,
   non a cuor leggero.)*

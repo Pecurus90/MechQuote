@@ -1,6 +1,7 @@
 // src/pages/orders/MaterialOrdersView.tsx
+import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Package, Factory, FileDown, Warehouse, Check, Minus } from 'lucide-react'
+import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiCard, type KpiTone } from '@/components/dashboard/KpiCard'
 import { MaterialStatusBadge, type MaterialStatus } from '@/components/dashboard/StatusBadges'
@@ -85,6 +86,11 @@ export function MaterialOrdersView({
 }: Props) {
   const allSelected = selectableQuotes.length > 0 && selectedIds.length === selectableQuotes.length
   const someSelected = selectedIds.length > 0 && !allSelected
+
+  // Gruppi fornitore collassati di default: si aprono al click sull'intestazione.
+  const [openSuppliers, setOpenSuppliers] = useState<Set<number>>(new Set())
+  const toggleSupplier = (id: number) =>
+    setOpenSuppliers(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   return (
     <div className="rounded-2xl border border-border bg-card px-[26px] pb-[26px] pt-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -197,10 +203,24 @@ export function MaterialOrdersView({
             Seleziona uno o più preventivi qui sopra per comporre l'ordine per fornitore.
           </div>
         )}
-        {aggregate.map((g) => (
+        {aggregate.map((g) => {
+          const isOpen = openSuppliers.has(g.supplierId)
+          return (
           <div key={g.supplierId} className="overflow-hidden rounded-[14px] border border-border">
-            <div className="flex items-center justify-between border-b border-border bg-card-muted px-[18px] py-[13px]">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => toggleSupplier(g.supplierId)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSupplier(g.supplierId) } }}
+              className={cn(
+                'flex cursor-pointer items-center justify-between bg-card-muted px-[18px] py-[13px] transition-colors hover:bg-muted',
+                isOpen && 'border-b border-border',
+              )}
+            >
               <div className="flex items-center gap-[11px]">
+                <ChevronDown
+                  className={cn('h-[17px] w-[17px] flex-none text-muted-foreground transition-transform', !isOpen && '-rotate-90')}
+                />
                 <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-info/[0.13] text-info">
                   <Factory className="h-[17px] w-[17px]" />
                 </div>
@@ -215,7 +235,7 @@ export function MaterialOrdersView({
               {g.items.some((it) => !it.fromStock) ? (
                 <button
                   type="button"
-                  onClick={() => onCreateOrder(g.supplierId)}
+                  onClick={(e) => { e.stopPropagation(); onCreateOrder(g.supplierId) }}
                   className="inline-flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-card px-[15px] text-[13px] font-semibold text-foreground transition-[filter] hover:brightness-105"
                 >
                   <FileDown className="h-[15px] w-[15px]" />
@@ -231,49 +251,54 @@ export function MaterialOrdersView({
                 </span>
               )}
             </div>
-            {/* items head */}
-            <div
-              className={cn(
-                AGG_GRID,
-                'border-b border-border bg-card px-[18px] py-[9px] text-[10.5px] font-semibold uppercase tracking-[0.03em] text-muted-foreground',
-              )}
-            >
-              <div>Materiale</div>
-              <div>Forma</div>
-              <div>Dimensioni</div>
-              <div className="text-right">Q.tà</div>
-              <div className="text-right">Peso stim.</div>
-              <div>Rif. preventivi</div>
-            </div>
-            {g.items.map((it, i) => {
-              const last = i === g.items.length - 1
-              return (
+            {isOpen && (
+              <>
+                {/* items head */}
                 <div
-                  key={i}
-                  className={cn(AGG_GRID, 'px-[18px] py-[11px] text-[12.5px]', !last && 'border-b border-border')}
+                  className={cn(
+                    AGG_GRID,
+                    'border-b border-border bg-card px-[18px] py-[9px] text-[10.5px] font-semibold uppercase tracking-[0.03em] text-muted-foreground',
+                  )}
                 >
-                  <div className="flex items-center gap-2">
-                    <span>
-                      <span className="font-mono">{it.materialCode}</span>
-                      {it.materialName && <span className="text-muted-foreground"> · {it.materialName}</span>}
-                    </span>
-                    {it.fromStock && (
-                      <span className="inline-flex items-center gap-[5px] rounded-full bg-info/[0.13] px-2 py-[2px] text-[10px] font-semibold text-info">
-                        <Warehouse className="h-[11px] w-[11px]" />
-                        Da magazzino
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-muted-foreground">{it.shape}</div>
-                  <div className="font-mono text-muted-foreground">{it.dimensions}</div>
-                  <div className="text-right font-mono">{it.quantity}</div>
-                  <div className="text-right font-mono">{it.estimatedWeight}</div>
-                  <div className="font-mono text-[11px] text-muted-foreground">{it.quoteRefs.join(' ')}</div>
+                  <div>Materiale</div>
+                  <div>Forma</div>
+                  <div>Dimensioni</div>
+                  <div className="text-right">Q.tà</div>
+                  <div className="text-right">Peso stim.</div>
+                  <div>Rif. preventivi</div>
                 </div>
-              )
-            })}
+                {g.items.map((it, i) => {
+                  const last = i === g.items.length - 1
+                  return (
+                    <div
+                      key={i}
+                      className={cn(AGG_GRID, 'px-[18px] py-[11px] text-[12.5px]', !last && 'border-b border-border')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>
+                          <span className="font-mono">{it.materialCode}</span>
+                          {it.materialName && <span className="text-muted-foreground"> · {it.materialName}</span>}
+                        </span>
+                        {it.fromStock && (
+                          <span className="inline-flex items-center gap-[5px] rounded-full bg-info/[0.13] px-2 py-[2px] text-[10px] font-semibold text-info">
+                            <Warehouse className="h-[11px] w-[11px]" />
+                            Da magazzino
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground">{it.shape}</div>
+                      <div className="font-mono text-muted-foreground">{it.dimensions}</div>
+                      <div className="text-right font-mono">{it.quantity}</div>
+                      <div className="text-right font-mono">{it.estimatedWeight}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground">{it.quoteRefs.join(' ')}</div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

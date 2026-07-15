@@ -18,6 +18,16 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 3001,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     outDir: 'dist',
   },

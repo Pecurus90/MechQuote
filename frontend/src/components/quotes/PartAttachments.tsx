@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { lazy, Suspense, useRef, useState } from 'react'
 import { Paperclip, FileText, Image as ImageIcon, Box, Scan, Eye, Download, Trash2, Upload } from 'lucide-react'
 import api, { getApiErrorDetail } from '@/lib/api'
 import { toast } from 'sonner'
@@ -6,6 +6,10 @@ import { cn } from '@/lib/utils'
 import type { PartFile } from '@/types'
 import DxfViewerModal from '@/components/quotes/Dxf/DxfViewerModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+
+// Viewer 3D STEP lazy-loaded: three.js + occt (WASM) NON entrano nel bundle
+// principale, si caricano solo quando l'utente apre uno STEP.
+const StepViewerModal = lazy(() => import('@/components/quotes/Step/StepViewerModal'))
 
 interface Props {
   partId: number
@@ -29,6 +33,7 @@ export function PartAttachments({ partId, files, readOnly, onReload }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [dxfView, setDxfView] = useState<PartFile | null>(null)
+  const [stepView, setStepView] = useState<PartFile | null>(null)
   const [pendingDelete, setPendingDelete] = useState<PartFile | null>(null)
 
   const upload = async (file: File) => {
@@ -65,8 +70,8 @@ export function PartAttachments({ partId, files, readOnly, onReload }: Props) {
   }
 
   const view = (f: PartFile) => {
-    if (f.file_type === 'dxf') { setDxfView(f); return }        // viewer interno
-    if (f.file_type === 'step') { openBlob(f, true); return }   // 3D: nessun viewer → scarica
+    if (f.file_type === 'dxf') { setDxfView(f); return }        // viewer DXF interno
+    if (f.file_type === 'step') { setStepView(f); return }      // viewer 3D (lazy)
     openBlob(f, false)                                          // pdf/immagine: inline
   }
 
@@ -147,6 +152,15 @@ export function PartAttachments({ partId, files, readOnly, onReload }: Props) {
 
       {dxfView && (
         <DxfViewerModal partFileId={dxfView.id} filename={dxfView.filename} onClose={() => setDxfView(null)} />
+      )}
+      {stepView && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/70 text-sm text-white">
+            Caricamento viewer 3D…
+          </div>
+        }>
+          <StepViewerModal fileId={stepView.id} filename={stepView.filename} onClose={() => setStepView(null)} />
+        </Suspense>
       )}
       <ConfirmDialog
         open={pendingDelete != null}

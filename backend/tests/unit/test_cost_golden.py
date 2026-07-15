@@ -11,7 +11,6 @@ Esecuzione:
     cd backend && venv/bin/python -m pytest tests/unit/test_cost_golden.py -v
 """
 import json
-import math
 import os
 import time
 from typing import Optional
@@ -212,104 +211,6 @@ def test_treatment_cost_dm3(case):
     assert abs(result - case['expected_variable_cost_per_part']) < EUR
 
 
-# ─── die L3 mech ────────────────────────────────────────────────────────────
-
-@pytest.mark.parametrize("case", CASES['die_l3_mech'], ids=lambda c: c['id'])
-def test_die_l3_mech(case):
-    inp = case['input']
-    area_dm2 = (inp['raw_x_mm'] * inp['raw_y_mm']) / 10_000
-    defaults = CASES['_meta']['shared_constants']['plate_role_defaults'][inp['plate_role']]
-    setup_h     = inp['die_setup_h']         if inp['die_setup_h']         is not None else defaults[0]
-    n_milled    = inp['die_n_milled_faces']  if inp['die_n_milled_faces']  is not None else defaults[1]
-    n_ground    = inp['die_n_ground_faces']  if inp['die_n_ground_faces']  is not None else defaults[2]
-    n_drilled   = inp['die_n_drilled_faces'] if inp['die_n_drilled_faces'] is not None else defaults[3]
-    station_bon = inp['die_station_bonus_h'] if inp['die_station_bonus_h'] is not None else defaults[4]
-    ore_setup   = setup_h
-    ore_mill    = area_dm2 * n_milled  * inp['milling_h_per_dm2']
-    ore_grind   = area_dm2 * n_ground  * inp['grinding_h_per_dm2']
-    ore_drill   = area_dm2 * n_drilled * inp['drilling_h_per_dm2']
-    ore_station = inp['n_stations'] * station_bon
-    scale = 1.0  # no brackets
-    cost = scale * (
-        ore_setup   * inp['rate_mill']
-      + ore_mill    * inp['rate_mill']
-      + ore_grind   * inp['rate_grind']
-      + ore_drill   * inp['rate_drill']
-      + ore_station * inp['rate_mill']
-    )
-    assert abs(cost - case['expected_cost_machining_mech']) < EUR
-
-
-# ─── die L3 EDM ─────────────────────────────────────────────────────────────
-
-@pytest.mark.parametrize("case", CASES['die_l3_edm'], ids=lambda c: c['id'])
-def test_die_l3_edm(case):
-    """Replica la formula L3 EDM con perimetro + lookup velocità + ciclo passate.
-    Per S7 (sagoma tonda) il fallback attuale è 2*(X+Y)*cf, dopo C7 dovrà
-    diventare π×Ø → xfail oggi.
-    """
-    _xfail_if_known_bug(case)
-    inp = case['input']
-    # Perimetro: esplicito o fallback
-    if inp['perimeter_pezzo_mm']:
-        perimeter = inp['perimeter_pezzo_mm']
-    else:
-        # OGGI il backend usa SEMPRE 2*(X+Y)*cf, anche per sagome tonde.
-        # DOPO C7: per sagome tonde useremo π × max(X, Y).
-        # Il test usa il valore atteso CORRETTO post-C7.
-        if inp.get('shape_hint') == 'round':
-            perimeter = math.pi * max(inp['bbox_x_mm'], inp['bbox_y_mm'])
-        else:
-            perimeter = 2 * (inp['bbox_x_mm'] + inp['bbox_y_mm']) * inp['complexity_factor']
-
-    n_st = inp['n_stations']
-    extractor_f = inp['edm_extractor_factor']
-    punch_f = inp['edm_punch_factor']
-    n_punches_weighted = inp['n_punches_medium'] + 1.5 * inp['n_punches_complex']
-    punch_extra = perimeter * n_punches_weighted * punch_f
-
-    def edm_hours(length, height):
-        speed_row = inp['speed_mm_per_min']
-        pierce_s = inp['pierce_time_s']
-        total_min = 0.0
-        for p in inp['passes']:
-            speed_pass = speed_row * p['factor']
-            if speed_pass > 0:
-                total_min += length / speed_pass
-        total_min += n_st * pierce_s / 60
-        return round(total_min / 60, 4)
-
-    matrice_len = perimeter * n_st
-    porta_len = perimeter * n_st * extractor_f + punch_extra
-    ore_m = edm_hours(matrice_len, inp['plate_matrice_raw_z'])
-    ore_p = edm_hours(porta_len, inp['plate_porta_punzoni_raw_z'])
-    total_h = ore_m + ore_p
-    cost = round(total_h * inp['rate_edm'], 2)
-    assert abs(cost - case['expected_cost_machining_edm']) < EUR
-
-
-# ─── die L4 accessories ─────────────────────────────────────────────────────
-
-@pytest.mark.parametrize("case", CASES['die_l4_accessories'], ids=lambda c: c['id'])
-def test_die_l4_accessories(case):
-    inp = case['input']
-    base_h = {
-        'base':   inp['design_hours_base'],
-        'medium': inp['design_hours_medium'],
-        'hard':   inp['design_hours_hard'],
-    }.get(inp['difficulty'], 0) or 0
-    n_bends = inp['n_bends_simple'] + inp['n_bends_medium'] + inp['n_bends_complex']
-    n_punches = inp['n_punches_simple'] + inp['n_punches_medium'] + inp['n_punches_complex']
-    design_h = base_h + n_bends * inp['design_h_per_bend'] + n_punches * inp['design_h_per_punch']
-    assembly = {
-        'base':   inp['assembly_forfeit_base'],
-        'medium': inp['assembly_forfeit_medium'],
-        'hard':   inp['assembly_forfeit_hard'],
-    }.get(inp['difficulty'], 0) or 0
-    cost = design_h * inp['design_hourly_rate'] + assembly + inp['extras_amount']
-    assert abs(cost - case['expected_cost_accessories']) < EUR
-
-
 # ─── shipping share ─────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("case", CASES['shipping_stock_share'], ids=lambda c: c['id'])
@@ -436,7 +337,7 @@ def test_regression_already_fixed(case, db_session):
 
     R1 (peso=0 → costo trattamento 0) è già coperto in test_treatment_cost_kg.
     R2 (density null → 0) coperto in test_material_cost_prismatic 'M3b-fallback-zero'.
-    Qui replichiamo R2b (cost_per_kg null) e R3 (calcQuoteTotal su die).
+    Qui replichiamo R2b (cost_per_kg null).
     """
     if case['id'].startswith('R2'):
         inp = case['input']
@@ -455,13 +356,6 @@ def test_regression_already_fixed(case, db_session):
         part.material = mat
         result = _compute_material_cost(part, mat)
         assert (result or 0) == case['expected_material_cost']
-    elif case['id'] == 'R3':
-        inp = case['input']
-        # Formula die: industrial × margin × (1-discount)
-        industrial = inp['cost_material'] + inp['cost_normalized'] + inp['cost_machining'] + inp['cost_accessories']
-        with_margin = industrial * (1 + inp['global_margin_percent'] / 100)
-        final = round(with_margin * (1 - inp['global_discount_percent'] / 100), 2)
-        assert abs(final - case['expected_quote_total']) < EUR
 
 
 # ─── Test di parità (vedremo se serve) ─────────────────────────────────────

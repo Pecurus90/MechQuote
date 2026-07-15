@@ -215,11 +215,17 @@ Chiavi (`PERMISSION_KEYS`):
 - `officina.write` (Officina — upload/modifica documenti **e** gestione categorie)
 
 > ⛔ **Modulo Preventivatore Stampi RIMOSSO (2026-07-14)** — verrà riscritto da
-> zero. I permessi `dies.*`, il `quote_type='die'`, i modelli/tabelle `Die*`, il
-> cost engine stampi e le pagine dedicate **non esistono più** nel codice.
-> Snapshot recuperabile dal tag git `stampi-pre-rimozione`. Ignora i riferimenti
-> "stampi/die" eventualmente rimasti in questo file: sono storici, da riscrivere
-> col nuovo modulo. Vedi `MECHQUOTE_LISTA_LAVORI.md` → "MODULO STAMPI RIMOSSO".
+> zero. Rimossi: permessi `dies.*`, modelli/tabelle `Die*`, cost engine stampi,
+> pagine dedicate. Snapshot recuperabile dal tag git `stampi-pre-rimozione`.
+> **Attenzione (audit 2026-07-15)**: la rimozione NON è totale — restano residui
+> inerti. `quote_type='die'` vive ancora in `core/quote_types.py`
+> (`QUOTE_TYPE_DIE`/`is_die`) ed è chiamato in vari endpoint (rami morti: `is_die`
+> ora torna sempre False); esistono `TypeDonut.tsx` (dead code), token accent
+> `dies`, test obsoleti e — difetto reale — `frontend/tests/unit/cost-golden.test.ts`
+> importa il cancellato `dieCalc.ts` (→ `npm test` rosso, `tsc` non lo cattura).
+> Non basarti su questi residui: sono da ripulire o riscrivere col nuovo modulo.
+> Inventario completo e priorità in `MECHQUOTE_LISTA_LAVORI.md` → "MODULO STAMPI
+> RIMOSSO" → "Residui inerti rimasti — audit 2026-07-15".
 
 ### Regola di gating (modello dinamico)
 

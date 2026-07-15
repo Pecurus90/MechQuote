@@ -1,7 +1,7 @@
 // src/components/quotes/CloseoutPanel.tsx
 import { PackageCheck, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { Label } from '@/components/ui/label'
 
 interface Props {
@@ -11,16 +11,15 @@ interface Props {
   marginLabel: string
   marginPositive?: boolean
   locked?: boolean
-  onChange: (field: 'soldPrice' | 'actualCost', val: string) => void
-  onBlur?: (field: 'soldPrice' | 'actualCost') => void
+  /** Commit al blur (parse + salvataggio nel container). */
+  onCommit: (field: 'soldPrice' | 'actualCost', raw: string) => void
 }
 
 const bigInput =
   'h-[46px] rounded-[10px] border-input bg-background pl-8 pr-3.5 font-mono text-lg font-semibold'
 
 export function CloseoutPanel(props: Props) {
-  const { soldPrice, actualCost, marginLabel, marginPositive = true, locked, onChange, onBlur } =
-    props
+  const { soldPrice, actualCost, marginLabel, marginPositive = true, locked, onCommit } = props
   const TrendIcon = marginPositive ? TrendingUp : TrendingDown
 
   return (
@@ -42,10 +41,9 @@ export function CloseoutPanel(props: Props) {
             <span className="absolute left-3.5 top-[13px] font-mono text-base text-muted-foreground">
               €
             </span>
-            <Input
+            <DecimalField
               value={soldPrice}
-              onChange={(e) => onChange('soldPrice', e.target.value)}
-              onBlur={() => onBlur?.('soldPrice')}
+              onCommit={(raw) => onCommit('soldPrice', raw)}
               className={bigInput}
             />
           </div>
@@ -58,10 +56,9 @@ export function CloseoutPanel(props: Props) {
             <span className="absolute left-3.5 top-[13px] font-mono text-base text-muted-foreground">
               €
             </span>
-            <Input
+            <DecimalField
               value={actualCost}
-              onChange={(e) => onChange('actualCost', e.target.value)}
-              onBlur={() => onBlur?.('actualCost')}
+              onCommit={(raw) => onCommit('actualCost', raw)}
               className={bigInput}
             />
           </div>

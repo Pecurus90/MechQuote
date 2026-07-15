@@ -1,9 +1,9 @@
 // src/components/quotes/QuoteBottomBar.tsx
-import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 
 interface Props {
   nParts: number
-  /** Valori editabili (stringhe controllate; autosave on-blur nel container). */
+  /** Valori editabili (stringhe controllate; commit on-blur nel container). */
   transport: string
   packaging: string
   discountPercent: string
@@ -11,8 +11,7 @@ interface Props {
   subtotal?: number
   total: number
   locked: boolean
-  onChange: (field: 'transport' | 'packaging' | 'discountPercent', val: string) => void
-  onBlur?: (field: 'transport' | 'packaging' | 'discountPercent') => void
+  onCommit: (field: 'transport' | 'packaging' | 'discountPercent', raw: string) => void
 }
 
 const eur0 = (v: number): string =>
@@ -22,8 +21,7 @@ const eurField =
   'h-[34px] w-[88px] rounded-[8px] border-input bg-background pl-6 pr-2.5 font-mono text-[13px]'
 
 export function QuoteBottomBar(props: Props) {
-  const { nParts, transport, packaging, discountPercent, subtotal, total, locked, onChange, onBlur } =
-    props
+  const { nParts, transport, packaging, discountPercent, subtotal, total, locked, onCommit } = props
 
   return (
     <div className="flex flex-none items-center gap-[22px] border-t border-border bg-card px-[22px] py-3">
@@ -39,10 +37,9 @@ export function QuoteBottomBar(props: Props) {
             <span className="absolute left-2.5 top-2 font-mono text-[13px] text-muted-foreground">
               €
             </span>
-            <Input
+            <DecimalField
               value={transport}
-              onChange={(e) => onChange('transport', e.target.value)}
-              onBlur={() => onBlur?.('transport')}
+              onCommit={(raw) => onCommit('transport', raw)}
               className={eurField}
             />
           </div>
@@ -53,10 +50,9 @@ export function QuoteBottomBar(props: Props) {
             <span className="absolute left-2.5 top-2 font-mono text-[13px] text-muted-foreground">
               €
             </span>
-            <Input
+            <DecimalField
               value={packaging}
-              onChange={(e) => onChange('packaging', e.target.value)}
-              onBlur={() => onBlur?.('packaging')}
+              onCommit={(raw) => onCommit('packaging', raw)}
               className={eurField}
             />
           </div>
@@ -64,10 +60,9 @@ export function QuoteBottomBar(props: Props) {
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground">Sconto</label>
           <div className="relative">
-            <Input
+            <DecimalField
               value={discountPercent}
-              onChange={(e) => onChange('discountPercent', e.target.value)}
-              onBlur={() => onBlur?.('discountPercent')}
+              onCommit={(raw) => onCommit('discountPercent', raw)}
               className="h-[34px] w-[72px] rounded-[8px] border-input bg-background pl-2.5 pr-6 font-mono text-[13px]"
             />
             <span className="absolute right-2.5 top-2 font-mono text-[13px] text-muted-foreground">

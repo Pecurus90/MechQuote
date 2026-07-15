@@ -213,22 +213,26 @@ export default function QuoteEditor() {
     }
   }
 
-  const saveQuote = async () => {
+  // `override`: valori appena editati da fondere sul quote PRIMA di comporre il
+  // payload. Serve al commit-on-blur dei campi numerici (DecimalField): lo stato
+  // React è ancora "vecchio" nello stesso tick, l'override porta il valore fresco.
+  const saveQuote = async (override?: Partial<Quote>) => {
     if (!quote?.id) return
+    const src = override ? { ...quote, ...override } : quote
     setSaving(true)
     try {
       // Campi quote-level (lo `status` non serve: il backend lo scarta).
       const quoteFields = {
-        customer_name: quote.customer_name, customer_id: quote.customer_id,
-        customer_reference: quote.customer_reference,
-        global_margin_percent: quote.global_margin_percent,
-        global_discount_percent: quote.global_discount_percent,
-        transport_cost: quote.transport_cost, packaging_cost: quote.packaging_cost,
-        validity_days: quote.validity_days, delivery_text: quote.delivery_text,
-        quote_date: quote.quote_date, notes_customer: quote.notes_customer,
-        notes_internal: quote.notes_internal,
+        customer_name: src.customer_name, customer_id: src.customer_id,
+        customer_reference: src.customer_reference,
+        global_margin_percent: src.global_margin_percent,
+        global_discount_percent: src.global_discount_percent,
+        transport_cost: src.transport_cost, packaging_cost: src.packaging_cost,
+        validity_days: src.validity_days, delivery_text: src.delivery_text,
+        quote_date: src.quote_date, notes_customer: src.notes_customer,
+        notes_internal: src.notes_internal,
       }
-      const closeout = { sold_price: quote.sold_price ?? null, actual_cost: quote.actual_cost ?? null }
+      const closeout = { sold_price: src.sold_price ?? null, actual_cost: src.actual_cost ?? null }
       // Su 'completo' un utente normale vede solo il consuntivo (pannelli
       // bloccati) → invia solo il closeout. Chi ha 'quotes.edit_locked' ha i
       // pannelli editabili: se non gli inviamo anche i campi quote-level, ogni
@@ -242,9 +246,9 @@ export default function QuoteEditor() {
     finally { setSaving(false) }
   }
 
-  const saveQuoteAndRecalculate = async () => {
+  const saveQuoteAndRecalculate = async (override?: Partial<Quote>) => {
     if (!quote?.id) return
-    await saveQuote()
+    await saveQuote(override)
     try {
       const res = await api.post(`/quotes/${quote.id}/recalculate`)
       applyQuoteData(res.data)
@@ -375,16 +379,24 @@ export default function QuoteEditor() {
     if (!q) return q
     switch (field) {
       case 'customerReference': return { ...q, customer_reference: val }
-      case 'globalMarginPercent': return { ...q, global_margin_percent: parseDecimal(val) || 0 }
-      case 'validityDays': return { ...q, validity_days: parseInt(val, 10) || 30 }
       case 'deliveryText': return { ...q, delivery_text: val }
       case 'notesCustomer': return { ...q, notes_customer: val }
       case 'notesInternal': return { ...q, notes_internal: val }
       default: return q
     }
   })
-  const onQuoteDataBlur = (field: keyof QuoteDataValue) => {
-    if (field === 'globalMarginPercent') saveQuoteAndRecalculate(); else saveQuote()
+  const onQuoteDataBlur = () => saveQuote()
+  // Campi numerici (margine, validità): commit atomico al blur.
+  const onQuoteDataCommit = (field: 'globalMarginPercent' | 'validityDays', raw: string) => {
+    if (field === 'globalMarginPercent') {
+      const n = parseDecimal(raw) || 0
+      setQuote(q => q ? { ...q, global_margin_percent: n } : q)
+      saveQuoteAndRecalculate({ global_margin_percent: n })
+    } else {
+      const n = parseInt(raw, 10) || 30
+      setQuote(q => q ? { ...q, validity_days: n } : q)
+      saveQuote({ validity_days: n })
+    }
   }
 
   const commessaRows: CommessaRow[] = quote.parts.map((p, idx) => ({
@@ -394,13 +406,14 @@ export default function QuoteEditor() {
   }))
   const discountAmount = (partsSubtotal + quote.transport_cost + quote.packaging_cost) * (quote.global_discount_percent || 0) / 100
 
-  const onBottomChange = (field: 'transport' | 'packaging' | 'discountPercent', val: string) => setQuote(q => {
-    if (!q) return q
-    const n = parseDecimal(val) || 0
-    if (field === 'transport') return { ...q, transport_cost: n }
-    if (field === 'packaging') return { ...q, packaging_cost: n }
-    return { ...q, global_discount_percent: n }
-  })
+  const onBottomCommit = (field: 'transport' | 'packaging' | 'discountPercent', raw: string) => {
+    const n = parseDecimal(raw) || 0
+    const patch: Partial<Quote> = field === 'transport' ? { transport_cost: n }
+      : field === 'packaging' ? { packaging_cost: n }
+      : { global_discount_percent: n }
+    setQuote(q => q ? { ...q, ...patch } : q)
+    saveQuote(patch)
+  }
 
   const soldMargin = (quote.sold_price ?? 0) - (quote.actual_cost ?? 0)
   const soldMarginPct = quote.sold_price ? (soldMargin / quote.sold_price) * 100 : 0
@@ -467,7 +480,7 @@ export default function QuoteEditor() {
           )}
 
           {selectedPartIdx === -1 && (
-            <QuoteDataPanel value={quoteData} locked={isLocked} onChange={onQuoteDataChange} onBlur={onQuoteDataBlur} />
+            <QuoteDataPanel value={quoteData} locked={isLocked} onChange={onQuoteDataChange} onCommit={onQuoteDataCommit} onBlur={onQuoteDataBlur} />
           )}
 
           {selectedPartIdx === -1 && quote.status === 'completo' && (
@@ -476,8 +489,12 @@ export default function QuoteEditor() {
               actualCost={quote.actual_cost != null ? String(quote.actual_cost) : ''}
               marginLabel={closeoutMarginLabel}
               marginPositive={soldMargin >= 0}
-              onChange={(field, val) => setQuote(q => q ? { ...q, [field === 'soldPrice' ? 'sold_price' : 'actual_cost']: parseDecimalOrNull(val) } : q)}
-              onBlur={saveQuote}
+              onCommit={(field, raw) => {
+                const key = field === 'soldPrice' ? 'sold_price' : 'actual_cost'
+                const v = parseDecimalOrNull(raw)
+                setQuote(q => q ? { ...q, [key]: v } : q)
+                saveQuote({ [key]: v })
+              }}
             />
           )}
 
@@ -515,8 +532,7 @@ export default function QuoteEditor() {
         subtotal={hasExtras ? partsSubtotal : undefined}
         total={total}
         locked={isLocked}
-        onChange={onBottomChange}
-        onBlur={saveQuote}
+        onCommit={onBottomCommit}
       />
 
       <ConfirmDialog

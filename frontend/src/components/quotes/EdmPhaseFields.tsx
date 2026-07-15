@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { Button } from '@/components/ui/button'
 import { Zap, Unlock, FileText, X, Paperclip, Edit3 } from 'lucide-react'
 import api from '@/lib/api'
@@ -59,6 +60,17 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
   // Modalità "modifica selezione" disponibile quando la fase ha già profili e
   // un DXF allegato: si riapre la stessa scelta senza ricaricare il file.
   const canReselect = !!partDxfFileId && (phase.dxf_profile_ids?.length ?? 0) > 0
+
+  // Commit numerico al blur (parse + salvataggio atomico via onSaveImmediate,
+  // che manda l'override e ricalcola lato server). Evita il round-trip che
+  // strippava i decimali e la virgola bloccata da type="number".
+  const commitNum = (field: keyof Phase, raw: string, toInt = false) => {
+    const t = raw.trim()
+    const v = t === '' ? null : (toInt ? parseInt(t, 10) : parseDecimal(t))
+    const val = (v != null && Number.isNaN(v)) ? null : v
+    if (onSaveImmediate) onSaveImmediate({ [field]: val } as Partial<Phase>)
+    else { onChange(field, val as Phase[keyof Phase]); onBlur?.() }
+  }
 
   const handleReselectConfirm = async (r: ReselectResult) => {
     if (!phase.id) return
@@ -220,19 +232,17 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
           <label className="text-xs font-medium text-muted-foreground">Lunghezza profilo (mm)</label>
-          <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
-            value={phase.cut_length_mm ?? ''}
+          <DecimalField className="mt-1 h-9 text-sm"
+            value={phase.cut_length_mm != null ? String(phase.cut_length_mm) : ''}
             placeholder="es. 320"
-            onChange={e => onChange('cut_length_mm', e.target.value === '' ? null : parseDecimal(e.target.value))}
-            onBlur={onBlur} />
+            onCommit={raw => commitNum('cut_length_mm', raw)} />
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Altezza pezzo (mm)</label>
-          <Input onFocus={e => e.currentTarget.select()} type="number" step="0.5" min="0" className="mt-1 h-9 text-sm"
-            value={phase.cut_height_mm ?? ''}
+          <DecimalField className="mt-1 h-9 text-sm"
+            value={phase.cut_height_mm != null ? String(phase.cut_height_mm) : ''}
             placeholder="es. 40"
-            onChange={e => onChange('cut_height_mm', e.target.value === '' ? null : parseDecimal(e.target.value))}
-            onBlur={onBlur} />
+            onCommit={raw => commitNum('cut_height_mm', raw)} />
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Ciclo di taglio</label>
@@ -261,11 +271,10 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground">N° pierce (fori partenza)</label>
-          <Input onFocus={e => e.currentTarget.select()} type="number" step="1" min="0" className="mt-1 h-9 text-sm"
-            value={phase.n_pierce ?? ''}
+          <DecimalField className="mt-1 h-9 text-sm"
+            value={phase.n_pierce != null ? String(phase.n_pierce) : ''}
             placeholder="0"
-            onChange={e => onChange('n_pierce', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-            onBlur={onBlur} />
+            onCommit={raw => commitNum('n_pierce', raw, true)} />
         </div>
       </div>
 

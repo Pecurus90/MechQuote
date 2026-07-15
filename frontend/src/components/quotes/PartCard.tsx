@@ -66,11 +66,6 @@ export default function PartCard({
     onUpdate({ ...cleared, material_cost: matCost } as Partial<Part>)
     onSave({ ...cleared, material_cost: matCost } as Partial<Part>)
   }
-  const changeDim = (field: keyof Part, value: number) => {
-    const material = materials.find(m => m.id === part.material_id)
-    const matCost = calcMaterialCost({ ...part, [field]: value }, material)
-    onUpdate({ [field]: value, material_cost: matCost } as Partial<Part>)
-  }
   const applyProvenance = (v: string) => {
     const updates = { customer_supplied_material: v === 'cl', material_from_stock: v === 'stock' }
     onUpdate(updates); onSave(updates)
@@ -176,29 +171,44 @@ export default function PartCard({
     treatmentId: treatmentPhase?.treatment_id ? String(treatmentPhase.treatment_id) : '',
   }
 
+  // Campi testo/select: aggiornamento live (onChange) + salvataggio on-blur.
   const onFieldChange = (field: PartField, val: string) => {
     switch (field) {
       case 'description': onUpdate({ description: val }); break
       case 'revision': onUpdate({ revision: val }); break
-      case 'quantity': onUpdate({ quantity: parseInt(val, 10) || 1 }); break
       case 'materialId': applyMaterial(val ? Number(val) : undefined); break
       case 'rawType': applyStockType(RAW_TO_STOCK[val as RawType]); break
       case 'provenance': applyProvenance(val); break
-      case 'diameter': changeDim('raw_diameter_mm', parseDecimal(val) || 0); break
-      case 'length': changeDim('raw_z_mm', parseDecimal(val) || 0); break
-      case 'rawX': changeDim('raw_x_mm', parseDecimal(val) || 0); break
-      case 'rawY': changeDim('raw_y_mm', parseDecimal(val) || 0); break
-      case 'rawZ': changeDim('raw_z_mm', parseDecimal(val) || 0); break
-      case 'materialCost': onUpdate({ material_cost: parseDecimal(val) || 0 }); break
-      case 'materialShipping': onUpdate({ material_delivery_cost: val === '' ? undefined : parseDecimal(val) || 0 }); break
-      case 'finishedWeight': onUpdate({ finished_weight_kg: val === '' ? undefined : parseDecimal(val) || 0 }); break
       case 'treatmentId': handleTreatmentSelect(val ? Number(val) : undefined); break
     }
   }
-  // Salvataggio on-blur solo per i campi testo/numero; i select salvano in onChange.
+  // Salvataggio on-blur solo per i campi testo; i select salvano in onChange.
   const onFieldBlur = (field: PartField) => {
     if (['materialId', 'rawType', 'provenance', 'treatmentId'].includes(field)) return
     onSave()
+  }
+
+  // Campi numerici: commit atomico al blur (evita il round-trip che strippava i
+  // decimali). onUpdate = anteprima immediata, onSave(override) = persistenza
+  // con il valore fresco (savePart lo fonde sul part, niente stato "vecchio").
+  const commitDim = (field: keyof Part, value: number) => {
+    const material = materials.find(m => m.id === part.material_id)
+    const updates = { [field]: value, material_cost: calcMaterialCost({ ...part, [field]: value }, material) } as Partial<Part>
+    onUpdate(updates); onSave(updates)
+  }
+  const commitPart = (updates: Partial<Part>) => { onUpdate(updates); onSave(updates) }
+  const onFieldCommit = (field: PartField, raw: string) => {
+    switch (field) {
+      case 'quantity': commitPart({ quantity: parseInt(raw, 10) || 1 }); break
+      case 'diameter': commitDim('raw_diameter_mm', parseDecimal(raw) || 0); break
+      case 'length': commitDim('raw_z_mm', parseDecimal(raw) || 0); break
+      case 'rawX': commitDim('raw_x_mm', parseDecimal(raw) || 0); break
+      case 'rawY': commitDim('raw_y_mm', parseDecimal(raw) || 0); break
+      case 'rawZ': commitDim('raw_z_mm', parseDecimal(raw) || 0); break
+      case 'materialCost': commitPart({ material_cost: parseDecimal(raw) || 0 }); break
+      case 'materialShipping': commitPart({ material_delivery_cost: raw === '' ? undefined : parseDecimal(raw) || 0 }); break
+      case 'finishedWeight': commitPart({ finished_weight_kg: raw === '' ? undefined : parseDecimal(raw) || 0 }); break
+    }
   }
 
   const contextLabel = nParts > 1 ? `di ${nParts} parti` : undefined
@@ -216,6 +226,7 @@ export default function PartCard({
       provenances={provenanceOpts}
       treatments={treatmentOpts}
       onChange={onFieldChange}
+      onCommit={onFieldCommit}
       onBlur={onFieldBlur}
       onClearTreatment={() => handleTreatmentSelect(undefined)}
       phaseEditor={
@@ -259,11 +270,10 @@ export default function PartCard({
           marginPercent={String(part.margin_percent ?? globalMarginPercent)}
           minimumPrice={part.minimum_price != null ? String(part.minimum_price) : ''}
           locked={readOnly}
-          onChange={(f, v) => {
-            if (f === 'marginPercent') onUpdate({ margin_percent: parseDecimal(v) || 0 })
-            else onUpdate({ minimum_price: v === '' ? undefined : parseDecimal(v) || 0 })
+          onCommit={(f, v) => {
+            if (f === 'marginPercent') commitPart({ margin_percent: parseDecimal(v) || 0 })
+            else commitPart({ minimum_price: v === '' ? undefined : parseDecimal(v) || 0 })
           }}
-          onBlur={() => onSave()}
         />
       }
     />

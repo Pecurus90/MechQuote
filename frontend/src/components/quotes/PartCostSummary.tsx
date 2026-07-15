@@ -1,7 +1,7 @@
 // src/components/quotes/PartCostSummary.tsx
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { Label } from '@/components/ui/label'
 
 interface Props {
@@ -23,8 +23,8 @@ interface Props {
   marginPercent: string
   minimumPrice: string
   locked?: boolean
-  onChange: (field: 'marginPercent' | 'minimumPrice', val: string) => void
-  onBlur?: (field: 'marginPercent' | 'minimumPrice') => void
+  /** Commit al blur (parse + salvataggio nel container). */
+  onCommit: (field: 'marginPercent' | 'minimumPrice', raw: string) => void
 }
 
 const eur2 = (v: number): string =>
@@ -69,8 +69,7 @@ export function PartCostSummary(props: Props) {
     marginPercent,
     minimumPrice,
     locked,
-    onChange,
-    onBlur,
+    onCommit,
   } = props
 
   return (
@@ -113,10 +112,9 @@ export function PartCostSummary(props: Props) {
           <Label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
             Margine %
           </Label>
-          <Input
+          <DecimalField
             value={marginPercent}
-            onChange={(e) => onChange('marginPercent', e.target.value)}
-            onBlur={() => onBlur?.('marginPercent')}
+            onCommit={(raw) => onCommit('marginPercent', raw)}
             className="h-9 rounded-[9px] border-input bg-background font-mono text-[13.5px]"
           />
         </div>
@@ -124,10 +122,9 @@ export function PartCostSummary(props: Props) {
           <Label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
             Prezzo minimo (€)
           </Label>
-          <Input
+          <DecimalField
             value={minimumPrice}
-            onChange={(e) => onChange('minimumPrice', e.target.value)}
-            onBlur={() => onBlur?.('minimumPrice')}
+            onCommit={(raw) => onCommit('minimumPrice', raw)}
             className="h-9 rounded-[9px] border-input bg-background font-mono text-[13.5px]"
           />
         </div>

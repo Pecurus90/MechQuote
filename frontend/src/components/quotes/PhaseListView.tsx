@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
@@ -60,6 +61,8 @@ interface Props extends Options {
   onAdd?: () => void
   onApplyTemplate?: (templateId: string) => void
   onChange: (phaseId: number, field: PhaseField, val: string) => void
+  /** Commit al blur dei campi numerici (parse + salvataggio nel container). */
+  onCommitField: (phaseId: number, field: PhaseField, raw: string) => void
   onBlurField?: (phaseId: number, field: PhaseField) => void
   onDelete?: (phaseId: number) => void
   onReorder?: (fromId: number, toId: number) => void
@@ -86,6 +89,7 @@ function PhaseRow(props: {
   suppliers: SelectOption[]
   onToggle: () => void
   onChange: (phaseId: number, field: PhaseField, val: string) => void
+  onCommitField: (phaseId: number, field: PhaseField, raw: string) => void
   onBlurField?: (phaseId: number, field: PhaseField) => void
   onDelete?: (phaseId: number) => void
   onDragStart: () => void
@@ -95,10 +99,11 @@ function PhaseRow(props: {
 }) {
   const {
     phase, open, locked, operations, machines, treatments, suppliers,
-    onToggle, onChange, onBlurField, onDelete, onDragStart, onDrop, renderEdm, renderTreatmentInfo,
+    onToggle, onChange, onCommitField, onBlurField, onDelete, onDragStart, onDrop, renderEdm, renderTreatmentInfo,
   } = props
   const [advanced, setAdvanced] = useState(false)
   const blur = (f: PhaseField) => () => onBlurField?.(phase.id, f)
+  const commit = (f: PhaseField) => (raw: string) => onCommitField(phase.id, f, raw)
 
   return (
     <div
@@ -196,23 +201,23 @@ function PhaseRow(props: {
               <>
                 <div>
                   <Label className={fieldLabel}>Ore setup</Label>
-                  <Input value={phase.setupHours} onChange={(e) => onChange(phase.id, 'setupHours', e.target.value)} onBlur={blur('setupHours')} className={smallMono} />
+                  <DecimalField value={phase.setupHours} onCommit={commit('setupHours')} className={smallMono} />
                 </div>
                 <div>
                   <Label className={fieldLabel}>Ore ciclo/pz {phase.cycleHoursAuto && <span className="text-primary">(auto)</span>}</Label>
-                  <Input value={phase.cycleHoursPerPart} readOnly={phase.cycleHoursAuto}
-                    onChange={(e) => onChange(phase.id, 'cycleHoursPerPart', e.target.value)} onBlur={blur('cycleHoursPerPart')}
+                  <DecimalField value={phase.cycleHoursPerPart} readOnly={phase.cycleHoursAuto}
+                    onCommit={commit('cycleHoursPerPart')}
                     className={cn(smallMono, phase.cycleHoursAuto && 'border-border bg-muted/50 text-muted-foreground')} />
                 </div>
               </>
             )}
             <div>
               <Label className={fieldLabel}>{phase.isTreatment ? 'Spedizione / fisso (€)' : 'Costo fisso (€)'}</Label>
-              <Input value={phase.fixedCost} onChange={(e) => onChange(phase.id, 'fixedCost', e.target.value)} onBlur={blur('fixedCost')} className={smallMono} />
+              <DecimalField value={phase.fixedCost} onCommit={commit('fixedCost')} className={smallMono} />
             </div>
             <div>
               <Label className={fieldLabel}>{phase.isTreatment ? 'Costo/pz (€)' : 'Costo var./pz (€)'}</Label>
-              <Input value={phase.variableCostPerPart} onChange={(e) => onChange(phase.id, 'variableCostPerPart', e.target.value)} onBlur={blur('variableCostPerPart')} className={smallMono} />
+              <DecimalField value={phase.variableCostPerPart} onCommit={commit('variableCostPerPart')} className={smallMono} />
             </div>
           </div>
 
@@ -229,7 +234,7 @@ function PhaseRow(props: {
           {advanced && (
             <div className="mt-2.5 max-w-[220px]">
               <Label className={fieldLabel}>Tariffa override (€/h)</Label>
-              <Input value={phase.hourlyRateOverride} onChange={(e) => onChange(phase.id, 'hourlyRateOverride', e.target.value)} onBlur={blur('hourlyRateOverride')} className={smallMono} placeholder="Auto" />
+              <DecimalField value={phase.hourlyRateOverride} onCommit={commit('hourlyRateOverride')} className={smallMono} placeholder="Auto" />
             </div>
           )}
         </fieldset>
@@ -241,7 +246,7 @@ function PhaseRow(props: {
 export function PhaseListView(props: Props) {
   const {
     phases, locked, workflowTemplates = [], operations, machines, treatments, suppliers,
-    onAdd, onApplyTemplate, onChange, onBlurField, onDelete, onReorder, renderEdm, renderTreatmentInfo,
+    onAdd, onApplyTemplate, onChange, onCommitField, onBlurField, onDelete, onReorder, renderEdm, renderTreatmentInfo,
   } = props
   const [openId, setOpenId] = useState<number | null>(phases.length ? phases[0].id : null)
   const [dragId, setDragId] = useState<number | null>(null)
@@ -286,6 +291,7 @@ export function PhaseListView(props: Props) {
               suppliers={suppliers}
               onToggle={() => setOpenId((cur) => (cur === p.id ? null : p.id))}
               onChange={onChange}
+              onCommitField={onCommitField}
               onBlurField={onBlurField}
               onDelete={onDelete}
               onDragStart={() => setDragId(p.id)}

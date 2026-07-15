@@ -275,14 +275,22 @@ export default function PhaseEditor({
       case 'treatmentId': changeTreatment(idx, val ? Number(val) : undefined); break
       case 'supplierId': saveImmediate(idx, { supplier_id: val ? Number(val) : undefined }); break
       case 'description': updateField(idx, 'description', val); break
-      case 'setupHours': updateField(idx, 'setup_hours', parseDecimal(val) || 0); break
-      case 'cycleHoursPerPart': updateField(idx, 'cycle_hours_per_part', parseDecimal(val) || 0); break
-      case 'fixedCost': updateField(idx, 'fixed_cost', parseDecimal(val) || 0); break
-      case 'variableCostPerPart': updateField(idx, 'variable_cost_per_part', parseDecimal(val) || 0); break
-      case 'hourlyRateOverride': updateField(idx, 'hourly_rate_override', val === '' ? undefined : parseDecimal(val)); break
     }
   }
   const onBlurField = (id: number) => { const idx = idxById(id); if (idx >= 0) savePhase(idx) }
+
+  // Campi numerici: commit atomico al blur (evita il round-trip che strippava i
+  // decimali). saveImmediate fa updateMany (anteprima) + PUT con l'override.
+  const onFieldCommit = (id: number, field: PhaseField, raw: string) => {
+    const idx = idxById(id); if (idx < 0) return
+    switch (field) {
+      case 'setupHours': saveImmediate(idx, { setup_hours: parseDecimal(raw) || 0 }); break
+      case 'cycleHoursPerPart': saveImmediate(idx, { cycle_hours_per_part: parseDecimal(raw) || 0 }); break
+      case 'fixedCost': saveImmediate(idx, { fixed_cost: parseDecimal(raw) || 0 }); break
+      case 'variableCostPerPart': saveImmediate(idx, { variable_cost_per_part: parseDecimal(raw) || 0 }); break
+      case 'hourlyRateOverride': saveImmediate(idx, { hourly_rate_override: raw === '' ? undefined : parseDecimal(raw) }); break
+    }
+  }
 
   const renderEdm = (id: number) => {
     const idx = idxById(id); if (idx < 0) return null
@@ -358,6 +366,7 @@ export default function PhaseEditor({
           else applyWorkflow(wf)
         }}
         onChange={onFieldChange}
+        onCommitField={onFieldCommit}
         onBlurField={onBlurField}
         onDelete={(id) => { const idx = idxById(id); if (idx >= 0) setPendingConfirm({ title: 'Eliminare la fase?', description: 'La fase verrà rimossa dalla parte.', confirmLabel: 'Elimina', variant: 'destructive', run: () => removePhase(idx) }) }}
         onReorder={(fromId, toId) => { const f = idxById(fromId), t = idxById(toId); if (f >= 0 && t >= 0) reorder(f, t) }}

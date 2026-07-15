@@ -1,6 +1,7 @@
 // src/components/quotes/QuoteDataPanel.tsx
 import { Settings2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { Label } from '@/components/ui/label'
 
 export interface QuoteDataValue {
@@ -16,7 +17,9 @@ interface Props {
   value: QuoteDataValue
   locked: boolean
   onChange: (field: keyof QuoteDataValue, val: string) => void
-  /** Autosave on-blur (il container salva). */
+  /** Commit al blur dei campi numerici (margine, validità). */
+  onCommit: (field: 'globalMarginPercent' | 'validityDays', raw: string) => void
+  /** Autosave on-blur dei campi testo (il container salva). */
   onBlur?: (field: keyof QuoteDataValue) => void
 }
 
@@ -25,7 +28,7 @@ const inputCls = 'h-[38px] rounded-[9px] border-input bg-background text-sm'
 const textareaCls =
   'w-full resize-none rounded-[9px] border border-input bg-background px-3 py-[9px] text-[13.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18] disabled:cursor-not-allowed disabled:opacity-60'
 
-export function QuoteDataPanel({ value, locked, onChange, onBlur }: Props) {
+export function QuoteDataPanel({ value, locked, onChange, onCommit, onBlur }: Props) {
   return (
     <div className="max-w-[720px]">
       <div className="mb-[18px] flex items-center gap-2.5">
@@ -50,19 +53,17 @@ export function QuoteDataPanel({ value, locked, onChange, onBlur }: Props) {
         <div className="mb-4 grid grid-cols-2 gap-3.5">
           <div>
             <Label className={labelCls}>Margine globale %</Label>
-            <Input
+            <DecimalField
               value={value.globalMarginPercent}
-              onChange={(e) => onChange('globalMarginPercent', e.target.value)}
-              onBlur={() => onBlur?.('globalMarginPercent')}
+              onCommit={(raw) => onCommit('globalMarginPercent', raw)}
               className={`${inputCls} font-mono`}
             />
           </div>
           <div>
             <Label className={labelCls}>Validità (giorni)</Label>
-            <Input
+            <DecimalField
               value={value.validityDays}
-              onChange={(e) => onChange('validityDays', e.target.value)}
-              onBlur={() => onBlur?.('validityDays')}
+              onCommit={(raw) => onCommit('validityDays', raw)}
               className={`${inputCls} font-mono`}
             />
           </div>

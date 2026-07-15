@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Flame } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -54,6 +55,8 @@ interface Props {
   provenances: SelectOption[]
   treatments: SelectOption[]
   onChange: (field: PartField, val: string) => void
+  /** Commit al blur dei campi numerici (parse + salvataggio nel container). */
+  onCommit: (field: PartField, raw: string) => void
   onBlur?: (field: PartField) => void
   onClearTreatment?: () => void
   /** Slot: <PhaseListView /> reso dal container. */
@@ -79,6 +82,7 @@ export function PartCardView(props: Props) {
     provenances,
     treatments,
     onChange,
+    onCommit,
     onBlur,
     onClearTreatment,
     phaseEditor,
@@ -118,10 +122,9 @@ export function PartCardView(props: Props) {
           </div>
           <div>
             <Label className={fieldLabel}>Quantità</Label>
-            <Input
+            <DecimalField
               value={value.quantity}
-              onChange={(e) => onChange('quantity', e.target.value)}
-              onBlur={() => onBlur?.('quantity')}
+              onCommit={(raw) => onCommit('quantity', raw)}
               className={monoInput}
             />
           </div>
@@ -197,19 +200,17 @@ export function PartCardView(props: Props) {
               <>
                 <div>
                   <Label className={fieldLabel}>Ø grezzo (mm)</Label>
-                  <Input
+                  <DecimalField
                     value={value.diameter}
-                    onChange={(e) => onChange('diameter', e.target.value)}
-                    onBlur={() => onBlur?.('diameter')}
+                    onCommit={(raw) => onCommit('diameter', raw)}
                     className={monoInput}
                   />
                 </div>
                 <div>
                   <Label className={fieldLabel}>Lunghezza (mm)</Label>
-                  <Input
+                  <DecimalField
                     value={value.length}
-                    onChange={(e) => onChange('length', e.target.value)}
-                    onBlur={() => onBlur?.('length')}
+                    onCommit={(raw) => onCommit('length', raw)}
                     className={monoInput}
                   />
                 </div>
@@ -219,28 +220,25 @@ export function PartCardView(props: Props) {
               <>
                 <div>
                   <Label className={fieldLabel}>Grezzo X (mm)</Label>
-                  <Input
+                  <DecimalField
                     value={value.rawX}
-                    onChange={(e) => onChange('rawX', e.target.value)}
-                    onBlur={() => onBlur?.('rawX')}
+                    onCommit={(raw) => onCommit('rawX', raw)}
                     className={monoInput}
                   />
                 </div>
                 <div>
                   <Label className={fieldLabel}>Grezzo Y (mm)</Label>
-                  <Input
+                  <DecimalField
                     value={value.rawY}
-                    onChange={(e) => onChange('rawY', e.target.value)}
-                    onBlur={() => onBlur?.('rawY')}
+                    onCommit={(raw) => onCommit('rawY', raw)}
                     className={monoInput}
                   />
                 </div>
                 <div>
                   <Label className={fieldLabel}>Grezzo Z (mm)</Label>
-                  <Input
+                  <DecimalField
                     value={value.rawZ}
-                    onChange={(e) => onChange('rawZ', e.target.value)}
-                    onBlur={() => onBlur?.('rawZ')}
+                    onCommit={(raw) => onCommit('rawZ', raw)}
                     className={monoInput}
                   />
                 </div>
@@ -261,19 +259,17 @@ export function PartCardView(props: Props) {
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label className={fieldLabel}>Costo materiale (€)</Label>
-            <Input
+            <DecimalField
               value={value.materialCost}
-              onChange={(e) => onChange('materialCost', e.target.value)}
-              onBlur={() => onBlur?.('materialCost')}
+              onCommit={(raw) => onCommit('materialCost', raw)}
               className={monoInput}
             />
           </div>
           <div>
             <Label className={fieldLabel}>Spedizione mat. (€)</Label>
-            <Input
+            <DecimalField
               value={value.materialShipping}
-              onChange={(e) => onChange('materialShipping', e.target.value)}
-              onBlur={() => onBlur?.('materialShipping')}
+              onCommit={(raw) => onCommit('materialShipping', raw)}
               className={monoInput}
             />
           </div>
@@ -286,10 +282,9 @@ export function PartCardView(props: Props) {
             >
               Peso finito (kg){weightRequired && ' · richiesto'}
             </Label>
-            <Input
+            <DecimalField
               value={value.finishedWeight}
-              onChange={(e) => onChange('finishedWeight', e.target.value)}
-              onBlur={() => onBlur?.('finishedWeight')}
+              onCommit={(raw) => onCommit('finishedWeight', raw)}
               className={cn(
                 'h-[38px] rounded-[9px] bg-background font-mono text-sm',
                 weightRequired ? 'border-danger/50' : 'border-input',

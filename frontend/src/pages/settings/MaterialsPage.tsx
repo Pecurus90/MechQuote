@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, FileText, Box } from 'lucide-react'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import { familyLabel } from '@/lib/materialFamilies'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -29,8 +30,8 @@ const supCells = (f: SupplierForm, set: (v: SupplierForm) => void) => (
   <>
     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={f.name} onChange={e => set({ ...f, name: e.target.value })} /></td>
     <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={f.address} onChange={e => set({ ...f, address: e.target.value })} /></td>
-    <td className="p-2"><Input type="number" step="0.5" className="h-8 font-mono text-sm" value={f.shipping_cost} onChange={e => set({ ...f, shipping_cost: e.target.value })} /></td>
-    <td className="p-2"><Input type="number" step="0.5" min="0" className="h-8 font-mono text-sm" value={f.cutting_cost_per_part} onChange={e => set({ ...f, cutting_cost_per_part: e.target.value })} /></td>
+    <td className="p-2"><Input type="text" inputMode="decimal" className="h-8 font-mono text-sm" value={f.shipping_cost} onChange={e => set({ ...f, shipping_cost: e.target.value })} /></td>
+    <td className="p-2"><Input type="text" inputMode="decimal" className="h-8 font-mono text-sm" value={f.cutting_cost_per_part} onChange={e => set({ ...f, cutting_cost_per_part: e.target.value })} /></td>
   </>
 )
 
@@ -53,7 +54,7 @@ export default function MaterialsPage() {
   const saveSupplier = async () => {
     if (!supForm) return
     if (!supForm.name.trim()) { toast.error('Nome obbligatorio'); return }
-    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: Number(supForm.shipping_cost), cutting_cost_per_part: Number(supForm.cutting_cost_per_part) }
+    const payload = { name: supForm.name, address: supForm.address || null, shipping_cost: parseDecimal(supForm.shipping_cost), cutting_cost_per_part: parseDecimal(supForm.cutting_cost_per_part) }
     try {
       if (supForm.id) await api.put(`/material-suppliers/${supForm.id}`, payload); else await api.post('/material-suppliers', payload)
       toast.success('Fornitore salvato'); setSupForm(null); loadData()

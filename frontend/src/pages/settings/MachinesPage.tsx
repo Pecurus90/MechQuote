@@ -4,6 +4,7 @@ import { Plus, Search, Cog } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import { tWrap, tHead, tRow, RowActions } from '@/components/settings/inlineEdit'
@@ -38,7 +39,7 @@ export default function MachinesPage() {
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Nome obbligatorio'); return }
-    const payload = { name, machine_type: mtype, hourly_rate: Number(rate), setup_hourly_rate: setupRate === '' ? null : Number(setupRate), setup_minimum_hours: Number(setup) }
+    const payload = { name, machine_type: mtype, hourly_rate: parseDecimal(rate), setup_hourly_rate: setupRate === '' ? null : parseDecimal(setupRate), setup_minimum_hours: parseDecimal(setup) }
     try {
       if (editingId && editingId > 0) await api.put(`/machines/${editingId}`, payload); else await api.post('/machines', payload)
       toast.success('Centro di costo salvato'); setEditingId(null); loadData()
@@ -110,17 +111,17 @@ export default function MachinesPage() {
             </div>
             <div>
               <label className={fieldLabel}>Tariffa lavoro €/ora</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" className="font-mono" value={rate} onChange={e => setRate(e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} type="text" inputMode="decimal" className="font-mono" value={rate} onChange={e => setRate(e.target.value)} />
               <p className="mt-1 text-[11px] text-muted-foreground">Costo orario quando la macchina lavora.</p>
             </div>
             <div>
               <label className={fieldLabel}>Tariffa setup €/ora</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" className="font-mono" placeholder={`default ${rate || '…'}`} value={setupRate} onChange={e => setSetupRate(e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} type="text" inputMode="decimal" className="font-mono" placeholder={`default ${rate || '…'}`} value={setupRate} onChange={e => setSetupRate(e.target.value)} />
               <p className="mt-1 text-[11px] text-muted-foreground">Attrezzaggio (operatore senza macchina). Vuoto = stessa di lavoro.</p>
             </div>
             <div>
               <label className={fieldLabel}>Setup minimo (h)</label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" step="0.1" className="font-mono" value={setup} onChange={e => setSetup(e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} type="text" inputMode="decimal" className="font-mono" value={setup} onChange={e => setSetup(e.target.value)} />
               <p className="mt-1 text-[11px] text-muted-foreground">Usato in fase di import DXF/STEP (in arrivo).</p>
             </div>
           </div>

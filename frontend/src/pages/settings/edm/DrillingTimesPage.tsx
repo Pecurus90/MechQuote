@@ -63,8 +63,8 @@ export default function DrillingTimesPage() {
           {MATERIAL_FAMILIES.map(fam => <option key={fam.slug} value={fam.slug}>{fam.label}</option>)}
         </select>
       </td>
-      <td className="p-2"><Input onFocus={e => e.currentTarget.select()} className={inp} type="number" step="0.1" value={form.electrode_diameter_mm} onChange={e => set({ ...form, electrode_diameter_mm: e.target.value })} /></td>
-      <td className="p-2"><Input onFocus={e => e.currentTarget.select()} className={inp} type="number" step="0.5" value={form.speed_mm_per_sec} onChange={e => set({ ...form, speed_mm_per_sec: e.target.value })} /></td>
+      <td className="p-2"><Input onFocus={e => e.currentTarget.select()} className={inp} type="text" inputMode="decimal" value={form.electrode_diameter_mm} onChange={e => set({ ...form, electrode_diameter_mm: e.target.value })} /></td>
+      <td className="p-2"><Input onFocus={e => e.currentTarget.select()} className={inp} type="text" inputMode="decimal" value={form.speed_mm_per_sec} onChange={e => set({ ...form, speed_mm_per_sec: e.target.value })} /></td>
       <td className="p-2"><Input className={inp} value={form.notes} onChange={e => set({ ...form, notes: e.target.value })} /></td>
     </>
   )

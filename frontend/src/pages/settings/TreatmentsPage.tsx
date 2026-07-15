@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Ruler } from 'lucide-react'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import StandardPage from '@/components/layout/StandardPage'
@@ -18,7 +19,7 @@ const supEditCells = (form: SupForm, set: (f: SupForm) => void) => (
   <>
     <td className="p-2"><Input className="h-8 text-sm" placeholder="Nome fornitore" value={form.name} onChange={e => set({ ...form, name: e.target.value })} /></td>
     <td className="p-2"><Input className="h-8 text-sm" placeholder="Indirizzo (opzionale)" value={form.address} onChange={e => set({ ...form, address: e.target.value })} /></td>
-    <td className="p-2"><Input type="number" step="0.5" className="h-8 text-sm font-mono" value={form.shippingCost} onChange={e => set({ ...form, shippingCost: e.target.value })} /></td>
+    <td className="p-2"><Input type="text" inputMode="decimal" className="h-8 text-sm font-mono" value={form.shippingCost} onChange={e => set({ ...form, shippingCost: e.target.value })} /></td>
   </>
 )
 
@@ -40,7 +41,7 @@ export default function TreatmentsPage() {
   const saveSupplier = async () => {
     if (!supForm) return
     if (!supForm.name.trim()) { toast.error('Nome obbligatorio'); return }
-    const payload = { name: supForm.name, supplier_type: supForm.supplierType || null, address: supForm.address || null, shipping_cost: Number(supForm.shippingCost) }
+    const payload = { name: supForm.name, supplier_type: supForm.supplierType || null, address: supForm.address || null, shipping_cost: parseDecimal(supForm.shippingCost) }
     try {
       if (supForm.id) await api.put(`/suppliers/${supForm.id}`, payload); else await api.post('/suppliers', payload)
       toast.success('Fornitore salvato'); setSupForm(null); loadData()

@@ -152,19 +152,19 @@ export default function ToolFormModal({ tool, types, brands, suppliers, onClose,
           </div>
           <div>
             <label className={labelCls}>Diametro (mm)</label>
-            <Input type="number" step="0.01" className="font-mono" value={form.diameter_mm} onChange={e => set('diameter_mm', e.target.value)} />
+            <Input type="text" inputMode="decimal" className="font-mono" value={form.diameter_mm} onChange={e => set('diameter_mm', e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Raggio torico (mm)</label>
-            <Input type="number" step="0.01" className="font-mono" value={form.toroidal_mm} onChange={e => set('toroidal_mm', e.target.value)} />
+            <Input type="text" inputMode="decimal" className="font-mono" value={form.toroidal_mm} onChange={e => set('toroidal_mm', e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Quantità</label>
-            <Input type="number" min={0} className="font-mono" value={form.quantity} onChange={e => set('quantity', e.target.value)} />
+            <Input type="text" inputMode="decimal" min={0} className="font-mono" value={form.quantity} onChange={e => set('quantity', e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Quantità minima</label>
-            <Input type="number" min={0} className="font-mono" value={form.minimum_quantity} onChange={e => set('minimum_quantity', e.target.value)} />
+            <Input type="text" inputMode="decimal" min={0} className="font-mono" value={form.minimum_quantity} onChange={e => set('minimum_quantity', e.target.value)} />
           </div>
           <div>
             <label className={labelCls}>Posizione</label>

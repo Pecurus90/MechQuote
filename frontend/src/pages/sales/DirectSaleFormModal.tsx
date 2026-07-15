@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { X, HandCoins, TrendingUp, TrendingDown } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { DirectSale } from '@/types'
@@ -29,7 +30,7 @@ interface Props { sale: DirectSale | null; onClose: () => void; onSaved: () => v
 const eur = (v: number) => '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const labelCls = 'mb-1 block text-[12px] font-medium text-foreground'
 // Parsing it-IT: accetta la virgola decimale.
-const num = (s: string) => Number(String(s).replace(',', '.')) || 0
+const num = (s: string) => parseDecimal(s)
 
 export default function DirectSaleFormModal({ sale, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(fromSale(sale))
@@ -100,15 +101,15 @@ export default function DirectSaleFormModal({ sale, onClose, onSaved }: Props) {
           <div className="grid grid-cols-3 gap-3.5">
             <div>
               <label className={labelCls}>Prezzo vendita €/pz</label>
-              <Input type="number" min={0} step="0.01" className="font-mono" value={form.unit_price} onChange={e => set('unit_price', e.target.value)} />
+              <Input type="text" inputMode="decimal" min={0} step="0.01" className="font-mono" value={form.unit_price} onChange={e => set('unit_price', e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>Costo €/pz</label>
-              <Input type="number" min={0} step="0.01" className="font-mono" value={form.unit_cost} onChange={e => set('unit_cost', e.target.value)} />
+              <Input type="text" inputMode="decimal" min={0} step="0.01" className="font-mono" value={form.unit_cost} onChange={e => set('unit_cost', e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>Quantità</label>
-              <Input type="number" min={1} step="1" className="font-mono" value={form.quantity} onChange={e => set('quantity', e.target.value)} />
+              <Input type="text" inputMode="decimal" min={1} step="1" className="font-mono" value={form.quantity} onChange={e => set('quantity', e.target.value)} />
             </div>
           </div>
           <div>

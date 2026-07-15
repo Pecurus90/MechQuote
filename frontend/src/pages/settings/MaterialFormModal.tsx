@@ -8,6 +8,7 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES } from '@/lib/materialFamilies'
 import { useEscapeKey } from '@/lib/useEscapeKey'
+import { parseDecimal } from '@/lib/decimalInput'
 import type { Material, MaterialAlias, MaterialSupplier } from '@/types'
 
 interface MatForm {
@@ -76,9 +77,9 @@ export default function MaterialFormModal({ material, suppliers, defaultName, on
   const handleSave = async () => {
     const payload = {
       name: form.name, family: form.family,
-      density_kg_dm3: Number(form.density), cost_per_kg: Number(form.cost),
-      edm_coefficient: Number(form.edm), cnc_machinability_coefficient: Number(form.cnc),
-      default_scrap_percent: Number(form.scrap),
+      density_kg_dm3: parseDecimal(form.density), cost_per_kg: parseDecimal(form.cost),
+      edm_coefficient: parseDecimal(form.edm), cnc_machinability_coefficient: parseDecimal(form.cnc),
+      default_scrap_percent: parseDecimal(form.scrap),
       supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
       active: form.active,
     }
@@ -122,25 +123,25 @@ export default function MaterialFormModal({ material, suppliers, defaultName, on
             </div>
             <div>
               <label className="text-sm font-medium">Densità (kg/dm³)</label>
-              <Input type="number" step="0.01" value={form.density} onChange={e => set('density', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.density} onChange={e => set('density', e.target.value)} />
             </div>
             <div>
               <label className="text-sm font-medium">Costo €/kg</label>
-              <Input type="number" step="0.01" value={form.cost} onChange={e => set('cost', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.cost} onChange={e => set('cost', e.target.value)} />
             </div>
             <div>
               <label className="text-sm font-medium">EDM Coeff.</label>
-              <Input type="number" step="0.1" value={form.edm} onChange={e => set('edm', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.edm} onChange={e => set('edm', e.target.value)} />
               <p className="text-[11px] text-muted-foreground mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
             </div>
             <div>
               <label className="text-sm font-medium">CNC Coeff. lavorabilità</label>
-              <Input type="number" step="0.1" value={form.cnc} onChange={e => set('cnc', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.cnc} onChange={e => set('cnc', e.target.value)} />
               <p className="text-[11px] text-muted-foreground mt-0.5">Usato in fase di import DXF/STEP (in arrivo)</p>
             </div>
             <div>
               <label className="text-sm font-medium">Sfrido %</label>
-              <Input type="number" step="0.5" value={form.scrap} onChange={e => set('scrap', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.scrap} onChange={e => set('scrap', e.target.value)} />
             </div>
             <div>
               <label className="text-sm font-medium">Fornitore materiale</label>

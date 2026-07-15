@@ -7,6 +7,7 @@ import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import { toast } from 'sonner'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { StepColorRule } from '@/types'
@@ -44,7 +45,7 @@ export default function StepColorRulesPage() {
   }
 
   const handleSave = async () => {
-    const payload = { color_hex: colorHex, color_name: colorName, meaning, suggested_phase_type: phaseType, complexity_coefficient: Number(complexity), notes }
+    const payload = { color_hex: colorHex, color_name: colorName, meaning, suggested_phase_type: phaseType, complexity_coefficient: parseDecimal(complexity), notes }
     try {
       if (editingId && editingId > 0) await api.put(`/step-color-rules/${editingId}`, payload)
       else await api.post('/step-color-rules', payload)
@@ -157,7 +158,7 @@ export default function StepColorRulesPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Coefficiente Complessità</label>
-                  <Input type="number" step="0.1" value={complexity} onChange={e => setComplexity(e.target.value)} />
+                  <Input type="text" inputMode="decimal" value={complexity} onChange={e => setComplexity(e.target.value)} />
                 </div>
                 <div className="col-span-2">
                   <label className="text-sm font-medium">Note</label>

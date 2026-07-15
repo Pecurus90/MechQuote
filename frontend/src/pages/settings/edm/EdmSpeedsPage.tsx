@@ -4,6 +4,7 @@ import { Plus, Gauge } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import type { EdmCutSpeed } from '@/types'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
@@ -19,10 +20,10 @@ const empty = (): FormState => ({ material_family: '', thickness_min_mm: '0', th
 
 const toPayload = (f: FormState) => ({
   material_family: f.material_family,
-  thickness_min_mm: Number(f.thickness_min_mm) || 0,
-  thickness_max_mm: Number(f.thickness_max_mm) || 0,
-  speed_mm_per_min: Number(f.speed_mm_per_min) || 0,
-  pierce_time_s: f.pierce_time_s ? Number(f.pierce_time_s) : null,
+  thickness_min_mm: parseDecimal(f.thickness_min_mm),
+  thickness_max_mm: parseDecimal(f.thickness_max_mm),
+  speed_mm_per_min: parseDecimal(f.speed_mm_per_min),
+  pierce_time_s: f.pierce_time_s ? parseDecimal(f.pierce_time_s) : null,
   notes: f.notes || null,
 })
 
@@ -77,10 +78,10 @@ export default function EdmSpeedsPage() {
           {MATERIAL_FAMILIES.map(fam => <option key={fam.slug} value={fam.slug}>{fam.label}</option>)}
         </select>
       </td>
-      <td className="p-2"><Input className={inp} type="number" step="0.5" value={form.thickness_min_mm} onChange={e => set({ ...form, thickness_min_mm: e.target.value })} /></td>
-      <td className="p-2"><Input className={inp} type="number" step="0.5" value={form.thickness_max_mm} onChange={e => set({ ...form, thickness_max_mm: e.target.value })} /></td>
-      <td className="p-2"><Input className={inp} type="number" step="1" value={form.speed_mm_per_min} onChange={e => set({ ...form, speed_mm_per_min: e.target.value })} /></td>
-      <td className="p-2"><Input className={inp} type="number" step="0.5" placeholder="default" value={form.pierce_time_s} onChange={e => set({ ...form, pierce_time_s: e.target.value })} /></td>
+      <td className="p-2"><Input className={inp} type="text" inputMode="decimal" value={form.thickness_min_mm} onChange={e => set({ ...form, thickness_min_mm: e.target.value })} /></td>
+      <td className="p-2"><Input className={inp} type="text" inputMode="decimal" value={form.thickness_max_mm} onChange={e => set({ ...form, thickness_max_mm: e.target.value })} /></td>
+      <td className="p-2"><Input className={inp} type="text" inputMode="decimal" value={form.speed_mm_per_min} onChange={e => set({ ...form, speed_mm_per_min: e.target.value })} /></td>
+      <td className="p-2"><Input className={inp} type="text" inputMode="decimal" placeholder="default" value={form.pierce_time_s} onChange={e => set({ ...form, pierce_time_s: e.target.value })} /></td>
       <td className="p-2"><Input className={inp} value={form.notes} onChange={e => set({ ...form, notes: e.target.value })} /></td>
     </>
   )

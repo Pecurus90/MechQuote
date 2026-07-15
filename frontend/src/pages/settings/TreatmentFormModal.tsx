@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { X } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { Supplier, Treatment } from '@/types'
@@ -42,9 +43,9 @@ export default function TreatmentFormModal({ treatment, suppliers, onClose, onSa
     const payload = {
       name: form.name,
       treatment_type: form.treatmentType,
-      cost_per_kg: Number(form.costPerKg),
-      minimum_cost: Number(form.minimumCost),
-      minimum_weight_kg: form.minimumWeightKg !== '' ? Number(form.minimumWeightKg) : null,
+      cost_per_kg: parseDecimal(form.costPerKg),
+      minimum_cost: parseDecimal(form.minimumCost),
+      minimum_weight_kg: form.minimumWeightKg !== '' ? parseDecimal(form.minimumWeightKg) : null,
       supplier_id: form.supplierId ? Number(form.supplierId) : null,
       notes: form.notes,
     }
@@ -78,16 +79,16 @@ export default function TreatmentFormModal({ treatment, suppliers, onClose, onSa
             </div>
             <div>
               <label className="text-sm font-medium">Costo per kg (€)</label>
-              <Input type="number" step="0.01" value={form.costPerKg} onChange={e => set('costPerKg', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.costPerKg} onChange={e => set('costPerKg', e.target.value)} />
             </div>
             <div>
               <label className="text-sm font-medium">Costo minimo (€)</label>
-              <Input type="number" step="0.01" value={form.minimumCost} onChange={e => set('minimumCost', e.target.value)} />
+              <Input type="text" inputMode="decimal" value={form.minimumCost} onChange={e => set('minimumCost', e.target.value)} />
               <p className="text-[10px] text-muted-foreground mt-0.5">Si applica se il lotto è sotto la soglia peso</p>
             </div>
             <div>
               <label className="text-sm font-medium">Soglia peso lotto (kg)</label>
-              <Input type="number" step="0.1" min="0" placeholder="—"
+              <Input type="text" inputMode="decimal" min="0" placeholder="—"
                 value={form.minimumWeightKg}
                 onChange={e => set('minimumWeightKg', e.target.value)} />
               <p className="text-[10px] text-muted-foreground mt-0.5">Se peso totale lotto {'<'} soglia → applica costo minimo</p>

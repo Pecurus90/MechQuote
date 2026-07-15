@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { X, Plus } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { toast } from 'sonner'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import type { NormalizedItem, NormalizedSupplier } from '@/types'
@@ -146,8 +148,8 @@ export default function NormalizedItemFormModal({ item, suppliers, categories, d
             </div>
             <div>
               <label className="text-sm font-medium">Prezzo €/pz</label>
-              <Input type="number" min={0} step="0.01" value={form.unit_price}
-                onChange={e => set('unit_price', parseFloat(e.target.value) || 0)} />
+              <DecimalField value={String(form.unit_price ?? '')}
+                onCommit={raw => set('unit_price', parseDecimal(raw))} />
             </div>
           </div>
           <div>

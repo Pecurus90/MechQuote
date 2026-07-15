@@ -50,9 +50,9 @@ const PrePostRow = ({ label, prePost }: {
 }) => (
   <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
     <label className="text-sm font-medium">{label}</label>
-    <Input type="number" step="0.001" className="w-28" placeholder="pre"
+    <Input type="text" inputMode="decimal" className="w-28" placeholder="pre"
       value={prePost.preValue} onChange={e => prePost.onPre(e.target.value)} />
-    <Input type="number" step="0.001" className="w-28" placeholder="post"
+    <Input type="text" inputMode="decimal" className="w-28" placeholder="post"
       value={prePost.postValue} onChange={e => prePost.onPost(e.target.value)} />
   </div>
 )
@@ -190,19 +190,19 @@ export default function TempraFormModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">Gradi inserimento (°C)</label>
-                <Input type="number" step="1" value={form.temp_insertion_c} onChange={e => set('temp_insertion_c', e.target.value)} />
+                <Input type="text" inputMode="decimal" value={form.temp_insertion_c} onChange={e => set('temp_insertion_c', e.target.value)} />
               </div>
               <div>
                 <label className="text-sm font-medium">Gradi tempra (°C)</label>
-                <Input type="number" step="1" value={form.temp_quench_c} onChange={e => set('temp_quench_c', e.target.value)} />
+                <Input type="text" inputMode="decimal" value={form.temp_quench_c} onChange={e => set('temp_quench_c', e.target.value)} />
               </div>
               <div>
                 <label className="text-sm font-medium">Gradi rinvenimento (°C)</label>
-                <Input type="number" step="1" value={form.temp_temper_c} onChange={e => set('temp_temper_c', e.target.value)} />
+                <Input type="text" inputMode="decimal" value={form.temp_temper_c} onChange={e => set('temp_temper_c', e.target.value)} />
               </div>
               <div>
                 <label className="text-sm font-medium">Tempo rinvenimento (min)</label>
-                <Input type="number" step="1" value={form.temper_time_min} onChange={e => set('temper_time_min', e.target.value)} />
+                <Input type="text" inputMode="decimal" value={form.temper_time_min} onChange={e => set('temper_time_min', e.target.value)} />
               </div>
             </div>
           </div>

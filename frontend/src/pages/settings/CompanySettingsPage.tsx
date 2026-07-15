@@ -5,6 +5,8 @@ import { Building2 } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
+import { DecimalField } from '@/components/ui/decimal-field'
 import { toast } from 'sonner'
 import type { CompanySettings } from '@/types'
 
@@ -57,7 +59,7 @@ export default function CompanySettingsPage() {
     }
   }
 
-  const num = (v: string): number => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
+  const num = (v: string): number => parseDecimal(v)
 
   const text = (key: keyof typeof empty, label: string, full?: boolean, type = 'text') => (
     <div className={full ? 'md:col-span-2' : ''}>
@@ -68,8 +70,8 @@ export default function CompanySettingsPage() {
   const nf = (key: keyof typeof empty, label: string, help: string) => (
     <div>
       <label className={labelCls}>{label}</label>
-      <Input type="number" min={0} step={0.5} className="font-mono" value={settings[key] as number}
-        onChange={e => setSettings(s => ({ ...s, [key]: num(e.target.value) }))} />
+      <DecimalField className="font-mono" value={String(settings[key] ?? '')}
+        onCommit={raw => setSettings(s => ({ ...s, [key]: num(raw) }))} />
       <p className="mt-1 text-[11px] text-muted-foreground">{help}</p>
     </div>
   )

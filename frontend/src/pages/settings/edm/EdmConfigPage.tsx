@@ -5,6 +5,8 @@ import { SlidersHorizontal } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
+import { parseDecimal } from '@/lib/decimalInput'
+import { DecimalField } from '@/components/ui/decimal-field'
 import type { EdmConfig, Machine } from '@/types'
 import { toast } from 'sonner'
 
@@ -45,11 +47,11 @@ export default function EdmConfigPage() {
     try { await api.put('/edm-config', cfg); setPristine(cfg); toast.success('Parametri salvati') }
     catch { toast.error('Errore nel salvataggio') } finally { setSaving(false) }
   }
-  const num = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
-  const nf = (key: keyof typeof empty, label: string, help: string, step = '0.05') => (
+  const num = (v: string) => parseDecimal(v)
+  const nf = (key: keyof typeof empty, label: string, help: string) => (
     <div>
       <label className={labelCls}>{label}</label>
-      <Input type="number" step={step} min="0" className="font-mono" value={cfg[key] as number} onChange={e => setCfg(c => ({ ...c, [key]: num(e.target.value) }))} />
+      <DecimalField className="font-mono" value={String(cfg[key] ?? '')} onCommit={raw => setCfg(c => ({ ...c, [key]: num(raw) }))} />
       <p className="mt-1 text-[11px] text-muted-foreground">{help}</p>
     </div>
   )
@@ -77,7 +79,7 @@ export default function EdmConfigPage() {
       </Section>
 
       <Section title="Pierce time di default" desc="Secondi per ogni infilatura filo in un foro pre-fatto. Le righe della tabella velocità possono sovrascriverlo per range di altezza specifici.">
-        <div className="max-w-xs">{nf('default_pierce_time_s', 'Pierce time (sec)', 'default globale', '0.5')}</div>
+        <div className="max-w-xs">{nf('default_pierce_time_s', 'Pierce time (sec)', 'default globale')}</div>
       </Section>
 
       <Section title="Foratrice EDM dedicata" desc="La macchina per i pre-fori prima del taglio. Il wizard 2D la usa in modalità 'Foratrice EDM' per popolare la fase Foratura.">

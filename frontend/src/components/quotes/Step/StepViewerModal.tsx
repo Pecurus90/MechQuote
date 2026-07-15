@@ -54,6 +54,55 @@ const getOcct = () => (occtPromise ??= occtimportjs({ locateFile: () => wasmUrl 
  * (orbit/zoom/pan). In "Misura" due click sulla superficie danno la distanza.
  * Componente lazy-loaded: three + occt NON entrano nel bundle principale.
  */
+interface OcctMeshLike {
+  attributes: { position: { array: number[] } }
+  index: { array: number[] }
+  brep_faces?: { first: number; last: number }[]
+}
+
+/**
+ * Ricava gli SPIGOLI VERI del pezzo (non la tessellazione): un lato di
+ * triangolo è uno spigolo CAD se separa due facce diverse (`brep_faces`) o è di
+ * bordo. Restituisce i segmenti (per il wireframe) + i vertici unici (per lo
+ * snap). occt duplica i vertici per faccia → uniamo i punti per posizione.
+ */
+function extractFeatureEdges(meshes: OcctMeshLike[]): { segments: Float32Array; vertices: THREE.Vector3[] } {
+  const seg: number[] = []
+  const verts = new Map<string, THREE.Vector3>()
+  const Q = 1000 // risoluzione merge posizioni: 0.001 mm
+  for (const m of meshes) {
+    const pos = m.attributes.position.array
+    const idx = m.index.array
+    const nTri = idx.length / 3
+    const faceOf = new Int32Array(nTri).fill(-1)
+    m.brep_faces?.forEach((f, fi) => { for (let t = f.first; t <= f.last && t < nTri; t++) faceOf[t] = fi })
+    const key = (v: number) =>
+      `${Math.round(pos[v * 3] * Q)},${Math.round(pos[v * 3 + 1] * Q)},${Math.round(pos[v * 3 + 2] * Q)}`
+    const edges = new Map<string, { faces: Set<number>; count: number; a: number; b: number }>()
+    for (let t = 0; t < nTri; t++) {
+      const vs = [idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]]
+      const ks = vs.map(key)
+      for (let e = 0; e < 3; e++) {
+        const ka = ks[e], kb = ks[(e + 1) % 3]
+        const ek = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`
+        let rec = edges.get(ek)
+        if (!rec) { rec = { faces: new Set(), count: 0, a: vs[e], b: vs[(e + 1) % 3] }; edges.set(ek, rec) }
+        rec.faces.add(faceOf[t]); rec.count++
+      }
+    }
+    for (const rec of edges.values()) {
+      if (rec.faces.size > 1 || rec.count === 1) {   // spigolo CAD (tra facce) o bordo
+        seg.push(pos[rec.a * 3], pos[rec.a * 3 + 1], pos[rec.a * 3 + 2], pos[rec.b * 3], pos[rec.b * 3 + 1], pos[rec.b * 3 + 2])
+        for (const v of [rec.a, rec.b]) {
+          const k = key(v)
+          if (!verts.has(k)) verts.set(k, new THREE.Vector3(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2]))
+        }
+      }
+    }
+  }
+  return { segments: new Float32Array(seg), vertices: [...verts.values()] }
+}
+
 export default function StepViewerModal({ fileId, filename, densityKgDm3, onApplyGeometry, onClose }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
@@ -119,6 +168,14 @@ export default function StepViewerModal({ fileId, filename, densityKgDm3, onAppl
       }
       scene.add(group)
 
+      // Spigoli veri del pezzo: wireframe visibile (aspetto CAD) + base per lo snap.
+      const feat = extractFeatureEdges(result.meshes)
+      if (feat.segments.length) {
+        const eg = new THREE.BufferGeometry()
+        eg.setAttribute('position', new THREE.BufferAttribute(feat.segments, 3))
+        scene.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: 0x334155 })))
+      }
+
       // Centra + scala la camera sul bounding box.
       const bbox = new THREE.Box3().setFromObject(group)
       const size = new THREE.Vector3(); bbox.getSize(size)
@@ -174,6 +231,29 @@ export default function StepViewerModal({ fileId, filename, densityKgDm3, onAppl
         s.position.copy(p); markers.add(s)
       }
 
+      // Snap: aggancia il punto cliccato al vertice CAD più vicino, poi allo
+      // spigolo più vicino, entro una soglia relativa alla dimensione del pezzo.
+      const closestOnSeg = (a: THREE.Vector3, b: THREE.Vector3, p: THREE.Vector3) => {
+        const ab = b.clone().sub(a)
+        const t = THREE.MathUtils.clamp(p.clone().sub(a).dot(ab) / (ab.lengthSq() || 1), 0, 1)
+        return a.clone().add(ab.multiplyScalar(t))
+      }
+      const snapPoint = (p: THREE.Vector3): THREE.Vector3 => {
+        const thr = maxDim * 0.045
+        let best: THREE.Vector3 | null = null, bd = thr
+        for (const v of feat.vertices) { const d = p.distanceTo(v); if (d < bd) { bd = d; best = v } }
+        if (best) return best.clone()
+        let bp: THREE.Vector3 | null = null, be = thr
+        for (let i = 0; i + 5 < feat.segments.length; i += 6) {
+          const a = new THREE.Vector3(feat.segments[i], feat.segments[i + 1], feat.segments[i + 2])
+          const b = new THREE.Vector3(feat.segments[i + 3], feat.segments[i + 4], feat.segments[i + 5])
+          const c = closestOnSeg(a, b, p)
+          const d = p.distanceTo(c)
+          if (d < be) { be = d; bp = c }
+        }
+        return bp ?? p.clone()
+      }
+
       const onClick = (ev: MouseEvent) => {
         if (!measureRef.current || !renderer) return
         const rect = renderer.domElement.getBoundingClientRect()
@@ -184,9 +264,10 @@ export default function StepViewerModal({ fileId, filename, densityKgDm3, onAppl
         raycaster.setFromCamera(ndc, camera)
         const hit = raycaster.intersectObjects(group.children, true)[0]
         if (!hit) return
+        const p = snapPoint(hit.point)
         if (points.length >= 2) clearMeasure()
-        points.push(hit.point.clone())
-        addMarker(hit.point)
+        points.push(p)
+        addMarker(p)
         if (points.length === 2) {
           const g = new THREE.BufferGeometry().setFromPoints(points)
           line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x2563eb }))
@@ -251,7 +332,7 @@ export default function StepViewerModal({ fileId, filename, densityKgDm3, onAppl
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera
           </Button>
           <span className="text-[12.5px] text-muted-foreground">
-            {measure ? 'Clicca due punti sul modello per misurare la distanza.' : 'Trascina per ruotare · rotella per zoom.'}
+            {measure ? 'Clicca due punti (aggancia automaticamente a spigoli e vertici).' : 'Trascina per ruotare · rotella per zoom.'}
           </span>
           {distance != null && (
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">

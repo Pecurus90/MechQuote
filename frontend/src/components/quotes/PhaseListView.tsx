@@ -35,9 +35,9 @@ export interface PhaseVM {
   treatmentId: string
   supplierId: string
   description: string
-  setupHours: string
-  cycleHoursPerPart: string
-  cycleHoursAuto?: boolean
+  setupMinutes: string
+  cycleMinutes: string
+  cycleAuto?: boolean
   fixedCost: string
   variableCostPerPart: string
   hourlyRateOverride: string
@@ -45,7 +45,7 @@ export interface PhaseVM {
 
 export type PhaseField =
   | 'operationId' | 'machineId' | 'treatmentId' | 'supplierId' | 'description'
-  | 'setupHours' | 'cycleHoursPerPart' | 'fixedCost' | 'variableCostPerPart' | 'hourlyRateOverride'
+  | 'setupMinutes' | 'cycleMinutes' | 'fixedCost' | 'variableCostPerPart' | 'hourlyRateOverride'
 
 interface Options {
   operations: SelectOption[]
@@ -200,14 +200,14 @@ function PhaseRow(props: {
             {!phase.isTreatment && (
               <>
                 <div>
-                  <Label className={fieldLabel}>Ore setup</Label>
-                  <DecimalField value={phase.setupHours} onCommit={commit('setupHours')} className={smallMono} />
+                  <Label className={fieldLabel}>Min. setup</Label>
+                  <DecimalField value={phase.setupMinutes} onCommit={commit('setupMinutes')} className={smallMono} />
                 </div>
                 <div>
-                  <Label className={fieldLabel}>Ore ciclo/pz {phase.cycleHoursAuto && <span className="text-primary">(auto)</span>}</Label>
-                  <DecimalField value={phase.cycleHoursPerPart} readOnly={phase.cycleHoursAuto}
-                    onCommit={commit('cycleHoursPerPart')}
-                    className={cn(smallMono, phase.cycleHoursAuto && 'border-border bg-muted/50 text-muted-foreground')} />
+                  <Label className={fieldLabel}>Min. ciclo/pz {phase.cycleAuto && <span className="text-primary">(auto)</span>}</Label>
+                  <DecimalField value={phase.cycleMinutes} readOnly={phase.cycleAuto}
+                    onCommit={commit('cycleMinutes')}
+                    className={cn(smallMono, phase.cycleAuto && 'border-border bg-muted/50 text-muted-foreground')} />
                 </div>
               </>
             )}

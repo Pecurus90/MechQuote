@@ -5,6 +5,7 @@ import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
+import { hoursToMinutes, minutesToHours } from '@/lib/timeUnits'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import { tWrap, tHead, tRow, RowActions } from '@/components/settings/inlineEdit'
@@ -35,11 +36,11 @@ export default function MachinesPage() {
   useEffect(() => { loadData() }, [])
 
   const openNew = () => { setEditingId(0); setName(''); setMtype(''); setRate(''); setSetupRate(''); setSetup('') }
-  const startEdit = (m: Machine) => { setEditingId(m.id); setName(m.name); setMtype(m.machine_type ?? ''); setRate(String(m.hourly_rate)); setSetupRate(m.setup_hourly_rate != null ? String(m.setup_hourly_rate) : ''); setSetup(String(m.setup_minimum_hours ?? 0)) }
+  const startEdit = (m: Machine) => { setEditingId(m.id); setName(m.name); setMtype(m.machine_type ?? ''); setRate(String(m.hourly_rate)); setSetupRate(m.setup_hourly_rate != null ? String(m.setup_hourly_rate) : ''); setSetup(String(hoursToMinutes(m.setup_minimum_hours ?? 0))) }
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Nome obbligatorio'); return }
-    const payload = { name, machine_type: mtype, hourly_rate: parseDecimal(rate), setup_hourly_rate: setupRate === '' ? null : parseDecimal(setupRate), setup_minimum_hours: parseDecimal(setup) }
+    const payload = { name, machine_type: mtype, hourly_rate: parseDecimal(rate), setup_hourly_rate: setupRate === '' ? null : parseDecimal(setupRate), setup_minimum_hours: minutesToHours(parseDecimal(setup)) }
     try {
       if (editingId && editingId > 0) await api.put(`/machines/${editingId}`, payload); else await api.post('/machines', payload)
       toast.success('Centro di costo salvato'); setEditingId(null); loadData()
@@ -120,7 +121,7 @@ export default function MachinesPage() {
               <p className="mt-1 text-[11px] text-muted-foreground">Attrezzaggio (operatore senza macchina). Vuoto = stessa di lavoro.</p>
             </div>
             <div>
-              <label className={fieldLabel}>Setup minimo (h)</label>
+              <label className={fieldLabel}>Setup minimo (min)</label>
               <Input onFocus={e => e.currentTarget.select()} type="text" inputMode="decimal" className="font-mono" value={setup} onChange={e => setSetup(e.target.value)} />
               <p className="mt-1 text-[11px] text-muted-foreground">Usato in fase di import DXF/STEP (in arrivo).</p>
             </div>

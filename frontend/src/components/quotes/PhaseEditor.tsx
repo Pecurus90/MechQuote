@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
+import { hoursToMinutes, minutesToHours } from '@/lib/timeUnits'
 import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
 import { calcTreatmentCost, calcPhaseCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
@@ -236,9 +237,9 @@ export default function PhaseEditor({
       treatmentId: phase.treatment_id != null ? String(phase.treatment_id) : '',
       supplierId: phase.supplier_id != null ? String(phase.supplier_id) : '',
       description: phase.description ?? '',
-      setupHours: phase.setup_hours != null ? String(phase.setup_hours) : '',
-      cycleHoursPerPart: phase.cycle_hours_per_part != null ? String(phase.cycle_hours_per_part) : '',
-      cycleHoursAuto: isEdmAuto(phase, machines),
+      setupMinutes: phase.setup_hours != null ? String(hoursToMinutes(phase.setup_hours)) : '',
+      cycleMinutes: phase.cycle_hours_per_part != null ? String(hoursToMinutes(phase.cycle_hours_per_part)) : '',
+      cycleAuto: isEdmAuto(phase, machines),
       fixedCost: phase.fixed_cost != null ? String(phase.fixed_cost) : '',
       variableCostPerPart: phase.variable_cost_per_part != null ? String(phase.variable_cost_per_part) : '',
       hourlyRateOverride: phase.hourly_rate_override != null ? String(phase.hourly_rate_override) : '',
@@ -284,8 +285,8 @@ export default function PhaseEditor({
   const onFieldCommit = (id: number, field: PhaseField, raw: string) => {
     const idx = idxById(id); if (idx < 0) return
     switch (field) {
-      case 'setupHours': saveImmediate(idx, { setup_hours: parseDecimal(raw) || 0 }); break
-      case 'cycleHoursPerPart': saveImmediate(idx, { cycle_hours_per_part: parseDecimal(raw) || 0 }); break
+      case 'setupMinutes': saveImmediate(idx, { setup_hours: minutesToHours(parseDecimal(raw)) }); break
+      case 'cycleMinutes': saveImmediate(idx, { cycle_hours_per_part: minutesToHours(parseDecimal(raw)) }); break
       case 'fixedCost': saveImmediate(idx, { fixed_cost: parseDecimal(raw) || 0 }); break
       case 'variableCostPerPart': saveImmediate(idx, { variable_cost_per_part: parseDecimal(raw) || 0 }); break
       case 'hourlyRateOverride': saveImmediate(idx, { hourly_rate_override: raw === '' ? undefined : parseDecimal(raw) }); break

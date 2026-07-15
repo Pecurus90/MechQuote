@@ -63,6 +63,8 @@ interface Props {
   phaseEditor: ReactNode
   /** Slot: <PartCostSummary /> reso dal container. */
   costSummary: ReactNode
+  /** Slot: <PartAttachments /> reso dal container (opzionale). */
+  attachments?: ReactNode
 }
 
 const fieldLabel = 'mb-[5px] block text-[11.5px] font-medium text-muted-foreground'
@@ -87,6 +89,7 @@ export function PartCardView(props: Props) {
     onClearTreatment,
     phaseEditor,
     costSummary,
+    attachments,
   } = props
 
   return (
@@ -330,6 +333,8 @@ export function PartCardView(props: Props) {
         {phaseEditor}
         {costSummary}
       </div>
+
+      {attachments}
     </div>
   )
 }

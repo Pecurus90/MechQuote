@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 import logging
+import mimetypes
 import os
 import uuid
 
@@ -486,3 +488,24 @@ def delete_file(
     db.delete(pf)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/files/{file_id}")
+def get_part_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Serve un allegato di parte (disegno/documento) con AUTENTICAZIONE + ACL
+    del preventivo. Inline (il browser apre PDF/immagini in tab); il download
+    forzato lo fa il frontend via blob. Volutamente NON usa il mount statico
+    /uploads (che è senza auth). Basta poter VEDERE il preventivo — nessun
+    permesso di scrittura richiesto."""
+    pf = db.query(PartFile).filter(PartFile.id == file_id).first()
+    if not pf:
+        raise HTTPException(status_code=404, detail="File non trovato")
+    ensure_quote_visible(_quote_for_part(pf.part_id, db), current_user)
+    if not os.path.exists(pf.path):
+        raise HTTPException(status_code=404, detail="File non presente su disco")
+    media = mimetypes.guess_type(pf.filename)[0] or "application/octet-stream"
+    return FileResponse(pf.path, media_type=media, filename=pf.filename)

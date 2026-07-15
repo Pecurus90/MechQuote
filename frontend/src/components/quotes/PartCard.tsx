@@ -8,6 +8,7 @@ import type { Part, Material, Machine, Treatment, Supplier, CompanySettings } fr
 import { toast } from 'sonner'
 import { PartCardView, type PartCardValue, type PartField, type RawType, type SelectOption } from '@/components/quotes/PartCardView'
 import { PartCostSummary } from '@/components/quotes/PartCostSummary'
+import { PartAttachments } from '@/components/quotes/PartAttachments'
 
 // Container della PartCard: mantiene TUTTA la logica materiale/grezzo/
 // trattamento e il breakdown costi (gemello DRY di calculation.py). La grafica
@@ -276,6 +277,14 @@ export default function PartCard({
           }}
         />
       }
+      attachments={part.id ? (
+        <PartAttachments
+          partId={part.id}
+          files={part.files ?? []}
+          readOnly={readOnly}
+          onReload={onReload}
+        />
+      ) : undefined}
     />
   )
 }

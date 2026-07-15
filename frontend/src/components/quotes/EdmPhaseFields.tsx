@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { DecimalField } from '@/components/ui/decimal-field'
 import { Button } from '@/components/ui/button'
-import { Zap, Unlock, FileText, X, Paperclip, Edit3 } from 'lucide-react'
+import { Zap, Unlock, FileText, X, Paperclip, Edit3, Eye } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { Phase, CuttingCycle } from '@/types'
 import { parseDecimal } from '@/lib/decimalInput'
 import DxfProfilePicker, { type DxfPickerState } from '@/components/quotes/Dxf/DxfProfilePicker'
 import Dxf2dReselectModal, { type ReselectResult } from '@/components/quotes/Dxf/Dxf2dReselectModal'
+import DxfViewerModal from '@/components/quotes/Dxf/DxfViewerModal'
 
 interface Props {
   phase: Phase
@@ -54,6 +55,7 @@ interface Props {
 export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, defaultCutHeightMm, partHasRawStock, partRawXmm, partRawYmm, partDxfFileId, suggestedMachineId, onReload, onChange, onBlur, onUnlockManual, onPatch, onSaveImmediate }: Props) {
   const [showDxfModal, setShowDxfModal] = useState(false)
   const [showReselectModal, setShowReselectModal] = useState(false)
+  const [showViewer, setShowViewer] = useState(false)
   const [pendingDxf, setPendingDxf] = useState<DxfPickerState | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -199,14 +201,24 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
         </div>
         <div className="flex items-center gap-3">
           {canReselect ? (
-            <button
-              type="button"
-              onClick={() => setShowReselectModal(true)}
-              className="flex items-center gap-1 text-[11px] text-warning hover:underline"
-              title="Riapri la selezione dei profili sul DXF già allegato"
-            >
-              <Edit3 className="w-3 h-3" /> Modifica selezione DXF
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowViewer(true)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                title="Vedi il disegno DXF con i profili selezionati (sola lettura)"
+              >
+                <Eye className="w-3 h-3" /> Vedi disegno
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReselectModal(true)}
+                className="flex items-center gap-1 text-[11px] text-warning hover:underline"
+                title="Riapri la selezione dei profili sul DXF già allegato"
+              >
+                <Edit3 className="w-3 h-3" /> Modifica selezione DXF
+              </button>
+            </>
           ) : (
             <button
               type="button"
@@ -286,6 +298,16 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
           rawY={partRawYmm}
           onClose={() => setShowReselectModal(false)}
           onConfirm={handleReselectConfirm}
+        />
+      )}
+
+      {showViewer && partDxfFileId && (
+        <DxfViewerModal
+          partFileId={partDxfFileId}
+          selectedIds={phase.dxf_profile_ids ?? []}
+          rawX={partRawXmm}
+          rawY={partRawYmm}
+          onClose={() => setShowViewer(false)}
         />
       )}
 

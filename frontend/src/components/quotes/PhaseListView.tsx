@@ -178,10 +178,11 @@ function PhaseRow(props: {
             </div>
           </div>
 
-          {/* supplier (opzionale) */}
-          {(phase.isTreatment || phase.supplierId) && (
+          {/* Fornitore esterno (opz.): trattamenti + qualsiasi fase SENZA
+              macchina interna (conto lavoro esterno / extra personalizzato). */}
+          {(phase.isTreatment || !phase.machineId || phase.supplierId) && (
             <div className="mt-2.5 max-w-[calc(33%_-_6px)]">
-              <Label className={fieldLabel}>Fornitore (opz.)</Label>
+              <Label className={fieldLabel}>Fornitore esterno (opz.)</Label>
               <Select value={phase.supplierId} onValueChange={(v) => onChange(phase.id, 'supplierId', v)}>
                 <SelectTrigger className={smallInput}><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>{suppliers.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>

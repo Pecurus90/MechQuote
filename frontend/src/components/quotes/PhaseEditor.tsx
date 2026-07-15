@@ -79,7 +79,16 @@ export default function PhaseEditor({
     api.get('/operations?active=true').then(r => setOperations(r.data)).catch(devWarn('operations'))
   }, [])
 
+  // Ricalcolo locale delle fasi quando cambiano gli input che influenzano il
+  // costo (qty/peso/nParts) o quando arrivano i cataloghi.
+  // ⚠️ BUG STORICO (fix): il catalogo macchine si carica in parallelo al
+  // preventivo; se questo effect gira PRIMA che `machines` sia popolato,
+  // calcPhase userebbe rate 0 e AZZEREBBE il costo di tutte le fasi macchina
+  // (le ore restano scritte ma il € va a 0) — e non si ripristinava più perché
+  // `machines` non era nelle deps. Fix: skip finché il catalogo è vuoto +
+  // `machines`/`treatments` nelle deps così rifira quando arrivano.
   useEffect(() => {
+    if (!machines.length) return
     const updated = phases.map(ph => {
       let next = ph
       if (ph.treatment_id) {
@@ -90,7 +99,7 @@ export default function PhaseEditor({
     })
     const changed = updated.some((ph, i) => ph.calculated_cost !== phases[i].calculated_cost || ph.variable_cost_per_part !== phases[i].variable_cost_per_part)
     if (changed) onChange(updated)
-  }, [finishedWeightKg, quantity, nParts]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [finishedWeightKg, quantity, nParts, machines, treatments]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── mutazioni (invariate) ─────────────────────────────────────────────────
   const updateField = (idx: number, field: keyof Phase, value: Phase[keyof Phase]) =>

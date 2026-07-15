@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 // Guscio editor (design handoff)
 import { QuoteEditorTopBar, type EditorAction } from '@/components/quotes/QuoteEditorTopBar'
 import { PartsSidebar } from '@/components/quotes/PartsSidebar'
+import { ClonePartModal } from '@/components/quotes/ClonePartModal'
 import { QuoteDataPanel, type QuoteDataValue } from '@/components/quotes/QuoteDataPanel'
 import { CommessaSummaryTable, type CommessaRow } from '@/components/quotes/CommessaSummaryTable'
 import { CloseoutPanel } from '@/components/quotes/CloseoutPanel'
@@ -50,6 +51,8 @@ export default function QuoteEditor() {
     variant?: 'default' | 'destructive'
   } | null>(null)
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
+  const [cloneSourceId, setCloneSourceId] = useState<number | null>(null)
+  const [cloning, setCloning] = useState(false)
   // Rilevamento concorrenza: versione dell'aggregato vista dal server all'ultimo
   // sync (bump a ogni modifica). `staleConflict` = un'altra persona ha modificato.
   const serverVersion = useRef<string | undefined>(undefined)
@@ -164,6 +167,19 @@ export default function QuoteEditor() {
       await reloadQuote()   // riallinea anche la versione dell'aggregato
       toast.success('Parte duplicata')
     } catch { toast.error('Errore nella duplicazione') }
+  }
+
+  const clonePartOnto = async (targetIds: number[]) => {
+    if (cloneSourceId == null) return
+    setCloning(true)
+    try {
+      const res = await api.post(`/parts/${cloneSourceId}/clone-onto`, { target_ids: targetIds })
+      const n = res.data?.cloned ?? targetIds.length
+      toast.success(`Ricetta clonata su ${n} ${n === 1 ? 'articolo' : 'articoli'}`)
+      setCloneSourceId(null)
+      await reloadQuote()
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nella clonazione')) }
+    finally { setCloning(false) }
   }
 
   const deletePart = async (idx: number) => {
@@ -460,6 +476,7 @@ export default function QuoteEditor() {
           onSelect={(sel) => setSelectedPartIdx(sel === 'quote' ? -1 : idxOf(sel))}
           onAdd={addPart}
           onDuplicate={(pid) => duplicatePart(idxOf(pid))}
+          onClone={(pid) => setCloneSourceId(pid)}
           onDelete={(pid) => setConfirmDeletePartIdx(idxOf(pid))}
         />
 
@@ -573,6 +590,23 @@ export default function QuoteEditor() {
         onConfirm={async () => { if (confirmDeletePartIdx !== null) await deletePart(confirmDeletePartIdx); setConfirmDeletePartIdx(null) }}
         onCancel={() => setConfirmDeletePartIdx(null)}
       />
+
+      {cloneSourceId != null && quote && (() => {
+        const src = quote.parts.find(p => p.id === cloneSourceId)
+        if (!src) return null
+        const targets = quote.parts
+          .filter(p => p.id != null && p.id !== cloneSourceId)
+          .map(p => ({ id: p.id as number, part_code: p.part_code, description: p.description || '' }))
+        return (
+          <ClonePartModal
+            sourceCode={src.part_code}
+            targets={targets}
+            busy={cloning}
+            onConfirm={clonePartOnto}
+            onClose={() => setCloneSourceId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

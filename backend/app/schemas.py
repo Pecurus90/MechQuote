@@ -337,6 +337,12 @@ class MaterialOut(MaterialBase):
 
 
 # --- Part ---
+class PartCloneRequest(BaseModel):
+    """Clona la ricetta di una parte su altri articoli (target) dello stesso
+    preventivo. Vedi POST /parts/{source_id}/clone-onto."""
+    target_ids: List[int]
+
+
 class PartBase(BaseModel):
     part_code: str
     revision: Optional[str] = "A"

@@ -8,7 +8,7 @@ import uuid
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
-from app.schemas import PartCreate, PartUpdate, PartOut
+from app.schemas import PartCreate, PartUpdate, PartOut, PartCloneRequest
 from app.services.calculation import recalculate_part, recalculate_quote
 from app.services.material_status import unassigned_supplier_parts
 from app.services import quote_workflow as wf
@@ -306,6 +306,95 @@ def duplicate_part(
         joinedload(Part.material),
         joinedload(Part.files),
     ).filter(Part.id == new_part.id).first()
+
+
+# Campi "ricetta" copiati dalla sorgente sul target. NON include l'identità del
+# target (part_code, revision, description, quantity, note, quote_mode, file).
+_RECIPE_FIELDS = (
+    'material_id', 'raw_x_mm', 'raw_y_mm', 'raw_z_mm', 'raw_diameter_mm',
+    'raw_weight_kg', 'finished_weight_kg', 'material_cost', 'material_delivery_cost',
+    'margin_percent', 'minimum_price', 'customer_supplied_material', 'material_from_stock',
+)
+
+
+def _clone_phase(src: ManufacturingPhase, target_part_id: int) -> ManufacturingPhase:
+    return ManufacturingPhase(
+        part_id=target_part_id,
+        sequence_number=src.sequence_number,
+        phase_type=src.phase_type,            # legacy DB col, NOT NULL
+        operation_id=src.operation_id,
+        description=src.description,
+        machine_id=src.machine_id,
+        supplier_id=src.supplier_id,
+        treatment_id=src.treatment_id,
+        setup_hours=src.setup_hours,
+        cycle_hours_per_part=src.cycle_hours_per_part,
+        fixed_cost=src.fixed_cost,
+        variable_cost_per_part=src.variable_cost_per_part,
+        hourly_rate_override=src.hourly_rate_override,
+        internal_notes=src.internal_notes,
+        customer_notes=src.customer_notes,
+        # EDM: i campi numerici trigger dell'autocalc si copiano (il COSTO è
+        # preservato). `dxf_profile_ids` NO: i profili vivono sul file DXF della
+        # sorgente, non trasferibile → dangling reference sul target.
+        cut_length_mm=src.cut_length_mm,
+        cut_height_mm=src.cut_height_mm,
+        cutting_cycle_id=src.cutting_cycle_id,
+        n_pierce=src.n_pierce,
+        dxf_profile_ids=None,
+    )
+
+
+@router.post("/parts/{source_id}/clone-onto")
+def clone_part_onto(
+    source_id: int,
+    req: PartCloneRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    """Clona la RICETTA tecnica di una parte su altri articoli dello stesso
+    preventivo (commessa), tenendo del target il codice, la quantità, la
+    descrizione (la sua identità).
+
+    Copiati: materiale + dimensioni grezzo + provenienza + pesi + costi
+    materiale + margine/minimo + TUTTE le fasi (che SOSTITUISCONO quelle
+    esistenti del target — clean-slate). Il ricalcolo usa la quantità del
+    target, quindi i totali scalano correttamente.
+    """
+    source = db.query(Part).options(joinedload(Part.phases)).filter(Part.id == source_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Parte sorgente non trovata")
+    quote = _quote_for_part(source_id, db)
+    ensure_editable(quote, current_user)
+
+    ids = list(dict.fromkeys(req.target_ids))   # dedup preservando l'ordine
+    if not ids:
+        raise HTTPException(status_code=400, detail="Nessun articolo di destinazione selezionato")
+    if source_id in ids:
+        raise HTTPException(status_code=400, detail="La sorgente non può essere anche destinazione")
+    targets = db.query(Part).filter(Part.id.in_(ids)).all()
+    if len(targets) != len(ids):
+        raise HTTPException(status_code=404, detail="Un articolo di destinazione non esiste")
+    for t in targets:
+        if t.quote_id != source.quote_id:
+            raise HTTPException(status_code=400, detail="Gli articoli devono essere dello stesso preventivo")
+
+    for t in targets:
+        for f in _RECIPE_FIELDS:
+            setattr(t, f, getattr(source, f))
+        db.query(ManufacturingPhase).filter(ManufacturingPhase.part_id == t.id).delete()
+        db.flush()
+        for ph in source.phases:
+            db.add(_clone_phase(ph, t.id))
+    db.commit()
+
+    # Un solo recalcolo: recalculate_part ricalcola l'INTERO preventivo
+    # (aggregazioni trattamenti/spedizioni + final_total).
+    recalculate_part(targets[0].id, db)
+    _reconcile_after_write(db, quote, current_user)
+
+    return {"ok": True, "cloned": len(targets)}
 
 
 @router.post("/parts/{part_id}/files")

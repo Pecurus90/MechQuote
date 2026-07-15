@@ -1,5 +1,5 @@
 // src/components/quotes/PartsSidebar.tsx
-import { Settings2, Plus, AlertTriangle, Copy, Trash2 } from 'lucide-react'
+import { Settings2, Plus, AlertTriangle, Copy, CopyPlus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface PartSidebarItem {
@@ -18,6 +18,8 @@ interface Props {
   onSelect: (id: number | 'quote') => void
   onAdd?: () => void
   onDuplicate?: (id: number) => void
+  /** Clona la ricetta di questa parte su altri articoli (apre il modale). */
+  onClone?: (id: number) => void
   onDelete?: (id: number) => void
 }
 
@@ -25,7 +27,7 @@ const eur0 = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 
 export function PartsSidebar(props: Props) {
-  const { parts, selected, canAddParts, locked, onSelect, onAdd, onDuplicate, onDelete } = props
+  const { parts, selected, canAddParts, locked, onSelect, onAdd, onDuplicate, onClone, onDelete } = props
   const showActions = canAddParts && !locked
 
   return (
@@ -105,11 +107,25 @@ export function PartsSidebar(props: Props) {
                         'h-3.5 w-3.5 transition-colors hover:text-foreground',
                         active ? 'text-primary' : 'text-muted-foreground',
                       )}
+                      aria-label="Duplica in un nuovo articolo"
                       onClick={(e) => {
                         e.stopPropagation()
                         onDuplicate?.(p.id)
                       }}
                     />
+                    {parts.length > 1 && (
+                      <CopyPlus
+                        className={cn(
+                          'h-3.5 w-3.5 transition-colors hover:text-foreground',
+                          active ? 'text-primary' : 'text-muted-foreground',
+                        )}
+                        aria-label="Clona la ricetta su altri articoli"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onClone?.(p.id)
+                        }}
+                      />
+                    )}
                     <Trash2
                       className={cn(
                         'h-3.5 w-3.5 transition-colors hover:text-danger',

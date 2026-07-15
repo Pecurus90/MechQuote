@@ -3,7 +3,7 @@ import { useRef } from 'react'
 // Barra tab canonica (P5, handoff Catalogo/Sistema): attivo = testo accento +
 // underline 2.5px; hover = fondo muted; inattivo = muted-foreground. Scrolla in
 // orizzontale su schermi stretti. Navigazione da tastiera con frecce ←→.
-// `accent` = nome di una CSS var token (es. 'primary', 'edm', 'dies',
+// `accent` = nome di una CSS var token (es. 'primary', 'edm',
 // 'foreground'); l'underline/colore attivo usano hsl(var(--accent)).
 
 export interface SettingsTab { key: string; label: string }

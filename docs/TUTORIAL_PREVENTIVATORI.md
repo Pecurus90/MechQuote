@@ -22,7 +22,7 @@ Questa guida ti spiega passo passo come usare i **tre modi di preventivare** che
 |---|---|
 | Solo testa e disegno cartaceo (niente file digitali) | **Manuale** |
 | File DXF (2D, profilo da tagliare a filo) | **2D DXF** |
-| Devi preventivare uno **stampo per lamiera** (passo o blocco) | **Stampi** |
+| Devi preventivare uno **stampo per lamiera** (passo o blocco) | ~~**Stampi**~~ *(modulo rimosso, in ricostruzione — vedi Modo 3)* |
 
 Pensa così:
 - **Manuale** = compili a mano, riga per riga, quante ore e quale macchina.
@@ -243,6 +243,13 @@ Una volta creato, l'editor è quello del preventivo manuale: vedi 1 parte con 1-
 ---
 
 ## Modo 3 — Preventivo Stampi (la guida completa)
+
+> ⛔ **MODULO RIMOSSO (2026-07-14) — non disponibile.** Il Preventivatore
+> Stampi è stato rimosso dal software e verrà **riscritto da zero**. Le
+> istruzioni di questa sezione descrivono il **vecchio** modulo e restano
+> qui solo come riferimento per la ricostruzione: **oggi in MechQuote esistono
+> solo il Modo 1 (Manuale) e il Modo 2 (2D DXF)**. Vedi
+> `MECHQUOTE_LISTA_LAVORI.md` → "MODULO STAMPI RIMOSSO".
 
 Questo è il modo più articolato. Lo usi per preventivare uno **stampo per lamiera**, sia a **passo** (progressivo, con N stazioni) sia a **blocco** (una singola operazione).
 

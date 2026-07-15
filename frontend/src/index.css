@@ -56,7 +56,6 @@
     --customers: 243 75% 59%;  /* Clienti (indaco) */
     --officina: 28 88% 48%;    /* Officina (ambra/arancio) */
     --edm: 33 92% 45%;         /* Modulo Wire EDM (ambra) */
-    --dies: 330 75% 50%;       /* Modulo Stampi (rosa/magenta) */
     --stats: 187 74% 34%;      /* Statistiche (teal) */
 
     /* Famiglie materiali (badge dark-aware) */
@@ -107,7 +106,6 @@
     --customers: 244 80% 74%;
     --officina: 30 92% 62%;
     --edm: 36 96% 56%;
-    --dies: 330 80% 70%;
     --stats: 187 78% 52%;
 
     --fam-acciaio: 215 20% 65%; --fam-inox: 199 90% 62%; --fam-legato: 263 84% 72%;

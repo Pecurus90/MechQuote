@@ -118,7 +118,7 @@ export default function NormalizedItemsPage() {
       </div>
 
       {showForm && <NormalizedItemFormModal item={editItem} suppliers={suppliers} categories={categories} onClose={() => setShowForm(false)} onSaved={load} />}
-      <ConfirmDialog open={pendingDelete != null} title="Eliminare questa voce?" description="Se utilizzata in template stampo o preventivi stampo, l'eliminazione sarà bloccata dal backend." confirmLabel="Elimina" onConfirm={confirmDel} onCancel={() => setPendingDelete(null)} />
+      <ConfirmDialog open={pendingDelete != null} title="Eliminare questa voce?" description="Se la voce è in uso, l'eliminazione sarà bloccata dal backend." confirmLabel="Elimina" onConfirm={confirmDel} onCancel={() => setPendingDelete(null)} />
     </StandardPage>
   )
 }

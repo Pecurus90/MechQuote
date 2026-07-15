@@ -294,52 +294,40 @@ stampi (`_recalculate_die_levels` ecc.), permessi `dies.*`, tile chooser
 "Stampi" e "Preventivo 3D", split standard/stampi in dashboard/statistiche.
 Restano (SQLite no DROP COLUMN, non mappate): colonne `parts.die_*`/`plate_role`.
 
-#### Residui inerti rimasti — audit 2026-07-15
+#### Residui inerti — audit + cleanup 2026-07-15 ✅ FATTO
 
-L'audit del 2026-07-15 conferma che **nessun preventivo può più essere di tipo
-`die`** e che il workflow standard (single/commessa) funziona senza il modulo
-(backend startup OK, `pytest tests/unit` 107 pass, `tsc --noEmit` pulito). La
-rimozione però **non è stata totale**: restano residui inerti e **un test rotto**.
+L'audit del 2026-07-15 ha confermato che **nessun preventivo può più essere di
+tipo `die`** e che il workflow standard (single/commessa) funziona senza il
+modulo. La rimozione del 2026-07-14 però non era totale: c'erano residui inerti
+e **un test rotto**. Tutto ripulito il 2026-07-15 (3 commit):
 
-- **⚠️ DIFETTO REALE — `frontend/tests/unit/cost-golden.test.ts` è rotto**:
-  importa `../../src/lib/dieCalc` (file eliminato) → `npm test` (vitest) fallisce
-  in blocco ("Cannot find module 'dieCalc'"). `tsc --noEmit` non lo cattura
-  (tsconfig include solo `src`). Fix: rimuovere l'import + i blocchi `describe`
-  die e i casi `die_*`/`calc_quote_total_die` da `cost-golden.test.ts` **e** dal
-  fixture `tests/fixtures/cost_golden_cases.json` (gemello del golden backend).
-- **Backend — `quote_type='die'` mai rimosso dal codice**: `core/quote_types.py`
-  definisce ancora `QUOTE_TYPE_DIE`/`is_die`/`is_standard`/`QUOTE_TYPES`; `is_die`
-  è importato e chiamato (sempre → False ora) in `quotes.py` (277/302/339/665),
-  `parts.py` (40), `orders.py` (422), `quotes_archive.py` (112),
-  `services/quote_workflow.py` (91/138). Rami morti inerti (default corretto).
-- **Backend — statistiche**: `dashboard.py` `get_stats_quotes` accetta ancora
-  `quote_type='die'` come filtro (righe 249/258) e vari commenti "Stampi"
-  (es. riga 1077 "Stampi = cost_industrial" — la SQL sotto non calcola nulla di
-  simile). Filtro inerte (nessuna riga die).
-- **Backend — test obsoleti** (passano, ma coprono logica morta):
-  `test_quote_types.py` (is_die/is_standard), `test_quote_workflow.py` (39-88,
-  short-circuit die), `test_cost_golden.py` (`test_die_l3_mech/edm/l4` — replicano
-  inline il cost engine stampi rimosso).
-- **Frontend — dead code**: `components/charts/TypeDonut.tsx` (fetta "Stampo" su
-  `counts.die`) **non è importato da nessuna pagina** → eliminabile. Token accent
-  `'dies'`/`--dies`/`bg-dies` in `SettingsPageHeader.tsx`, `PrimaryCtaButton.tsx`,
-  `crud.tsx`, `SettingsTabs.tsx`, `index.css`, `tailwind.config.js`.
-- **Frontend — testo utente residuo**: `NormalizedItemsPage.tsx:121` (ConfirmDialog
-  "…template stampo o preventivi stampo…") + commenti in `types/index.ts`
-  (Modulo Stampi, `DieTemplateNormalized`, `DieNormalizedItem`), `QuotesStatsView.tsx`,
-  `QuotesListView.tsx`.
-- **Commenti modello**: `models.py` righe 82/316/754/766-767 citano ancora
-  `DieTemplateNormalized`/`DieNormalizedItem` e L2/L5 stampi (tabelle inesistenti).
-- **Docs stampi orfani**: `docs/import_historical_dies_README.md` +
-  `docs/import_historical_dies_template.csv` (import BoM stampi, ora inutili);
-  riferimenti storici in `docs/TUTORIAL_PREVENTIVATORI.md`,
-  `MECHQUOTE_CORREZIONI_PREZZI.md`, specs 14/16/17/18/19.
+- **✅ Test frontend rotto** — `cost-golden.test.ts` importava il cancellato
+  `src/lib/dieCalc` → `npm test` falliva in blocco. Rimossi import + casi `die_*`/
+  `calc_quote_total_die`/R3 dal test e dal fixture `cost_golden_cases.json`; tolti
+  i test backend `test_die_l3_mech/edm/l4`. (commit `fix(stampi): ripara golden test`)
+- **✅ Backend dead code** — rimosso `core/quote_types.py` (`is_die`/`is_standard`)
+  e tutte le chiamate (rami sempre-falsi) in quotes/parts/orders/quotes_archive/
+  quote_workflow; rimosso il param dead `quote_type` nelle statistiche e il filtro
+  difensivo `quote_type != 'die'`; puliti i commenti "Stampi" in models/dashboard;
+  cancellati `test_quote_types.py` + i test die in `test_quote_workflow`.
+  (commit `chore(stampi): rimuovi residui inerti … backend`)
+- **✅ Frontend dead code** — cancellato `components/charts/TypeDonut.tsx` (non
+  importato); rimosso il token accent `dies`/`--dies`/`bg-dies` (SettingsPageHeader,
+  PrimaryCtaButton, crud, SettingsTabs, index.css, tailwind.config); ripuliti il
+  testo utente in `NormalizedItemsPage` e i commenti in `types/index.ts`/stats/lista.
+- **✅ Docs orfani** — cancellati `docs/import_historical_dies_{README.md,template.csv}`;
+  banner "modulo rimosso" sul Modo 3 di `docs/TUTORIAL_PREVENTIVATORI.md`.
 
-**Priorità cleanup**: (1) sistemare il test frontend rotto — è l'unico difetto
-attivo; (2) il resto è debito cosmetico inerte, si può accorpare alla riscrittura
-del modulo o ripulire in un commit `chore` dedicato. Su queste colonne `parts.die_*`
-e il `quote_type='die'` la scelta è: tenerli come slot per la riscrittura o
-azzerarli; **decisione utente in sospeso**.
+**Lasciato intenzionalmente** (non è debito attivo):
+- Colonne DB `parts.die_*`/`plate_role`: SQLite non fa DROP COLUMN, restano inerti.
+- La colonna `quotes.quote_type` (valori `single`/`commessa`) e la relativa
+  migration restano: sono il tipo preventivo standard, non un residuo stampi.
+- Commenti di migrazione in `main.py` che documentano i DROP TABLE die (storia).
+- Voci die storiche in `MECHQUOTE_CORREZIONI_PREZZI.md` e nelle spec 14/16/17/18/19:
+  sono record di lavoro/design già rimandati al "cantiere stampi", non fuorvianti.
+
+Verifica finale: backend startup OK, `pytest tests/unit` 92 pass, `tsc --noEmit`
+pulito, `vitest` 19 pass.
 
 Gli AUD-49…56 sotto sono quindi **SUPERATI dalla rimozione** (il codice che
 descrivevano non esiste più): vanno riconsiderati **al momento della

@@ -22,8 +22,8 @@ export interface Treatment {
   name: string
   treatment_type: string | null
   cost_per_kg: number
-  // Modulo Stampi: trattamenti come nitrurazione fatturati a €/dm³.
-  // cost_unit='kg' (default) o 'dm3' switcha la formula nel cost engine.
+  // Trattamenti fatturabili a peso o a volume: cost_unit='kg' (default) o
+  // 'dm3' switcha la formula nel cost engine.
   cost_unit?: 'kg' | 'dm3'
   cost_per_dm3?: number
   minimum_cost: number
@@ -291,15 +291,13 @@ export interface NormalizedSupplier {
   phone?: string | null
   email?: string | null
   notes?: string | null
-  // Modulo Stampi: spedizione aggregata in L2 cost engine.
+  // Spedizione del fornitore esterno (non usata dal cost engine standard).
   shipping_cost?: number
   active?: boolean
 }
 
 /** Catalogo globale di voci normalizzate (viti, cuscinetti, molle, colonne,
- *  boccole, spine). Step 2 cantiere catalogo normalizzati: API CRUD pronta;
- *  Step 4-5 introdurranno FK opzionali su DieTemplateNormalized e
- *  DieNormalizedItem con strategia snapshot (preventivi storici congelati).
+ *  boccole, spine). Catalogo autonomo con API CRUD dedicata.
  */
 export interface NormalizedItem {
   id: number
@@ -423,7 +421,7 @@ export interface QuoteListItem {
   created_by_user_id?: number | null
   material_ordered_at?: string | null
   material_ordered_by?: UserMinimal | null
-  // Spec 18: stato materiale derivato (solo lista archivio). null per stampi.
+  // Spec 18: stato materiale derivato (solo lista archivio).
   material_status?: string | null
   parts: { total_price?: number }[]
   // Consuntivo commessa (spec G): prezzo venduto al cliente + costo reale.

@@ -22,7 +22,7 @@ interface Props {
   kpis: StatKpi[]
   /** esito preventivi a valore € — Vinti / Persi / Aperti (con color) */
   outcome: Array<{ name: string; value: number; color?: string }>
-  /** € per tipo, mensile — righe con { <xKey>, standard, stampi } */
+  /** € per tipo, mensile — righe con { <xKey>, standard } */
   trendByType: Array<Record<string, string | number>>
   /** margine % mensile — righe con { <xKey>, margine } */
   monthlyMargin: Array<Record<string, string | number>>

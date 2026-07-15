@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react'
 export type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
-  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies' | 'primary'
+  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'primary'
 
 // AUD-36: i chip generici erano tint chiari (`bg-*-100`) che non invertono in
 // dark. Forma a opacità (fill semitrasparente sul card + testo con variante
@@ -30,7 +30,6 @@ const COLOR_MAP: Record<Color, string> = {
   customers: 'bg-customers/[0.13] text-customers',
   officina:  'bg-officina/[0.13] text-officina',
   edm:       'bg-edm/[0.13] text-edm',
-  dies:      'bg-dies/[0.13] text-dies',
 }
 
 interface Props {

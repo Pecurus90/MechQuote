@@ -8,13 +8,13 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 type Color =
   | 'blue' | 'indigo' | 'rose' | 'amber' | 'gray'
   | 'emerald' | 'violet' | 'orange' | 'sky' | 'red'
-  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies' | 'primary'
+  | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'primary'
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
   size?: 'sm' | 'md'
-  /** Tema colore. Default 'rose' = stampi/CTA generico. Le pagine
-   *  settings devono passare il colore del proprio header per coerenza. */
+  /** Tema colore. Default 'rose' = CTA generico. Le pagine settings devono
+   *  passare il colore del proprio header per coerenza. */
   color?: Color
 }
 
@@ -38,7 +38,6 @@ const VARIANTS: Record<Color, string> = {
   customers: 'bg-customers border-customers hover:brightness-110',
   officina:  'bg-officina border-officina hover:brightness-110',
   edm:       'bg-edm border-edm hover:brightness-110',
-  dies:      'bg-dies border-dies hover:brightness-110',
 }
 
 export default function PrimaryCtaButton({

@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 // Kit condiviso per il pattern P2 (tabella + modale CRUD). Uniforma modale,
 // pallino "Attivo" e bottoni CSV su tutte le pagine catalogo.
 
-export type Accent = 'primary' | 'tools' | 'sales' | 'customers' | 'officina' | 'edm' | 'dies'
+export type Accent = 'primary' | 'tools' | 'sales' | 'customers' | 'officina' | 'edm'
 
 /** Pallino stato: verde = attivo, grigio = ritirato (con title per accessibilità). */
 export function ActiveDot({ active }: { active: boolean }) {

@@ -185,7 +185,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
 
   const quoteTotal = (q: Quote): number => {
     // B1: usa il totale persistito dal backend (fonte unica, allineato al PDF:
-    // Σ parti + trasporto + imballaggio − sconto; stampi = L7). Il fallback
+    // Σ parti + trasporto + imballaggio − sconto). Il fallback
     // sotto (stessa formula) copre solo i preventivi mai ricalcolati dopo la
     // migrazione, per cui final_total è ancora null.
     if (q.final_total != null) return q.final_total

@@ -217,15 +217,14 @@ Chiavi (`PERMISSION_KEYS`):
 > ⛔ **Modulo Preventivatore Stampi RIMOSSO (2026-07-14)** — verrà riscritto da
 > zero. Rimossi: permessi `dies.*`, modelli/tabelle `Die*`, cost engine stampi,
 > pagine dedicate. Snapshot recuperabile dal tag git `stampi-pre-rimozione`.
-> **Attenzione (audit 2026-07-15)**: la rimozione NON è totale — restano residui
-> inerti. `quote_type='die'` vive ancora in `core/quote_types.py`
-> (`QUOTE_TYPE_DIE`/`is_die`) ed è chiamato in vari endpoint (rami morti: `is_die`
-> ora torna sempre False); esistono `TypeDonut.tsx` (dead code), token accent
-> `dies`, test obsoleti e — difetto reale — `frontend/tests/unit/cost-golden.test.ts`
-> importa il cancellato `dieCalc.ts` (→ `npm test` rosso, `tsc` non lo cattura).
-> Non basarti su questi residui: sono da ripulire o riscrivere col nuovo modulo.
-> Inventario completo e priorità in `MECHQUOTE_LISTA_LAVORI.md` → "MODULO STAMPI
-> RIMOSSO" → "Residui inerti rimasti — audit 2026-07-15".
+> **Residui inerti ripuliti (2026-07-15)**: eliminati `core/quote_types.py`
+> (`is_die`), i rami morti negli endpoint, `TypeDonut.tsx`, il token accent
+> `dies`, i test/fixture die e il test frontend rotto (importava `dieCalc.ts`).
+> Restano solo (intenzionalmente, non-residui): la colonna `quotes.quote_type`
+> con valori `single`/`commessa`, le colonne `parts.die_*` inerti (SQLite no
+> DROP COLUMN) e i riferimenti storici in TUTORIAL/CORREZIONI_PREZZI/spec.
+> Dettaglio in `MECHQUOTE_LISTA_LAVORI.md` → "MODULO STAMPI RIMOSSO" →
+> "Residui inerti — audit + cleanup 2026-07-15".
 
 ### Regola di gating (modello dinamico)
 

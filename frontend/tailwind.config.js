@@ -45,7 +45,6 @@ export default {
         customers: 'hsl(var(--customers) / <alpha-value>)',
         officina: 'hsl(var(--officina) / <alpha-value>)',
         edm: 'hsl(var(--edm) / <alpha-value>)',
-        dies: 'hsl(var(--dies) / <alpha-value>)',
         stats: 'hsl(var(--stats) / <alpha-value>)',
         'fam-acciaio': 'hsl(var(--fam-acciaio) / <alpha-value>)',
         'fam-inox': 'hsl(var(--fam-inox) / <alpha-value>)',

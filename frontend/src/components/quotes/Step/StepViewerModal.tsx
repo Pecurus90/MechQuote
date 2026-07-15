@@ -8,10 +8,40 @@ import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 
+export interface StepGeometry {
+  x: number; y: number; z: number   // ingombro (bounding box) in mm
+  volumeCm3: number
+  weightKg?: number
+}
+
 interface Props {
   fileId: number
   filename?: string
+  /** Densità del materiale della parte (kg/dm³) per stimare il peso. */
+  densityKgDm3?: number
+  /** Applica ingombro/peso ai campi della parte (Grezzo X/Y/Z + Peso finito). */
+  onApplyGeometry?: (g: StepGeometry) => void
   onClose: () => void
+}
+
+/** Volume del solido dai triangoli (teorema della divergenza). Positivo,
+ *  in unità del modello (mm con linearUnit='millimeter'). Vale per solidi
+ *  chiusi (i STEP prodotti da CAD lo sono); per shell aperte è indicativo. */
+function meshVolume(meshes: { attributes: { position: { array: number[] } }; index: { array: number[] } }[]): number {
+  let v = 0
+  for (const m of meshes) {
+    const p = m.attributes.position.array
+    const idx = m.index.array
+    for (let i = 0; i < idx.length; i += 3) {
+      const a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3
+      v += (
+        p[a] * (p[b + 1] * p[c + 2] - p[b + 2] * p[c + 1])
+        - p[a + 1] * (p[b] * p[c + 2] - p[b + 2] * p[c])
+        + p[a + 2] * (p[b] * p[c + 1] - p[b + 1] * p[c])
+      ) / 6
+    }
+  }
+  return Math.abs(v)
 }
 
 // occt-import-js carica un WASM: inizializziamo una volta sola per sessione.
@@ -24,12 +54,13 @@ const getOcct = () => (occtPromise ??= occtimportjs({ locateFile: () => wasmUrl 
  * (orbit/zoom/pan). In "Misura" due click sulla superficie danno la distanza.
  * Componente lazy-loaded: three + occt NON entrano nel bundle principale.
  */
-export default function StepViewerModal({ fileId, filename, onClose }: Props) {
+export default function StepViewerModal({ fileId, filename, densityKgDm3, onApplyGeometry, onClose }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [measure, setMeasure] = useState(false)
   const [distance, setDistance] = useState<number | null>(null)
+  const [geom, setGeom] = useState<StepGeometry | null>(null)
 
   // Riferimenti "vivi" usati dai handler senza rilanciare l'effetto.
   const measureRef = useRef(measure)
@@ -58,7 +89,8 @@ export default function StepViewerModal({ fileId, filename, onClose }: Props) {
       let result
       try {
         const occt = await getOcct()
-        result = occt.ReadStepFile(new Uint8Array(buf), null)
+        // linearUnit='millimeter' → output SEMPRE in mm (a prescindere dall'unità del file).
+        result = occt.ReadStepFile(new Uint8Array(buf), { linearUnit: 'millimeter' })
       } catch {
         if (!disposed) { setError('Errore nel motore 3D (WASM)'); setLoading(false) }
         return
@@ -92,6 +124,15 @@ export default function StepViewerModal({ fileId, filename, onClose }: Props) {
       const size = new THREE.Vector3(); bbox.getSize(size)
       const center = new THREE.Vector3(); bbox.getCenter(center)
       const maxDim = Math.max(size.x, size.y, size.z) || 1
+
+      // Ingombro + volume + peso stimato (mm / cm³ / kg).
+      const volMm3 = meshVolume(result.meshes)
+      const r2 = (n: number) => Math.round(n * 100) / 100
+      setGeom({
+        x: r2(size.x), y: r2(size.y), z: r2(size.z),
+        volumeCm3: r2(volMm3 / 1000),
+        weightKg: densityKgDm3 ? Math.round((volMm3 / 1e6) * densityKgDm3 * 1000) / 1000 : undefined,
+      })
 
       const camera = new THREE.PerspectiveCamera(45, width / height, maxDim / 1000, maxDim * 100)
       camera.position.set(center.x + maxDim, center.y + maxDim, center.z + maxDim)
@@ -218,6 +259,21 @@ export default function StepViewerModal({ fileId, filename, onClose }: Props) {
             </span>
           )}
         </div>
+
+        {geom && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-muted/40 px-5 py-2 text-[12.5px]">
+            <span className="text-muted-foreground">Ingombro: <span className="font-mono font-semibold text-foreground">{geom.x} × {geom.y} × {geom.z}</span> mm</span>
+            <span className="text-muted-foreground">Volume: <span className="font-mono font-semibold text-foreground">{geom.volumeCm3}</span> cm³</span>
+            {geom.weightKg != null && (
+              <span className="text-muted-foreground">Peso stimato: <span className="font-mono font-semibold text-foreground">{geom.weightKg}</span> kg</span>
+            )}
+            {onApplyGeometry && (
+              <Button size="sm" variant="outline" className="ml-auto" onClick={() => onApplyGeometry(geom)} title="Compila Grezzo X/Y/Z e Peso finito dalla geometria">
+                <Box className="mr-1 h-3.5 w-3.5" /> Applica al preventivo
+              </Button>
+            )}
+          </div>
+        )}
 
         <div className="relative flex-1" style={{ minHeight: 420 }}>
           <div ref={mountRef} className="absolute inset-0" />

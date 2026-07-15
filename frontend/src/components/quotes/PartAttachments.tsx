@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { PartFile } from '@/types'
 import DxfViewerModal from '@/components/quotes/Dxf/DxfViewerModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import type { StepGeometry } from '@/components/quotes/Step/StepViewerModal'
 
 // Viewer 3D STEP lazy-loaded: three.js + occt (WASM) NON entrano nel bundle
 // principale, si caricano solo quando l'utente apre uno STEP.
@@ -17,6 +18,10 @@ interface Props {
   /** Preventivo bloccato: si può vedere/scaricare, non caricare/eliminare. */
   readOnly?: boolean
   onReload?: () => void | Promise<void>
+  /** Densità materiale (kg/dm³) per la stima peso nel viewer STEP. */
+  densityKgDm3?: number
+  /** Applica ingombro/peso dal modello STEP ai campi della parte. */
+  onApplyGeometry?: (g: StepGeometry) => void
 }
 
 const ICON: Record<string, typeof FileText> = {
@@ -29,7 +34,7 @@ const ACCEPT = '.dxf,.step,.stp,.pdf,.png,.jpg,.jpeg,.gif,.bmp'
 
 /** Sezione "Disegni & allegati" della parte: carica/lista/vedi/scarica/elimina.
  *  I file sono serviti dall'endpoint autenticato GET /files/{id} (via blob). */
-export function PartAttachments({ partId, files, readOnly, onReload }: Props) {
+export function PartAttachments({ partId, files, readOnly, onReload, densityKgDm3, onApplyGeometry }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [dxfView, setDxfView] = useState<PartFile | null>(null)
@@ -159,7 +164,13 @@ export function PartAttachments({ partId, files, readOnly, onReload }: Props) {
             Caricamento viewer 3D…
           </div>
         }>
-          <StepViewerModal fileId={stepView.id} filename={stepView.filename} onClose={() => setStepView(null)} />
+          <StepViewerModal
+            fileId={stepView.id}
+            filename={stepView.filename}
+            densityKgDm3={densityKgDm3}
+            onApplyGeometry={onApplyGeometry ? (g) => { onApplyGeometry(g); setStepView(null) } : undefined}
+            onClose={() => setStepView(null)}
+          />
         </Suspense>
       )}
       <ConfirmDialog

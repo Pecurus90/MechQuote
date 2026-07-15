@@ -283,6 +283,19 @@ export default function PartCard({
           files={part.files ?? []}
           readOnly={readOnly}
           onReload={onReload}
+          densityKgDm3={selectedMaterial?.density_kg_dm3}
+          onApplyGeometry={readOnly ? undefined : (g) => {
+            // Dall'ingombro STEP → grezzo quadro X/Y/Z (+ peso finito se stimato).
+            const material = materials.find(m => m.id === part.material_id)
+            const updates: Partial<Part> = {
+              raw_x_mm: g.x, raw_y_mm: g.y, raw_z_mm: g.z, raw_diameter_mm: undefined,
+              ...(g.weightKg != null ? { finished_weight_kg: g.weightKg } : {}),
+            }
+            updates.material_cost = calcMaterialCost({ ...part, ...updates }, material)
+            setStockType('square')
+            commitPart(updates)
+            toast.success('Ingombro e peso applicati alla parte')
+          }}
         />
       ) : undefined}
     />

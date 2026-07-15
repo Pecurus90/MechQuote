@@ -29,7 +29,6 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.csv_import import csv_export_response, sanitize_filename_part
 from app.core.database import get_db, utc_now
-from app.core.quote_types import is_die
 from app.core.security import get_current_user, require_permission
 from app.models import (
     CompanySettings, MaterialOrder, MaterialOrderItem, MaterialOrderQuote,
@@ -342,9 +341,7 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
       (status 'confermato' + material_ordered_at NULL). Il flag si alza solo a
       evasione totale, che porta subito a 'completo' → questi sono esattamente
       i preventivi con residuo materiale reale (stessa base della rail
-      dashboard 'awaiting-materials'). Gli stampi (materiale fuori scope) sono
-      esclusi in modo difensivo: un die confermato passa già subito a completo,
-      ma non deve mai comparire in un KPI materiale.
+      dashboard 'awaiting-materials').
     - `orders_this_month`: ordini creati nel mese corrente (UTC)
     - `orders_total`: ordini emessi all-time
     - `last_order_at`: timestamp ISO ultimo ordine (None se nessuno)
@@ -355,7 +352,6 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     to_order = db.query(Quote).filter(
         Quote.status == 'confermato',
         Quote.material_ordered_at.is_(None),
-        or_(Quote.quote_type != 'die', Quote.quote_type.is_(None)),
     ).count()
 
     orders_total = db.query(MaterialOrder).count()
@@ -409,7 +405,6 @@ def list_selectable_quotes(
     # anti-N+1: una sola query sui fornitori ordinati dei preventivi di questa
     # pagina. Stessa logica dell'archivio (quotes_archive). Senza questo il
     # campo restava None → il frontend mostrava sempre "non_ordinato".
-    # Stampi fuori scope materiale → material_status None.
     quote_ids = [r.id for r in results]
     ordered_map: Dict[int, set] = {}
     if quote_ids:
@@ -419,11 +414,8 @@ def list_selectable_quotes(
         for qid, sid in rows:
             ordered_map.setdefault(qid, set()).add(sid)
     for r in results:
-        if is_die(r):
-            r.material_status = None
-        else:
-            ordered = ordered_map.get(r.id, set()) if r.status in wf.ORDERABLE_STATUSES else set()
-            r.material_status = quote_material_status(r.parts, ordered)
+        ordered = ordered_map.get(r.id, set()) if r.status in wf.ORDERABLE_STATUSES else set()
+        r.material_status = quote_material_status(r.parts, ordered)
     return results
 
 

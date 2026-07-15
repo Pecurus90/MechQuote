@@ -5,7 +5,6 @@ from typing import List, Optional
 
 from app.api.orders import _format_dim
 from app.core.database import get_db
-from app.core.quote_types import is_die
 from app.core.security import require_permission, get_current_user
 from app.models import (
     ManufacturingPhase, Material, Part, Quote, QuoteSupplierOrder, User,
@@ -50,7 +49,7 @@ def list_archive(
     current_user: User = Depends(get_current_user),
     year: Optional[int] = None,
     q: Optional[str] = None,
-    quote_type: Optional[str] = None,   # 'single' | 'commessa' | 'die' (None=tutti)
+    quote_type: Optional[str] = None,   # 'single' | 'commessa' (None=tutti)
     phase: Optional[str] = None,        # 'active' (non completo) | 'completed' | None=tutti
     status: Optional[str] = None,       # filtro stato esatto (opzionale)
     page: int = 1,
@@ -98,8 +97,7 @@ def list_archive(
     results = query.offset(offset).limit(page_size).all()
 
     # Stato materiale derivato (spec 18) per la colonna archivio. Batch dei
-    # fornitori ordinati per i preventivi di questa pagina (evita N+1). Gli
-    # stampi restano fuori scope → material_status None.
+    # fornitori ordinati per i preventivi di questa pagina (evita N+1).
     quote_ids = [r.id for r in results]
     ordered_map: dict = {}
     if quote_ids:
@@ -109,13 +107,10 @@ def list_archive(
         for qid, sid in rows:
             ordered_map.setdefault(qid, set()).add(sid)
     for r in results:
-        if is_die(r):
-            r.material_status = None
-        else:
-            # Solo confermato/completo è "ordinabile": altrimenti eventuali
-            # ordini residui non contano come evasione (spec 18).
-            ordered = ordered_map.get(r.id, set()) if r.status in ORDERABLE_STATUSES else set()
-            r.material_status = quote_material_status(r.parts, ordered)
+        # Solo confermato/completo è "ordinabile": altrimenti eventuali
+        # ordini residui non contano come evasione (spec 18).
+        ordered = ordered_map.get(r.id, set()) if r.status in ORDERABLE_STATUSES else set()
+        r.material_status = quote_material_status(r.parts, ordered)
     return results
 
 

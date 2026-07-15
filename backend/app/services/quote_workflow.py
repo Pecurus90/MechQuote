@@ -28,7 +28,6 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import utc_now
-from app.core.quote_types import is_die
 from app.models import Part, Quote, QuoteSupplierOrder
 from app.services import material_status as ms
 
@@ -83,13 +82,8 @@ def quote_material_status(db: Session, quote: Quote) -> str:
 
 
 def material_is_resolved(db: Session, quote: Quote) -> bool:
-    """True se il materiale non blocca il completamento.
-
-    Stampi: sempre risolto (materiale fuori scope). Preventivi normali:
-    materiale totalmente evaso o non necessario.
-    """
-    if is_die(quote):
-        return True
+    """True se il materiale non blocca il completamento: materiale
+    totalmente evaso o non necessario."""
     return quote_material_status(db, quote) in (
         ms.MAT_TOTALMENTE_EVASO, ms.MAT_NON_NECESSARIO,
     )
@@ -121,8 +115,7 @@ def reconcile_material_state(db: Session, quote: Quote, actor_id: int) -> bool:
     divergono mai. Idempotente. Non fa commit: lo fa il chiamante.
 
     - Flag legacy `material_ordered_at`/`_by` (ponte compat dashboard): set se
-      il materiale è totalmente evaso, azzerato altrimenti. Gli stampi (die)
-      hanno il materiale fuori scope → il flag non viene toccato.
+      il materiale è totalmente evaso, azzerato altrimenti.
     - `confermato` + materiale risolto → `completo` (promote).
     - `completo` + materiale non più risolto → `confermato` (demote): azzera
       `completed_at`/`_by`. Il consuntivo (`sold_price`/`actual_cost`) NON
@@ -135,19 +128,15 @@ def reconcile_material_state(db: Session, quote: Quote, actor_id: int) -> bool:
     if quote.status not in ORDERABLE_STATUSES:
         return False
 
-    if is_die(quote):
-        # Materiale fuori scope: sempre risolto, flag legacy non pertinente.
-        resolved = True
+    status = quote_material_status(db, quote)
+    resolved = status in (ms.MAT_TOTALMENTE_EVASO, ms.MAT_NON_NECESSARIO)
+    if status == ms.MAT_TOTALMENTE_EVASO:
+        if quote.material_ordered_at is None:
+            quote.material_ordered_at = utc_now()
+            quote.material_ordered_by_user_id = actor_id
     else:
-        status = quote_material_status(db, quote)
-        resolved = status in (ms.MAT_TOTALMENTE_EVASO, ms.MAT_NON_NECESSARIO)
-        if status == ms.MAT_TOTALMENTE_EVASO:
-            if quote.material_ordered_at is None:
-                quote.material_ordered_at = utc_now()
-                quote.material_ordered_by_user_id = actor_id
-        else:
-            quote.material_ordered_at = None
-            quote.material_ordered_by_user_id = None
+        quote.material_ordered_at = None
+        quote.material_ordered_by_user_id = None
 
     if quote.status == STATUS_CONFERMATO and resolved:
         quote.status = STATUS_COMPLETO

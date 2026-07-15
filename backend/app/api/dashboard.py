@@ -163,7 +163,7 @@ def _comparison_range(compare: str, date_from, date_to):
     return (None, None)
 
 
-def _quotes_where(date_from, date_to, quote_type, customer_id):
+def _quotes_where(date_from, date_to, customer_id):
     """Costruisce (date_filter, params) per le query della tab Preventivi.
     Riusato da periodo corrente e finestra di confronto."""
     parts: list = []
@@ -181,10 +181,10 @@ def _quotes_where(date_from, date_to, quote_type, customer_id):
     return date_filter, params
 
 
-def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id) -> StatsQuotesComparison:
+def _quotes_comparison(db: Session, date_from, date_to, customer_id) -> StatsQuotesComparison:
     """Aggregati della finestra di confronto (tab Preventivi): € totale e
     margine % per mese (per la serie `cmp`) + scalari per i delta KPI."""
-    df, params = _quotes_where(date_from, date_to, quote_type, customer_id)
+    df, params = _quotes_where(date_from, date_to, customer_id)
     rows = db.execute(text(
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m,
@@ -219,9 +219,9 @@ def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id)
         margin_by_month.append(StatsCmpPoint(month=r.m, value=round(pct, 2)))
         msum += pct
         mn += 1
-    # None (non 0.0) quando non c'è margine confrontabile: es. filtro "Stampi",
-    # dove la query margine (solo standard) non restituisce righe → il KPI di
-    # confronto non mostra una pill "0pt" fuorviante.
+    # None (non 0.0) quando non c'è margine confrontabile: la query margine non
+    # restituisce righe → il KPI di confronto non mostra una pill "0pt"
+    # fuorviante.
     avg_margin = round(msum / mn, 2) if mn else None
 
     orow = db.execute(text(
@@ -246,7 +246,6 @@ def _quotes_comparison(db: Session, date_from, date_to, quote_type, customer_id)
 @router.get("/dashboard/statistics", response_model=StatisticsOut)
 def get_statistics(
     period: str = 'year',
-    quote_type: Optional[str] = None,   # 'standard' | 'die' | None=tutti
     customer_id: Optional[int] = None,
     compare: Optional[str] = None,      # 'prev' | 'yoy' | None
     db: Session = Depends(get_db),
@@ -255,11 +254,11 @@ def get_statistics(
 ):
     """Dataset aggregato per la pagina /statistics (tab Preventivi).
     Param `period`: year (default) | 12m | prev_year | all.
-    Filtri opzionali: `quote_type` (standard|die), `customer_id`.
+    Filtro opzionale: `customer_id`.
     `compare` (prev|yoy) aggiunge gli aggregati della finestra di confronto.
     """
     date_from, date_to = _period_range(period)
-    date_filter, params = _quotes_where(date_from, date_to, quote_type, customer_id)
+    date_filter, params = _quotes_where(date_from, date_to, customer_id)
 
     # ─── 1. Trend mensile (€ preventivato) ────────────────────────────
     rows_std = db.execute(text(
@@ -433,7 +432,7 @@ def get_statistics(
     if compare in ('prev', 'yoy'):
         cmp_from, cmp_to = _comparison_range(compare, date_from, date_to)
         if cmp_from is not None:
-            comparison = _quotes_comparison(db, cmp_from, cmp_to, quote_type, customer_id)
+            comparison = _quotes_comparison(db, cmp_from, cmp_to, customer_id)
 
     return StatisticsOut(
         period=period,
@@ -521,7 +520,7 @@ def get_margin_stats(
     _=_can_view,
 ):
     """Tab Marginalità & taratura: guadagno reale e taratura prezzo/costo sui
-    preventivi in stato 'completo' (Stampi esclusi: non hanno sold_price).
+    preventivi in stato 'completo'.
 
     - Guadagno reale  = venduto (sold_price) − costo reale (actual_cost)
     - Taratura prezzo = venduto ÷ preventivato (final_total)
@@ -1073,8 +1072,7 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
 
     Sui soli preventivi VENDUTI (sold_price valorizzato), per mese di chiusura
     (completed_at, fallback quote_date), somma:
-    - costo stimato: standard = Σ parts.total_cost × qty + trasporto + imballo;
-      Stampi = cost_industrial
+    - costo stimato: Σ parts.total_cost × qty + trasporto + imballo
     - venduto: Σ sold_price (prezzo di vendita reale)
     Confronto mese per mese di quanto è costato vs quanto ha reso. Le
     statistiche più profonde (per stato/categoria) vivono nella sezione

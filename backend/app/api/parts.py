@@ -9,7 +9,6 @@ from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut
-from app.core.quote_types import is_die
 from app.services.calculation import recalculate_part, recalculate_quote
 from app.services.material_status import unassigned_supplier_parts
 from app.services import quote_workflow as wf
@@ -35,9 +34,9 @@ def _assert_material_supplier_ok(db: Session, quote: Quote) -> None:
     il preventivo non potrebbe mai essere evaso e resterebbe bloccato in
     'confermato'. Chiamare dopo `db.flush()` e PRIMA del commit: se invalido,
     rollback della modifica + 400. No-op sui preventivi non ancora ordinabili
-    (lì la guardia scatta alla Conferma) e sugli stampi (materiale fuori scope).
+    (lì la guardia scatta alla Conferma).
     """
-    if quote.status not in wf.ORDERABLE_STATUSES or is_die(quote):
+    if quote.status not in wf.ORDERABLE_STATUSES:
         return
     parts = db.query(Part).options(joinedload(Part.material)).filter(
         Part.quote_id == quote.id

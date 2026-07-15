@@ -99,8 +99,8 @@ def test_require_permission_allows_and_blocks():
 
 
 def test_require_any_permission_needs_at_least_one():
-    dep = require_any_permission("quotes.pdf", "dies.pdf")
-    assert _run(dep, ["dies.pdf"]) is not None          # una basta
+    dep = require_any_permission("quotes.send", "quotes.confirm")
+    assert _run(dep, ["quotes.confirm"]) is not None    # una basta
     with pytest.raises(HTTPException) as ei:
         _run(dep, ["dashboard"])                         # nessuna → 403
     assert ei.value.status_code == 403

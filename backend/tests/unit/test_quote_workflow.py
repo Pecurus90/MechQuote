@@ -36,30 +36,13 @@ def test_status_sets():
     }
 
 
-def test_material_is_resolved_die_short_circuits():
-    # Stampo: materiale sempre risolto, non tocca il DB (db=None è sicuro).
-    die = SimpleNamespace(quote_type='die')
-    assert wf.material_is_resolved(None, die) is True
-
-
-def test_maybe_complete_die_confirmed_goes_complete():
-    die = SimpleNamespace(
-        status='confermato', quote_type='die',
-        completed_at=None, completed_by_user_id=None,
-    )
-    assert wf.maybe_complete(None, die, actor_id=7) is True
-    assert die.status == 'completo'
-    assert die.completed_by_user_id == 7
-    assert die.completed_at is not None
-
-
 def test_maybe_complete_noop_when_not_confirmed():
-    die = SimpleNamespace(
-        status='letto', quote_type='die',
+    q = SimpleNamespace(
+        status='letto', quote_type='single',
         completed_at=None, completed_by_user_id=None,
     )
-    assert wf.maybe_complete(None, die, actor_id=7) is False
-    assert die.status == 'letto'
+    assert wf.maybe_complete(None, q, actor_id=7) is False
+    assert q.status == 'letto'
 
 
 # ─── reconcile_material_state (radice asse materiale) ───────────────────────
@@ -69,23 +52,6 @@ def test_reconcile_noop_when_not_orderable():
     assert wf.reconcile_material_state(None, q, actor_id=7) is False
     assert q.status == 'bozza'
     assert q.material_ordered_at is None
-
-
-def test_reconcile_die_confermato_promotes():
-    # Stampo: materiale sempre risolto, non tocca il DB (db=None sicuro).
-    die = _fake_quote(status='confermato', quote_type='die')
-    assert wf.reconcile_material_state(None, die, actor_id=7) is True
-    assert die.status == 'completo'
-    assert die.completed_by_user_id == 7
-    # Materiale fuori scope: il flag legacy non viene toccato.
-    assert die.material_ordered_at is None
-
-
-def test_reconcile_die_completo_stays():
-    die = _fake_quote(status='completo', quote_type='die',
-                      completed_at='x', completed_by_user_id=1)
-    assert wf.reconcile_material_state(None, die, actor_id=7) is False
-    assert die.status == 'completo'
 
 
 def test_reconcile_promote_and_set_flag_on_totalmente_evaso(monkeypatch):

@@ -78,9 +78,8 @@ class Quote(Base):
     global_discount_percent = Column(Float, default=0.0)
     transport_cost = Column(Float, default=0.0)
     packaging_cost = Column(Float, default=0.0)
-    # Totale finale del preventivo PERSISTITO (B1). Standard: Σ prezzi parte +
-    # trasporto + imballaggio − sconto globale. Stampi: L5 (cost_industrial) ×
-    # margine (L6) × sconto (L7). Ricalcolato da recalculate_quote e da
+    # Totale finale del preventivo PERSISTITO (B1): Σ prezzi parte +
+    # trasporto + imballaggio − sconto globale. Ricalcolato da recalculate_quote e da
     # update_quote quando cambiano i campi di prezzo. Fonte unica per
     # archivio/dashboard: prima ognuno lo ricalcolava a modo suo (l'archivio
     # ignorava lo sconto → cifra diversa dal PDF). NULL = mai ricalcolato.
@@ -313,7 +312,7 @@ class Treatment(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     treatment_type = Column(String(50))
-    # MVP Stampi: il trattamento può fatturare a peso (€/kg) o a volume (€/dm³).
+    # Il trattamento può fatturare a peso (€/kg) o a volume (€/dm³).
     # `cost_unit` discrimina; il cost engine usa cost_per_kg × peso oppure
     # cost_per_dm3 × volume in base a questo flag.
     cost_unit = Column(String(10), default='kg')  # 'kg' | 'dm3'
@@ -751,9 +750,9 @@ class NormalizedSupplier(Base):
     phone = Column(String(50), nullable=True)
     email = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
-    # MVP Stampi L2: spedizione aggregata per supplier nei preventivi stampo.
-    # Replica pattern di MaterialSupplier.shipping_cost. Per supplier con N
-    # NormalizedItem nello stesso preventivo, lo shipping è "1 viaggio".
+    # Spedizione del fornitore esterno. Replica il pattern di
+    # MaterialSupplier.shipping_cost. NB: nata come spedizione aggregata L2 del
+    # modulo Stampi (rimosso); oggi non usata dal cost engine standard.
     shipping_cost = Column(Float, default=0.0)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -762,12 +761,9 @@ class NormalizedSupplier(Base):
 class NormalizedItem(Base):
     """Catalogo voci normalizzate (viti, cuscinetti, molle, colonne, boccole...).
 
-    Catalogo globale, indipendente da template/preventivi: una voce vive qui
-    una sola volta e viene "pescata" via autocomplete da `DieTemplateNormalized`
-    (BoM standard) e `DieNormalizedItem` (riga di preventivo stampo). La
-    relazione e' snapshot (Opzione A del cantiere): al momento del collegamento
-    description/supplier/unit_price vengono COPIATI nella riga, poi
-    indipendenti. Cambi al catalogo non retro-modificano preventivi storici.
+    Catalogo globale e autonomo, indipendente da template/preventivi: una voce
+    vive qui una sola volta. NB: i consumatori via snapshot erano le BoM del
+    modulo Stampi (rimosso); oggi il catalogo è standalone.
     """
     __tablename__ = "normalized_items"
 

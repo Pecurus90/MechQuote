@@ -13,7 +13,6 @@ from app.models import (
     CompanySettings,
 )
 from app.schemas import QuoteCreate, QuoteUpdate, QuoteOut, QuoteStatusUpdate, QuoteCloseoutUpdate
-from app.core.quote_types import is_die
 from app.services import quote_workflow as wf
 from app.services.material_status import unassigned_supplier_parts
 from app.services.calculation import (
@@ -274,11 +273,10 @@ def update_quote_status(
     db.commit()
     # Notifica chi può completare (admin + amministrazione)
     sender_name = current_user.full_name or current_user.username
-    type_label = 'stampo ' if is_die(quote) else ''
     create_notification(
         db,
         type='quote_submitted',
-        title=f"Preventivo {type_label}{quote.quote_number} da revisionare",
+        title=f"Preventivo {quote.quote_number} da revisionare",
         body=f"Inviato da {sender_name}",
         created_by_user_id=current_user.id,
         target_roles=['admin', 'amministrazione'],
@@ -299,11 +297,10 @@ def notify_quote_completed(db: Session, quote: Quote, actor_user: User) -> None:
     if not target:
         return
     actor = actor_user.full_name or actor_user.username
-    type_label = 'stampo ' if is_die(quote) else ''
     create_notification(
         db,
         type='quote_completed',
-        title=f"Preventivo {type_label}{quote.quote_number} completato",
+        title=f"Preventivo {quote.quote_number} completato",
         body=f"Completato ({actor})",
         created_by_user_id=actor_user.id,
         target_user_id=target,
@@ -335,18 +332,17 @@ def confirm_quote(
     # Guardia spec 18 §2: una parte con materiale da ordinare ma SENZA fornitore
     # non potrà mai essere evasa → il preventivo resterebbe bloccato in
     # 'confermato' senza mai raggiungere 'completo'. Impedisci la conferma finché
-    # non si assegna un fornitore (materiale fuori scope per gli stampi).
-    if not is_die(quote):
-        parts = db.query(Part).options(joinedload(Part.material)).filter(
-            Part.quote_id == quote.id
-        ).all()
-        missing = unassigned_supplier_parts(parts)
-        if missing:
-            codes = ', '.join(sorted(p.part_code for p in missing))
-            raise HTTPException(
-                status_code=400,
-                detail=f"Conferma bloccata: assegna un fornitore al materiale di {codes}.",
-            )
+    # non si assegna un fornitore.
+    parts = db.query(Part).options(joinedload(Part.material)).filter(
+        Part.quote_id == quote.id
+    ).all()
+    missing = unassigned_supplier_parts(parts)
+    if missing:
+        codes = ', '.join(sorted(p.part_code for p in missing))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Conferma bloccata: assegna un fornitore al materiale di {codes}.",
+        )
     quote.status = wf.STATUS_CONFERMATO
     quote.confirmed_by_user_id = current_user.id
     quote.confirmed_at = utc_now()
@@ -654,15 +650,14 @@ def update_quote(
     db.commit()
 
     # B1 — mantieni `final_total` allineato ai campi di prezzo appena scritti.
-    # Il margine globale su preventivi standard cambia i totali PARTE (fallback
-    # margine): serve un recalc completo. Sconto/trasporto/imballaggio (e il
-    # margine sugli stampi, che agisce solo su L6) non toccano le parti → basta
-    # ricalcolare il totale. Il ramo closeout-only non cambia prezzi: skip.
+    # Il margine globale cambia i totali PARTE (fallback margine): serve un
+    # recalc completo. Sconto/trasporto/imballaggio non toccano le parti →
+    # basta ricalcolare il totale. Il ramo closeout-only non cambia prezzi: skip.
     if not closeout_only:
         pricing_fields = {'global_discount_percent', 'transport_cost',
                           'packaging_cost', 'global_margin_percent'}
         if payload.keys() & pricing_fields:
-            if 'global_margin_percent' in payload and not is_die(quote):
+            if 'global_margin_percent' in payload:
                 svc_recalculate_quote(quote_id, db)
             else:
                 recompute_final_total(quote_id, db)

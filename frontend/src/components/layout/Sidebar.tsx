@@ -29,7 +29,7 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-interface Leaf { key: string; label: string; icon: LucideIcon; active?: boolean; badge?: { n: number; tone: 'danger' | 'warning' } }
+interface Leaf { key: string; label: string; icon: LucideIcon; active?: boolean; badge?: { n: number; tone: 'danger' | 'warning' | 'info' } }
 interface Node extends Leaf { children?: Leaf[] }
 
 export default function Sidebar() {
@@ -55,14 +55,18 @@ export default function Sidebar() {
   const canOrdersTools = hasPermission('orders.tools')
   const canTools = hasPermission('tools')
   const canOfficina = hasPermission('officina')
+  const canConfirm = hasPermission('quotes.confirm')
 
-  // Badge numerici reali.
+  // Badge numerici reali (code di lavoro da smaltire).
   const [ordersBadge, setOrdersBadge] = useState(0)
   const [toolsBadge, setToolsBadge] = useState(0)
+  const [reviewBadge, setReviewBadge] = useState(0)
   useEffect(() => {
     if (canOrdersMaterials) api.get('/orders/materials/stats').then(r => setOrdersBadge(r.data?.to_order ?? 0)).catch(() => {})
     if (canTools) api.get('/orders/tools/stats').then(r => setToolsBadge(r.data?.low_stock ?? 0)).catch(() => {})
-  }, [canOrdersMaterials, canTools])
+    // Preventivi da revisionare (inviato/letto): coda di chi conferma.
+    if (canConfirm) api.get('/dashboard/queue-counts').then(r => setReviewBadge(r.data?.to_review ?? 0)).catch(() => {})
+  }, [canOrdersMaterials, canTools, canConfirm])
 
   // ─── Modello di navigazione ────────────────────────────────────────────────
   const operativita: Node[] = []
@@ -72,7 +76,7 @@ export default function Sidebar() {
     if (canQuote) children.push({ key: '/quotes/new', label: 'Nuovo preventivo', icon: FilePlus2, active: at('/quotes/new') })
     if (canArchive) children.push({ key: '/quotes/active', label: 'Preventivi in corso', icon: ClipboardList, active: at('/quotes/active') })
     if (canArchive) children.push({ key: '/quotes/archive', label: 'Archivio preventivi', icon: FolderOpen, active: at('/quotes/archive') })
-    if (children.length) operativita.push({ key: 'preventivi', label: 'Preventivi', icon: FileText, children })
+    if (children.length) operativita.push({ key: 'preventivi', label: 'Preventivi', icon: FileText, children, badge: reviewBadge > 0 ? { n: reviewBadge, tone: 'info' } : undefined })
   }
   if (canSalesDirect) operativita.push({ key: '/sales/direct', label: 'Vendite dirette', icon: Receipt, active: at('/sales/direct') })
   if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, text, or_
 from sqlalchemy.orm import Session, joinedload
 from datetime import date, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 
@@ -1030,6 +1030,25 @@ def get_to_review(
         Quote.status.in_(['inviato', 'letto']),
     ).order_by(Quote.submitted_at.desc().nullslast()).limit(limit).all()
     return [_quote_to_row(q) for q in quotes]
+
+
+@router.get("/dashboard/queue-counts")
+def get_queue_counts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+) -> Dict[str, int]:
+    """Conteggi leggeri per i badge della sidebar (coda di lavoro).
+
+    - `to_review`: preventivi inviati/letti in attesa di conferma. Solo COUNT
+      (nessun join): pensato per essere chiamato a ogni render della sidebar.
+      Visibile a chi vede l'archivio o conferma i preventivi.
+    """
+    perms = getattr(current_user, '_permissions', [])
+    to_review = 0
+    if 'quotes.archive' in perms or 'quotes.confirm' in perms:
+        to_review = db.query(Quote).filter(Quote.status.in_(['inviato', 'letto'])).count()
+    return {"to_review": to_review}
 
 
 @router.get("/dashboard/awaiting-materials", response_model=List[DashboardQuoteRow])

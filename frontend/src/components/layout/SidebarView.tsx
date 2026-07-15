@@ -9,7 +9,7 @@ interface NavLeaf {
   label: string
   icon: LucideIcon
   active?: boolean
-  badge?: { n: number; tone: 'danger' | 'warning' }
+  badge?: { n: number; tone: 'danger' | 'warning' | 'info' }
 }
 
 interface NavNode extends NavLeaf {
@@ -31,9 +31,10 @@ interface SidebarViewProps {
   onLogout: () => void
 }
 
-const badgeTone: Record<'danger' | 'warning', string> = {
+const badgeTone: Record<'danger' | 'warning' | 'info', string> = {
   danger: 'bg-danger',
   warning: 'bg-warning',
+  info: 'bg-info',
 }
 
 function NavRow({

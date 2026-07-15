@@ -40,7 +40,7 @@ export interface Phase {
   phase_type: string
   description: string
   machine_id?: number
-  supplier_id?: number
+  supplier_id?: number | null
   treatment_id?: number
   operation_id?: number | null
   setup_hours: number

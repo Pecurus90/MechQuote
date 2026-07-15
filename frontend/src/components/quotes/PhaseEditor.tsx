@@ -274,7 +274,9 @@ export default function PhaseEditor({
       }
       case 'machineId': saveImmediate(idx, { machine_id: val ? Number(val) : undefined }); break
       case 'treatmentId': changeTreatment(idx, val ? Number(val) : undefined); break
-      case 'supplierId': saveImmediate(idx, { supplier_id: val ? Number(val) : undefined }); break
+      // null (non undefined): il backend usa exclude_unset, quindi per SVUOTARE
+      // il fornitore va inviato esplicitamente null (undefined verrebbe omesso).
+      case 'supplierId': saveImmediate(idx, { supplier_id: val ? Number(val) : null }); break
       case 'description': updateField(idx, 'description', val); break
     }
   }

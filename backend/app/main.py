@@ -171,8 +171,9 @@ def _run_migrations():
         # Pattern idempotente per assegnazione permesso (DELETE + INSERT seleziona ruoli):
         "DELETE FROM role_permissions WHERE permission_key = 'quotes.complete'",
         "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.complete' FROM roles WHERE name IN ('admin','amministrazione')",
-        "DELETE FROM role_permissions WHERE permission_key = 'company'",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'company' FROM roles WHERE name = 'admin'",
+        # Idempotente NON distruttivo: semina la baseline solo dove manca, senza
+        # cancellare i grant dati via UI ai ruoli custom (bug spunte-che-spariscono).
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'company' FROM roles WHERE name = 'admin' AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='company')",
 
         # ═══ CompanySettings — singleton che sostituisce CostRule legacy ═══
         # La tabella cost_rules resta nel DB per backward compat con DB pre-CompanySettings:
@@ -322,8 +323,8 @@ def _run_migrations():
          "notes TEXT, active BOOLEAN DEFAULT 1, "
          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
          "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
-        "DELETE FROM role_permissions WHERE permission_key = 'tools'",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'tools' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina')",
+        # Idempotente NON distruttivo (vedi nota su 'company').
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'tools' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='tools')",
 
         # ═══ Refactor utensili: ToolSupplier separato da Supplier ═══
         # I fornitori di utensili (Hypertools, UTF, OSG) sono distinti dai
@@ -374,8 +375,8 @@ def _run_migrations():
          "material_order_id INTEGER NOT NULL REFERENCES material_orders(id), "
          "quote_id INTEGER NOT NULL REFERENCES quotes(id))"),
         # Permesso orders.materials → admin + ufficio_tecnico + amministrazione
-        "DELETE FROM role_permissions WHERE permission_key = 'orders.materials'",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'orders.materials' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
+        # Idempotente NON distruttivo (vedi nota su 'company').
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'orders.materials' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='orders.materials')",
 
         # ═══ Conto lavoro: materiale fornito dal cliente ═══
         # Flag boolean su Part. Quando True il cost engine azzera material
@@ -396,9 +397,9 @@ def _run_migrations():
         # Permessi: 'officina' (read), 'officina.write' (upload + modifiche).
         # Read: admin + ufficio_tecnico + amministrazione + officina.
         # Write: admin + ufficio_tecnico (l'officinista consulta soltanto).
-        "DELETE FROM role_permissions WHERE permission_key IN ('officina', 'officina.write')",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina')",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione')",
+        # Idempotente NON distruttivo (vedi nota su 'company').
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione','officina') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='officina')",
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'officina.write' FROM roles WHERE name IN ('admin','ufficio_tecnico','amministrazione') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='officina.write')",
 
         ("CREATE TABLE IF NOT EXISTS officina_documents ("
          "id INTEGER PRIMARY KEY, "

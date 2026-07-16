@@ -8,6 +8,8 @@ import {
   Truck,
   AlertTriangle,
   Clock,
+  Hourglass,
+  XCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/timeAgo'
@@ -32,6 +34,9 @@ const TYPE_META: Record<string, { icon: LucideIcon; cls: string }> = {
   quote_confirmed: { icon: CheckCheck, cls: 'bg-confirmed/15 text-confirmed' },
   quote_completed: { icon: PackageCheck, cls: 'bg-success/15 text-success' },
   quote_reopened: { icon: RotateCcw, cls: 'bg-state-letto/15 text-state-letto' },
+  quote_awaiting_client: { icon: Hourglass, cls: 'bg-state-attesa/15 text-state-attesa' },
+  quote_not_ordered: { icon: XCircle, cls: 'bg-state-perso/15 text-state-perso' },
+  quote_restored: { icon: RotateCcw, cls: 'bg-state-letto/15 text-state-letto' },
   materials_ordered: { icon: Truck, cls: 'bg-info/15 text-info' },
   tools_ordered: { icon: Truck, cls: 'bg-info/15 text-info' },
   tools_low_stock_alert: { icon: AlertTriangle, cls: 'bg-warning/15 text-warning' },

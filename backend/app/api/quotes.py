@@ -503,7 +503,23 @@ def await_client_quote(
         )
     quote.status = wf.STATUS_IN_ATTESA_CLIENTE
     quote.awaiting_client_at = utc_now()
+    creator_id = quote.created_by_user_id or quote.submitted_by_user_id
+    qnum = quote.quote_number
     db.commit()
+    # F3: avvisa il creatore che l'offerta è stata mandata al cliente — è un
+    # esito di cui l'ufficio tecnico ha interesse a sapere. Guard
+    # anti-auto-notifica (creatore == attore) come in unconfirm.
+    if creator_id and creator_id != current_user.id:
+        actor = current_user.full_name or current_user.username
+        create_notification(
+            db,
+            type='quote_awaiting_client',
+            title=f"Preventivo {qnum} in attesa cliente",
+            body=f"Offerta mandata al cliente da {actor}",
+            created_by_user_id=current_user.id,
+            target_user_id=creator_id,
+            data={'quote_id': quote_id, 'quote_number': qnum},
+        )
     logger.info("In attesa cliente: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -530,7 +546,23 @@ def mark_not_ordered_quote(
     quote.status = wf.STATUS_NON_ORDINATO
     quote.not_ordered_at = utc_now()
     quote.not_ordered_by_user_id = current_user.id
+    creator_id = quote.created_by_user_id or quote.submitted_by_user_id
+    qnum = quote.quote_number
     db.commit()
+    # F2: il preventivo è perso (cliente non ha ordinato). Avvisa il creatore:
+    # è l'esito negativo, speculare a quote_confirmed che notifica quello
+    # positivo. Senza, l'ufficio tecnico non sa mai che l'offerta è persa.
+    if creator_id and creator_id != current_user.id:
+        actor = current_user.full_name or current_user.username
+        create_notification(
+            db,
+            type='quote_not_ordered',
+            title=f"Preventivo {qnum} non ordinato",
+            body=f"Segnato non ordinato da {actor} — il cliente non ha ordinato",
+            created_by_user_id=current_user.id,
+            target_user_id=creator_id,
+            data={'quote_id': quote_id, 'quote_number': qnum},
+        )
     logger.info("Non ordinato: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -565,7 +597,22 @@ def restore_quote(
         quote.status = wf.STATUS_INVIATO
     quote.not_ordered_at = None
     quote.not_ordered_by_user_id = None
+    creator_id = quote.created_by_user_id or quote.submitted_by_user_id
+    qnum = quote.quote_number
     db.commit()
+    # F3: il preventivo perso è stato rimesso in gioco. Avvisa il creatore
+    # (speculare a mark-not-ordered), così sa che torna in lavorazione.
+    if creator_id and creator_id != current_user.id:
+        actor = current_user.full_name or current_user.username
+        create_notification(
+            db,
+            type='quote_restored',
+            title=f"Preventivo {qnum} ripristinato",
+            body=f"Ripristinato da {actor} — di nuovo in lavorazione",
+            created_by_user_id=current_user.id,
+            target_user_id=creator_id,
+            data={'quote_id': quote_id, 'quote_number': qnum},
+        )
     logger.info("Ripristino non-ordinato→%s: quote_id=%s by=%s",
                 quote.status, quote_id, current_user.username)
     return _load_quote(quote_id, db)

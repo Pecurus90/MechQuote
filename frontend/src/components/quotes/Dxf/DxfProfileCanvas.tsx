@@ -9,9 +9,13 @@ interface Props {
   onToggle: (id: number) => void
   height?: number
   readOnly?: boolean
-  /** Rettangolo grezzo (mm) centrato sui profili selezionati (o globale). */
+  /** Rettangolo grezzo (mm reali) centrato sui profili selezionati (o globale). */
   rawX?: number
   rawY?: number
+  /** Fattore per scalare il disegno ai mm reali (override unità mm/pollici).
+   *  1 = coordinate come dal backend. Il rettangolo grezzo è in mm reali, quindi
+   *  scalando il disegno per lo stesso fattore restano coerenti. */
+  unitScale?: number
 }
 
 /**
@@ -20,8 +24,10 @@ interface Props {
  * picker del preventivatore 2D. Ogni profilo si evidenzia al passaggio del
  * mouse; il clic (fermo) lo include/esclude dal taglio.
  */
-export default function DxfProfileCanvas({ analysis, selectedIds, onToggle, height = 420, readOnly = false, rawX, rawY }: Props) {
+export default function DxfProfileCanvas({ analysis, selectedIds, onToggle, height = 420, readOnly = false, rawX, rawY, unitScale = 1 }: Props) {
   const { profiles, bbox_global } = analysis
+  const k = unitScale
+  const scaledBbox = { x: bbox_global.x * k, y: bbox_global.y * k, w: bbox_global.w * k, h: bbox_global.h * k }
   const canvasRef = useRef<DxfCanvasHandle | null>(null)
   const [hovered, setHovered] = useState<number | null>(null)
   const hoveredRef = useRef<number | null>(null); hoveredRef.current = hovered
@@ -36,12 +42,13 @@ export default function DxfProfileCanvas({ analysis, selectedIds, onToggle, heig
 
   const rawRect = useMemo(() => {
     if (!rawX || !rawY || rawX <= 0 || rawY <= 0) return null
-    const base = selectedBbox ?? bbox_global
+    const b = selectedBbox ?? bbox_global
+    const base = { x: b.x * k, y: b.y * k, w: b.w * k, h: b.h * k }   // in mm reali
     const cx = base.x + base.w / 2, cy = base.y + base.h / 2
     return { x: cx - rawX / 2, y: cy - rawY / 2, w: rawX, h: rawY, undersize: rawX < base.w || rawY < base.h }
-  }, [selectedBbox, bbox_global, rawX, rawY])
+  }, [selectedBbox, bbox_global, rawX, rawY, k])
 
-  const content = profiles.map(p => {
+  const profileEls = profiles.map(p => {
     const sel = readOnly ? true : selectedIds.has(p.id)
     const isHover = p.id === hovered
     const base = p.closed ? (sel ? '#2563eb' : '#94a3b8') : (sel ? '#ea580c' : '#fbbf24')
@@ -76,7 +83,7 @@ export default function DxfProfileCanvas({ analysis, selectedIds, onToggle, heig
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-white" style={{ height }}>
-      <DxfCanvas ref={canvasRef} bbox={bbox_global} content={content} overlay={overlay}
+      <DxfCanvas ref={canvasRef} bbox={scaledBbox} content={<g transform={`scale(${k})`}>{profileEls}</g>} overlay={overlay}
         cursor={readOnly ? 'grab' : 'pointer'}
         onPick={() => { if (!readOnly && hoveredRef.current != null) onToggle(hoveredRef.current) }} />
       <button type="button" onClick={() => canvasRef.current?.fit()} title="Adatta alla vista"

@@ -15,7 +15,7 @@ import type {
   Category, Customer, Material, CuttingCycle, DrillingTime,
   EdmConfig, Machine, Operation, Phase, DxfAnalysis, DxfBbox,
 } from '@/types'
-import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
+import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
 import { Dxf2dWizardView, type Dxf2dValue, type DxfProfileRow, type SelectOption } from '@/pages/quotes/Dxf2dWizardView'
 
 type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
@@ -87,6 +87,15 @@ export default function NewQuote2DPage() {
   const [analysis, setAnalysis] = useState<DxfAnalysis | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  // Override unità mm/pollici: alcuni CAD dichiarano l'unità sbagliata (es.
+  // $INSUNITS=pollici ma disegno in mm). unitScale riporta ai mm reali le misure
+  // che finiscono nel preventivo (grezzo, lunghezza taglio) e il disegno.
+  const [unit, setUnit] = useState<'mm' | 'in'>('mm')
+  const backendFactor = analysis?.unit_factor ?? 1
+  const overridable = backendFactor === 1 || Math.abs(backendFactor - 25.4) < 0.05
+  const unitScale = overridable ? (unit === 'in' ? 25.4 : 1) / backendFactor : 1
+  // Default = unità dichiarata dall'header (pollici se il backend ha convertito ×25.4).
+  useEffect(() => { if (analysis) setUnit((analysis.unit_factor ?? 1) > 1.5 ? 'in' : 'mm') }, [analysis])
 
   // ─── stato form ─────────────────────────────────────────────────────────
   const [form, setForm] = useState<FormState>(initialForm([]))
@@ -115,7 +124,7 @@ export default function NewQuote2DPage() {
   const selectedProfiles = useMemo(
     () => analysis?.profiles.filter(p => selectedIds.has(p.id)) ?? [],
     [analysis, selectedIds])
-  const selectedLengthMm = useMemo(() => selectedProfiles.reduce((s, p) => s + p.length_mm, 0), [selectedProfiles])
+  const selectedLengthMm = useMemo(() => selectedProfiles.reduce((s, p) => s + p.length_mm, 0) * unitScale, [selectedProfiles, unitScale])
   const selectedClosedCount = useMemo(() => selectedProfiles.filter(p => p.closed).length, [selectedProfiles])
   const selectedBbox = useMemo<DxfBbox | null>(() => {
     if (selectedProfiles.length === 0) return null
@@ -126,8 +135,8 @@ export default function NewQuote2DPage() {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
   }, [selectedProfiles])
 
-  const baseBboxW = analysis ? (selectedBbox?.w ?? analysis.bbox_global.w) : 0
-  const baseBboxH = analysis ? (selectedBbox?.h ?? analysis.bbox_global.h) : 0
+  const baseBboxW = (analysis ? (selectedBbox?.w ?? analysis.bbox_global.w) : 0) * unitScale
+  const baseBboxH = (analysis ? (selectedBbox?.h ?? analysis.bbox_global.h) : 0) * unitScale
   const dxfFileName = dxfFile?.name.replace(/\.dxf$/i, '') ?? ''
 
   // Ricalcola grezzo da bbox+offset quando cambia la selezione / il file.
@@ -399,7 +408,21 @@ export default function NewQuote2DPage() {
   return (
     <div className="mx-auto max-w-[1280px] p-6">
       <Dxf2dWizardView
-        viewer={<div className="p-2"><DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={320} rawX={form.raw_x_mm} rawY={form.raw_y_mm} /></div>}
+        viewer={
+          <div className="p-2">
+            {overridable && (
+              <div className="mb-2 flex items-center gap-1 text-[12px] text-muted-foreground">
+                <span>Disegno in:</span>
+                <div className="flex overflow-hidden rounded-md border border-border">
+                  {(['mm', 'in'] as const).map(u => (
+                    <button key={u} type="button" onClick={() => setUnit(u)} className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>{u === 'mm' ? 'mm' : 'pollici'}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <DxfProfileCanvas analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={320} rawX={form.raw_x_mm} rawY={form.raw_y_mm} unitScale={unitScale} />
+          </div>
+        }
         fileName={dxfFile?.name ?? '—'}
         fileMeta={`${analysis.profiles.length} profili${dxfFile ? ` · ${(dxfFile.size / 1e6).toFixed(1)} MB` : ''}`}
         onChangeFile={changeFile}

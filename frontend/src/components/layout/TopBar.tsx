@@ -139,6 +139,11 @@ export function TopBar({
                     <div className={cn('text-[12.5px] leading-[1.4]', !n.read_at && 'font-semibold')}>
                       {renderTitle(n.title)}
                     </div>
+                    {n.customer_name && (
+                      <div className="mt-0.5 text-[11.5px] font-medium text-foreground/80">
+                        Cliente: {n.customer_name}
+                      </div>
+                    )}
                     {n.body && (
                       <div className="mt-0.5 text-[11.5px] leading-[1.35] text-muted-foreground">{n.body}</div>
                     )}

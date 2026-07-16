@@ -8,6 +8,7 @@ export interface Notification {
   title: string
   body: string | null
   data: Record<string, unknown>
+  customer_name: string | null
   created_at: string | null
   read_at: string | null
 }

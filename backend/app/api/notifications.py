@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db, utc_now
 from app.core.security import require_permission, get_current_user
-from app.models import Notification, NotificationRead, User
+from app.models import Notification, NotificationRead, Quote, User
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -45,13 +45,18 @@ def _query_for_user(db: Session, user: User):
     ).order_by(Notification.created_at.desc()).limit(200)
 
 
-def serialize_notification(n: Notification, read: Optional[NotificationRead]) -> dict:
+def serialize_notification(
+    n: Notification, read: Optional[NotificationRead], customer_name: Optional[str] = None
+) -> dict:
     return {
         "id": n.id,
         "type": n.type,
         "title": n.title,
         "body": n.body,
         "data": n.data_json or {},
+        # Cliente del preventivo collegato (se la notifica riguarda un quote):
+        # arricchito qui invece che in ogni create_notification (DRY).
+        "customer_name": customer_name,
         "created_at": n.created_at.isoformat() if n.created_at else None,
         "read_at": read.read_at.isoformat() if read and read.read_at else None,
     }
@@ -72,7 +77,19 @@ def _user_notifications(db: Session, user: User, *, limit: Optional[int] = None)
         .filter(NotificationRead.notification_id.in_([n.id for n in visible]))
         .all()
     }
-    return [serialize_notification(n, reads.get(n.id)) for n in visible]
+    # Nome cliente per le notifiche legate a un preventivo (una sola query).
+    quote_ids = {n.target_quote_id for n in visible if n.target_quote_id}
+    customers: dict[int, str] = {}
+    if quote_ids:
+        customers = {
+            qid: cname
+            for qid, cname in db.query(Quote.id, Quote.customer_name)
+            .filter(Quote.id.in_(quote_ids)).all()
+        }
+    return [
+        serialize_notification(n, reads.get(n.id), customers.get(n.target_quote_id))
+        for n in visible
+    ]
 
 
 @router.get("")

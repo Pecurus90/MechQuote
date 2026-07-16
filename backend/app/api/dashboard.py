@@ -1090,7 +1090,11 @@ def get_awaiting_materials(
 
 
 @router.get("/dashboard/monthly", response_model=List[MonthlyData])
-def get_monthly(db: Session = Depends(get_db), _=_can_view):
+def get_monthly(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_view,
+):
     """Aggregati mensili per il grafico dashboard "Costo preventivato vs Venduto".
 
     Sui soli preventivi VENDUTI (sold_price valorizzato), per mese di chiusura
@@ -1148,7 +1152,13 @@ def get_monthly(db: Session = Depends(get_db), _=_can_view):
         cur[0] += float(r.quoted_cost or 0.0)
         cur[1] += float(r.sold or 0.0)
 
+    # Senza permesso 'statistics' il costo aggregato non è visibile (né qui né
+    # via network tab): azzeriamo quoted_cost. Il venduto resta. Il frontend
+    # nasconde comunque la serie Costo per questi utenti.
+    show_cost = 'statistics' in getattr(current_user, '_permissions', [])
     return [
-        MonthlyData(month=f"{y}-{m:02d}", year=y, quoted_cost=round(c, 2), sold=round(s, 2))
+        MonthlyData(month=f"{y}-{m:02d}", year=y,
+                    quoted_cost=round(c, 2) if show_cost else 0.0,
+                    sold=round(s, 2))
         for (y, m), (c, s) in sorted(agg.items())
     ]

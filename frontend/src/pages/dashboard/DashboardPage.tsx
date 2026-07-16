@@ -23,6 +23,7 @@ export default function DashboardPage() {
   // E amministrazione). La CONFERMA resta un'azione gated da quotes.confirm
   // nell'editor — qui la dashboard mostra gli stessi KPI ai due ruoli.
   const hasDashboard = hasPermission('dashboard')
+  const canStatistics = hasPermission('statistics')   // vede i costi aggregati
   const canSeeQuotes = hasPermission('quotes.archive')
   const canQuote = hasPermission('quotes.create')
   // Rail/KPI "Utensili da ordinare" = dominio ORDINI utensili (orders.tools),
@@ -109,6 +110,7 @@ export default function DashboardPage() {
       subtitle={`Panoramica operativa · ${today}`}
       kpis={kpis}
       monthly={monthly}
+      showCost={canStatistics}
       byStatus={stats.by_status}
       standardCount={stats.standard_count ?? 0}
       onSelectStatus={(s) => navigate(

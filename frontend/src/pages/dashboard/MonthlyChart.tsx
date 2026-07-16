@@ -17,6 +17,9 @@ import type { MonthlyData } from '@/types'
 
 interface Props {
   data: MonthlyData[]
+  /** Mostra la serie "Costo" (e quindi il margine). Falso per chi non ha il
+   *  permesso `statistics`: vede solo il Venduto, non i costi aziendali. */
+  showCost?: boolean
 }
 
 const eur = (v: number) =>
@@ -25,7 +28,7 @@ const eur = (v: number) =>
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
-export default function MonthlyChart({ data }: Props) {
+export default function MonthlyChart({ data, showCost = true }: Props) {
   // AUD-20: grid/assi/tooltip/cursor dalla palette centralizzata (unica fonte);
   // solo i colori serie (venduto verde / costo arancio) restano locali.
   const c = useChartTheme()
@@ -69,7 +72,7 @@ export default function MonthlyChart({ data }: Props) {
     return (
       <div style={{ background: c.tipBg, border: `1px solid ${c.tipBorder}`, borderRadius: 10, padding: '8px 10px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.14)' }}>
         <div style={{ color: c.text, fontWeight: 600, marginBottom: 4 }}>{label} {year}</div>
-        <div style={{ color: s.costo }}>Costo preventivato: {eur(r?.costo ?? 0)}</div>
+        {showCost && <div style={{ color: s.costo }}>Costo preventivato: {eur(r?.costo ?? 0)}</div>}
         <div style={{ color: s.venduto }}>Venduto: {eur(r?.venduto ?? 0)}</div>
       </div>
     )
@@ -79,7 +82,7 @@ export default function MonthlyChart({ data }: Props) {
     <div className="rounded-[14px] border border-border bg-card px-5 py-[18px]">
       <div className="mb-2 flex items-start justify-between gap-3">
         <div>
-          <div className="text-[15px] font-semibold text-foreground">Costo preventivato vs venduto</div>
+          <div className="text-[15px] font-semibold text-foreground">{showCost ? 'Costo preventivato vs venduto' : 'Venduto'}</div>
           <div className="text-xs text-muted-foreground">Anno {year} · preventivi + vendite dirette</div>
         </div>
         <select
@@ -108,11 +111,11 @@ export default function MonthlyChart({ data }: Props) {
             />
             <Tooltip cursor={{ fill: c.cursor }} content={renderTooltip} />
             <Legend wrapperStyle={{ fontSize: 12, color: c.text, paddingTop: 8 }} />
-            {/* Due barre affiancate per il confronto del mese */}
-            <Bar dataKey="costo" name="Costo preventivato" fill={s.costoBar} radius={[4, 4, 0, 0]} barSize={11} />
+            {/* Barre affiancate per il confronto del mese (Costo solo se permesso) */}
+            {showCost && <Bar dataKey="costo" name="Costo preventivato" fill={s.costoBar} radius={[4, 4, 0, 0]} barSize={11} />}
             <Bar dataKey="venduto" name="Venduto" fill={s.vendutoBar} radius={[4, 4, 0, 0]} barSize={11} />
-            {/* Due linee di tendenza (dente di sega sui mesi senza vendite) */}
-            <Line dataKey="costo" stroke={s.costo} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />
+            {/* Linee di tendenza (dente di sega sui mesi senza vendite) */}
+            {showCost && <Line dataKey="costo" stroke={s.costo} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />}
             <Line dataKey="venduto" stroke={s.venduto} strokeWidth={2} dot={false} legendType="none" isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>

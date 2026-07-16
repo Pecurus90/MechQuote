@@ -28,6 +28,8 @@ interface DashboardViewProps {
   kpis: KpiSpec[]
 
   monthly: MonthlyData[]
+  /** Mostra la serie Costo nel grafico mensile (permesso `statistics`). */
+  showCost: boolean
   byStatus: Record<string, number>
   standardCount: number
   onSelectStatus: (status: string) => void
@@ -59,6 +61,7 @@ export function DashboardView(props: DashboardViewProps) {
     subtitle,
     kpis,
     monthly,
+    showCost,
     byStatus,
     standardCount,
     onSelectStatus,
@@ -122,7 +125,7 @@ export function DashboardView(props: DashboardViewProps) {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_336px]">
         {/* Colonna sinistra */}
         <div className="flex min-w-0 flex-col gap-4">
-          <MonthlyChart data={monthly} />
+          <MonthlyChart data={monthly} showCost={showCost} />
           <PerStatusChart
             byStatus={byStatus}
             standardCount={standardCount}

@@ -14,6 +14,28 @@ export interface StepGeometry {
   x: number; y: number; z: number   // ingombro (bounding box) in mm
   volumeCm3: number
   weightKg?: number
+  /** forma grezzo rilevata: prismatico (X/Y/Z) o tondo (diametro + lunghezza) */
+  shape: 'prismatic' | 'round'
+  diameter?: number   // se tondo
+  length?: number     // se tondo
+}
+
+/** Rileva se il pezzo è un tondo o un prismatico dall'ingombro + facce.
+ *  Tondo = il cilindro più grande ha diametro ≈ le due dim minori del bbox
+ *  (il corpo è cilindrico); il grezzo è barra tonda Ø × lunghezza. */
+function detectStockShape(faceInfos: FaceInfo[], bbox: { x: number; y: number; z: number }):
+  { shape: 'prismatic' | 'round'; diameter?: number; length?: number } {
+  const dims = [bbox.x, bbox.y, bbox.z].sort((a, b) => a - b)
+  const radii = faceInfos.filter(f => f.surfaceType === 1 && f.radius).map(f => f.radius as number)
+  if (radii.length) {
+    const d = Math.max(...radii) * 2
+    const tol = 0.03 * (dims[1] || 1)
+    if (Math.abs(d - dims[0]) <= tol && Math.abs(d - dims[1]) <= tol) {
+      const r2 = (n: number) => Math.round(n * 100) / 100
+      return { shape: 'round', diameter: r2(d), length: r2(dims[2]) }
+    }
+  }
+  return { shape: 'prismatic' }
 }
 
 interface Props {
@@ -138,10 +160,12 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
 
       // Ingombro / volume / peso ESATTI (dal kernel, non dai triangoli).
       const r2 = (n: number) => Math.round(n * 100) / 100
+      const stock = detectStockShape(faceInfos, bbox)
       setGeom({
         x: r2(bbox.x), y: r2(bbox.y), z: r2(bbox.z),
         volumeCm3: r2(vol / 1000),
         weightKg: densityKgDm3 ? Math.round((vol / 1e6) * densityKgDm3 * 1000) / 1000 : undefined,
+        shape: stock.shape, diameter: stock.diameter, length: stock.length,
       })
 
       const camera = new THREE.PerspectiveCamera(45, width / height, maxDim / 1000, maxDim * 100)
@@ -304,6 +328,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         {geom && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-muted/40 px-5 py-2 text-[12.5px]">
             <span className="text-muted-foreground">Ingombro: <span className="font-mono font-semibold text-foreground">{geom.x} × {geom.y} × {geom.z}</span> mm</span>
+            <span className="text-muted-foreground">Forma: <span className="font-mono font-semibold text-foreground">{geom.shape === 'round' ? `Tondo Ø${geom.diameter} × ${geom.length}` : 'Prismatico'}</span></span>
             <span className="text-muted-foreground">Volume: <span className="font-mono font-semibold text-foreground">{geom.volumeCm3}</span> cm³</span>
             {geom.weightKg != null && (
               <span className="text-muted-foreground">Peso stimato: <span className="font-mono font-semibold text-foreground">{geom.weightKg}</span> kg</span>

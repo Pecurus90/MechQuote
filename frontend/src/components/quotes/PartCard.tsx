@@ -285,16 +285,20 @@ export default function PartCard({
           onReload={onReload}
           densityKgDm3={selectedMaterial?.density_kg_dm3}
           onApplyGeometry={readOnly ? undefined : (g) => {
-            // Dall'ingombro STEP → grezzo quadro X/Y/Z (+ peso finito se stimato).
+            // Dalla geometria STEP → grezzo con la forma rilevata: tondo (Ø +
+            // lunghezza) se il pezzo è cilindrico, altrimenti prismatico X/Y/Z.
             const material = materials.find(m => m.id === part.material_id)
-            const updates: Partial<Part> = {
-              raw_x_mm: g.x, raw_y_mm: g.y, raw_z_mm: g.z, raw_diameter_mm: undefined,
-              ...(g.weightKg != null ? { finished_weight_kg: g.weightKg } : {}),
-            }
+            const weight = g.weightKg != null ? { finished_weight_kg: g.weightKg } : {}
+            const isRound = g.shape === 'round' && g.diameter && g.length
+            const updates: Partial<Part> = isRound
+              ? { raw_diameter_mm: g.diameter, raw_z_mm: g.length, raw_x_mm: undefined, raw_y_mm: undefined, ...weight }
+              : { raw_x_mm: g.x, raw_y_mm: g.y, raw_z_mm: g.z, raw_diameter_mm: undefined, ...weight }
             updates.material_cost = calcMaterialCost({ ...part, ...updates }, material)
-            setStockType('square')
+            setStockType(isRound ? 'round' : 'square')
             commitPart(updates)
-            toast.success('Ingombro e peso applicati alla parte')
+            toast.success(isRound
+              ? `Tondo Ø${g.diameter} × ${g.length} e peso applicati`
+              : 'Ingombro e peso applicati alla parte')
           }}
         />
       ) : undefined}

@@ -1,8 +1,8 @@
 /**
  * Italian relative-time formatting for ISO timestamps.
  *
- * Used by NotificationPanel, DashboardPage 'Attività recente' card,
- * QuoteEditor header workflow badge, etc.
+ * Used by TopBar notifications dropdown, DashboardPage 'Attività recente'
+ * card, QuoteEditor header workflow badge, etc.
  */
 
 /**

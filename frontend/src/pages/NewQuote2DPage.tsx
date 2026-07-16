@@ -1,7 +1,7 @@
 // Container unico del wizard 2D-DXF: carica dati di riferimento, gestisce
 // lo stato DXF (upload/analisi/selezione profili) e lo stato form, ed esegue
 // il submit multi-step. La grafica sta in Dxf2dWizardView (design handoff);
-// il viewer SVG è il DxfViewer esistente (slot `viewer`).
+// il viewer è DxfProfileCanvas (interattivo: zoom/pan/hover) nello slot `viewer`.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Scan, Upload } from 'lucide-react'

@@ -4,7 +4,7 @@ import { FileText, X } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { DxfAnalysis } from '@/types'
-import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
+import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
 import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
 import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
 
@@ -104,7 +104,7 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
           {loading && <p className="text-sm text-blue-600 animate-pulse">Caricamento DXF...</p>}
           {analysis && (
             <>
-              <DxfViewer
+              <DxfProfileCanvas
                 analysis={analysis}
                 selectedIds={selectedIds}
                 onToggle={toggleProfile}

@@ -10,9 +10,7 @@ import type { StepGeometry } from '@/components/quotes/Step/StepViewerCad'
 
 // Viewer 3D STEP lazy-loaded: three.js + occt (WASM) NON entrano nel bundle
 // principale, si caricano solo quando l'utente apre uno STEP.
-// Viewer 3D con motore CAD esatto (opencascade.js). Il vecchio StepViewerModal
-// (occt-import-js, misure fittate dai triangoli) resta nel repo finché il nuovo
-// non è validato nel browser.
+// Viewer 3D con motore CAD esatto (opencascade.js, misure dal B-rep).
 const StepViewerModal = lazy(() => import('@/components/quotes/Step/StepViewerCad'))
 
 interface Props {

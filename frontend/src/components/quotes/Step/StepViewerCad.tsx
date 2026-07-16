@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { Box, X, Ruler, RotateCcw, Circle, Triangle, CircleDot, Spline } from 'lucide-react'
+import { Box, X, Ruler, RotateCcw, Circle, Triangle, CircleDot, Spline, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -90,7 +90,10 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
 
   const toolRef = useRef(tool)
   toolRef.current = tool
-  const apiRef = useRef<{ clearSelection: () => void }>({ clearSelection: () => {} })
+  const [xray, setXray] = useState(false)
+  const apiRef = useRef<{ clearSelection: () => void; applyXray: (on: boolean) => void }>({
+    clearSelection: () => {}, applyXray: () => {},
+  })
 
   useEffect(() => {
     const mount = mountRef.current
@@ -261,6 +264,17 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         setResult(null)
       }
       apiRef.current.clearSelection = clearSelection
+      // Vista raggi X: facce semitrasparenti (depthWrite off) → si vedono gli
+      // interni lavorati. Il wireframe degli spigoli resta visibile attraverso.
+      apiRef.current.applyXray = (on: boolean) => {
+        faceMeshes.forEach(m => {
+          const mat = m.material as THREE.MeshStandardMaterial
+          mat.transparent = on
+          mat.opacity = on ? 0.22 : 1
+          mat.depthWrite = !on
+          mat.needsUpdate = true
+        })
+      }
 
       // Evidenziazione faccia al passaggio del mouse (solo con uno strumento
       // faccia attivo). Il raycast è throttlato al frame: pointermove salva solo
@@ -475,6 +489,10 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           <Button size="sm" variant="outline" onClick={() => apiRef.current.clearSelection()} disabled={loading || !!error}>
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera
           </Button>
+          <Button size="sm" variant={xray ? 'default' : 'outline'} title="Vista in trasparenza per vedere gli interni"
+            onClick={() => { const on = !xray; setXray(on); apiRef.current.applyXray(on) }} disabled={loading || !!error}>
+            <Eye className="mr-1 h-3.5 w-3.5" /> Raggi X
+          </Button>
           <span className="text-[12.5px] text-muted-foreground">{hint}</span>
           {result && (
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">
@@ -491,8 +509,10 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
             <span className="text-muted-foreground">Ingombro: <span className="font-mono font-semibold text-foreground">{geom.x} × {geom.y} × {geom.z}</span> mm</span>
             <span className="text-muted-foreground">Forma: <span className="font-mono font-semibold text-foreground">{geom.shape === 'round' ? `Tondo Ø${geom.diameter} × ${geom.length}` : 'Prismatico'}</span></span>
             <span className="text-muted-foreground">Volume: <span className="font-mono font-semibold text-foreground">{geom.volumeCm3}</span> cm³</span>
-            {geom.weightKg != null && (
-              <span className="text-muted-foreground">Peso stimato: <span className="font-mono font-semibold text-foreground">{geom.weightKg}</span> kg</span>
+            {geom.weightKg != null ? (
+              <span className="text-muted-foreground">Peso finito: <span className="font-mono font-semibold text-foreground">{geom.weightKg}</span> kg</span>
+            ) : (
+              <span className="italic text-muted-foreground/70">Peso: seleziona un materiale sulla parte per stimarlo</span>
             )}
             {onApplyGeometry && (
               <Button size="sm" variant="outline" className="ml-auto" onClick={() => onApplyGeometry(geom)} title="Compila Grezzo X/Y/Z e Peso finito dalla geometria">

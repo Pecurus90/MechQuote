@@ -10,7 +10,6 @@ export interface Notification {
   data: Record<string, unknown>
   created_at: string | null
   read_at: string | null
-  confirmed_at: string | null
 }
 
 const POLL_MS = 60_000

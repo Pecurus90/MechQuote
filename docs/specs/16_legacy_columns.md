@@ -70,6 +70,19 @@ dormienti (in DB, non più mappate né lette):
   `rapid_thickness_avg_mm`, `rapid_accessories_percent`,
   `rapid_tolerance_percent`
 
+### Notifiche — feature "conferma notifica" mai completata (F4, 2026-07-16)
+
+Esisteva l'impalcatura per una notifica "che richiede azione" con conferma
+esplicita, ma nessun endpoint ha mai scritto questi campi (feature morta):
+il pannello mostrava una spunta verde che non poteva mai comparire. Rimossi
+dal modello (restano orfani in DB):
+
+- `notifications.requires_action`
+- `notification_reads.confirmed_at`
+
+> ⚠️ Da non confondere con `quotes.confirmed_at` (timestamp di conferma del
+> preventivo): è un campo **vivo e usato** dal workflow, invariato.
+
 ---
 
 ## 3. Tabelle droppate (esistite, ora rimosse dal DB)

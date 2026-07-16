@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { X, Check, CheckCheck, Bell, Trash2 } from 'lucide-react'
+import { X, CheckCheck, Bell, Trash2 } from 'lucide-react'
 import type { Notification } from '@/lib/useNotifications'
 import { timeAgo } from '@/lib/timeAgo'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -101,7 +101,6 @@ export default function NotificationPanel({
             <ul>
               {items.map(n => {
                 const unread = !n.read_at
-                const confirmed = !!n.confirmed_at
                 return (
                   <li
                     key={n.id}
@@ -110,9 +109,7 @@ export default function NotificationPanel({
                   >
                     <div className="flex gap-2">
                       <div className="pt-1.5 shrink-0">
-                        {confirmed ? (
-                          <Check className="w-3 h-3 text-green-600" />
-                        ) : unread ? (
+                        {unread ? (
                           <span className="block w-2 h-2 rounded-full bg-blue-500" />
                         ) : (
                           <span className="block w-2 h-2 rounded-full border border-gray-300" />

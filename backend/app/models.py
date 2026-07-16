@@ -474,7 +474,6 @@ class Notification(Base):
     target_roles = Column(JSON, default=list)             # lista di slug ruolo
     target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # per notifiche 1-a-1
     target_quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=True)  # per dedupe via UNIQUE INDEX
-    requires_action = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 
     reads = relationship("NotificationRead", back_populates="notification", cascade="all, delete-orphan")
@@ -488,7 +487,6 @@ class NotificationRead(Base):
     notification_id = Column(Integer, ForeignKey("notifications.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     read_at = Column(DateTime, nullable=True)
-    confirmed_at = Column(DateTime, nullable=True)
     dismissed_at = Column(DateTime, nullable=True)  # nascondi dal pannello (per-utente)
 
     notification = relationship("Notification", back_populates="reads")

@@ -54,7 +54,6 @@ def serialize_notification(n: Notification, read: Optional[NotificationRead]) ->
         "data": n.data_json or {},
         "created_at": n.created_at.isoformat() if n.created_at else None,
         "read_at": read.read_at.isoformat() if read and read.read_at else None,
-        "confirmed_at": read.confirmed_at.isoformat() if read and read.confirmed_at else None,
     }
 
 

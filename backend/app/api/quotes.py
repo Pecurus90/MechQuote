@@ -443,11 +443,12 @@ def unconfirm_quote(
             status_code=400,
             detail=f"Nessuna conferma da annullare (stato '{quote.status}')",
         )
-    # C6 — annullare un preventivo GIA' 'completo' lo riporta modificabile: il
-    # creatore va avvisato (coerente con gli altri percorsi di retrocessione,
+    # F1 — annullare la conferma (da 'confermato' O 'completo') riporta il
+    # preventivo modificabile e azzera le evasioni materiale: il creatore va
+    # SEMPRE avvisato (coerente con gli altri percorsi di retrocessione,
     # reopen/demote), altrimenti l'ufficio tecnico non sa che deve rimetterci
-    # mano. Catturo prima della mutazione.
-    was_completo = quote.status == wf.STATUS_COMPLETO
+    # mano e che il materiale va riordinato. Prima il guard era `was_completo`,
+    # che lasciava silenzioso l'annullamento dal solo 'confermato'.
     creator_id = quote.created_by_user_id or quote.submitted_by_user_id
     db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
     quote.material_ordered_at = None
@@ -465,7 +466,7 @@ def unconfirm_quote(
     # completo→confermato guidata dagli ordini, che pure lo preserva).
     quote.awaiting_client_at = None
     db.commit()
-    if was_completo and creator_id and creator_id != current_user.id:
+    if creator_id and creator_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
             db,

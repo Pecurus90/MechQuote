@@ -559,10 +559,16 @@ def _run_migrations():
         # ═══ ACL: quotes.view_all ═══
         # Permesso per vedere TUTTI i preventivi (non solo i propri). Senza,
         # GET /api/quotes e /api/quotes/archive filtrano su created_by_user_id.
-        # Assegnato a admin + amministrazione: l'ufficio tecnico/officina
-        # vede solo i preventivi che ha creato lui.
-        "DELETE FROM role_permissions WHERE permission_key = 'quotes.view_all'",
-        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.view_all' FROM roles WHERE name IN ('admin','amministrazione')",
+        # Baseline: admin + amministrazione; gli altri ruoli lo ricevono via UI.
+        #
+        # F10 (2026-07-16): rimosso il `DELETE ... WHERE permission_key='quotes.view_all'`
+        # che precedeva l'INSERT. Girando a OGNI avvio, quel DELETE spogliava
+        # view_all da qualsiasi ruolo e la riassegnava solo ad admin+amministrazione:
+        # un grant via UI a un ruolo custom (es. ufficio_tecnico_plus) veniva
+        # azzerato al primo restart, rendendo view_all NON delegabile (contro il
+        # modello permessi dinamico, §3). Ora solo INSERT idempotente per la
+        # baseline: i grant UI ai ruoli custom sopravvivono ai riavvii.
+        "INSERT INTO role_permissions (role_id, permission_key) SELECT id, 'quotes.view_all' FROM roles WHERE name IN ('admin','amministrazione') AND id NOT IN (SELECT role_id FROM role_permissions WHERE permission_key='quotes.view_all')",
 
         # ═══ Preventivatore Stampi Lamiera — Schema fresh (Fase 1, 2026-05-16) ═══
         # Rollback delle tabelle legacy MVP1+2+3 già eseguito nel commit
@@ -777,6 +783,16 @@ def _run_migrations():
         "SELECT r.id, 'statistics' FROM roles r "
         "WHERE r.name IN ('admin','amministrazione') "
         "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'statistics')",
+        # F9 (decisione prodotto 2026-07-16): l'amministrazione può creare
+        # preventivi (grant storico assegnato via UI) ma non inviarli → i
+        # preventivi creati da amministrazione restavano bloccati in bozza,
+        # nessuno poteva mandarli avanti. Aggiungi 'quotes.send' al ruolo così
+        # il flusso crea→invia è completo. Idempotente (NOT EXISTS). I ruoli
+        # custom (es. ufficio_tecnico_plus) si abilitano dall'UI.
+        "INSERT INTO role_permissions (role_id, permission_key) "
+        "SELECT r.id, 'quotes.send' FROM roles r "
+        "WHERE r.name = 'amministrazione' "
+        "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'quotes.send')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

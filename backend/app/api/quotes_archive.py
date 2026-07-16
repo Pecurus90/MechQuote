@@ -7,7 +7,7 @@ from app.api.orders import _format_dim
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import (
-    ManufacturingPhase, Material, Part, Quote, QuoteSupplierOrder, User,
+    ManufacturingPhase, Material, Part, PartFile, Quote, QuoteSupplierOrder, User,
 )
 from app.schemas import (
     ArchiveQuoteOut, ArticleMaterialRow, QuoteMaterialDetailOut,
@@ -109,11 +109,20 @@ def list_archive(
         ).filter(QuoteSupplierOrder.quote_id.in_(quote_ids)).all()
         for qid, sid in rows:
             ordered_map.setdefault(qid, set()).add(sid)
+    # Preventivi con almeno un allegato (batch distinct: nessun N+1, non carica
+    # le righe file). Alimenta l'icona "occhio" passiva nella lista.
+    with_files: set = set()
+    if quote_ids:
+        file_rows = db.query(Part.quote_id).join(
+            PartFile, PartFile.part_id == Part.id
+        ).filter(Part.quote_id.in_(quote_ids)).distinct().all()
+        with_files = {qid for (qid,) in file_rows}
     for r in results:
         # Solo confermato/completo è "ordinabile": altrimenti eventuali
         # ordini residui non contano come evasione (spec 18).
         ordered = ordered_map.get(r.id, set()) if r.status in ORDERABLE_STATUSES else set()
         r.material_status = quote_material_status(r.parts, ordered)
+        r.has_files = r.id in with_files
     return results
 
 

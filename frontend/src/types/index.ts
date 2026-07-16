@@ -424,6 +424,7 @@ export interface QuoteListItem {
   material_ordered_by?: UserMinimal | null
   // Spec 18: stato materiale derivato (solo lista archivio).
   material_status?: string | null
+  has_files?: boolean            // ha almeno un allegato (DXF/PDF/STEP…) → icona occhio in lista
   parts: { total_price?: number }[]
   // Consuntivo commessa (spec G): prezzo venduto al cliente + costo reale.
   // Compilabili solo su status='completo'. Mostrati/editabili in Archivio.

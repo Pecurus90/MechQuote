@@ -493,6 +493,9 @@ class ArchiveQuoteOut(QuoteOut):
     """QuoteOut + stato materiale derivato (spec 18), solo per la lista
     archivio. `None` per gli stampi (fuori scope) o quando non calcolato."""
     material_status: Optional[str] = None
+    # True se almeno una parte del preventivo ha un allegato (DXF/PDF/STEP…).
+    # Indicatore passivo in lista; calcolato in list_archive (batch, no N+1).
+    has_files: bool = False
 
 
 class ArticleMaterialRow(BaseModel):

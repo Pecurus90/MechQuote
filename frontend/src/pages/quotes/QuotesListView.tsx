@@ -5,6 +5,8 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  Eye,
+  EyeOff,
   FileText,
   FileSpreadsheet,
   Hourglass,
@@ -308,6 +310,19 @@ export function QuotesListView(props: Props) {
                     <ChevronRight className="h-[17px] w-[17px] text-muted-foreground" />
                   )}
                   <div className="flex min-w-0 items-center gap-2.5">
+                    {/* Indicatore passivo allegati (DXF/PDF/STEP…): solo avviso,
+                        nessuna azione. Occhio pieno = ha file, barrato = nessuno. */}
+                    <span
+                      className="flex-none"
+                      title={r.has_files ? 'Ha allegati (DXF/PDF/STEP…)' : 'Nessun allegato'}
+                      aria-label={r.has_files ? 'Ha allegati' : 'Nessun allegato'}
+                    >
+                      {r.has_files ? (
+                        <Eye className="h-4 w-4 text-primary" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-muted-foreground/40" />
+                      )}
+                    </span>
                     <span className="whitespace-nowrap font-mono text-[13px] font-semibold text-foreground">{r.quote_number}</span>
                     <TypeBadge type={toQuoteType(r.quote_type)} />
                   </div>

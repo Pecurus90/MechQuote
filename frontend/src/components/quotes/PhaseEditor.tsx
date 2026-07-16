@@ -175,7 +175,10 @@ export default function PhaseEditor({
     const phase = phases[idx]
     let updates: Partial<Phase>
     if (!treatmentId) {
-      updates = { treatment_id: undefined, fixed_cost: 0, variable_cost_per_part: 0 }
+      // null esplicito, NON undefined: JSON.stringify scarta le chiavi undefined
+      // e col backend exclude_unset il treatment_id NON verrebbe azzerato
+      // (trattamento fantasma con costi a 0). Vedi supplier_id, stesso pattern.
+      updates = { treatment_id: null, fixed_cost: 0, variable_cost_per_part: 0 }
     } else {
       const t = treatments.find(t => t.id === treatmentId); if (!t) return
       const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, [], partDims)

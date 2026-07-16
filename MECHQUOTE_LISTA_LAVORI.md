@@ -1134,11 +1134,11 @@ CAT-1.
 - IVA opzionale attivabile dalle impostazioni (oggi i preventivi sono al netto;
   questa funzione andrebbe costruita da zero).
 - Spostare la cartella `PRV/` (vecchio sito) fuori dal progetto.
-- **Interruttore manuale mm/pollici nel wizard 2D** come rete di sicurezza
-  per i rari disegni che non dichiarano l'unità di misura (`$INSUNITS = 0`
-  "unitless"). Complementare alla conversione automatica di B2-#9 / C5: quando
-  l'unità è dichiarata MechQuote la converte da sola; quando non lo è,
-  l'utente deve poter scegliere a mano prima del calcolo.
+- ~~**Interruttore manuale mm/pollici nel wizard 2D**~~ ✅ FATTO (2026-07-16):
+  toggle mm/pollici sia nel viewer misura DXF sia nel preventivatore 2D
+  (`NewQuote2DPage`). Override che annulla la conversione errata quando l'header
+  mente sull'unità (es. `$INSUNITS=1` pollici ma disegno in mm) — il backend
+  espone `unit_factor`, il frontend riporta ai mm reali grezzo + lunghezza taglio.
 - Audit UX — dopo qualche settimana di uso reale.
 - Aggiornare esbuild/vite (rischio solo sul PC di sviluppo, costo alto: per ora
   non conviene).

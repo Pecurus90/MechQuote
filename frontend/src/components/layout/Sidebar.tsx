@@ -31,7 +31,7 @@ function initials(name: string): string {
 }
 
 interface Leaf { key: string; label: string; icon: LucideIcon; active?: boolean; badge?: { n: number; tone: 'danger' | 'warning' | 'info' } }
-interface Node extends Leaf { children?: Leaf[] }
+interface Node extends Leaf { children?: Leaf[]; defaultCollapsed?: boolean }
 
 export default function Sidebar() {
   const location = useLocation()
@@ -92,7 +92,7 @@ export default function Sidebar() {
     if (canQuote) children.push({ key: '/quotes/new', label: 'Nuovo preventivo', icon: FilePlus2, active: at('/quotes/new') })
     if (canArchive) children.push({ key: '/quotes/active', label: 'Preventivi in corso', icon: ClipboardList, active: at('/quotes/active') })
     if (canArchive) children.push({ key: '/quotes/archive', label: 'Archivio preventivi', icon: FolderOpen, active: at('/quotes/archive') })
-    if (children.length) operativita.push({ key: 'preventivi', label: 'Preventivi', icon: FileText, children, badge: reviewBadge > 0 ? { n: reviewBadge, tone: 'info' } : undefined })
+    if (children.length) operativita.push({ key: 'preventivi', label: 'Preventivi', icon: FileText, children, defaultCollapsed: true, badge: reviewBadge > 0 ? { n: reviewBadge, tone: 'info' } : undefined })
   }
   if (canSalesDirect) operativita.push({ key: '/sales/direct', label: 'Vendite dirette', icon: Receipt, active: at('/sales/direct') })
   if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {
@@ -102,7 +102,7 @@ export default function Sidebar() {
     if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da distinta', icon: Bolt, active: at('/orders/normalized-file') })
     if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: ShoppingCart, active: at('/orders/tools') })
     children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })
-    operativita.push({ key: 'ordini', label: 'Ordini', icon: Truck, children, badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
+    operativita.push({ key: 'ordini', label: 'Ordini', icon: Truck, children, defaultCollapsed: true, badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
   }
   if (canTools) operativita.push({ key: '/tools', label: 'Utensili', icon: Drill, active: at('/tools'), badge: toolsBadge > 0 ? { n: toolsBadge, tone: 'warning' } : undefined })
   if (canCustomers) operativita.push({ key: '/settings/customers', label: 'Clienti', icon: Users, active: at('/settings/customers') })

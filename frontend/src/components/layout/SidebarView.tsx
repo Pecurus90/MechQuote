@@ -15,6 +15,9 @@ interface NavLeaf {
 
 interface NavNode extends NavLeaf {
   children?: NavLeaf[]
+  /** Gruppo che parte collassato al primo render (si apre comunque se contiene
+   *  la voce attiva, così non nasconde la pagina corrente). */
+  defaultCollapsed?: boolean
 }
 
 interface NavSection {
@@ -45,7 +48,9 @@ function NavRow({
   item: NavNode
   onNavigate: (key: string) => void
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(() =>
+    item.defaultCollapsed ? (item.children?.some((c) => c.active) ?? false) : true,
+  )
   const hasChildren = !!item.children?.length
   const Icon = item.icon
 
@@ -91,15 +96,16 @@ function NavRow({
               key={child.key}
               type="button"
               onClick={() => onNavigate(child.key)}
+              title={child.label}
               className={cn(
-                'mb-0.5 flex w-full items-center gap-[11px] rounded-[9px] px-2.5 py-[9px] text-[13.5px] transition-colors',
+                'mb-0.5 flex w-full min-w-0 items-center gap-[11px] rounded-[9px] px-2.5 py-[9px] text-[13.5px] transition-colors',
                 child.active
                   ? 'bg-primary font-semibold text-primary-foreground'
                   : 'font-medium text-foreground hover:bg-muted/70',
               )}
             >
-              <child.icon className="h-[17px] w-[17px]" />
-              {child.label}
+              <child.icon className="h-[17px] w-[17px] shrink-0" />
+              <span className="truncate">{child.label}</span>
             </button>
           ))}
         </div>

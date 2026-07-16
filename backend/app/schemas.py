@@ -1167,6 +1167,7 @@ class DxfAnalysisOut(BaseModel):
     n_closed_profiles: int
     suggested_pierce: int
     units: str
+    unit_factor: float = 1.0   # raw × factor = mm (per l'override unità nel viewer)
     warnings: List[str]
     # Primitive per gli strumenti di misura del viewer (default vuote per
     # retro-compat con eventuali chiamate/cachati che non le hanno).

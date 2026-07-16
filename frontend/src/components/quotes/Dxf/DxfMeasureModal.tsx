@@ -56,6 +56,11 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       .finally(() => setLoading(false))
   }, [partFileId])
 
+  // Default unità = quella dichiarata dall'header (pollici se il backend ha
+  // convertito ×25.4). Se il file mente (dichiara pollici ma è in mm) l'utente
+  // sceglie "mm" e le misure tornano ai valori reali.
+  useEffect(() => { if (analysis) setUnit((analysis.unit_factor ?? 1) > 1.5 ? 'in' : 'mm') }, [analysis])
+
   const entities = useMemo<DxfEntity[]>(() => analysis?.entities ?? [], [analysis])
   const dispSnap = useMemo<DxfPoint[]>(() => (analysis?.snap_points ?? []).map(p => DISP(p.x, p.y)), [analysis])
   const entBbox = useMemo(() => {
@@ -69,7 +74,13 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
     return Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : (analysis?.bbox_global ?? null)
   }, [entities, analysis])
 
-  const unitScale = unit === 'in' ? 25.4 : 1
+  // Fattore applicato dal backend (raw × factor = mm). L'override mm/pollici ha
+  // senso solo per disegni mm/unitless (factor 1) o pollici (factor 25.4); per
+  // unità metriche non-mm (cm/m) ci si fida del backend.
+  const backendFactor = analysis?.unit_factor ?? 1
+  const overridable = backendFactor === 1 || Math.abs(backendFactor - 25.4) < 0.05
+  // displayed = raw × (unità scelta). raw = valore_convertito / backendFactor.
+  const unitScale = overridable ? (unit === 'in' ? 25.4 : 1) / backendFactor : 1
   const fmt = (r: NonNullable<Result>): string => {
     const v = (r.value * unitScale).toFixed(2)
     return r.kind === 'diameter' ? `Ø ${v} mm`
@@ -211,14 +222,16 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
           <Button size="sm" variant={tool === 'linedist' ? 'default' : 'outline'} onClick={() => switchTool('linedist')} disabled={loading || !analysis}><MoveHorizontal className="mr-1 h-3.5 w-3.5" /> Quota linee</Button>
           <Button size="sm" variant="outline" onClick={clear} disabled={loading || !analysis}><RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera</Button>
           <Button size="sm" variant="outline" onClick={() => canvasRef.current?.fit()} disabled={loading || !analysis} title="Adatta alla vista"><Maximize className="mr-1 h-3.5 w-3.5" /> Adatta</Button>
-          <div className="ml-1 flex items-center gap-1 text-[12px] text-muted-foreground">
-            <span>Disegno in:</span>
-            <div className="flex overflow-hidden rounded-md border border-border">
-              {(['mm', 'in'] as const).map(u => (
-                <button key={u} type="button" onClick={() => setUnit(u)} className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>{u === 'mm' ? 'mm' : 'pollici'}</button>
-              ))}
+          {overridable && (
+            <div className="ml-1 flex items-center gap-1 text-[12px] text-muted-foreground">
+              <span>Disegno in:</span>
+              <div className="flex overflow-hidden rounded-md border border-border">
+                {(['mm', 'in'] as const).map(u => (
+                  <button key={u} type="button" onClick={() => setUnit(u)} className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>{u === 'mm' ? 'mm' : 'pollici'}</button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           {result && <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">{fmt(result)}</span>}
         </div>
 

@@ -563,6 +563,7 @@ export interface DxfAnalysis {
   n_closed_profiles: number
   suggested_pierce: number
   units: string
+  unit_factor?: number   // raw × factor = mm (per l'override mm/pollici nel viewer)
   warnings: string[]
   // Primitive per gli strumenti di misura del viewer (assenti su risposte vecchie).
   snap_points?: DxfPoint[]

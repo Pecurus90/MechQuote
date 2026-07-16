@@ -434,6 +434,10 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
         'n_closed_profiles': n_closed,
         'suggested_pierce': n_closed,  # 1 pierce per profilo chiuso
         'units': units,
+        # Fattore di conversione applicato (raw × factor = mm). Serve al viewer
+        # per l'override mm/pollici quando l'header mente sull'unità
+        # (es. $INSUNITS=1 pollici ma il disegno è in mm).
+        'unit_factor': factor,
         'warnings': warnings,
         # Primitive per gli strumenti di misura del viewer (esatte, non SVG).
         'snap_points': snap_points,

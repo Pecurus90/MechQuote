@@ -70,6 +70,19 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
   const dispSnap = useMemo<DxfPoint[]>(
     () => (analysis?.snap_points ?? []).map(p => DISP(p.x, p.y)), [analysis])
 
+  // Bbox calcolato dalle ENTITÀ realmente disegnate (in coord DXF): più robusto
+  // del bbox_global dei profili — così la vista è sempre centrata sul disegno.
+  const entBbox = useMemo(() => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    const upd = (x: number, y: number) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y) }
+    for (const e of entities) {
+      if (e.t === 'line') { upd(e.x1!, e.y1!); upd(e.x2!, e.y2!) }
+      else if (e.t === 'circle' || e.t === 'arc') { upd(e.cx! - e.r!, e.cy! - e.r!); upd(e.cx! + e.r!, e.cy! + e.r!) }
+      else if (e.pts) { for (const [x, y] of e.pts) upd(x, y) }
+    }
+    return Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null
+  }, [entities])
+
   const unitScale = unit === 'in' ? 25.4 : 1
   const fmt = (r: NonNullable<Result>): string => {
     const v = (r.value * unitScale).toFixed(2)
@@ -81,11 +94,12 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
 
   const fitView = () => {
     if (!analysis) return
-    const b = analysis.bbox_global
+    const b = entBbox ?? analysis.bbox_global
+    if (!b || (b.w === 0 && b.h === 0)) { setView({ x: -10, y: -10, w: 20, h: 20 }); return }
     const pad = Math.max(b.w, b.h, 1) * 0.08
     setView({ x: b.x - pad, y: -(b.y + b.h) - pad, w: b.w + 2 * pad, h: b.h + 2 * pad })
   }
-  useEffect(() => { fitView() /* eslint-disable-next-line */ }, [analysis])
+  useEffect(() => { fitView() /* eslint-disable-next-line */ }, [analysis, entBbox])
 
   const clear = () => { setPicked([]); setSelEnt([]); setResult(null); setSnapPreview(null) }
   const switchTool = (t: Tool) => { setTool(cur => (cur === t ? 'none' : t)); clear() }

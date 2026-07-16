@@ -299,9 +299,24 @@ def _entities(msp, factor: float) -> List[Dict]:
         out.append({'t': 'arc', 'cx': s(c.x), 'cy': s(c.y), 'r': s(r),
                     'a0': round(float(a0), 4), 'a1': round(float(a1), 4)})
 
-    for e in msp:
+    def emit_poly(entity) -> None:
+        # Fallback affidabile: appiattisce l'entità come fanno i profili
+        # (stesso make_path). Garantisce che l'entità sia comunque renderizzabile
+        # anche se l'estrazione esatta (sopra) non ha prodotto nulla.
         try:
-            t = e.dxftype()
+            pts = [[s(p.x), s(p.y)] for p in make_path(entity).flattening(SVG_FLATTEN_TOL)]
+        except Exception as ex:
+            logger.debug("entity flatten fallback failed %s: %s", entity.dxftype(), ex)
+            return
+        if len(pts) >= 2:
+            out.append({'t': 'poly', 'pts': pts, 'closed': False})
+
+    for e in msp:
+        t = e.dxftype()
+        if t not in SUPPORTED_TYPES:
+            continue
+        before = len(out)
+        try:
             if t == 'LINE':
                 emit_line(e.dxf.start, e.dxf.end)
             elif t == 'CIRCLE':
@@ -315,13 +330,12 @@ def _entities(msp, factor: float) -> List[Dict]:
                         emit_line(ve.dxf.start, ve.dxf.end)
                     elif vt == 'ARC':
                         emit_arc(ve.dxf.center, ve.dxf.radius, ve.dxf.start_angle, ve.dxf.end_angle)
-            elif t in ('ELLIPSE', 'SPLINE'):
-                pts = [[s(p.x), s(p.y)] for p in make_path(e).flattening(SVG_FLATTEN_TOL)]
-                if len(pts) >= 2:
-                    out.append({'t': 'poly', 'pts': pts, 'closed': False})
         except Exception as ex:
-            logger.debug("entity extract skip %s: %s", e.dxftype(), ex)
-            continue
+            logger.debug("entity exact extract failed %s: %s", t, ex)
+        # Se l'estrazione esatta non ha aggiunto nulla per questa entità
+        # (tipo non gestito sopra, o eccezione), ripiega sull'appiattimento.
+        if len(out) == before:
+            emit_poly(e)
     return out
 
 

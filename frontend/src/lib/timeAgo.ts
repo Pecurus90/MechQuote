@@ -20,6 +20,16 @@ function parseUtc(iso: string): Date {
   return new Date(hasTz ? iso : iso + 'Z')
 }
 
+/** Data + ora assoluta in italiano (es. "16/07/2026, 16:04"). Stesso parsing
+ *  UTC-aware di timeAgo, per i timestamp naive-UTC del backend. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  return parseUtc(iso).toLocaleString('it-IT', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return ''
   const then = parseUtc(iso).getTime()

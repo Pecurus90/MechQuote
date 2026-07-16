@@ -1,7 +1,7 @@
 // src/components/layout/TopBar.tsx
 import { Search, Plus, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { timeAgo } from '@/lib/timeAgo'
+import { timeAgo, formatDateTime } from '@/lib/timeAgo'
 import type { Notification } from '@/lib/useNotifications'
 
 interface TopBarProps {
@@ -135,9 +135,17 @@ export function TopBar({
                       DOT_CLASS[n.type] ?? 'bg-muted-foreground',
                     )}
                   />
-                  <div>
-                    <div className="text-[12.5px] leading-[1.4]">{renderTitle(n.title)}</div>
-                    <div className="text-[11px] text-muted-foreground">{timeAgo(n.created_at)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className={cn('text-[12.5px] leading-[1.4]', !n.read_at && 'font-semibold')}>
+                      {renderTitle(n.title)}
+                    </div>
+                    {n.body && (
+                      <div className="mt-0.5 text-[11.5px] leading-[1.35] text-muted-foreground">{n.body}</div>
+                    )}
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {formatDateTime(n.created_at)}
+                      {n.created_at && <span className="text-muted-foreground/70"> · {timeAgo(n.created_at)}</span>}
+                    </div>
                   </div>
                 </button>
               ))

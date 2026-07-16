@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { DxfAnalysis, DxfPoint, DxfEntity } from '@/types'
+import DxfCanvas, { type DxfCanvasHandle, type Pt, type ViewBox } from '@/components/quotes/Dxf/DxfCanvas'
 
 interface Props {
   partFileId: number
@@ -12,20 +13,15 @@ interface Props {
 }
 
 type Tool = 'none' | 'distance' | 'diameter' | 'angle' | 'interasse'
-interface ViewBox { x: number; y: number; w: number; h: number }
 type Result = { kind: 'distance' | 'diameter' | 'angle' | 'interasse'; value: number; at: DxfPoint } | null
 
 const DISP = (x: number, y: number): DxfPoint => ({ x, y: -y })   // DXF (y-up) → display
 
-/** Campiona un arco in punti (coord DXF), per rendering come polilinea. */
 function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number): number[][] {
   let s = a0, e = a1; if (e <= s) e += 360
   const n = Math.max(8, Math.ceil((e - s) / 5))
   const out: number[][] = []
-  for (let k = 0; k <= n; k++) {
-    const a = (s + (e - s) * (k / n)) * Math.PI / 180
-    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
-  }
+  for (let k = 0; k <= n; k++) { const a = (s + (e - s) * (k / n)) * Math.PI / 180; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]) }
   return out
 }
 function angleRelation(deg: number): string {
@@ -34,29 +30,23 @@ function angleRelation(deg: number): string {
   return ''
 }
 
-/**
- * Viewer DXF interattivo con misure ESATTE sulle ENTITÀ vere (linee/cerchi/
- * archi), non sull'appiattimento SVG. Zoom/pan, hover per-entità, e strumenti
- * Distanza (snap ai punti) · Diametro · Angolo (due linee) · Interasse (due
- * fori). Gemello 2D del viewer STEP.
- */
+/** Viewer DXF con misure esatte sulle ENTITÀ vere, costruito sul viewport
+ *  condiviso DxfCanvas. Strumenti: Distanza (snap ai punti) · Diametro · Angolo
+ *  (due linee) · Interasse (due fori). */
 export default function DxfMeasureModal({ partFileId, filename, onClose }: Props) {
   const [analysis, setAnalysis] = useState<DxfAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [tool, setTool] = useState<Tool>('none')
-  const [view, setView] = useState<ViewBox | null>(null)
   const [unit, setUnit] = useState<'mm' | 'in'>('mm')
-  const [picked, setPicked] = useState<DxfPoint[]>([])       // punti (distanza), display coords
-  const [selEnt, setSelEnt] = useState<number[]>([])         // entità selezionate (diam/angolo/interasse)
+  const [picked, setPicked] = useState<DxfPoint[]>([])
+  const [selEnt, setSelEnt] = useState<number[]>([])
   const [hovered, setHovered] = useState<number | null>(null)
   const [snapPreview, setSnapPreview] = useState<DxfPoint | null>(null)
   const [result, setResult] = useState<Result>(null)
 
-  const svgRef = useRef<SVGSVGElement | null>(null)
-  const viewRef = useRef<ViewBox | null>(null); viewRef.current = view
+  const canvasRef = useRef<DxfCanvasHandle | null>(null)
   const toolRef = useRef<Tool>('none'); toolRef.current = tool
   const hoveredRef = useRef<number | null>(null); hoveredRef.current = hovered
-  const drag = useRef({ active: false, startX: 0, startY: 0, lastX: 0, lastY: 0 })
 
   useEffect(() => {
     setLoading(true)
@@ -67,11 +57,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
   }, [partFileId])
 
   const entities = useMemo<DxfEntity[]>(() => analysis?.entities ?? [], [analysis])
-  const dispSnap = useMemo<DxfPoint[]>(
-    () => (analysis?.snap_points ?? []).map(p => DISP(p.x, p.y)), [analysis])
-
-  // Bbox calcolato dalle ENTITÀ realmente disegnate (in coord DXF): più robusto
-  // del bbox_global dei profili — così la vista è sempre centrata sul disegno.
+  const dispSnap = useMemo<DxfPoint[]>(() => (analysis?.snap_points ?? []).map(p => DISP(p.x, p.y)), [analysis])
   const entBbox = useMemo(() => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
     const upd = (x: number, y: number) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y) }
@@ -80,67 +66,39 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       else if (e.t === 'circle' || e.t === 'arc') { upd(e.cx! - e.r!, e.cy! - e.r!); upd(e.cx! + e.r!, e.cy! + e.r!) }
       else if (e.pts) { for (const [x, y] of e.pts) upd(x, y) }
     }
-    return Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null
-  }, [entities])
+    return Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : (analysis?.bbox_global ?? null)
+  }, [entities, analysis])
 
   const unitScale = unit === 'in' ? 25.4 : 1
   const fmt = (r: NonNullable<Result>): string => {
     const v = (r.value * unitScale).toFixed(2)
     return r.kind === 'diameter' ? `Ø ${v} mm`
       : r.kind === 'angle' ? `${r.value.toFixed(2)}°${angleRelation(r.value)}`
-      : r.kind === 'interasse' ? `Interasse ${v} mm`
-      : `${v} mm`
+      : r.kind === 'interasse' ? `Interasse ${v} mm` : `${v} mm`
   }
-
-  const fitView = () => {
-    if (!analysis) return
-    const b = entBbox ?? analysis.bbox_global
-    if (!b || (b.w === 0 && b.h === 0)) { setView({ x: -10, y: -10, w: 20, h: 20 }); return }
-    const pad = Math.max(b.w, b.h, 1) * 0.08
-    setView({ x: b.x - pad, y: -(b.y + b.h) - pad, w: b.w + 2 * pad, h: b.h + 2 * pad })
-  }
-  useEffect(() => { fitView() /* eslint-disable-next-line */ }, [analysis, entBbox])
 
   const clear = () => { setPicked([]); setSelEnt([]); setResult(null); setSnapPreview(null) }
   const switchTool = (t: Tool) => { setTool(cur => (cur === t ? 'none' : t)); clear() }
 
-  // ─── conversioni schermo ↔ mondo (display) ─────────────────────────────────
-  const worldFromClient = (cx: number, cy: number): DxfPoint | null => {
-    const svg = svgRef.current; if (!svg) return null
-    const ctm = svg.getScreenCTM(); if (!ctm) return null
-    const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy
-    const p = pt.matrixTransform(ctm.inverse())
-    return { x: p.x, y: p.y }
-  }
-  const worldPerPx = (cx: number, cy: number): number => {
-    const a = worldFromClient(cx, cy), b = worldFromClient(cx + 1, cy)
-    return (a && b) ? Math.hypot(b.x - a.x, b.y - a.y) : 1
-  }
-  const nearestSnap = (w: DxfPoint, thr: number): DxfPoint | null => {
+  const nearestSnap = (w: Pt, thr: number): DxfPoint | null => {
     let best: DxfPoint | null = null, bd = thr
     for (const p of dispSnap) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p } }
     return best
   }
 
-  const measureAt = (cx: number, cy: number) => {
+  const onPick = (w: Pt, pxpw: number) => {
     const t = toolRef.current
     if (t === 'none') return
-    const w = worldFromClient(cx, cy); if (!w) return
-
     if (t === 'distance') {
-      const p = nearestSnap(w, worldPerPx(cx, cy) * 14) ?? w
+      const p = nearestSnap(w, pxpw * 14) ?? w
       setPicked(prev => {
         const next = prev.length >= 2 ? [p] : [...prev, p]
-        if (next.length === 2) {
-          setResult({ kind: 'distance', value: Math.hypot(next[0].x - next[1].x, next[0].y - next[1].y),
-            at: { x: (next[0].x + next[1].x) / 2, y: (next[0].y + next[1].y) / 2 } })
-        } else setResult(null)
+        if (next.length === 2) setResult({ kind: 'distance', value: Math.hypot(next[0].x - next[1].x, next[0].y - next[1].y), at: { x: (next[0].x + next[1].x) / 2, y: (next[0].y + next[1].y) / 2 } })
+        else setResult(null)
         return next
       })
       return
     }
-
-    // strumenti su ENTITÀ: usa l'entità sotto il cursore (hover)
     const idx = hoveredRef.current
     if (idx == null || !entities[idx]) {
       toast.error(t === 'angle' ? 'Clicca due linee' : t === 'interasse' ? 'Clicca due fori/cerchi' : 'Clicca un cerchio/arco')
@@ -148,17 +106,14 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
     }
     const e = entities[idx]
     const isCirc = e.t === 'circle' || e.t === 'arc'
-
     if (t === 'diameter') {
       clear()
       if (!isCirc || e.r == null) { toast.error('Clicca su un cerchio o arco'); return }
-      setSelEnt([idx])
-      setResult({ kind: 'diameter', value: e.r * 2, at: DISP(e.cx!, e.cy!) })
+      setSelEnt([idx]); setResult({ kind: 'diameter', value: e.r * 2, at: DISP(e.cx!, e.cy!) })
       return
     }
     if (t === 'angle' && e.t !== 'line') { toast.error('Clicca due linee'); return }
     if (t === 'interasse' && !isCirc) { toast.error('Clicca due fori/cerchi'); return }
-
     setSelEnt(prev => {
       if (prev.includes(idx)) return prev
       const next = prev.length >= 2 ? [idx] : [...prev, idx]
@@ -170,7 +125,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
           const ang = Math.acos(Math.min(1, dot / (Math.hypot(...d1) * Math.hypot(...d2) || 1))) * 180 / Math.PI
           const m1 = DISP((a.x1! + a.x2!) / 2, (a.y1! + a.y2!) / 2), m2 = DISP((b.x1! + b.x2!) / 2, (b.y1! + b.y2!) / 2)
           setResult({ kind: 'angle', value: ang, at: { x: (m1.x + m2.x) / 2, y: (m1.y + m2.y) / 2 } })
-        } else { // interasse
+        } else {
           const val = Math.hypot(a.cx! - b.cx!, a.cy! - b.cy!)
           const m1 = DISP(a.cx!, a.cy!), m2 = DISP(b.cx!, b.cy!)
           setResult({ kind: 'interasse', value: val, at: { x: (m1.x + m2.x) / 2, y: (m1.y + m2.y) / 2 } })
@@ -180,81 +135,45 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
     })
   }
 
-  // ─── interazione ───────────────────────────────────────────────────────────
-  const onPointerDown = (e: React.PointerEvent) => {
-    drag.current = { active: true, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY }
-    ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current
-    if (d.active) {
-      const cur = worldFromClient(e.clientX, e.clientY), prev = worldFromClient(d.lastX, d.lastY)
-      if (cur && prev) setView(v => (v ? { ...v, x: v.x - (cur.x - prev.x), y: v.y - (cur.y - prev.y) } : v))
-      d.lastX = e.clientX; d.lastY = e.clientY
-      return
-    }
-    if (toolRef.current === 'distance') {
-      const w = worldFromClient(e.clientX, e.clientY)
-      setSnapPreview(w ? nearestSnap(w, worldPerPx(e.clientX, e.clientY) * 14) : null)
-    } else if (snapPreview) setSnapPreview(null)
-  }
-  const onPointerUp = (e: React.PointerEvent) => {
-    const d = drag.current; d.active = false
-    if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 4) return
-    measureAt(e.clientX, e.clientY)
+  const onHoverMove = (w: Pt, pxpw: number) => {
+    if (toolRef.current === 'distance') setSnapPreview(nearestSnap(w, pxpw * 14))
+    else if (snapPreview) setSnapPreview(null)
   }
 
-  useEffect(() => {
-    const svg = svgRef.current; if (!svg) return
-    const onWheel = (e: WheelEvent) => {
-      const v = viewRef.current; if (!v) return
-      e.preventDefault()
-      const c = worldFromClient(e.clientX, e.clientY); if (!c) return
-      const f = e.deltaY < 0 ? 0.85 : 1 / 0.85
-      const nw = v.w * f, nh = v.h * f
-      setView({ x: c.x - ((c.x - v.x) / v.w) * nw, y: c.y - ((c.y - v.y) / v.h) * nh, w: nw, h: nh })
-    }
-    svg.addEventListener('wheel', onWheel, { passive: false })
-    return () => svg.removeEventListener('wheel', onWheel)
-  }, [analysis])
-
-  // ─── rendering entità ────────────────────────────────────────────────────
+  // ─── contenuto (entità) ──────────────────────────────────────────────────
   const strokeOf = (i: number) => selEnt.includes(i) ? '#2563eb' : i === hovered ? '#60a5fa' : '#475569'
   const widthOf = (i: number) => selEnt.includes(i) ? 2.4 : i === hovered ? 2 : 1.2
   const renderEntity = (e: DxfEntity, i: number) => {
-    const enter = () => setHovered(i)
-    const leave = () => setHovered(cur => (cur === i ? null : cur))
     const stroke = strokeOf(i), sw = widthOf(i)
     const common = { fill: 'none' as const, stroke, strokeWidth: sw, vectorEffect: 'non-scaling-stroke' as const, style: { pointerEvents: 'none' as const } }
-    const ghost = { fill: 'none' as const, stroke: 'transparent', strokeWidth: 10, vectorEffect: 'non-scaling-stroke' as const, style: { pointerEvents: 'stroke' as const, cursor: 'pointer' as const }, onPointerEnter: enter, onPointerLeave: leave }
-    if (e.t === 'line') {
-      const p = { x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2 }
-      return <g key={i}><line {...p} {...ghost} /><line {...p} {...common} /></g>
-    }
-    if (e.t === 'circle') {
-      const p = { cx: e.cx, cy: e.cy, r: e.r }
-      return <g key={i}><circle {...p} {...ghost} /><circle {...p} {...common} /></g>
-    }
-    const pts = (e.t === 'arc' ? arcPoints(e.cx!, e.cy!, e.r!, e.a0!, e.a1!) : (e.pts ?? []))
-      .map(([x, y]) => `${x},${y}`).join(' ')
+    const ghost = { fill: 'none' as const, stroke: 'transparent', strokeWidth: 10, vectorEffect: 'non-scaling-stroke' as const, style: { pointerEvents: 'stroke' as const, cursor: 'pointer' as const }, onPointerEnter: () => setHovered(i), onPointerLeave: () => setHovered(cur => (cur === i ? null : cur)) }
+    if (e.t === 'line') { const p = { x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2 }; return <g key={i}><line {...p} {...ghost} /><line {...p} {...common} /></g> }
+    if (e.t === 'circle') { const p = { cx: e.cx, cy: e.cy, r: e.r }; return <g key={i}><circle {...p} {...ghost} /><circle {...p} {...common} /></g> }
+    const pts = (e.t === 'arc' ? arcPoints(e.cx!, e.cy!, e.r!, e.a0!, e.a1!) : (e.pts ?? [])).map(([x, y]) => `${x},${y}`).join(' ')
     return <g key={i}><polyline points={pts} {...ghost} /><polyline points={pts} {...common} /></g>
   }
 
-  const markerR = view ? view.w * 0.006 : 1
-  const pill = (() => {
-    if (!result || !view) return null
-    const text = fmt(result)
-    const fs = view.w * 0.026, w = text.length * fs * 0.62 + fs * 1.1, h = fs * 1.7
-    const { x, y } = result.at
+  // ─── overlay (misure, in display) ────────────────────────────────────────
+  const overlay = (view: ViewBox) => {
+    const markerR = view.w * 0.006
+    const pill = result && (() => {
+      const text = fmt(result), fs = view.w * 0.026, w = text.length * fs * 0.62 + fs * 1.1, h = fs * 1.7, { x, y } = result.at
+      return (
+        <g>
+          <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={h / 2} fill="rgba(233,240,254,0.96)" stroke="rgba(37,99,235,0.35)" strokeWidth={view.w * 0.0016} />
+          <text x={x} y={y} fontSize={fs} fill="#2563eb" fontFamily="ui-monospace, monospace" fontWeight={600} textAnchor="middle" dominantBaseline="central">{text}</text>
+        </g>
+      )
+    })()
     return (
-      <g>
-        <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={h / 2}
-          fill="rgba(233,240,254,0.96)" stroke="rgba(37,99,235,0.35)" strokeWidth={view.w * 0.0016} />
-        <text x={x} y={y} fontSize={fs} fill="#2563eb" fontFamily="ui-monospace, monospace"
-          fontWeight={600} textAnchor="middle" dominantBaseline="central">{text}</text>
-      </g>
+      <>
+        {picked.length === 2 && <line x1={picked[0].x} y1={picked[0].y} x2={picked[1].x} y2={picked[1].y} stroke="#2563eb" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
+        {picked.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={markerR} fill="#2563eb" />)}
+        {snapPreview && <circle cx={snapPreview.x} cy={snapPreview.y} r={markerR * 1.6} fill="none" stroke="#ea580c" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
+        {pill}
+      </>
     )
-  })()
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/70 p-4">
@@ -267,38 +186,21 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-2">
-          <Button size="sm" variant={tool === 'distance' ? 'default' : 'outline'} onClick={() => switchTool('distance')} disabled={loading || !analysis}>
-            <Ruler className="mr-1 h-3.5 w-3.5" /> Distanza
-          </Button>
-          <Button size="sm" variant={tool === 'diameter' ? 'default' : 'outline'} onClick={() => switchTool('diameter')} disabled={loading || !analysis}>
-            <CircleIcon className="mr-1 h-3.5 w-3.5" /> Diametro
-          </Button>
-          <Button size="sm" variant={tool === 'angle' ? 'default' : 'outline'} onClick={() => switchTool('angle')} disabled={loading || !analysis}>
-            <Triangle className="mr-1 h-3.5 w-3.5" /> Angolo
-          </Button>
-          <Button size="sm" variant={tool === 'interasse' ? 'default' : 'outline'} onClick={() => switchTool('interasse')} disabled={loading || !analysis}>
-            <CircleDot className="mr-1 h-3.5 w-3.5" /> Interasse
-          </Button>
-          <Button size="sm" variant="outline" onClick={clear} disabled={loading || !analysis}>
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera
-          </Button>
-          <Button size="sm" variant="outline" onClick={fitView} disabled={loading || !analysis} title="Adatta alla vista">
-            <Maximize className="mr-1 h-3.5 w-3.5" /> Adatta
-          </Button>
+          <Button size="sm" variant={tool === 'distance' ? 'default' : 'outline'} onClick={() => switchTool('distance')} disabled={loading || !analysis}><Ruler className="mr-1 h-3.5 w-3.5" /> Distanza</Button>
+          <Button size="sm" variant={tool === 'diameter' ? 'default' : 'outline'} onClick={() => switchTool('diameter')} disabled={loading || !analysis}><CircleIcon className="mr-1 h-3.5 w-3.5" /> Diametro</Button>
+          <Button size="sm" variant={tool === 'angle' ? 'default' : 'outline'} onClick={() => switchTool('angle')} disabled={loading || !analysis}><Triangle className="mr-1 h-3.5 w-3.5" /> Angolo</Button>
+          <Button size="sm" variant={tool === 'interasse' ? 'default' : 'outline'} onClick={() => switchTool('interasse')} disabled={loading || !analysis}><CircleDot className="mr-1 h-3.5 w-3.5" /> Interasse</Button>
+          <Button size="sm" variant="outline" onClick={clear} disabled={loading || !analysis}><RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera</Button>
+          <Button size="sm" variant="outline" onClick={() => canvasRef.current?.fit()} disabled={loading || !analysis} title="Adatta alla vista"><Maximize className="mr-1 h-3.5 w-3.5" /> Adatta</Button>
           <div className="ml-1 flex items-center gap-1 text-[12px] text-muted-foreground">
             <span>Disegno in:</span>
             <div className="flex overflow-hidden rounded-md border border-border">
               {(['mm', 'in'] as const).map(u => (
-                <button key={u} type="button" onClick={() => setUnit(u)}
-                  className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>
-                  {u === 'mm' ? 'mm' : 'pollici'}
-                </button>
+                <button key={u} type="button" onClick={() => setUnit(u)} className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>{u === 'mm' ? 'mm' : 'pollici'}</button>
               ))}
             </div>
           </div>
-          {result && (
-            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">{fmt(result)}</span>
-          )}
+          {result && <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">{fmt(result)}</span>}
         </div>
 
         {analysis && (
@@ -308,32 +210,16 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
             <span className="text-muted-foreground">Profili: <span className="font-mono font-semibold text-foreground">{analysis.profiles.length}</span> ({analysis.n_closed_profiles} chiusi)</span>
             <span className="text-muted-foreground">Sviluppo: <span className="font-mono font-semibold text-foreground">{(analysis.total_length_mm * unitScale).toFixed(2)}</span> mm</span>
             <span className="text-[12px] text-muted-foreground/70">
-              {tool === 'distance' ? 'Clicca due punti (snap agli estremi/centri).'
-                : tool === 'diameter' ? 'Clicca un cerchio/arco.'
-                : tool === 'angle' ? 'Clicca due linee.'
-                : tool === 'interasse' ? 'Clicca due fori/cerchi.'
-                : 'Trascina per spostare · rotella per zoom · passa sopra le entità.'}
+              {tool === 'distance' ? 'Clicca due punti (snap agli estremi/centri).' : tool === 'diameter' ? 'Clicca un cerchio/arco.' : tool === 'angle' ? 'Clicca due linee.' : tool === 'interasse' ? 'Clicca due fori/cerchi.' : 'Trascina · rotella zoom · passa sopra le entità.'}
             </span>
           </div>
         )}
 
         <div className="relative flex-1 overflow-hidden bg-white" style={{ minHeight: 420 }}>
-          {view && analysis && (
-            <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet"
-              className="absolute inset-0 h-full w-full"
-              style={{ touchAction: 'none', cursor: tool === 'none' ? 'grab' : 'crosshair', background: 'rgba(148,163,184,0.04)' }}
-              onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-              onPointerLeave={() => { setSnapPreview(null); setHovered(null) }}>
-              {/* Entità: DXF (y-up) → display via scale(1,-1) */}
-              <g transform="scale(1,-1)">{entities.map(renderEntity)}</g>
-              {/* Overlay misure (già in display) */}
-              <g>
-                {picked.length === 2 && <line x1={picked[0].x} y1={picked[0].y} x2={picked[1].x} y2={picked[1].y} stroke="#2563eb" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
-                {picked.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={markerR} fill="#2563eb" />)}
-                {snapPreview && <circle cx={snapPreview.x} cy={snapPreview.y} r={markerR * 1.6} fill="none" stroke="#ea580c" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
-                {pill}
-              </g>
-            </svg>
+          {analysis && (
+            <DxfCanvas ref={canvasRef} bbox={entBbox} content={entities.map(renderEntity)} overlay={overlay}
+              onPick={onPick} onHoverMove={onHoverMove}
+              cursor={tool === 'none' ? 'grab' : 'crosshair'} />
           )}
           {loading && <div className="absolute inset-0 flex items-center justify-center text-sm text-primary"><span className="animate-pulse">Caricamento DXF…</span></div>}
           {!loading && !analysis && <div className="absolute inset-0 flex items-center justify-center text-sm text-danger">DXF non leggibile</div>}

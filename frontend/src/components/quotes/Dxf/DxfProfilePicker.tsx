@@ -4,7 +4,7 @@ import { Upload, FileText, X, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { DxfAnalysis, DxfBbox, DxfProfile } from '@/types'
-import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
+import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
 import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
 import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
 
@@ -175,7 +175,7 @@ export default function DxfProfilePicker({ onChange, viewerHeight = 420, rawX, r
           </div>
         </CardHeader>
         <CardContent>
-          <DxfViewer analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={viewerHeight} rawX={rawX} rawY={rawY} />
+          <DxfProfileCanvas analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={viewerHeight} rawX={rawX} rawY={rawY} />
           <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-0.5 bg-blue-600" /> chiuso selezionato

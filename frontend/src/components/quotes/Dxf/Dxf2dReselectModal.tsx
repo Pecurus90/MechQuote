@@ -4,7 +4,9 @@ import { FileText, X } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { DxfAnalysis } from '@/types'
+import { useDxfUnit } from '@/lib/dxfUnits'
 import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
+import DxfUnitToggle from '@/components/quotes/Dxf/DxfUnitToggle'
 import Dxf2dProfileList from '@/components/quotes/Dxf/Dxf2dProfileList'
 import Dxf2dSelectionSummary from '@/components/quotes/Dxf/Dxf2dSelectionSummary'
 
@@ -36,6 +38,9 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(initialSelectedIds))
   const [submitting, setSubmitting] = useState(false)
+  // Override unità mm/pollici (audit A3): senza, un DXF con header errato faceva
+  // salvare la lunghezza taglio ×25.4. Fonte unica in lib/dxfUnits.
+  const { unit, setUnit, overridable, unitScale } = useDxfUnit(analysis)
 
   useEffect(() => {
     api.get<DxfAnalysis>(`/dxf/analyze-part-file/${partFileId}`)
@@ -49,8 +54,8 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
     [analysis, selectedIds],
   )
   const selectedLengthMm = useMemo(
-    () => selectedProfiles.reduce((s, p) => s + p.length_mm, 0),
-    [selectedProfiles],
+    () => selectedProfiles.reduce((s, p) => s + p.length_mm, 0) * unitScale,
+    [selectedProfiles, unitScale],
   )
   const selectedClosedCount = useMemo(
     () => selectedProfiles.filter(p => p.closed).length,
@@ -104,6 +109,7 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
           {loading && <p className="text-sm text-blue-600 animate-pulse">Caricamento DXF...</p>}
           {analysis && (
             <>
+              {overridable && <DxfUnitToggle unit={unit} onChange={setUnit} />}
               <DxfProfileCanvas
                 analysis={analysis}
                 selectedIds={selectedIds}
@@ -111,6 +117,7 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
                 height={360}
                 rawX={rawX}
                 rawY={rawY}
+                unitScale={unitScale}
               />
               <Dxf2dProfileList
                 profiles={analysis.profiles}

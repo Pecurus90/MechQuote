@@ -16,6 +16,8 @@ import type {
   EdmConfig, Machine, Operation, Phase, DxfAnalysis, DxfBbox,
 } from '@/types'
 import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
+import DxfUnitToggle from '@/components/quotes/Dxf/DxfUnitToggle'
+import { useDxfUnit } from '@/lib/dxfUnits'
 import { Dxf2dWizardView, type Dxf2dValue, type DxfProfileRow, type SelectOption } from '@/pages/quotes/Dxf2dWizardView'
 
 type DrillingMode = 'foratrice_edm' | 'piastra_preforata'
@@ -87,15 +89,10 @@ export default function NewQuote2DPage() {
   const [analysis, setAnalysis] = useState<DxfAnalysis | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  // Override unità mm/pollici: alcuni CAD dichiarano l'unità sbagliata (es.
-  // $INSUNITS=pollici ma disegno in mm). unitScale riporta ai mm reali le misure
-  // che finiscono nel preventivo (grezzo, lunghezza taglio) e il disegno.
-  const [unit, setUnit] = useState<'mm' | 'in'>('mm')
-  const backendFactor = analysis?.unit_factor ?? 1
-  const overridable = backendFactor === 1 || Math.abs(backendFactor - 25.4) < 0.05
-  const unitScale = overridable ? (unit === 'in' ? 25.4 : 1) / backendFactor : 1
-  // Default = unità dichiarata dall'header (pollici se il backend ha convertito ×25.4).
-  useEffect(() => { if (analysis) setUnit((analysis.unit_factor ?? 1) > 1.5 ? 'in' : 'mm') }, [analysis])
+  // Override unità mm/pollici (fonte unica in lib/dxfUnits): alcuni CAD
+  // dichiarano l'unità sbagliata (es. $INSUNITS=pollici ma disegno in mm).
+  // unitScale riporta ai mm reali le misure che finiscono nel preventivo.
+  const { unit, setUnit, overridable, unitScale } = useDxfUnit(analysis)
 
   // ─── stato form ─────────────────────────────────────────────────────────
   const [form, setForm] = useState<FormState>(initialForm([]))
@@ -410,16 +407,7 @@ export default function NewQuote2DPage() {
       <Dxf2dWizardView
         viewer={
           <div className="p-2">
-            {overridable && (
-              <div className="mb-2 flex items-center gap-1 text-[12px] text-muted-foreground">
-                <span>Disegno in:</span>
-                <div className="flex overflow-hidden rounded-md border border-border">
-                  {(['mm', 'in'] as const).map(u => (
-                    <button key={u} type="button" onClick={() => setUnit(u)} className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>{u === 'mm' ? 'mm' : 'pollici'}</button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {overridable && <DxfUnitToggle unit={unit} onChange={setUnit} className="mb-2" />}
             <DxfProfileCanvas analysis={analysis} selectedIds={selectedIds} onToggle={toggleProfile} height={320} rawX={form.raw_x_mm} rawY={form.raw_y_mm} unitScale={unitScale} />
           </div>
         }

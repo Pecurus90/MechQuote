@@ -154,11 +154,14 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
       // 4. Aggiorna il grezzo della parte se non è ancora stato impostato.
       if (partId && !partHasRawStock) {
         const bbox = pendingDxf.analysis.bbox_global
+        // Applica l'override unità mm/pollici scelto nel picker: bbox_global è
+        // in unità backend (raw×factor), unitScale lo riporta ai mm reali (A3).
+        const scale = pendingDxf.unitScale
         if (bbox.w > 0 && bbox.h > 0) {
           try {
             await api.put(`/parts/${partId}`, {
-              raw_x_mm: Math.ceil(bbox.w),
-              raw_y_mm: Math.ceil(bbox.h),
+              raw_x_mm: Math.ceil(bbox.w * scale),
+              raw_y_mm: Math.ceil(bbox.h * scale),
             })
           } catch {
             toast.warning('Grezzo non aggiornato dalla bbox (compilalo manualmente)')

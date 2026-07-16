@@ -7,7 +7,7 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import {
   getOcct, readStep, tessellate, explodeFaces, explodeVertices, faceInfo, volume, boundingBox,
-  minDistance, angleBetweenPlanes, type FaceInfo,
+  faceDistanceDetail, angleBetweenPlanes, type FaceInfo,
 } from '@/lib/step/stepKernel'
 
 export interface StepGeometry {
@@ -217,6 +217,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       const verts = vertsRaw.map(([x, y, z]) => new THREE.Vector3(x, y, z))
       const overlay = new THREE.Group(); scene.add(overlay)   // marcatori + linee misura
       const selected: number[] = []          // facce selezionate (diameter/distance/angle/interasse)
+      const selectedHits: THREE.Vector3[] = []   // punto cliccato su ciascuna faccia (ancoraggio quota)
       const pickedPoints: THREE.Vector3[] = []   // punti selezionati (tool punto)
 
       const setFaceColor = (fid: number, col: THREE.Color) => {
@@ -229,9 +230,32 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       }
       const addLine = (a: THREE.Vector3, b: THREE.Vector3, color = 0x2563eb) =>
         overlay.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color })))
+      // Etichetta di quota (valore) nel modello: sprite con testo su canvas,
+      // sempre rivolta alla camera e sopra la geometria (depthTest off).
+      const midpoint = (a: THREE.Vector3, b: THREE.Vector3) => a.clone().add(b).multiplyScalar(0.5)
+      const addLabel = (text: string, pos: THREE.Vector3) => {
+        const font = 44, padX = 14, padY = 8
+        const meas = document.createElement('canvas').getContext('2d')!
+        meas.font = `bold ${font}px sans-serif`
+        const tw = Math.ceil(meas.measureText(text).width)
+        const canvas = document.createElement('canvas')
+        canvas.width = tw + padX * 2; canvas.height = font + padY * 2
+        const ctx = canvas.getContext('2d')!
+        ctx.font = `bold ${font}px sans-serif`
+        ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3)
+        ctx.fillStyle = '#1e3a8a'; ctx.textBaseline = 'middle'; ctx.fillText(text, padX, canvas.height / 2)
+        const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
+        const h = maxDim * 0.09
+        sprite.scale.set(h * (canvas.width / canvas.height), h, 1)
+        sprite.position.copy(pos); sprite.renderOrder = 999
+        overlay.add(sprite)
+      }
       const clearSelection = () => {
         selected.forEach(fid => setFaceColor(fid, baseColor))
         selected.length = 0
+        selectedHits.length = 0
         pickedPoints.length = 0
         overlay.clear()
         setResult(null)
@@ -297,7 +321,9 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           pickedPoints.push(p); addMarker(p)
           if (pickedPoints.length === 2) {
             addLine(pickedPoints[0], pickedPoints[1])
-            setResult({ kind: 'point', value: pickedPoints[0].distanceTo(pickedPoints[1]) })
+            const value = pickedPoints[0].distanceTo(pickedPoints[1])
+            addLabel(`${value.toFixed(2)} mm`, midpoint(pickedPoints[0], pickedPoints[1]))
+            setResult({ kind: 'point', value })
           }
           return
         }
@@ -309,6 +335,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           clearSelection()
           if (info.radius == null) { toast.error('Clicca una faccia cilindrica o sferica (foro/albero)'); return }
           selected.push(fid); setFaceColor(fid, hiColor)
+          addLabel(`Ø ${(info.radius * 2).toFixed(2)} mm`, hit.point)
           setResult({ kind: 'diameter', value: info.radius * 2 })
           return
         }
@@ -318,22 +345,30 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         if (t === 'interasse' && info.axisDirection == null) { toast.error('Per l’interasse clicca due fori/cilindri'); return }
         if (selected.length >= 2) clearSelection()
         if (selected.includes(fid)) return
-        selected.push(fid); setFaceColor(fid, hiColor)
+        selected.push(fid); setFaceColor(fid, hiColor); selectedHits.push(hit.point.clone())
         if (selected.length === 2) {
           const [a, b] = selected
           try {
             if (t === 'distance') {
               const oc = await getOcct()
-              setResult({ kind: 'distance', value: minDistance(oc, faces![a], faces![b]) })
+              const det = faceDistanceDetail(oc, faces![a], faces![b])
+              const q1 = new THREE.Vector3(...det.p1), q2 = new THREE.Vector3(...det.p2)
+              addLine(q1, q2); addMarker(q1); addMarker(q2)
+              addLabel(`${det.distance.toFixed(2)} mm`, midpoint(q1, q2))
+              setResult({ kind: 'distance', value: det.distance })
             } else if (t === 'interasse') {
               const d = axisToAxisDistance(faceInfos[a], faceInfos[b])
               if (d == null) { toast.error('Servono due fori/cilindri'); clearSelection(); return }
+              addLine(selectedHits[0], selectedHits[1])
+              addLabel(`Interasse ${d.toFixed(2)} mm`, midpoint(selectedHits[0], selectedHits[1]))
               setResult({ kind: 'interasse', value: d })
             } else {
               const na = faceInfos[a].planeNormal, nb = faceInfos[b].planeNormal
               if (!na || !nb) { toast.error('Servono due facce piane'); clearSelection(); return }
               const oc = await getOcct()
-              setResult({ kind: 'angle', value: angleBetweenPlanes(oc, na, nb) })
+              const ang = angleBetweenPlanes(oc, na, nb)
+              addLabel(`${ang.toFixed(2)}°${angleRelation(ang)}`, midpoint(selectedHits[0], selectedHits[1]))
+              setResult({ kind: 'angle', value: ang })
             }
           } catch {
             toast.error('Errore nel calcolo della misura')
@@ -413,7 +448,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/70 p-4">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-lg bg-card shadow-xl">
+      <div className="flex h-[92vh] w-full max-w-[1400px] flex-col rounded-lg bg-card shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h3 className="flex items-center gap-2 font-semibold text-foreground">
             <Box className="h-4 w-4" /> {filename || 'Modello STEP'} <span className="text-[11px] font-normal text-muted-foreground">· CAD esatto</span>

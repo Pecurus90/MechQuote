@@ -170,6 +170,22 @@ export function minDistance(oc: OC, a: TopoDS_Shape, b: TopoDS_Shape): number {
   return d.Value()
 }
 
+export interface DistanceDetail {
+  distance: number
+  p1: [number, number, number]   // punto più vicino su A
+  p2: [number, number, number]   // punto più vicino su B
+}
+
+/** Come minDistance ma restituisce anche i due punti più vicini — per
+ *  disegnare la linea di quota tra le entità nel modello 3D. */
+export function faceDistanceDetail(oc: OC, a: TopoDS_Shape, b: TopoDS_Shape): DistanceDetail {
+  const d = new oc.BRepExtrema_DistShapeShape_1()
+  d.LoadS1(a); d.LoadS2(b)
+  d.Perform(new oc.Message_ProgressRange_1())
+  const p1 = d.PointOnShape1(1), p2 = d.PointOnShape2(1)
+  return { distance: d.Value(), p1: [p1.X(), p1.Y(), p1.Z()], p2: [p2.X(), p2.Y(), p2.Z()] }
+}
+
 /** Angolo (gradi) tra le normali di due facce piane. */
 export function angleBetweenPlanes(oc: OC, n1: [number, number, number], n2: [number, number, number]): number {
   const a = new oc.gp_Dir_4(n1[0], n1[1], n1[2])

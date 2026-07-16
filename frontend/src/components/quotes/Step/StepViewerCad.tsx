@@ -1,0 +1,335 @@
+import { useEffect, useRef, useState } from 'react'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { Box, X, Ruler, RotateCcw, Circle, Triangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import api from '@/lib/api'
+import { toast } from 'sonner'
+import {
+  getOcct, readStep, tessellate, explodeFaces, faceInfo, volume, boundingBox,
+  minDistance, angleBetweenPlanes, type FaceInfo,
+} from '@/lib/step/stepKernel'
+
+export interface StepGeometry {
+  x: number; y: number; z: number   // ingombro (bounding box) in mm
+  volumeCm3: number
+  weightKg?: number
+}
+
+interface Props {
+  fileId: number
+  filename?: string
+  densityKgDm3?: number
+  onApplyGeometry?: (g: StepGeometry) => void
+  onClose: () => void
+}
+
+type Tool = 'none' | 'distance' | 'diameter' | 'angle'
+type Result = { kind: Tool; value: number } | null
+
+/**
+ * Visualizzatore STEP con motore CAD ESATTO (opencascade.js, B-rep).
+ * A differenza del vecchio viewer (mesh + fit dai triangoli), qui ogni faccia
+ * del modello è la faccia CAD vera: cliccandola si leggono raggio/distanza/
+ * angolo esatti dalla geometria, non fittati. Lazy-loaded: il kernel WASM
+ * (~50 MB) NON entra nel bundle principale.
+ */
+export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyGeometry, onClose }: Props) {
+  const mountRef = useRef<HTMLDivElement>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [tool, setTool] = useState<Tool>('none')
+  const [result, setResult] = useState<Result>(null)
+  const [geom, setGeom] = useState<StepGeometry | null>(null)
+
+  const toolRef = useRef(tool)
+  toolRef.current = tool
+  const apiRef = useRef<{ clearSelection: () => void }>({ clearSelection: () => {} })
+
+  useEffect(() => {
+    const mount = mountRef.current
+    if (!mount) return
+    let disposed = false
+    let renderer: THREE.WebGLRenderer | null = null
+    let controls: OrbitControls | null = null
+    let frame = 0
+    const cleanups: Array<() => void> = []
+    // Oggetti OCCT da liberare all'unmount (evita leak WASM).
+    const occtToFree: Array<{ delete: () => void }> = []
+
+    async function init() {
+      if (!mount) return
+      let buf: ArrayBuffer
+      try {
+        const res = await api.get(`/files/${fileId}`, { responseType: 'arraybuffer' })
+        buf = res.data as ArrayBuffer
+      } catch {
+        if (!disposed) { setError('Impossibile scaricare il file STEP'); setLoading(false) }
+        return
+      }
+
+      let shape, faces, faceInfos: FaceInfo[], tess, vol: number, bbox: { x: number; y: number; z: number }
+      try {
+        const oc = await getOcct()
+        if (disposed) return
+        shape = readStep(oc, buf)
+        occtToFree.push(shape)
+        faces = explodeFaces(oc, shape)
+        faces.forEach(f => occtToFree.push(f))
+        faceInfos = faces.map((f, i) => faceInfo(oc, f, i))
+        tess = tessellate(oc, shape)
+        vol = volume(oc, shape)
+        bbox = boundingBox(oc, shape)
+      } catch (e) {
+        if (!disposed) {
+          setError('Errore nel motore CAD (WASM): STEP non leggibile')
+          setLoading(false)
+        }
+        if (import.meta.env.DEV) console.error('[StepViewerCad] kernel error', e)
+        return
+      }
+      if (disposed) return
+      if (!tess.positions.length) { setError('STEP senza geometria'); setLoading(false); return }
+
+      // ─── Scena ───────────────────────────────────────────────────────────
+      const width = mount.clientWidth || 800
+      const height = mount.clientHeight || 500
+      const scene = new THREE.Scene()
+      scene.background = new THREE.Color(0xf5f6f8)
+      const group = new THREE.Group()
+
+      // Attributo posizione condiviso tra le mesh per-faccia (una geometria per
+      // faccia CAD: così il raycast identifica subito la faccia vera).
+      const posAttr = new THREE.Float32BufferAttribute(tess.positions, 3)
+      const faceIndexLists: number[][] = faceInfos.map(() => [])
+      for (let t = 0; t < tess.triangleFace.length; t++) {
+        const fid = tess.triangleFace[t]
+        faceIndexLists[fid].push(tess.indices[t * 3], tess.indices[t * 3 + 1], tess.indices[t * 3 + 2])
+      }
+      const baseColor = new THREE.Color(0x9aa4b2)
+      const hiColor = new THREE.Color(0x2563eb)
+      const faceMeshes: THREE.Mesh[] = []
+      faceIndexLists.forEach((idxList, fid) => {
+        if (!idxList.length) return
+        const g = new THREE.BufferGeometry()
+        g.setAttribute('position', posAttr)
+        g.setIndex(idxList)
+        g.computeVertexNormals()
+        const mat = new THREE.MeshStandardMaterial({ color: baseColor, metalness: 0.25, roughness: 0.6, side: THREE.DoubleSide })
+        const mesh = new THREE.Mesh(g, mat)
+        mesh.userData.faceId = fid
+        faceMeshes.push(mesh)
+        group.add(mesh)
+      })
+      scene.add(group)
+
+      // Wireframe stile CAD: spigoli veri via EdgesGeometry (angolo soglia).
+      const merged = new THREE.BufferGeometry()
+      merged.setAttribute('position', posAttr)
+      merged.setIndex(Array.from(tess.indices))
+      const edges = new THREE.EdgesGeometry(merged, 20)
+      scene.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x334155 })))
+
+      // Camera framing sul bounding box del gruppo.
+      const box3 = new THREE.Box3().setFromObject(group)
+      const size = new THREE.Vector3(); box3.getSize(size)
+      const center = new THREE.Vector3(); box3.getCenter(center)
+      const maxDim = Math.max(size.x, size.y, size.z) || 1
+
+      // Ingombro / volume / peso ESATTI (dal kernel, non dai triangoli).
+      const r2 = (n: number) => Math.round(n * 100) / 100
+      setGeom({
+        x: r2(bbox.x), y: r2(bbox.y), z: r2(bbox.z),
+        volumeCm3: r2(vol / 1000),
+        weightKg: densityKgDm3 ? Math.round((vol / 1e6) * densityKgDm3 * 1000) / 1000 : undefined,
+      })
+
+      const camera = new THREE.PerspectiveCamera(45, width / height, maxDim / 1000, maxDim * 100)
+      camera.position.set(center.x + maxDim, center.y + maxDim, center.z + maxDim)
+      camera.lookAt(center)
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7))
+      const dir = new THREE.DirectionalLight(0xffffff, 0.9)
+      dir.position.set(1, 1, 1)
+      scene.add(dir)
+
+      renderer = new THREE.WebGLRenderer({ antialias: true })
+      renderer.setPixelRatio(window.devicePixelRatio)
+      renderer.setSize(width, height)
+      mount.appendChild(renderer.domElement)
+
+      controls = new OrbitControls(camera, renderer.domElement)
+      controls.target.copy(center)
+      controls.update()
+
+      // ─── Selezione + misure ──────────────────────────────────────────────
+      const raycaster = new THREE.Raycaster()
+      const selected: number[] = []
+      const setFaceColor = (fid: number, col: THREE.Color) => {
+        const m = faceMeshes.find(x => x.userData.faceId === fid)
+        if (m) (m.material as THREE.MeshStandardMaterial).color.copy(col)
+      }
+      const clearSelection = () => {
+        selected.forEach(fid => setFaceColor(fid, baseColor))
+        selected.length = 0
+        setResult(null)
+      }
+      apiRef.current.clearSelection = clearSelection
+
+      const pickFace = (ev: MouseEvent): number | null => {
+        if (!renderer) return null
+        const rect = renderer.domElement.getBoundingClientRect()
+        const ndc = new THREE.Vector2(
+          ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+          -((ev.clientY - rect.top) / rect.height) * 2 + 1,
+        )
+        raycaster.setFromCamera(ndc, camera)
+        const hit = raycaster.intersectObjects(faceMeshes, false)[0]
+        return hit ? (hit.object.userData.faceId as number) : null
+      }
+
+      const onClick = async (ev: MouseEvent) => {
+        const t = toolRef.current
+        if (t === 'none') return
+        const fid = pickFace(ev)
+        if (fid == null) return
+        const info = faceInfos[fid]
+
+        if (t === 'diameter') {
+          clearSelection()
+          if (info.radius == null) { toast.error('Clicca una faccia cilindrica o sferica (foro/albero)'); return }
+          selected.push(fid); setFaceColor(fid, hiColor)
+          setResult({ kind: 'diameter', value: info.radius * 2 })
+          return
+        }
+
+        // distance / angle: due facce
+        if (t === 'angle' && info.planeNormal == null) { toast.error('Per l’angolo clicca due facce piane'); return }
+        if (selected.length >= 2) clearSelection()
+        if (selected.includes(fid)) return
+        selected.push(fid); setFaceColor(fid, hiColor)
+        if (selected.length === 2) {
+          const [a, b] = selected
+          try {
+            const oc = await getOcct()
+            if (t === 'distance') {
+              setResult({ kind: 'distance', value: minDistance(oc, faces![a], faces![b]) })
+            } else {
+              const na = faceInfos[a].planeNormal, nb = faceInfos[b].planeNormal
+              if (!na || !nb) { toast.error('Servono due facce piane'); clearSelection(); return }
+              setResult({ kind: 'angle', value: angleBetweenPlanes(oc, na, nb) })
+            }
+          } catch {
+            toast.error('Errore nel calcolo della misura')
+            clearSelection()
+          }
+        }
+      }
+      renderer.domElement.addEventListener('click', onClick)
+      cleanups.push(() => renderer?.domElement.removeEventListener('click', onClick))
+
+      const onResize = () => {
+        if (!renderer) return
+        const w = mount.clientWidth, h = mount.clientHeight
+        camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h)
+      }
+      window.addEventListener('resize', onResize)
+      cleanups.push(() => window.removeEventListener('resize', onResize))
+
+      const renderLoop = () => {
+        if (disposed) return
+        frame = requestAnimationFrame(renderLoop)
+        controls?.update()
+        renderer?.render(scene, camera)
+      }
+      renderLoop()
+      setLoading(false)
+    }
+
+    init()
+    return () => {
+      disposed = true
+      cancelAnimationFrame(frame)
+      cleanups.forEach(fn => fn())
+      controls?.dispose()
+      if (renderer) { renderer.dispose(); renderer.domElement.remove() }
+      // Libera gli oggetti OCCT (shape + facce) per non trattenere memoria WASM.
+      occtToFree.forEach(o => { try { o.delete() } catch { /* già liberato */ } })
+    }
+  }, [fileId])
+
+  const switchTool = (t: Tool) => {
+    setTool(cur => cur === t ? 'none' : t)
+    apiRef.current.clearSelection()
+  }
+  const hint =
+    tool === 'distance' ? 'Clicca due facce → distanza minima (facce parallele = spessore).'
+    : tool === 'diameter' ? 'Clicca la parete di un foro o cilindro → diametro esatto.'
+    : tool === 'angle' ? 'Clicca due facce piane → angolo tra loro.'
+    : 'Trascina per ruotare · rotella per zoom.'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/70 p-4">
+      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-lg bg-card shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h3 className="flex items-center gap-2 font-semibold text-foreground">
+            <Box className="h-4 w-4" /> {filename || 'Modello STEP'} <span className="text-[11px] font-normal text-muted-foreground">· CAD esatto</span>
+          </h3>
+          <button onClick={onClose} className="rounded p-1 hover:bg-muted"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="flex items-center gap-2 border-b border-border px-5 py-2">
+          <Button size="sm" variant={tool === 'distance' ? 'default' : 'outline'} onClick={() => switchTool('distance')} disabled={loading || !!error}>
+            <Ruler className="mr-1 h-3.5 w-3.5" /> Distanza
+          </Button>
+          <Button size="sm" variant={tool === 'diameter' ? 'default' : 'outline'} onClick={() => switchTool('diameter')} disabled={loading || !!error}>
+            <Circle className="mr-1 h-3.5 w-3.5" /> Diametro
+          </Button>
+          <Button size="sm" variant={tool === 'angle' ? 'default' : 'outline'} onClick={() => switchTool('angle')} disabled={loading || !!error}>
+            <Triangle className="mr-1 h-3.5 w-3.5" /> Angolo
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => apiRef.current.clearSelection()} disabled={loading || !!error}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera
+          </Button>
+          <span className="text-[12.5px] text-muted-foreground">{hint}</span>
+          {result && (
+            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">
+              {result.kind === 'diameter' ? `Ø ${result.value.toFixed(2)} mm`
+                : result.kind === 'angle' ? `${result.value.toFixed(2)}°`
+                : `${result.value.toFixed(2)} mm`}
+            </span>
+          )}
+        </div>
+
+        {geom && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-muted/40 px-5 py-2 text-[12.5px]">
+            <span className="text-muted-foreground">Ingombro: <span className="font-mono font-semibold text-foreground">{geom.x} × {geom.y} × {geom.z}</span> mm</span>
+            <span className="text-muted-foreground">Volume: <span className="font-mono font-semibold text-foreground">{geom.volumeCm3}</span> cm³</span>
+            {geom.weightKg != null && (
+              <span className="text-muted-foreground">Peso stimato: <span className="font-mono font-semibold text-foreground">{geom.weightKg}</span> kg</span>
+            )}
+            {onApplyGeometry && (
+              <Button size="sm" variant="outline" className="ml-auto" onClick={() => onApplyGeometry(geom)} title="Compila Grezzo X/Y/Z e Peso finito dalla geometria">
+                <Box className="mr-1 h-3.5 w-3.5" /> Applica al preventivo
+              </Button>
+            )}
+          </div>
+        )}
+
+        <div className="relative flex-1" style={{ minHeight: 420 }}>
+          <div ref={mountRef} className="absolute inset-0" />
+          {loading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-primary">
+              <span className="animate-pulse">Caricamento modello 3D (motore CAD)…</span>
+            </div>
+          )}
+          {error && <div className="absolute inset-0 flex items-center justify-center text-sm text-danger">{error}</div>}
+        </div>
+
+        <div className="flex justify-end border-t border-border bg-muted px-5 py-3">
+          <Button variant="outline" onClick={onClose}>Chiudi</Button>
+        </div>
+      </div>
+    </div>
+  )
+}

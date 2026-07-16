@@ -13,11 +13,15 @@
 //
 // Il WASM è ~50 MB: il modulo è pensato per import DINAMICO (lazy), così non
 // entra nel bundle principale — si carica solo all'apertura di un modello 3D.
-import initOpenCascade, {
-  type OpenCascadeInstance, type TopoDS_Shape, type TopoDS_Face,
-  type TopAbs_ShapeEnum,
+import type {
+  OpenCascadeInstance, TopoDS_Shape, TopoDS_Face, TopAbs_ShapeEnum,
 } from 'opencascade.js'
-// eslint-disable-next-line import/no-unresolved -- asset URL risolto da Vite a runtime
+// NON importiamo da 'opencascade.js' (il suo index.js fa un import statico del
+// .wasm che Vite rifiuta). Importiamo la factory Emscripten diretta + il .wasm
+// come URL (?url): il wasm viene caricato a runtime via locateFile.
+// eslint-disable-next-line import/no-unresolved -- risolti da Vite a runtime
+import ocFullJS from 'opencascade.js/dist/opencascade.full.js'
+// eslint-disable-next-line import/no-unresolved
 import ocWasmUrl from 'opencascade.js/dist/opencascade.full.wasm?url'
 
 export type OC = OpenCascadeInstance
@@ -54,7 +58,13 @@ export interface BBox { x: number; y: number; z: number }
 let ocPromise: Promise<OC> | null = null
 /** Inizializza (una volta) il kernel OCCT. Import dinamico consigliato dal chiamante. */
 export function getOcct(): Promise<OC> {
-  return (ocPromise ??= initOpenCascade({ mainWasm: ocWasmUrl }))
+  return (ocPromise ??= new Promise<OC>((resolve, reject) => {
+    // `opencascade.full.js` è la factory Emscripten (MODULARIZE): si istanzia e
+    // carica il wasm via `locateFile` (gli passiamo l'URL emesso da Vite).
+    const factory = ocFullJS as unknown as new (opts: object) => Promise<OC>
+    new factory({ locateFile: (p: string) => (p.endsWith('.wasm') ? ocWasmUrl : p) })
+      .then(resolve, reject)
+  }))
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

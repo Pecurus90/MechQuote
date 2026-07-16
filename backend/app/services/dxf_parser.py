@@ -275,6 +275,56 @@ def _measure_primitives(msp, factor: float) -> Tuple[List[Dict], List[Dict]]:
     return snap_points, circles
 
 
+def _entities(msp, factor: float) -> List[Dict]:
+    """Estrae le ENTITÀ geometriche vere per il viewer (rendering + hover +
+    misura per-entità), non l'appiattimento SVG. Coordinate scalate in mm.
+
+    - LINE/CIRCLE/ARC → entità esatte (line/circle/arc).
+    - LWPOLYLINE/POLYLINE → esplose nei loro segmenti (line/arc, i bulge
+      diventano archi veri) via `virtual_entities()`.
+    - ELLIPSE/SPLINE → polilinea appiattita (poly), non hanno primitiva semplice.
+    """
+    out: List[Dict] = []
+
+    def s(v: float) -> float:
+        return round(float(v) * factor, 4)
+
+    def emit_line(a, b) -> None:
+        out.append({'t': 'line', 'x1': s(a.x), 'y1': s(a.y), 'x2': s(b.x), 'y2': s(b.y)})
+
+    def emit_circle(c, r) -> None:
+        out.append({'t': 'circle', 'cx': s(c.x), 'cy': s(c.y), 'r': s(r)})
+
+    def emit_arc(c, r, a0, a1) -> None:
+        out.append({'t': 'arc', 'cx': s(c.x), 'cy': s(c.y), 'r': s(r),
+                    'a0': round(float(a0), 4), 'a1': round(float(a1), 4)})
+
+    for e in msp:
+        try:
+            t = e.dxftype()
+            if t == 'LINE':
+                emit_line(e.dxf.start, e.dxf.end)
+            elif t == 'CIRCLE':
+                emit_circle(e.dxf.center, e.dxf.radius)
+            elif t == 'ARC':
+                emit_arc(e.dxf.center, e.dxf.radius, e.dxf.start_angle, e.dxf.end_angle)
+            elif t in ('LWPOLYLINE', 'POLYLINE'):
+                for ve in e.virtual_entities():
+                    vt = ve.dxftype()
+                    if vt == 'LINE':
+                        emit_line(ve.dxf.start, ve.dxf.end)
+                    elif vt == 'ARC':
+                        emit_arc(ve.dxf.center, ve.dxf.radius, ve.dxf.start_angle, ve.dxf.end_angle)
+            elif t in ('ELLIPSE', 'SPLINE'):
+                pts = [[s(p.x), s(p.y)] for p in make_path(e).flattening(SVG_FLATTEN_TOL)]
+                if len(pts) >= 2:
+                    out.append({'t': 'poly', 'pts': pts, 'closed': False})
+        except Exception as ex:
+            logger.debug("entity extract skip %s: %s", e.dxftype(), ex)
+            continue
+    return out
+
+
 def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     """Analizza un file DXF in bytes e ritorna il dict pronto per DxfAnalysisOut.
 
@@ -361,6 +411,7 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     units = 'mm' if source_units != 'unsupported' else f'code-{insunits}'
 
     snap_points, circles = _measure_primitives(msp, factor)
+    entities = _entities(msp, factor)
 
     return {
         'profiles': profiles,
@@ -373,4 +424,6 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
         # Primitive per gli strumenti di misura del viewer (esatte, non SVG).
         'snap_points': snap_points,
         'circles': circles,
+        # Entità geometriche vere (line/circle/arc/poly) per rendering + hover.
+        'entities': entities,
     }

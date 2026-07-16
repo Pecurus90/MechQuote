@@ -1143,6 +1143,23 @@ class DxfCircleOut(BaseModel):
     full: bool          # True = CIRCLE completo, False = ARC
 
 
+class DxfEntityOut(BaseModel):
+    """Entità geometrica DXF per il rendering/hover (coord in mm).
+    `t`: 'line' | 'circle' | 'arc' | 'poly'. Campi valorizzati per tipo."""
+    t: str
+    x1: Optional[float] = None
+    y1: Optional[float] = None
+    x2: Optional[float] = None
+    y2: Optional[float] = None
+    cx: Optional[float] = None
+    cy: Optional[float] = None
+    r: Optional[float] = None
+    a0: Optional[float] = None
+    a1: Optional[float] = None
+    pts: Optional[List[List[float]]] = None
+    closed: Optional[bool] = None
+
+
 class DxfAnalysisOut(BaseModel):
     profiles: List[DxfProfileOut]
     bbox_global: DxfBboxOut
@@ -1155,6 +1172,7 @@ class DxfAnalysisOut(BaseModel):
     # retro-compat con eventuali chiamate/cachati che non le hanno).
     snap_points: List[DxfPointOut] = []
     circles: List[DxfCircleOut] = []
+    entities: List[DxfEntityOut] = []
 
 
 # ─── Ordini materiali ──────────────────────────────────────────────────────

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, X, Ruler, Circle as CircleIcon, RotateCcw, Maximize } from 'lucide-react'
+import { FileText, X, Ruler, Circle as CircleIcon, Triangle, CircleDot, RotateCcw, Maximize } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import type { DxfAnalysis, DxfPoint, DxfCircle } from '@/types'
+import type { DxfAnalysis, DxfPoint, DxfEntity } from '@/types'
 
 interface Props {
   partFileId: number
@@ -11,40 +11,51 @@ interface Props {
   onClose: () => void
 }
 
-type Tool = 'none' | 'distance' | 'diameter'
+type Tool = 'none' | 'distance' | 'diameter' | 'angle' | 'interasse'
 interface ViewBox { x: number; y: number; w: number; h: number }
+type Result = { kind: 'distance' | 'diameter' | 'angle' | 'interasse'; value: number; at: DxfPoint } | null
+
+const DISP = (x: number, y: number): DxfPoint => ({ x, y: -y })   // DXF (y-up) → display
+
+/** Campiona un arco in punti (coord DXF), per rendering come polilinea. */
+function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number): number[][] {
+  let s = a0, e = a1; if (e <= s) e += 360
+  const n = Math.max(8, Math.ceil((e - s) / 5))
+  const out: number[][] = []
+  for (let k = 0; k <= n; k++) {
+    const a = (s + (e - s) * (k / n)) * Math.PI / 180
+    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
+  }
+  return out
+}
+function angleRelation(deg: number): string {
+  if (deg < 1) return ' · parallele'
+  if (Math.abs(deg - 90) < 1) return ' · perpendicolari'
+  return ''
+}
 
 /**
- * Viewer DXF interattivo con misure ESATTE (gemello 2D del viewer STEP).
- * Il backend (ezdxf) fornisce i profili come path SVG + le primitive di misura
- * (snap_points, circles). Qui: zoom/pan, Distanza (snap ai punti veri) e
- * Diametro (sui cerchi/archi), con quote a pillola nel disegno.
- *
- * Lavoriamo in spazio "display" (dispY = -y): il DXF ha Y verso l'alto, il DOM
- * verso il basso. Solo i profili (path in coordinate DXF) stanno in un gruppo
- * `scale(1,-1)`; l'overlay è già in display → niente testo capovolto.
+ * Viewer DXF interattivo con misure ESATTE sulle ENTITÀ vere (linee/cerchi/
+ * archi), non sull'appiattimento SVG. Zoom/pan, hover per-entità, e strumenti
+ * Distanza (snap ai punti) · Diametro · Angolo (due linee) · Interasse (due
+ * fori). Gemello 2D del viewer STEP.
  */
 export default function DxfMeasureModal({ partFileId, filename, onClose }: Props) {
   const [analysis, setAnalysis] = useState<DxfAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [tool, setTool] = useState<Tool>('none')
   const [view, setView] = useState<ViewBox | null>(null)
-  const [picked, setPicked] = useState<DxfPoint[]>([])            // display coords
-  const [hiCircle, setHiCircle] = useState<DxfCircle | null>(null) // display coords
-  const [result, setResult] = useState<{ kind: 'distance' | 'diameter'; value: number; at: DxfPoint } | null>(null)
-  // Override unità: alcuni CAD scrivono "mm" ma le coordinate sono in pollici.
-  // 'in' → i valori misurati vengono moltiplicati ×25.4 per ottenere i mm reali.
   const [unit, setUnit] = useState<'mm' | 'in'>('mm')
-  const unitScale = unit === 'in' ? 25.4 : 1
-  const fmt = (r: { kind: 'distance' | 'diameter'; value: number }) => {
-    const v = (r.value * unitScale).toFixed(2)
-    return r.kind === 'diameter' ? `Ø ${v} mm` : `${v} mm`
-  }
+  const [picked, setPicked] = useState<DxfPoint[]>([])       // punti (distanza), display coords
+  const [selEnt, setSelEnt] = useState<number[]>([])         // entità selezionate (diam/angolo/interasse)
+  const [hovered, setHovered] = useState<number | null>(null)
+  const [snapPreview, setSnapPreview] = useState<DxfPoint | null>(null)
+  const [result, setResult] = useState<Result>(null)
 
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const viewRef = useRef<ViewBox | null>(null)
-  viewRef.current = view
+  const viewRef = useRef<ViewBox | null>(null); viewRef.current = view
   const toolRef = useRef<Tool>('none'); toolRef.current = tool
+  const hoveredRef = useRef<number | null>(null); hoveredRef.current = hovered
   const drag = useRef({ active: false, startX: 0, startY: 0, lastX: 0, lastY: 0 })
 
   useEffect(() => {
@@ -55,10 +66,18 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       .finally(() => setLoading(false))
   }, [partFileId])
 
+  const entities = useMemo<DxfEntity[]>(() => analysis?.entities ?? [], [analysis])
   const dispSnap = useMemo<DxfPoint[]>(
-    () => (analysis?.snap_points ?? []).map(p => ({ x: p.x, y: -p.y })), [analysis])
-  const dispCircles = useMemo<DxfCircle[]>(
-    () => (analysis?.circles ?? []).map(c => ({ x: c.x, y: -c.y, r: c.r, full: c.full })), [analysis])
+    () => (analysis?.snap_points ?? []).map(p => DISP(p.x, p.y)), [analysis])
+
+  const unitScale = unit === 'in' ? 25.4 : 1
+  const fmt = (r: NonNullable<Result>): string => {
+    const v = (r.value * unitScale).toFixed(2)
+    return r.kind === 'diameter' ? `Ø ${v} mm`
+      : r.kind === 'angle' ? `${r.value.toFixed(2)}°${angleRelation(r.value)}`
+      : r.kind === 'interasse' ? `Interasse ${v} mm`
+      : `${v} mm`
+  }
 
   const fitView = () => {
     if (!analysis) return
@@ -68,7 +87,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
   }
   useEffect(() => { fitView() /* eslint-disable-next-line */ }, [analysis])
 
-  const clear = () => { setPicked([]); setResult(null); setHiCircle(null) }
+  const clear = () => { setPicked([]); setSelEnt([]); setResult(null); setSnapPreview(null) }
   const switchTool = (t: Tool) => { setTool(cur => (cur === t ? 'none' : t)); clear() }
 
   // ─── conversioni schermo ↔ mondo (display) ─────────────────────────────────
@@ -83,17 +102,9 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
     const a = worldFromClient(cx, cy), b = worldFromClient(cx + 1, cy)
     return (a && b) ? Math.hypot(b.x - a.x, b.y - a.y) : 1
   }
-  const snap = (w: DxfPoint, thr: number): DxfPoint => {
-    let best = w, bd = thr
+  const nearestSnap = (w: DxfPoint, thr: number): DxfPoint | null => {
+    let best: DxfPoint | null = null, bd = thr
     for (const p of dispSnap) { const d = Math.hypot(p.x - w.x, p.y - w.y); if (d < bd) { bd = d; best = p } }
-    return best
-  }
-  const nearestCircle = (w: DxfPoint, thr: number): DxfCircle | null => {
-    let best: DxfCircle | null = null, bd = thr
-    for (const c of dispCircles) {
-      const d = Math.abs(Math.hypot(c.x - w.x, c.y - w.y) - c.r)   // distanza dall'anello
-      if (d < bd) { bd = d; best = c }
-    }
     return best
   }
 
@@ -101,47 +112,84 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
     const t = toolRef.current
     if (t === 'none') return
     const w = worldFromClient(cx, cy); if (!w) return
-    const thr = worldPerPx(cx, cy) * 14
-    if (t === 'diameter') {
-      clear()
-      const c = nearestCircle(w, thr)
-      if (!c) { toast.error('Avvicinati a un cerchio o arco'); return }
-      setHiCircle(c)
-      setResult({ kind: 'diameter', value: c.r * 2, at: { x: c.x, y: c.y } })
+
+    if (t === 'distance') {
+      const p = nearestSnap(w, worldPerPx(cx, cy) * 14) ?? w
+      setPicked(prev => {
+        const next = prev.length >= 2 ? [p] : [...prev, p]
+        if (next.length === 2) {
+          setResult({ kind: 'distance', value: Math.hypot(next[0].x - next[1].x, next[0].y - next[1].y),
+            at: { x: (next[0].x + next[1].x) / 2, y: (next[0].y + next[1].y) / 2 } })
+        } else setResult(null)
+        return next
+      })
       return
     }
-    // distanza
-    const p = snap(w, thr)
-    setPicked(prev => {
-      const next = prev.length >= 2 ? [p] : [...prev, p]
+
+    // strumenti su ENTITÀ: usa l'entità sotto il cursore (hover)
+    const idx = hoveredRef.current
+    if (idx == null || !entities[idx]) {
+      toast.error(t === 'angle' ? 'Clicca due linee' : t === 'interasse' ? 'Clicca due fori/cerchi' : 'Clicca un cerchio/arco')
+      return
+    }
+    const e = entities[idx]
+    const isCirc = e.t === 'circle' || e.t === 'arc'
+
+    if (t === 'diameter') {
+      clear()
+      if (!isCirc || e.r == null) { toast.error('Clicca su un cerchio o arco'); return }
+      setSelEnt([idx])
+      setResult({ kind: 'diameter', value: e.r * 2, at: DISP(e.cx!, e.cy!) })
+      return
+    }
+    if (t === 'angle' && e.t !== 'line') { toast.error('Clicca due linee'); return }
+    if (t === 'interasse' && !isCirc) { toast.error('Clicca due fori/cerchi'); return }
+
+    setSelEnt(prev => {
+      if (prev.includes(idx)) return prev
+      const next = prev.length >= 2 ? [idx] : [...prev, idx]
       if (next.length === 2) {
-        const val = Math.hypot(next[0].x - next[1].x, next[0].y - next[1].y)
-        setResult({ kind: 'distance', value: val, at: { x: (next[0].x + next[1].x) / 2, y: (next[0].y + next[1].y) / 2 } })
+        const [a, b] = next.map(i => entities[i])
+        if (t === 'angle') {
+          const d1 = [a.x2! - a.x1!, a.y2! - a.y1!], d2 = [b.x2! - b.x1!, b.y2! - b.y1!]
+          const dot = Math.abs(d1[0] * d2[0] + d1[1] * d2[1])
+          const ang = Math.acos(Math.min(1, dot / (Math.hypot(...d1) * Math.hypot(...d2) || 1))) * 180 / Math.PI
+          const m1 = DISP((a.x1! + a.x2!) / 2, (a.y1! + a.y2!) / 2), m2 = DISP((b.x1! + b.x2!) / 2, (b.y1! + b.y2!) / 2)
+          setResult({ kind: 'angle', value: ang, at: { x: (m1.x + m2.x) / 2, y: (m1.y + m2.y) / 2 } })
+        } else { // interasse
+          const val = Math.hypot(a.cx! - b.cx!, a.cy! - b.cy!)
+          const m1 = DISP(a.cx!, a.cy!), m2 = DISP(b.cx!, b.cy!)
+          setResult({ kind: 'interasse', value: val, at: { x: (m1.x + m2.x) / 2, y: (m1.y + m2.y) / 2 } })
+        }
       } else setResult(null)
       return next
     })
   }
 
-  // ─── interazione: pan (drag), zoom (wheel), misura (clic fermo) ─────────────
+  // ─── interazione ───────────────────────────────────────────────────────────
   const onPointerDown = (e: React.PointerEvent) => {
     drag.current = { active: true, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY }
     ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
   }
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current
-    if (!d.active) return
-    const cur = worldFromClient(e.clientX, e.clientY)
-    const prev = worldFromClient(d.lastX, d.lastY)
-    if (cur && prev) setView(v => (v ? { ...v, x: v.x - (cur.x - prev.x), y: v.y - (cur.y - prev.y) } : v))
-    d.lastX = e.clientX; d.lastY = e.clientY
+    if (d.active) {
+      const cur = worldFromClient(e.clientX, e.clientY), prev = worldFromClient(d.lastX, d.lastY)
+      if (cur && prev) setView(v => (v ? { ...v, x: v.x - (cur.x - prev.x), y: v.y - (cur.y - prev.y) } : v))
+      d.lastX = e.clientX; d.lastY = e.clientY
+      return
+    }
+    if (toolRef.current === 'distance') {
+      const w = worldFromClient(e.clientX, e.clientY)
+      setSnapPreview(w ? nearestSnap(w, worldPerPx(e.clientX, e.clientY) * 14) : null)
+    } else if (snapPreview) setSnapPreview(null)
   }
   const onPointerUp = (e: React.PointerEvent) => {
     const d = drag.current; d.active = false
-    if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 4) return   // era pan
-    measureAt(e.clientX, e.clientY)                                          // clic fermo → misura
+    if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 4) return
+    measureAt(e.clientX, e.clientY)
   }
 
-  // Wheel nativo con passive:false (altrimenti il browser scrolla la pagina).
   useEffect(() => {
     const svg = svgRef.current; if (!svg) return
     const onWheel = (e: WheelEvent) => {
@@ -150,21 +198,39 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       const c = worldFromClient(e.clientX, e.clientY); if (!c) return
       const f = e.deltaY < 0 ? 0.85 : 1 / 0.85
       const nw = v.w * f, nh = v.h * f
-      const fx = (c.x - v.x) / v.w, fy = (c.y - v.y) / v.h
-      setView({ x: c.x - fx * nw, y: c.y - fy * nh, w: nw, h: nh })
+      setView({ x: c.x - ((c.x - v.x) / v.w) * nw, y: c.y - ((c.y - v.y) / v.h) * nh, w: nw, h: nh })
     }
     svg.addEventListener('wheel', onWheel, { passive: false })
     return () => svg.removeEventListener('wheel', onWheel)
   }, [analysis])
 
-  // ─── render ────────────────────────────────────────────────────────────────
+  // ─── rendering entità ────────────────────────────────────────────────────
+  const strokeOf = (i: number) => selEnt.includes(i) ? '#2563eb' : i === hovered ? '#60a5fa' : '#475569'
+  const widthOf = (i: number) => selEnt.includes(i) ? 2.4 : i === hovered ? 2 : 1.2
+  const renderEntity = (e: DxfEntity, i: number) => {
+    const enter = () => setHovered(i)
+    const leave = () => setHovered(cur => (cur === i ? null : cur))
+    const stroke = strokeOf(i), sw = widthOf(i)
+    const common = { fill: 'none' as const, stroke, strokeWidth: sw, vectorEffect: 'non-scaling-stroke' as const, style: { pointerEvents: 'none' as const } }
+    const ghost = { fill: 'none' as const, stroke: 'transparent', strokeWidth: 10, vectorEffect: 'non-scaling-stroke' as const, style: { pointerEvents: 'stroke' as const, cursor: 'pointer' as const }, onPointerEnter: enter, onPointerLeave: leave }
+    if (e.t === 'line') {
+      const p = { x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2 }
+      return <g key={i}><line {...p} {...ghost} /><line {...p} {...common} /></g>
+    }
+    if (e.t === 'circle') {
+      const p = { cx: e.cx, cy: e.cy, r: e.r }
+      return <g key={i}><circle {...p} {...ghost} /><circle {...p} {...common} /></g>
+    }
+    const pts = (e.t === 'arc' ? arcPoints(e.cx!, e.cy!, e.r!, e.a0!, e.a1!) : (e.pts ?? []))
+      .map(([x, y]) => `${x},${y}`).join(' ')
+    return <g key={i}><polyline points={pts} {...ghost} /><polyline points={pts} {...common} /></g>
+  }
+
   const markerR = view ? view.w * 0.006 : 1
   const pill = (() => {
     if (!result || !view) return null
     const text = fmt(result)
-    const fs = view.w * 0.026
-    const w = text.length * fs * 0.62 + fs * 1.1
-    const h = fs * 1.7
+    const fs = view.w * 0.026, w = text.length * fs * 0.62 + fs * 1.1, h = fs * 1.7
     const { x, y } = result.at
     return (
       <g>
@@ -186,12 +252,18 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
           <button onClick={onClose} className="rounded p-1 hover:bg-muted"><X className="h-4 w-4" /></button>
         </div>
 
-        <div className="flex items-center gap-2 border-b border-border px-5 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-2">
           <Button size="sm" variant={tool === 'distance' ? 'default' : 'outline'} onClick={() => switchTool('distance')} disabled={loading || !analysis}>
             <Ruler className="mr-1 h-3.5 w-3.5" /> Distanza
           </Button>
           <Button size="sm" variant={tool === 'diameter' ? 'default' : 'outline'} onClick={() => switchTool('diameter')} disabled={loading || !analysis}>
             <CircleIcon className="mr-1 h-3.5 w-3.5" /> Diametro
+          </Button>
+          <Button size="sm" variant={tool === 'angle' ? 'default' : 'outline'} onClick={() => switchTool('angle')} disabled={loading || !analysis}>
+            <Triangle className="mr-1 h-3.5 w-3.5" /> Angolo
+          </Button>
+          <Button size="sm" variant={tool === 'interasse' ? 'default' : 'outline'} onClick={() => switchTool('interasse')} disabled={loading || !analysis}>
+            <CircleDot className="mr-1 h-3.5 w-3.5" /> Interasse
           </Button>
           <Button size="sm" variant="outline" onClick={clear} disabled={loading || !analysis}>
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera
@@ -210,11 +282,6 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
               ))}
             </div>
           </div>
-          <span className="text-[12.5px] text-muted-foreground">
-            {tool === 'distance' ? 'Clicca due punti (aggancia a estremi/centri) → distanza.'
-              : tool === 'diameter' ? 'Clicca su un cerchio o arco → diametro esatto.'
-              : 'Trascina per spostare · rotella per zoom.'}
-          </span>
           {result && (
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">{fmt(result)}</span>
           )}
@@ -223,42 +290,33 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
         {analysis && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-muted/40 px-5 py-2 text-[12.5px]">
             <span className="text-muted-foreground">Dimensioni: <span className="font-mono font-semibold text-foreground">{(analysis.bbox_global.w * unitScale).toFixed(2)} × {(analysis.bbox_global.h * unitScale).toFixed(2)}</span> mm</span>
+            <span className="text-muted-foreground">Entità: <span className="font-mono font-semibold text-foreground">{entities.length}</span></span>
             <span className="text-muted-foreground">Profili: <span className="font-mono font-semibold text-foreground">{analysis.profiles.length}</span> ({analysis.n_closed_profiles} chiusi)</span>
-            <span className="text-muted-foreground">Sviluppo totale: <span className="font-mono font-semibold text-foreground">{(analysis.total_length_mm * unitScale).toFixed(2)}</span> mm</span>
+            <span className="text-muted-foreground">Sviluppo: <span className="font-mono font-semibold text-foreground">{(analysis.total_length_mm * unitScale).toFixed(2)}</span> mm</span>
+            <span className="text-[12px] text-muted-foreground/70">
+              {tool === 'distance' ? 'Clicca due punti (snap agli estremi/centri).'
+                : tool === 'diameter' ? 'Clicca un cerchio/arco.'
+                : tool === 'angle' ? 'Clicca due linee.'
+                : tool === 'interasse' ? 'Clicca due fori/cerchi.'
+                : 'Trascina per spostare · rotella per zoom · passa sopra le entità.'}
+            </span>
           </div>
         )}
 
         <div className="relative flex-1 overflow-hidden bg-white" style={{ minHeight: 420 }}>
           {view && analysis && (
-            <svg
-              ref={svgRef}
-              viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
-              preserveAspectRatio="xMidYMid meet"
+            <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet"
               className="absolute inset-0 h-full w-full"
               style={{ touchAction: 'none', cursor: tool === 'none' ? 'grab' : 'crosshair', background: 'rgba(148,163,184,0.04)' }}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-            >
-              {/* Profili: DXF (y-up) → display via scale(1,-1) */}
-              <g transform="scale(1,-1)">
-                {analysis.profiles.map(p => (
-                  <path key={p.id} d={p.svg_path} fill="none"
-                    stroke={p.closed ? '#334155' : '#94a3b8'} strokeWidth={1.2}
-                    strokeDasharray={p.closed ? undefined : '4 3'} vectorEffect="non-scaling-stroke" />
-                ))}
-              </g>
+              onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
+              onPointerLeave={() => { setSnapPreview(null); setHovered(null) }}>
+              {/* Entità: DXF (y-up) → display via scale(1,-1) */}
+              <g transform="scale(1,-1)">{entities.map(renderEntity)}</g>
               {/* Overlay misure (già in display) */}
               <g>
-                {hiCircle && (
-                  <circle cx={hiCircle.x} cy={hiCircle.y} r={hiCircle.r} fill="none" stroke="#2563eb" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-                )}
-                {picked.length === 2 && (
-                  <line x1={picked[0].x} y1={picked[0].y} x2={picked[1].x} y2={picked[1].y} stroke="#2563eb" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-                )}
-                {picked.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r={markerR} fill="#2563eb" />
-                ))}
+                {picked.length === 2 && <line x1={picked[0].x} y1={picked[0].y} x2={picked[1].x} y2={picked[1].y} stroke="#2563eb" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
+                {picked.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={markerR} fill="#2563eb" />)}
+                {snapPreview && <circle cx={snapPreview.x} cy={snapPreview.y} r={markerR * 1.6} fill="none" stroke="#ea580c" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
                 {pill}
               </g>
             </svg>

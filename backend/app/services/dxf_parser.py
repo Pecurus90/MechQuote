@@ -220,6 +220,61 @@ def _stitch(paths: List[Path], tol: float) -> List[Dict]:
 
 # ─── entry point ────────────────────────────────────────────────────────────
 
+def _measure_primitives(msp, factor: float) -> Tuple[List[Dict], List[Dict]]:
+    """Estrae, dalle entità DXF, le primitive per gli STRUMENTI DI MISURA del
+    viewer: punti di snap (estremi linee, vertici polilinee, centri, estremi
+    archi) e cerchi (centro + raggio esatti, per il diametro). Coordinate
+    scalate in mm come i profili (× factor). Best-effort: entità non gestite
+    saltate. Serve il dato ESATTO delle entità, non l'appiattimento SVG."""
+    raw_pts: List[Tuple[float, float]] = []
+    circles: List[Dict] = []
+
+    def sc(x: float, y: float) -> Tuple[float, float]:
+        # float() esplicito: ezdxf/numpy possono restituire np.float64.
+        return (round(float(x) * factor, 3), round(float(y) * factor, 3))
+
+    for e in msp:
+        try:
+            t = e.dxftype()
+            if t == 'LINE':
+                raw_pts.append(sc(e.dxf.start.x, e.dxf.start.y))
+                raw_pts.append(sc(e.dxf.end.x, e.dxf.end.y))
+            elif t == 'CIRCLE':
+                cx, cy = sc(e.dxf.center.x, e.dxf.center.y)
+                raw_pts.append((cx, cy))
+                circles.append({'x': cx, 'y': cy, 'r': round(float(e.dxf.radius) * factor, 3), 'full': True})
+            elif t == 'ARC':
+                c, r = e.dxf.center, e.dxf.radius
+                cx, cy = sc(c.x, c.y)
+                raw_pts.append((cx, cy))
+                for ang in (e.dxf.start_angle, e.dxf.end_angle):
+                    a = math.radians(ang)
+                    raw_pts.append(sc(c.x + r * math.cos(a), c.y + r * math.sin(a)))
+                circles.append({'x': cx, 'y': cy, 'r': round(float(r) * factor, 3), 'full': False})
+            elif t == 'LWPOLYLINE':
+                for x, y, *_ in e.get_points('xy'):
+                    raw_pts.append(sc(x, y))
+            elif t == 'POLYLINE':
+                for v in e.vertices:
+                    loc = v.dxf.location
+                    raw_pts.append(sc(loc.x, loc.y))
+            elif t == 'ELLIPSE':
+                raw_pts.append(sc(e.dxf.center.x, e.dxf.center.y))
+        except Exception as ex:
+            logger.debug("measure primitive skip %s: %s", e.dxftype(), ex)
+            continue
+
+    # dedup punti (tolleranza 0.01 mm)
+    seen = set()
+    snap_points: List[Dict] = []
+    for x, y in raw_pts:
+        k = (round(x * 100), round(y * 100))
+        if k not in seen:
+            seen.add(k)
+            snap_points.append({'x': x, 'y': y})
+    return snap_points, circles
+
+
 def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     """Analizza un file DXF in bytes e ritorna il dict pronto per DxfAnalysisOut.
 
@@ -305,6 +360,8 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     # restano nelle unità del file e il warning sopra lo segnala).
     units = 'mm' if source_units != 'unsupported' else f'code-{insunits}'
 
+    snap_points, circles = _measure_primitives(msp, factor)
+
     return {
         'profiles': profiles,
         'bbox_global': bbox_global,
@@ -313,4 +370,7 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
         'suggested_pierce': n_closed,  # 1 pierce per profilo chiuso
         'units': units,
         'warnings': warnings,
+        # Primitive per gli strumenti di misura del viewer (esatte, non SVG).
+        'snap_points': snap_points,
+        'circles': circles,
     }

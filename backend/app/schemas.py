@@ -1131,6 +1131,18 @@ class DxfProfileOut(BaseModel):
     point_count: int
 
 
+class DxfPointOut(BaseModel):
+    x: float
+    y: float
+
+
+class DxfCircleOut(BaseModel):
+    x: float
+    y: float
+    r: float
+    full: bool          # True = CIRCLE completo, False = ARC
+
+
 class DxfAnalysisOut(BaseModel):
     profiles: List[DxfProfileOut]
     bbox_global: DxfBboxOut
@@ -1139,6 +1151,10 @@ class DxfAnalysisOut(BaseModel):
     suggested_pierce: int
     units: str
     warnings: List[str]
+    # Primitive per gli strumenti di misura del viewer (default vuote per
+    # retro-compat con eventuali chiamate/cachati che non le hanno).
+    snap_points: List[DxfPointOut] = []
+    circles: List[DxfCircleOut] = []
 
 
 # ─── Ordini materiali ──────────────────────────────────────────────────────

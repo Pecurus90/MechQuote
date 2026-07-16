@@ -4,7 +4,7 @@ import api, { getApiErrorDetail } from '@/lib/api'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PartFile } from '@/types'
-import DxfViewerModal from '@/components/quotes/Dxf/DxfViewerModal'
+import DxfMeasureModal from '@/components/quotes/Dxf/DxfMeasureModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { StepGeometry } from '@/components/quotes/Step/StepViewerCad'
 
@@ -157,7 +157,7 @@ export function PartAttachments({ partId, files, readOnly, onReload, densityKgDm
       )}
 
       {dxfView && (
-        <DxfViewerModal partFileId={dxfView.id} filename={dxfView.filename} onClose={() => setDxfView(null)} />
+        <DxfMeasureModal partFileId={dxfView.id} filename={dxfView.filename} onClose={() => setDxfView(null)} />
       )}
       {stepView && (
         <Suspense fallback={

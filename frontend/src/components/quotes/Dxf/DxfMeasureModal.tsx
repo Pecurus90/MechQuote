@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, X, Ruler, Circle as CircleIcon, Triangle, CircleDot, RotateCcw, Maximize } from 'lucide-react'
+import { FileText, X, Ruler, Circle as CircleIcon, Triangle, CircleDot, MoveHorizontal, RotateCcw, Maximize } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -12,8 +12,8 @@ interface Props {
   onClose: () => void
 }
 
-type Tool = 'none' | 'distance' | 'diameter' | 'angle' | 'interasse'
-type Result = { kind: 'distance' | 'diameter' | 'angle' | 'interasse'; value: number; at: DxfPoint } | null
+type Tool = 'none' | 'distance' | 'diameter' | 'angle' | 'interasse' | 'linedist'
+type Result = { kind: 'distance' | 'diameter' | 'angle' | 'interasse' | 'linedist'; value: number; at: DxfPoint; seg?: [DxfPoint, DxfPoint] } | null
 
 const DISP = (x: number, y: number): DxfPoint => ({ x, y: -y })   // DXF (y-up) → display
 
@@ -74,7 +74,8 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
     const v = (r.value * unitScale).toFixed(2)
     return r.kind === 'diameter' ? `Ø ${v} mm`
       : r.kind === 'angle' ? `${r.value.toFixed(2)}°${angleRelation(r.value)}`
-      : r.kind === 'interasse' ? `Interasse ${v} mm` : `${v} mm`
+      : r.kind === 'interasse' ? `Interasse ${v} mm`
+      : r.kind === 'linedist' ? `⊥ ${v} mm` : `${v} mm`
   }
 
   const clear = () => { setPicked([]); setSelEnt([]); setResult(null); setSnapPreview(null) }
@@ -112,7 +113,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       setSelEnt([idx]); setResult({ kind: 'diameter', value: e.r * 2, at: DISP(e.cx!, e.cy!) })
       return
     }
-    if (t === 'angle' && e.t !== 'line') { toast.error('Clicca due linee'); return }
+    if ((t === 'angle' || t === 'linedist') && e.t !== 'line') { toast.error('Clicca due linee'); return }
     if (t === 'interasse' && !isCirc) { toast.error('Clicca due fori/cerchi'); return }
     setSelEnt(prev => {
       if (prev.includes(idx)) return prev
@@ -125,6 +126,16 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
           const ang = Math.acos(Math.min(1, dot / (Math.hypot(...d1) * Math.hypot(...d2) || 1))) * 180 / Math.PI
           const m1 = DISP((a.x1! + a.x2!) / 2, (a.y1! + a.y2!) / 2), m2 = DISP((b.x1! + b.x2!) / 2, (b.y1! + b.y2!) / 2)
           setResult({ kind: 'angle', value: ang, at: { x: (m1.x + m2.x) / 2, y: (m1.y + m2.y) / 2 } })
+        } else if (t === 'linedist') {
+          // Distanza perpendicolare dal punto medio della linea A alla RETTA di B
+          // (= offset reale se le due linee sono parallele).
+          const P = { x: (a.x1! + a.x2!) / 2, y: (a.y1! + a.y2!) / 2 }
+          const dx = b.x2! - b.x1!, dy = b.y2! - b.y1!, len = Math.hypot(dx, dy) || 1
+          const nx = -dy / len, ny = dx / len
+          const signed = (P.x - b.x1!) * nx + (P.y - b.y1!) * ny   // proiezione sulla normale
+          const Q = { x: P.x - signed * nx, y: P.y - signed * ny }   // piede della perpendicolare su B
+          const Pd = DISP(P.x, P.y), Qd = DISP(Q.x, Q.y)
+          setResult({ kind: 'linedist', value: Math.abs(signed), at: { x: (Pd.x + Qd.x) / 2, y: (Pd.y + Qd.y) / 2 }, seg: [Pd, Qd] })
         } else {
           const val = Math.hypot(a.cx! - b.cx!, a.cy! - b.cy!)
           const m1 = DISP(a.cx!, a.cy!), m2 = DISP(b.cx!, b.cy!)
@@ -169,6 +180,13 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       <>
         {picked.length === 2 && <line x1={picked[0].x} y1={picked[0].y} x2={picked[1].x} y2={picked[1].y} stroke="#2563eb" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
         {picked.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={markerR} fill="#2563eb" />)}
+        {result?.seg && (
+          <>
+            <line x1={result.seg[0].x} y1={result.seg[0].y} x2={result.seg[1].x} y2={result.seg[1].y} stroke="#2563eb" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+            <circle cx={result.seg[0].x} cy={result.seg[0].y} r={markerR} fill="#2563eb" />
+            <circle cx={result.seg[1].x} cy={result.seg[1].y} r={markerR} fill="#2563eb" />
+          </>
+        )}
         {snapPreview && <circle cx={snapPreview.x} cy={snapPreview.y} r={markerR * 1.6} fill="none" stroke="#ea580c" strokeWidth={2} vectorEffect="non-scaling-stroke" />}
         {pill}
       </>
@@ -190,6 +208,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
           <Button size="sm" variant={tool === 'diameter' ? 'default' : 'outline'} onClick={() => switchTool('diameter')} disabled={loading || !analysis}><CircleIcon className="mr-1 h-3.5 w-3.5" /> Diametro</Button>
           <Button size="sm" variant={tool === 'angle' ? 'default' : 'outline'} onClick={() => switchTool('angle')} disabled={loading || !analysis}><Triangle className="mr-1 h-3.5 w-3.5" /> Angolo</Button>
           <Button size="sm" variant={tool === 'interasse' ? 'default' : 'outline'} onClick={() => switchTool('interasse')} disabled={loading || !analysis}><CircleDot className="mr-1 h-3.5 w-3.5" /> Interasse</Button>
+          <Button size="sm" variant={tool === 'linedist' ? 'default' : 'outline'} onClick={() => switchTool('linedist')} disabled={loading || !analysis}><MoveHorizontal className="mr-1 h-3.5 w-3.5" /> Quota linee</Button>
           <Button size="sm" variant="outline" onClick={clear} disabled={loading || !analysis}><RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera</Button>
           <Button size="sm" variant="outline" onClick={() => canvasRef.current?.fit()} disabled={loading || !analysis} title="Adatta alla vista"><Maximize className="mr-1 h-3.5 w-3.5" /> Adatta</Button>
           <div className="ml-1 flex items-center gap-1 text-[12px] text-muted-foreground">
@@ -210,7 +229,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
             <span className="text-muted-foreground">Profili: <span className="font-mono font-semibold text-foreground">{analysis.profiles.length}</span> ({analysis.n_closed_profiles} chiusi)</span>
             <span className="text-muted-foreground">Sviluppo: <span className="font-mono font-semibold text-foreground">{(analysis.total_length_mm * unitScale).toFixed(2)}</span> mm</span>
             <span className="text-[12px] text-muted-foreground/70">
-              {tool === 'distance' ? 'Clicca due punti (snap agli estremi/centri).' : tool === 'diameter' ? 'Clicca un cerchio/arco.' : tool === 'angle' ? 'Clicca due linee.' : tool === 'interasse' ? 'Clicca due fori/cerchi.' : 'Trascina · rotella zoom · passa sopra le entità.'}
+              {tool === 'distance' ? 'Clicca due punti (snap agli estremi/centri).' : tool === 'diameter' ? 'Clicca un cerchio/arco.' : tool === 'angle' ? 'Clicca due linee.' : tool === 'interasse' ? 'Clicca due fori/cerchi.' : tool === 'linedist' ? 'Clicca due linee → distanza perpendicolare (offset parallele).' : 'Trascina · rotella zoom · passa sopra le entità.'}
             </span>
           </div>
         )}

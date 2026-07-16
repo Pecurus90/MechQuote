@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.api.parts import clone_part_onto
+from app.api.parts import clone_part_onto, duplicate_part
 from app.models import Quote, Part, ManufacturingPhase, Machine, Material
 from app.schemas import PartCloneRequest
 
@@ -163,3 +163,23 @@ def test_clone_preventivo_bloccato_403(db_session):
         clone_part_onto(src.id, PartCloneRequest(target_ids=[targets[0].id]), db_session,
                         _user(perms=('quotes.view_all', 'quotes.create')), None)
     assert ei.value.status_code == 403
+
+
+def test_duplicate_copia_flag_provenienza_materiale(db_session):
+    # Audit A1: duplicate deve copiare customer_supplied_material e
+    # material_from_stock. Senza, la copia tornava "fornitore normale" e il
+    # cost engine riaddebitava materiale/spedizione/taglio (prezzo salvato più alto).
+    q, src, targets, m, mat = _setup(db_session)
+    # Conto lavoro (cliente porta il materiale)
+    src.customer_supplied_material = True
+    db_session.commit()
+    dup1 = duplicate_part(src.id, db_session, _user(), None)
+    assert dup1.customer_supplied_material is True
+    assert dup1.material_from_stock is False
+    # Materiale a magazzino (mutex con conto lavoro)
+    src.customer_supplied_material = False
+    src.material_from_stock = True
+    db_session.commit()
+    dup2 = duplicate_part(src.id, db_session, _user(), None)
+    assert dup2.material_from_stock is True
+    assert dup2.customer_supplied_material is False

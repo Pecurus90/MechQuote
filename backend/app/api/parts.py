@@ -235,6 +235,11 @@ def duplicate_part(
         quantity=part.quantity,
         quote_mode=part.quote_mode,
         material_id=part.material_id,
+        # Provenienza materiale: senza questi due flag la copia tornava
+        # "fornitore normale" e il cost engine riaddebitava materiale/
+        # spedizione/taglio, alzando il prezzo salvato (audit A1).
+        customer_supplied_material=part.customer_supplied_material,
+        material_from_stock=part.material_from_stock,
         raw_x_mm=part.raw_x_mm,
         raw_y_mm=part.raw_y_mm,
         raw_z_mm=part.raw_z_mm,

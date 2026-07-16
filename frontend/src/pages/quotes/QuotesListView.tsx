@@ -311,7 +311,14 @@ export function QuotesListView(props: Props) {
                     <span className="whitespace-nowrap font-mono text-[13px] font-semibold text-foreground">{r.quote_number}</span>
                     <TypeBadge type={toQuoteType(r.quote_type)} />
                   </div>
-                  <div className="min-w-0 truncate font-medium text-foreground">{r.customer_name ?? '—'}</div>
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">{r.customer_name ?? '—'}</div>
+                    {r.created_by && (
+                      <div className="truncate text-[11.5px] text-muted-foreground">
+                        di {r.created_by.full_name || r.created_by.username}
+                      </div>
+                    )}
+                  </div>
                   {showPrices ? (
                     <>
                       <div><StatusBadge status={r.status as QuoteStatus} /></div>

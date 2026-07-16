@@ -62,6 +62,9 @@ def list_archive(
     # parts.material serve per lo stato materiale derivato (spec 18).
     query = db.query(Quote).options(
         selectinload(Quote.parts).selectinload(Part.material),
+        # Autore del preventivo mostrato in lista (Preventivi in corso/Archivio):
+        # joinedload per evitare N+1 in serializzazione (many-to-one, 1 riga).
+        joinedload(Quote.created_by),
     )
     # ACL: senza quotes.view_all l'utente vede solo i preventivi che ha creato.
     if not _user_sees_all(current_user):

@@ -419,6 +419,7 @@ export interface QuoteListItem {
   // B1 — totale finale persistito dal backend (fonte unica archivio/dashboard).
   final_total?: number | null
   created_by_user_id?: number | null
+  created_by?: UserMinimal | null       // autore del preventivo (mostrato in lista)
   material_ordered_at?: string | null
   material_ordered_by?: UserMinimal | null
   // Spec 18: stato materiale derivato (solo lista archivio).

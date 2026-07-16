@@ -43,6 +43,9 @@ export interface FaceInfo {
   coneSemiAngleDeg?: number
   /** normale del piano (solo per superfici piane) */
   planeNormal?: [number, number, number]
+  /** asse del cilindro (punto + direzione) — per l'interasse tra fori */
+  axisLocation?: [number, number, number]
+  axisDirection?: [number, number, number]
 }
 
 export interface TessellationData {
@@ -87,6 +90,24 @@ export function explodeFaces(oc: OC, shape: TopoDS_Shape): TopoDS_Face[] {
   return out
 }
 
+/** Tutti i vertici CAD unici (punti esatti) — per lo snap punto-punto. */
+export function explodeVertices(oc: OC, shape: TopoDS_Shape): Array<[number, number, number]> {
+  const out: Array<[number, number, number]> = []
+  const seen = new Set<string>()
+  const exp = new oc.TopExp_Explorer_2(
+    shape, asShapeEnum(oc.TopAbs_ShapeEnum.TopAbs_VERTEX), asShapeEnum(oc.TopAbs_ShapeEnum.TopAbs_SHAPE),
+  )
+  while (exp.More()) {
+    const p = oc.BRep_Tool.Pnt(oc.TopoDS.Vertex_1(exp.Current()))
+    const x = p.X(), y = p.Y(), z = p.Z()
+    const k = `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`
+    if (!seen.has(k)) { seen.add(k); out.push([x, y, z]) }
+    exp.Next()
+  }
+  exp.delete()
+  return out
+}
+
 /** Legge un buffer STEP in un TopoDS_Shape (path reale dell'app). */
 export function readStep(oc: OC, buffer: ArrayBuffer): TopoDS_Shape {
   const name = `/mq_${Math.abs(hashBuf(buffer))}.step`
@@ -109,7 +130,13 @@ export function faceInfo(oc: OC, face: TopoDS_Face, index: number): FaceInfo {
   const s = new oc.BRepAdaptor_Surface_2(face, true)
   const t = enumVal(s.GetType())
   const info: FaceInfo = { index, surfaceType: t, surfaceLabel: SURFACE_TYPES[t] ?? `#${t}` }
-  if (t === 1) info.radius = s.Cylinder().Radius()
+  if (t === 1) {
+    const cyl = s.Cylinder()
+    info.radius = cyl.Radius()
+    const ax = cyl.Axis(); const L = ax.Location(); const D = ax.Direction()
+    info.axisLocation = [L.X(), L.Y(), L.Z()]
+    info.axisDirection = [D.X(), D.Y(), D.Z()]
+  }
   else if (t === 3) info.radius = s.Sphere().Radius()
   else if (t === 2) info.coneSemiAngleDeg = (s.Cone().SemiAngle() * 180) / Math.PI
   else if (t === 0) {

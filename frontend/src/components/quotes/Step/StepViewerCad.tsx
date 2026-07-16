@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { Box, X, Ruler, RotateCcw, Circle, Triangle } from 'lucide-react'
+import { Box, X, Ruler, RotateCcw, Circle, Triangle, CircleDot, Spline } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import {
-  getOcct, readStep, tessellate, explodeFaces, faceInfo, volume, boundingBox,
+  getOcct, readStep, tessellate, explodeFaces, explodeVertices, faceInfo, volume, boundingBox,
   minDistance, angleBetweenPlanes, type FaceInfo,
 } from '@/lib/step/stepKernel'
 
@@ -46,8 +46,24 @@ interface Props {
   onClose: () => void
 }
 
-type Tool = 'none' | 'distance' | 'diameter' | 'angle'
+type Tool = 'none' | 'distance' | 'diameter' | 'angle' | 'interasse' | 'point'
 type Result = { kind: Tool; value: number } | null
+
+/** Distanza minima tra due rette (assi cilindro) — interasse tra fori.
+ *  Assi paralleli → distanza perpendicolare; sghembi → formula generale. */
+function axisToAxisDistance(a: FaceInfo, b: FaceInfo): number | null {
+  if (!a.axisLocation || !a.axisDirection || !b.axisLocation || !b.axisDirection) return null
+  const [P1, d1] = [a.axisLocation, a.axisDirection]
+  const [P2, d2] = [b.axisLocation, b.axisDirection]
+  const cr = [d1[1] * d2[2] - d1[2] * d2[1], d1[2] * d2[0] - d1[0] * d2[2], d1[0] * d2[1] - d1[1] * d2[0]]
+  const cl = Math.hypot(cr[0], cr[1], cr[2])
+  const w = [P2[0] - P1[0], P2[1] - P1[1], P2[2] - P1[2]]
+  if (cl < 1e-9) { // paralleli
+    const dot = w[0] * d1[0] + w[1] * d1[1] + w[2] * d1[2]
+    return Math.hypot(w[0] - dot * d1[0], w[1] - dot * d1[1], w[2] - dot * d1[2])
+  }
+  return Math.abs(w[0] * cr[0] + w[1] * cr[1] + w[2] * cr[2]) / cl
+}
 
 /**
  * Visualizzatore STEP con motore CAD ESATTO (opencascade.js, B-rep).
@@ -90,7 +106,8 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         return
       }
 
-      let shape, faces, faceInfos: FaceInfo[], tess, vol: number, bbox: { x: number; y: number; z: number }
+      let shape, faces, faceInfos: FaceInfo[], tess, vol: number
+      let bbox: { x: number; y: number; z: number }, vertsRaw: Array<[number, number, number]>
       try {
         const oc = await getOcct()
         if (disposed) return
@@ -102,6 +119,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         tess = tessellate(oc, shape)
         vol = volume(oc, shape)
         bbox = boundingBox(oc, shape)
+        vertsRaw = explodeVertices(oc, shape)
       } catch (e) {
         if (!disposed) {
           setError('Errore nel motore CAD (WASM): STEP non leggibile')
@@ -188,19 +206,31 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
 
       // ─── Selezione + misure ──────────────────────────────────────────────
       const raycaster = new THREE.Raycaster()
-      const selected: number[] = []
+      const verts = vertsRaw.map(([x, y, z]) => new THREE.Vector3(x, y, z))
+      const overlay = new THREE.Group(); scene.add(overlay)   // marcatori + linee misura
+      const selected: number[] = []          // facce selezionate (diameter/distance/angle/interasse)
+      const pickedPoints: THREE.Vector3[] = []   // punti selezionati (tool punto)
+
       const setFaceColor = (fid: number, col: THREE.Color) => {
         const m = faceMeshes.find(x => x.userData.faceId === fid)
         if (m) (m.material as THREE.MeshStandardMaterial).color.copy(col)
       }
+      const addMarker = (p: THREE.Vector3, color = 0x2563eb) => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(maxDim * 0.012, 16, 16), new THREE.MeshBasicMaterial({ color }))
+        m.position.copy(p); overlay.add(m)
+      }
+      const addLine = (a: THREE.Vector3, b: THREE.Vector3, color = 0x2563eb) =>
+        overlay.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color })))
       const clearSelection = () => {
         selected.forEach(fid => setFaceColor(fid, baseColor))
         selected.length = 0
+        pickedPoints.length = 0
+        overlay.clear()
         setResult(null)
       }
       apiRef.current.clearSelection = clearSelection
 
-      const pickFace = (ev: MouseEvent): number | null => {
+      const rayHit = (ev: MouseEvent): THREE.Intersection | null => {
         if (!renderer) return null
         const rect = renderer.domElement.getBoundingClientRect()
         const ndc = new THREE.Vector2(
@@ -208,15 +238,36 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           -((ev.clientY - rect.top) / rect.height) * 2 + 1,
         )
         raycaster.setFromCamera(ndc, camera)
-        const hit = raycaster.intersectObjects(faceMeshes, false)[0]
-        return hit ? (hit.object.userData.faceId as number) : null
+        return raycaster.intersectObjects(faceMeshes, false)[0] ?? null
+      }
+      // Snap del punto cliccato al vertice CAD più vicino (entro soglia), così
+      // il tool punto aggancia gli spigoli veri; altrimenti punto libero sulla faccia.
+      const snapToVertex = (p: THREE.Vector3): THREE.Vector3 => {
+        const thr = maxDim * 0.04
+        let best: THREE.Vector3 | null = null, bd = thr
+        for (const v of verts) { const d = p.distanceTo(v); if (d < bd) { bd = d; best = v } }
+        return best ? best.clone() : p.clone()
       }
 
       const onClick = async (ev: MouseEvent) => {
         const t = toolRef.current
         if (t === 'none') return
-        const fid = pickFace(ev)
-        if (fid == null) return
+        const hit = rayHit(ev)
+        if (!hit) return
+
+        // Tool PUNTO: due punti (snap ai vertici) → distanza euclidea.
+        if (t === 'point') {
+          if (pickedPoints.length >= 2) clearSelection()
+          const p = snapToVertex(hit.point)
+          pickedPoints.push(p); addMarker(p)
+          if (pickedPoints.length === 2) {
+            addLine(pickedPoints[0], pickedPoints[1])
+            setResult({ kind: 'point', value: pickedPoints[0].distanceTo(pickedPoints[1]) })
+          }
+          return
+        }
+
+        const fid = hit.object.userData.faceId as number
         const info = faceInfos[fid]
 
         if (t === 'diameter') {
@@ -227,20 +278,26 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           return
         }
 
-        // distance / angle: due facce
+        // due facce: distanza / angolo / interasse
         if (t === 'angle' && info.planeNormal == null) { toast.error('Per l’angolo clicca due facce piane'); return }
+        if (t === 'interasse' && info.axisDirection == null) { toast.error('Per l’interasse clicca due fori/cilindri'); return }
         if (selected.length >= 2) clearSelection()
         if (selected.includes(fid)) return
         selected.push(fid); setFaceColor(fid, hiColor)
         if (selected.length === 2) {
           const [a, b] = selected
           try {
-            const oc = await getOcct()
             if (t === 'distance') {
+              const oc = await getOcct()
               setResult({ kind: 'distance', value: minDistance(oc, faces![a], faces![b]) })
+            } else if (t === 'interasse') {
+              const d = axisToAxisDistance(faceInfos[a], faceInfos[b])
+              if (d == null) { toast.error('Servono due fori/cilindri'); clearSelection(); return }
+              setResult({ kind: 'interasse', value: d })
             } else {
               const na = faceInfos[a].planeNormal, nb = faceInfos[b].planeNormal
               if (!na || !nb) { toast.error('Servono due facce piane'); clearSelection(); return }
+              const oc = await getOcct()
               setResult({ kind: 'angle', value: angleBetweenPlanes(oc, na, nb) })
             }
           } catch {
@@ -304,6 +361,8 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
     tool === 'distance' ? 'Clicca due facce → distanza minima (facce parallele = spessore).'
     : tool === 'diameter' ? 'Clicca la parete di un foro o cilindro → diametro esatto.'
     : tool === 'angle' ? 'Clicca due facce piane → angolo tra loro.'
+    : tool === 'interasse' ? 'Clicca due fori/cilindri → interasse (distanza tra gli assi).'
+    : tool === 'point' ? 'Clicca due punti (aggancia ai vertici) → distanza punto-punto.'
     : 'Trascina per ruotare · rotella per zoom.'
 
   return (
@@ -326,6 +385,12 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           <Button size="sm" variant={tool === 'angle' ? 'default' : 'outline'} onClick={() => switchTool('angle')} disabled={loading || !!error}>
             <Triangle className="mr-1 h-3.5 w-3.5" /> Angolo
           </Button>
+          <Button size="sm" variant={tool === 'interasse' ? 'default' : 'outline'} onClick={() => switchTool('interasse')} disabled={loading || !!error}>
+            <CircleDot className="mr-1 h-3.5 w-3.5" /> Interasse
+          </Button>
+          <Button size="sm" variant={tool === 'point' ? 'default' : 'outline'} onClick={() => switchTool('point')} disabled={loading || !!error}>
+            <Spline className="mr-1 h-3.5 w-3.5" /> Punto
+          </Button>
           <Button size="sm" variant="outline" onClick={() => apiRef.current.clearSelection()} disabled={loading || !!error}>
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Azzera
           </Button>
@@ -334,6 +399,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">
               {result.kind === 'diameter' ? `Ø ${result.value.toFixed(2)} mm`
                 : result.kind === 'angle' ? `${result.value.toFixed(2)}°`
+                : result.kind === 'interasse' ? `Interasse ${result.value.toFixed(2)} mm`
                 : `${result.value.toFixed(2)} mm`}
             </span>
           )}

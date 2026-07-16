@@ -1145,6 +1145,21 @@ CAT-1.
 - **Import CSV per i lookup utensili** (`ToolType` / `ToolBrand` /
   `ToolLocation`), se servirà a popolarli in massa. Motore condiviso
   `app.core.csv_import` già pronto.
+- **Preventivatore 3D (da modello STEP)** — modulo separato dal preventivo
+  manuale (dove il viewer 3D resta uno strumento di sola *misura*). Idea: dal
+  solido STEP estrarre automaticamente i dati per preventivare. Il kernel CAD
+  esatto (opencascade.js, già integrato: `frontend/src/lib/step/stepKernel.ts`)
+  fornisce già i mattoni. Feature candidate:
+  - **Tabella fori automatica**: rileva tutti i fori e li raggruppa per
+    diametro (`4× Ø6.5 · 2× Ø10`) con posizione → base per quotare la foratura.
+  - **Superficie totale + area faccia** (`BRepGProp.SurfaceProperties`) → si
+    aggancia ai trattamenti/rivestimenti (a superficie/volume nel cost engine).
+  - **Conteggio feature / indice di complessità** (n. facce, fori, tipi
+    superficie) come aiuto al prezzo.
+  - **Suggerimento fasi da geometria**: tondo → tornitura; prismatico con N
+    fori → fresatura + N forature, pre-compilando le fasi (feature recognition,
+    ambizioso).
+  - **Sezione (piano di taglio)** per vedere le feature interne.
 
 ---
 

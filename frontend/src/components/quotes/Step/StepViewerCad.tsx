@@ -236,21 +236,31 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       // Etichetta di quota (valore) nel modello: sprite con testo su canvas,
       // sempre rivolta alla camera e sopra la geometria (depthTest off).
       const midpoint = (a: THREE.Vector3, b: THREE.Vector3) => a.clone().add(b).multiplyScalar(0.5)
+      // Pillola come le badge dell'UI (bg-primary/10 + testo primary, mono).
+      const pillPath = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+        c.beginPath()
+        c.moveTo(x + r, y)
+        c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r)
+        c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath()
+      }
       const addLabel = (text: string, pos: THREE.Vector3) => {
-        const font = 44, padX = 14, padY = 8
+        const dpr = 2, font = 34 * dpr, padX = 22 * dpr, padY = 12 * dpr
+        const fontSpec = `600 ${font}px ui-monospace, "SFMono-Regular", Menlo, monospace`
         const meas = document.createElement('canvas').getContext('2d')!
-        meas.font = `bold ${font}px sans-serif`
+        meas.font = fontSpec
         const tw = Math.ceil(meas.measureText(text).width)
         const canvas = document.createElement('canvas')
         canvas.width = tw + padX * 2; canvas.height = font + padY * 2
         const ctx = canvas.getContext('2d')!
-        ctx.font = `bold ${font}px sans-serif`
-        ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3)
-        ctx.fillStyle = '#1e3a8a'; ctx.textBaseline = 'middle'; ctx.fillText(text, padX, canvas.height / 2)
+        pillPath(ctx, 1, 1, canvas.width - 2, canvas.height - 2, canvas.height / 2)
+        ctx.fillStyle = 'rgba(233, 240, 254, 0.96)'; ctx.fill()          // primary/10 su chiaro
+        ctx.lineWidth = 1.5 * dpr; ctx.strokeStyle = 'rgba(37, 99, 235, 0.22)'; ctx.stroke()
+        ctx.font = fontSpec; ctx.fillStyle = '#2563eb'                    // testo primary
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'center'
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2 + dpr)
         const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter
         const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
-        const h = maxDim * 0.09
+        const h = maxDim * 0.075
         sprite.scale.set(h * (canvas.width / canvas.height), h, 1)
         sprite.position.copy(pos); sprite.renderOrder = 999
         overlay.add(sprite)

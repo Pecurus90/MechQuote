@@ -31,7 +31,15 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
   const [view, setView] = useState<ViewBox | null>(null)
   const [picked, setPicked] = useState<DxfPoint[]>([])            // display coords
   const [hiCircle, setHiCircle] = useState<DxfCircle | null>(null) // display coords
-  const [result, setResult] = useState<{ text: string; at: DxfPoint } | null>(null)
+  const [result, setResult] = useState<{ kind: 'distance' | 'diameter'; value: number; at: DxfPoint } | null>(null)
+  // Override unità: alcuni CAD scrivono "mm" ma le coordinate sono in pollici.
+  // 'in' → i valori misurati vengono moltiplicati ×25.4 per ottenere i mm reali.
+  const [unit, setUnit] = useState<'mm' | 'in'>('mm')
+  const unitScale = unit === 'in' ? 25.4 : 1
+  const fmt = (r: { kind: 'distance' | 'diameter'; value: number }) => {
+    const v = (r.value * unitScale).toFixed(2)
+    return r.kind === 'diameter' ? `Ø ${v} mm` : `${v} mm`
+  }
 
   const svgRef = useRef<SVGSVGElement | null>(null)
   const viewRef = useRef<ViewBox | null>(null)
@@ -99,7 +107,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       const c = nearestCircle(w, thr)
       if (!c) { toast.error('Avvicinati a un cerchio o arco'); return }
       setHiCircle(c)
-      setResult({ text: `Ø ${(c.r * 2).toFixed(2)} mm`, at: { x: c.x, y: c.y } })
+      setResult({ kind: 'diameter', value: c.r * 2, at: { x: c.x, y: c.y } })
       return
     }
     // distanza
@@ -108,7 +116,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
       const next = prev.length >= 2 ? [p] : [...prev, p]
       if (next.length === 2) {
         const val = Math.hypot(next[0].x - next[1].x, next[0].y - next[1].y)
-        setResult({ text: `${val.toFixed(2)} mm`, at: { x: (next[0].x + next[1].x) / 2, y: (next[0].y + next[1].y) / 2 } })
+        setResult({ kind: 'distance', value: val, at: { x: (next[0].x + next[1].x) / 2, y: (next[0].y + next[1].y) / 2 } })
       } else setResult(null)
       return next
     })
@@ -153,8 +161,9 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
   const markerR = view ? view.w * 0.006 : 1
   const pill = (() => {
     if (!result || !view) return null
+    const text = fmt(result)
     const fs = view.w * 0.026
-    const w = result.text.length * fs * 0.62 + fs * 1.1
+    const w = text.length * fs * 0.62 + fs * 1.1
     const h = fs * 1.7
     const { x, y } = result.at
     return (
@@ -162,7 +171,7 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
         <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={h / 2}
           fill="rgba(233,240,254,0.96)" stroke="rgba(37,99,235,0.35)" strokeWidth={view.w * 0.0016} />
         <text x={x} y={y} fontSize={fs} fill="#2563eb" fontFamily="ui-monospace, monospace"
-          fontWeight={600} textAnchor="middle" dominantBaseline="central">{result.text}</text>
+          fontWeight={600} textAnchor="middle" dominantBaseline="central">{text}</text>
       </g>
     )
   })()
@@ -190,21 +199,32 @@ export default function DxfMeasureModal({ partFileId, filename, onClose }: Props
           <Button size="sm" variant="outline" onClick={fitView} disabled={loading || !analysis} title="Adatta alla vista">
             <Maximize className="mr-1 h-3.5 w-3.5" /> Adatta
           </Button>
+          <div className="ml-1 flex items-center gap-1 text-[12px] text-muted-foreground">
+            <span>Disegno in:</span>
+            <div className="flex overflow-hidden rounded-md border border-border">
+              {(['mm', 'in'] as const).map(u => (
+                <button key={u} type="button" onClick={() => setUnit(u)}
+                  className={`px-2 py-0.5 text-[12px] font-medium ${unit === u ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted'}`}>
+                  {u === 'mm' ? 'mm' : 'pollici'}
+                </button>
+              ))}
+            </div>
+          </div>
           <span className="text-[12.5px] text-muted-foreground">
             {tool === 'distance' ? 'Clicca due punti (aggancia a estremi/centri) → distanza.'
               : tool === 'diameter' ? 'Clicca su un cerchio o arco → diametro esatto.'
               : 'Trascina per spostare · rotella per zoom.'}
           </span>
           {result && (
-            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">{result.text}</span>
+            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">{fmt(result)}</span>
           )}
         </div>
 
         {analysis && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-muted/40 px-5 py-2 text-[12.5px]">
-            <span className="text-muted-foreground">Dimensioni: <span className="font-mono font-semibold text-foreground">{analysis.bbox_global.w} × {analysis.bbox_global.h}</span> mm</span>
+            <span className="text-muted-foreground">Dimensioni: <span className="font-mono font-semibold text-foreground">{(analysis.bbox_global.w * unitScale).toFixed(2)} × {(analysis.bbox_global.h * unitScale).toFixed(2)}</span> mm</span>
             <span className="text-muted-foreground">Profili: <span className="font-mono font-semibold text-foreground">{analysis.profiles.length}</span> ({analysis.n_closed_profiles} chiusi)</span>
-            <span className="text-muted-foreground">Sviluppo totale: <span className="font-mono font-semibold text-foreground">{analysis.total_length_mm}</span> mm</span>
+            <span className="text-muted-foreground">Sviluppo totale: <span className="font-mono font-semibold text-foreground">{(analysis.total_length_mm * unitScale).toFixed(2)}</span> mm</span>
           </div>
         )}
 

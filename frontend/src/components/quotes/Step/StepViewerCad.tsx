@@ -65,6 +65,14 @@ function axisToAxisDistance(a: FaceInfo, b: FaceInfo): number | null {
   return Math.abs(w[0] * cr[0] + w[1] * cr[1] + w[2] * cr[2]) / cl
 }
 
+/** Etichetta relazione tra due facce piane dall'angolo (tolleranza 1°). */
+function angleRelation(deg: number): string {
+  const d = ((deg % 180) + 180) % 180
+  if (d < 1 || d > 179) return ' · parallele'
+  if (Math.abs(d - 90) < 1) return ' · perpendicolari'
+  return ''
+}
+
 /**
  * Visualizzatore STEP con motore CAD ESATTO (opencascade.js, B-rep).
  * A differenza del vecchio viewer (mesh + fit dai triangoli), qui ogni faccia
@@ -230,6 +238,33 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       }
       apiRef.current.clearSelection = clearSelection
 
+      // Evidenziazione faccia al passaggio del mouse (solo con uno strumento
+      // faccia attivo). Il raycast è throttlato al frame: pointermove salva solo
+      // l'ultima posizione, il render loop la elabora.
+      const hoverColor = new THREE.Color(0x93c5fd)
+      const FACE_TOOLS = new Set<Tool>(['distance', 'diameter', 'angle', 'interasse'])
+      let hoverNDC: THREE.Vector2 | null = null
+      let hoveredFaceId: number | null = null
+      const processHover = () => {
+        const active = FACE_TOOLS.has(toolRef.current)
+        if (!active) {
+          if (hoveredFaceId != null) {
+            if (!selected.includes(hoveredFaceId)) setFaceColor(hoveredFaceId, baseColor)
+            hoveredFaceId = null
+          }
+          return
+        }
+        if (!hoverNDC) return
+        raycaster.setFromCamera(hoverNDC, camera)
+        const hit = raycaster.intersectObjects(faceMeshes, false)[0]
+        const fid = hit ? (hit.object.userData.faceId as number) : null
+        hoverNDC = null
+        if (fid === hoveredFaceId) return
+        if (hoveredFaceId != null && !selected.includes(hoveredFaceId)) setFaceColor(hoveredFaceId, baseColor)
+        hoveredFaceId = fid
+        if (fid != null && !selected.includes(fid)) setFaceColor(fid, hoverColor)
+      }
+
       const rayHit = (ev: MouseEvent): THREE.Intersection | null => {
         if (!renderer) return null
         const rect = renderer.domElement.getBoundingClientRect()
@@ -316,11 +351,21 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       const onPointerUp = (ev: PointerEvent) => {
         if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= DRAG_PX) onClick(ev)
       }
+      const onPointerMove = (ev: PointerEvent) => {
+        if (!renderer) return
+        const rect = renderer.domElement.getBoundingClientRect()
+        hoverNDC = new THREE.Vector2(
+          ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+          -((ev.clientY - rect.top) / rect.height) * 2 + 1,
+        )
+      }
       renderer.domElement.addEventListener('pointerdown', onPointerDown)
       renderer.domElement.addEventListener('pointerup', onPointerUp)
+      renderer.domElement.addEventListener('pointermove', onPointerMove)
       cleanups.push(() => {
         renderer?.domElement.removeEventListener('pointerdown', onPointerDown)
         renderer?.domElement.removeEventListener('pointerup', onPointerUp)
+        renderer?.domElement.removeEventListener('pointermove', onPointerMove)
       })
 
       const onResize = () => {
@@ -335,6 +380,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         if (disposed) return
         frame = requestAnimationFrame(renderLoop)
         controls?.update()
+        processHover()
         renderer?.render(scene, camera)
       }
       renderLoop()
@@ -398,7 +444,7 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           {result && (
             <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 font-mono text-[13px] font-semibold text-primary">
               {result.kind === 'diameter' ? `Ø ${result.value.toFixed(2)} mm`
-                : result.kind === 'angle' ? `${result.value.toFixed(2)}°`
+                : result.kind === 'angle' ? `${result.value.toFixed(2)}°${angleRelation(result.value)}`
                 : result.kind === 'interasse' ? `Interasse ${result.value.toFixed(2)} mm`
                 : `${result.value.toFixed(2)} mm`}
             </span>

@@ -1,5 +1,6 @@
 PERMISSION_KEYS: dict[str, str] = {
     "dashboard":     "Visualizza Dashboard",
+    "statistics":    "Statistiche (costi e margini aggregati di tutta l'azienda)",
     "quotes.create": "Crea/modifica preventivi",
     "quotes.archive": "Archivio preventivi",
     "quotes.send":   "Invia preventivo per revisione",
@@ -29,6 +30,7 @@ PERMISSION_KEYS: dict[str, str] = {
 # comunque in un gruppo "Altro" così non sparisce dalla UI.
 PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
     ("Dashboard", ["dashboard"]),
+    ("Statistiche", ["statistics"]),
     ("Preventivi", [
         "quotes.create", "quotes.send", "quotes.confirm", "quotes.view_all",
         "quotes.archive", "quotes.edit_locked", "quotes.delete",
@@ -52,7 +54,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "officina", "officina.write", "tools",
     ],
     "amministrazione": [
-        "dashboard", "quotes.archive", "quotes.view_all",
+        "dashboard", "statistics", "quotes.archive", "quotes.view_all",
         "quotes.confirm", "sales.direct", "notifications", "orders.materials",
         "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
     ],

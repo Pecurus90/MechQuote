@@ -83,7 +83,7 @@ function AppRoutes() {
         <Route path="officina/materiali" element={<ProtectedRoute permission="officina"><OfficinaMaterialsPage /></ProtectedRoute>} />
         <Route path="officina/tempra" element={<ProtectedRoute permission="officina"><TempraResultsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
-        <Route path="statistics" element={<ProtectedRoute permission="dashboard"><StatisticsPage /></ProtectedRoute>} />
+        <Route path="statistics" element={<ProtectedRoute permission="statistics"><StatisticsPage /></ProtectedRoute>} />
 
         {/* Settings — pagine atomiche residue */}
         <Route path="settings/materials"  element={<ProtectedRoute permission="settings"><MaterialsPage /></ProtectedRoute>} />

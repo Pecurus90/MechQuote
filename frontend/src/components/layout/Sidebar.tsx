@@ -44,6 +44,7 @@ export default function Sidebar() {
   const canQuote = hasPermission('quotes.create')
   const canArchive = hasPermission('quotes.archive')
   const canDashboard = hasPermission('dashboard')
+  const canStatistics = hasPermission('statistics')
   const canCustomers = hasPermission('customers')
   const canSettings = hasPermission('settings')
   const canCompany = hasPermission('company')
@@ -91,7 +92,7 @@ export default function Sidebar() {
   if (canTools) operativita.push({ key: '/tools', label: 'Utensili', icon: Drill, active: at('/tools'), badge: toolsBadge > 0 ? { n: toolsBadge, tone: 'warning' } : undefined })
   if (canCustomers) operativita.push({ key: '/settings/customers', label: 'Clienti', icon: Users, active: at('/settings/customers') })
   if (canOfficina) operativita.push({ key: '/officina', label: 'Officina', icon: HardHat, active: at('/officina') })
-  if (canDashboard) operativita.push({ key: '/statistics', label: 'Statistiche', icon: BarChart3, active: at('/statistics') })
+  if (canStatistics) operativita.push({ key: '/statistics', label: 'Statistiche', icon: BarChart3, active: at('/statistics') })
   if (canDashboard) operativita.push({ key: '/activity', label: 'Attività', icon: Activity, active: at('/activity') })
 
   const impostazioni: Node[] = []

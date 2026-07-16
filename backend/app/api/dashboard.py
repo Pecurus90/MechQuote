@@ -34,6 +34,10 @@ from app.api.notifications import serialize_notification
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
 _can_view = require_permission('dashboard')
+# Statistiche (costi/margini aggregati) hanno una chiave propria, separata dalla
+# Dashboard: l'ufficio tecnico "normale" non deve vedere i costi di tutta
+# l'azienda. Solo i 4 endpoint /dashboard/statistics* usano questo gate.
+_can_stats = require_permission('statistics')
 
 
 
@@ -250,7 +254,7 @@ def get_statistics(
     compare: Optional[str] = None,      # 'prev' | 'yoy' | None
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _=_can_view,
+    _=_can_stats,
 ):
     """Dataset aggregato per la pagina /statistics (tab Preventivi).
     Param `period`: year (default) | 12m | prev_year | all.
@@ -517,7 +521,7 @@ def get_margin_stats(
     compare: Optional[str] = None,      # 'prev' | 'yoy' | None
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _=_can_view,
+    _=_can_stats,
 ):
     """Tab Marginalità & taratura: guadagno reale e taratura prezzo/costo sui
     preventivi in stato 'completo'.
@@ -637,7 +641,7 @@ def get_materials_stats(
     family: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _=_can_view,
+    _=_can_stats,
 ):
     """Dataset per il tab Materiali. Filtri opzionali: `supplier_id`, `family`
     (applicati a KPI costi/kg e ai breakdown per fornitore/materiale)."""
@@ -843,7 +847,7 @@ def get_tools_stats(
     supplier: Optional[str] = None,     # nome fornitore (snapshot)
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _=_can_view,
+    _=_can_stats,
 ):
     """Dataset per il tab Utensili (solo quantità, nessun costo). Filtri
     opzionali: `tool_type`, `supplier` (nome snapshot)."""

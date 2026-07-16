@@ -768,6 +768,15 @@ def _run_migrations():
         # Popolato al primo recalculate_quote di ogni preventivo; NULL per i
         # preventivi mai ricalcolati dopo la migrazione (fallback client).
         "ALTER TABLE quotes ADD COLUMN final_total FLOAT",
+        # Permesso statistics: separa la sezione Statistiche (costi/margini
+        # aggregati) dalla Dashboard. Prima era gated da 'dashboard'; ora ha una
+        # chiave propria così l'ufficio tecnico "normale" non vede i costi di
+        # tutta l'azienda. Assegnato ad admin+amministrazione (idempotente).
+        # I ruoli custom (es. ufficio_tecnico_plus) si abilitano dall'UI.
+        "INSERT INTO role_permissions (role_id, permission_key) "
+        "SELECT r.id, 'statistics' FROM roles r "
+        "WHERE r.name IN ('admin','amministrazione') "
+        "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'statistics')",
     ]
     with engine.connect() as conn:
         for sql in migrations:

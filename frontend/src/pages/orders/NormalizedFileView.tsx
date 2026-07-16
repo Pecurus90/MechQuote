@@ -3,7 +3,7 @@
 // misure grezzo. Cuore = normalizzazione dell'articolo (designazione grezza ->
 // tipo di catalogo NormalizedItem); la spec specifica resta in descrizione.
 import { useState } from 'react'
-import { Upload, Plus, Trash2, ChevronDown, Bolt, Info, FilePlus2, AlertTriangle, Link2, ArrowRight } from 'lucide-react'
+import { Upload, Plus, Check, Trash2, ChevronDown, Bolt, Info, FilePlus2, AlertTriangle, Link2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 
@@ -113,7 +113,7 @@ export function NormalizedFileView({
             title={invalidCount > 0 ? `${invalidCount} righe da completare` : undefined}
             className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-[filter] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <FilePlus2 className="h-4 w-4" />
+            <Check className="h-4 w-4" />
             Crea ordine
           </button>
         </div>
@@ -122,12 +122,32 @@ export function NormalizedFileView({
       {rows.length === 0 ? (
         <div className="flex flex-col items-center rounded-[14px] border border-dashed border-border px-6 py-[52px] text-center">
           <div className="mb-4 flex h-13 w-13 items-center justify-center rounded-[14px] bg-muted text-muted-foreground">
-            <FileSpreadsheetIcon />
+            <FilePlus2 className="h-[26px] w-[26px]" />
           </div>
           <div className="mb-[5px] text-[15px] font-semibold text-foreground">Nessuna riga</div>
           <p className="mb-[18px] max-w-[380px] text-[13px] text-muted-foreground">
             Importa una distinta CSV o aggiungi le righe a mano per comporre l'ordine dei normalizzati.
           </p>
+          <div className="flex gap-2.5">
+            <label className="inline-flex h-[38px] cursor-pointer items-center gap-[7px] rounded-[9px] border border-border bg-card px-[15px] text-[13px] font-semibold text-foreground transition-[filter] hover:brightness-105">
+              <Upload className="h-[15px] w-[15px]" />
+              Importa CSV
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onImport(f); e.target.value = '' }}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={onAddRow}
+              className="inline-flex h-[38px] items-center gap-[7px] rounded-[9px] bg-primary px-[15px] text-[13px] font-semibold text-primary-foreground transition-[filter] hover:brightness-105"
+            >
+              <Plus className="h-[15px] w-[15px]" />
+              Aggiungi riga
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -279,9 +299,4 @@ export function NormalizedFileView({
       />
     </div>
   )
-}
-
-// Icona empty-state (evita import extra sopra).
-function FileSpreadsheetIcon() {
-  return <FilePlus2 className="h-[26px] w-[26px]" />
 }

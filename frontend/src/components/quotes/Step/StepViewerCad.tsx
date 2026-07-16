@@ -249,8 +249,22 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
           }
         }
       }
-      renderer.domElement.addEventListener('click', onClick)
-      cleanups.push(() => renderer?.domElement.removeEventListener('click', onClick))
+      // Distinzione clic-vero vs trascinamento: ruotare/pan con OrbitControls
+      // termina con un mouseup che altrimenti scatenerebbe un 'click' →
+      // selezioni accidentali mentre si gira il modello. Selezioniamo SOLO se il
+      // puntatore non si è spostato oltre soglia tra press e release.
+      let downX = 0, downY = 0
+      const DRAG_PX = 5
+      const onPointerDown = (ev: PointerEvent) => { downX = ev.clientX; downY = ev.clientY }
+      const onPointerUp = (ev: PointerEvent) => {
+        if (Math.hypot(ev.clientX - downX, ev.clientY - downY) <= DRAG_PX) onClick(ev)
+      }
+      renderer.domElement.addEventListener('pointerdown', onPointerDown)
+      renderer.domElement.addEventListener('pointerup', onPointerUp)
+      cleanups.push(() => {
+        renderer?.domElement.removeEventListener('pointerdown', onPointerDown)
+        renderer?.domElement.removeEventListener('pointerup', onPointerUp)
+      })
 
       const onResize = () => {
         if (!renderer) return

@@ -10,6 +10,7 @@ import {
   Clock,
   Hourglass,
   XCircle,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/timeAgo'
@@ -31,6 +32,7 @@ interface Props {
 // Classi statiche (niente interpolazione: Tailwind JIT deve poterle vedere).
 const TYPE_META: Record<string, { icon: LucideIcon; cls: string }> = {
   quote_submitted: { icon: Send, cls: 'bg-state-inviato/15 text-state-inviato' },
+  quote_read: { icon: Eye, cls: 'bg-state-letto/15 text-state-letto' },
   quote_confirmed: { icon: CheckCheck, cls: 'bg-confirmed/15 text-confirmed' },
   quote_completed: { icon: PackageCheck, cls: 'bg-success/15 text-success' },
   quote_reopened: { icon: RotateCcw, cls: 'bg-state-letto/15 text-state-letto' },

@@ -20,6 +20,7 @@ interface TopBarProps {
 // Pallino colorato per tipo evento (classi statiche per Tailwind JIT).
 const DOT_CLASS: Record<string, string> = {
   quote_submitted: 'bg-state-inviato',
+  quote_read: 'bg-state-letto',
   quote_confirmed: 'bg-confirmed',
   quote_completed: 'bg-success',
   quote_reopened: 'bg-state-letto',

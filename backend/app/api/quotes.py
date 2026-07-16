@@ -218,14 +218,34 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     # concorrenza solo un thread scrive read_by/read_at.
     perms = getattr(current_user, '_permissions', [])
     if quote.status == 'inviato' and 'quotes.confirm' in perms:
-        db.execute(
+        result = db.execute(
             text("UPDATE quotes SET status='letto', "
                  "read_by_user_id=:uid, read_at=:ts "
                  "WHERE id=:qid AND status='inviato'"),
             {"uid": current_user.id, "ts": utc_now(), "qid": quote_id},
         )
+        changed = result.rowcount
         db.commit()
         db.refresh(quote)
+        # Notifica "letto" al creatore/mittente: colma il buco tra l'invio e
+        # l'esito — sa che l'offerta è stata presa in carico da amministrazione.
+        # `changed` (rowcount dell'UPDATE atomico con WHERE status='inviato')
+        # garantisce che sia stato QUESTO thread a fare la transizione: sotto
+        # apertura concorrente solo uno scrive → una sola notifica; ri-aprire un
+        # 'letto' non re-notifica (il ramo `if` non scatta). Guard
+        # anti-auto-notifica (lettore == creatore) come le altre transizioni.
+        target = quote.submitted_by_user_id or quote.created_by_user_id
+        if changed and target and target != current_user.id:
+            actor = current_user.full_name or current_user.username
+            create_notification(
+                db,
+                type='quote_read',
+                title=f"Preventivo {quote.quote_number} letto",
+                body=f"Preso in carico da {actor}",
+                created_by_user_id=current_user.id,
+                target_user_id=target,
+                data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            )
 
     return quote
 

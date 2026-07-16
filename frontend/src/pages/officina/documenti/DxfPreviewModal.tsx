@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { X, AlertTriangle, FileText } from 'lucide-react'
 import api from '@/lib/api'
 import { useEscapeKey } from '@/lib/useEscapeKey'
-import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
+import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
 import type { DxfAnalysis } from '@/types'
 
 interface Props {
@@ -88,7 +88,7 @@ export default function DxfPreviewModal({ documentId, documentTitle, onClose }: 
           )}
           {analysis && !error && (
             <>
-              <DxfViewer
+              <DxfProfileCanvas
                 analysis={analysis}
                 selectedIds={new Set()}
                 onToggle={() => undefined}

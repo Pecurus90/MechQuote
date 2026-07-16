@@ -66,7 +66,7 @@ export interface Dxf2dValue {
 }
 
 interface Props {
-  /** Viewer SVG dei profili: reso dal container (DxfViewer esistente). */
+  /** Viewer profili interattivo: reso dal container (DxfProfileCanvas). */
   viewer: ReactNode
   fileName: string
   fileMeta: string

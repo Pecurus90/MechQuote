@@ -4,7 +4,7 @@ import { FileText, X } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import type { DxfAnalysis } from '@/types'
-import DxfViewer from '@/components/quotes/Dxf/DxfViewer'
+import DxfProfileCanvas from '@/components/quotes/Dxf/DxfProfileCanvas'
 
 interface Props {
   /** PartFile.id del DXF allegato: ri-analizzato lato server. */
@@ -46,7 +46,7 @@ export default function DxfViewerModal({ partFileId, filename, selectedIds = [],
           {loading && <p className="animate-pulse text-sm text-primary">Caricamento DXF…</p>}
           {analysis && (
             <>
-              <DxfViewer analysis={analysis} selectedIds={sel} onToggle={() => {}} readOnly height={480} rawX={rawX} rawY={rawY} />
+              <DxfProfileCanvas analysis={analysis} selectedIds={sel} onToggle={() => {}} readOnly height={480} rawX={rawX} rawY={rawY} />
               {selectedIds.length > 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   {selectedIds.length} profili selezionati (evidenziati) su questo disegno.

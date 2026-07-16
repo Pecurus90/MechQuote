@@ -218,6 +218,7 @@ export interface Quote {
   completed_at?: string | null
   not_ordered_at?: string | null
   not_ordered_by_user_id?: number | null
+  created_by?: UserMinimal | null
   submitted_by?: UserMinimal | null
   read_by?: UserMinimal | null
   confirmed_by?: UserMinimal | null

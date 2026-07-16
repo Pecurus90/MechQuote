@@ -457,6 +457,7 @@ class QuoteOut(QuoteBase):
     id: int
     quote_number: str
     created_by_user_id: Optional[int] = None
+    created_by: Optional[UserMinimal] = None
     submitted_by_user_id: Optional[int] = None
     submitted_at: Optional[datetime] = None
     read_by_user_id: Optional[int] = None

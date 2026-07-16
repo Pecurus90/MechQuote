@@ -49,6 +49,7 @@ def _load_quote(quote_id: int, db: Session) -> Quote:
             joinedload(Part.files),
         ),
         joinedload(Quote.customer),
+        joinedload(Quote.created_by),
         joinedload(Quote.submitted_by),
         joinedload(Quote.read_by),
         joinedload(Quote.confirmed_by),

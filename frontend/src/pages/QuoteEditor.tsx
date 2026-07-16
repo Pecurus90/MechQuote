@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle } from 'lucide-react'
+import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle, Lock } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal, parseDecimalOrNull } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
@@ -27,7 +27,7 @@ const eur0 = (v: number) => '€ ' + Number(v || 0).toLocaleString('it-IT', { ma
 export default function QuoteEditor() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
-  const { hasPermission } = useAuth()
+  const { hasPermission, user } = useAuth()
   const isNew = !id
 
   const [quote, setQuote] = useState<Quote | null>(null)
@@ -57,6 +57,11 @@ export default function QuoteEditor() {
   // sync (bump a ogni modifica). `staleConflict` = un'altra persona ha modificato.
   const serverVersion = useRef<string | undefined>(undefined)
   const [staleConflict, setStaleConflict] = useState(false)
+  // Guardia "preventivo non tuo": chi apre un preventivo creato da un altro lo
+  // vede in sola lettura finché non conferma di volerlo modificare (evita
+  // modifiche accidentali al lavoro altrui). Vale per chiunque, non un ruolo.
+  const [foreignEditConfirmed, setForeignEditConfirmed] = useState(false)
+  const [askForeignEdit, setAskForeignEdit] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -76,6 +81,7 @@ export default function QuoteEditor() {
   useEffect(() => {
     if (!id) return
     setLoading(true)
+    setForeignEditConfirmed(false)   // ogni preventivo riparte in sola lettura se non è tuo
     api.get(`/quotes/${id}`).then(res => {
       const q = res.data
       setQuote({
@@ -351,6 +357,14 @@ export default function QuoteEditor() {
   })
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   const isLocked = !['bozza', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
+  // Guardia "non tuo": se il preventivo è di un altro utente resta in sola
+  // lettura finché non confermi. `effectiveLocked` somma il blocco di workflow
+  // (isLocked) e questa guardia → tutti i figli (parti, fasi, campi) la
+  // rispettano già via la prop locked/readOnly, senza gattare ogni salvataggio.
+  const isForeign = quote.created_by_user_id != null && !!user && quote.created_by_user_id !== user.id
+  const creatorName = quote.created_by?.full_name || quote.created_by?.username || 'un altro utente'
+  const editingBlocked = isForeign && !foreignEditConfirmed && !isLocked
+  const effectiveLocked = isLocked || editingBlocked
 
   // ─── guscio: props ────────────────────────────────────────────────────────
   const st = quote.status
@@ -366,7 +380,7 @@ export default function QuoteEditor() {
     { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => setPendingStatus({ path: 'restore', okMsg: 'Preventivo ripristinato', title: 'Ripristinare il preventivo?', description: 'Il preventivo torna in lavorazione.', confirmLabel: 'Ripristina' }), show: canConfirm && st === 'non_ordinato' },
     { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => setPendingStatus({ path: 'reopen', okMsg: 'Rimandato in bozza', title: 'Rimandare in bozza?', description: 'Il preventivo tornerà modificabile come bozza.', confirmLabel: 'Rimanda in bozza' }), show: canConfirm && preConfirm },
     { key: 'unconfirm', label: 'Annulla conferma', icon: RotateCcw, variant: 'muted', onClick: () => setConfirmUnconfirm(true), show: showUnconfirm },
-    { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !isLocked },
+    { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !effectiveLocked },
   ]
 
   const fmtD = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : undefined
@@ -467,12 +481,36 @@ export default function QuoteEditor() {
         </div>
       )}
 
+      {editingBlocked && (
+        <div className="flex items-center gap-3 border-b border-warning/30 bg-warning/10 px-5 py-2.5 text-sm text-foreground">
+          <Lock className="h-4 w-4 flex-none text-warning" />
+          <span className="flex-1">
+            Questo preventivo è stato creato da <b>{creatorName}</b>, non da te.
+            È in sola lettura per evitare modifiche accidentali al lavoro altrui.
+          </span>
+          <button
+            type="button"
+            onClick={() => setAskForeignEdit(true)}
+            className="flex-none rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-white transition-[filter] hover:brightness-105"
+          >
+            Modifica comunque
+          </button>
+        </div>
+      )}
+      {isForeign && foreignEditConfirmed && !isLocked && (
+        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-5 py-1.5 text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5 flex-none" />
+          Stai modificando un preventivo di{' '}
+          <b className="font-semibold text-foreground">{creatorName}</b> — non è tuo.
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         <PartsSidebar
           parts={sidebarParts}
           selected={selectedPartIdx === -1 ? 'quote' : (quote.parts[selectedPartIdx]?.id ?? 'quote')}
           canAddParts={quote.quote_type !== 'single'}
-          locked={isLocked}
+          locked={effectiveLocked}
           onSelect={(sel) => setSelectedPartIdx(sel === 'quote' ? -1 : idxOf(sel))}
           onAdd={addPart}
           onDuplicate={(pid) => duplicatePart(idxOf(pid))}
@@ -497,7 +535,7 @@ export default function QuoteEditor() {
           )}
 
           {selectedPartIdx === -1 && (
-            <QuoteDataPanel value={quoteData} locked={isLocked} onChange={onQuoteDataChange} onCommit={onQuoteDataCommit} onBlur={onQuoteDataBlur} />
+            <QuoteDataPanel value={quoteData} locked={effectiveLocked} onChange={onQuoteDataChange} onCommit={onQuoteDataCommit} onBlur={onQuoteDataBlur} />
           )}
 
           {selectedPartIdx === -1 && quote.status === 'completo' && (
@@ -530,7 +568,7 @@ export default function QuoteEditor() {
               globalMarginPercent={quote.global_margin_percent}
               siblings={quote.parts.filter((_, i) => i !== selectedPartIdx)}
               companySettings={companySettings}
-              readOnly={isLocked}
+              readOnly={effectiveLocked}
               onUpdate={updates => updatePart(selectedPartIdx, updates)}
               onSave={(override) => savePart(selectedPartIdx, override)}
               onPhasesChange={phases => updatePart(selectedPartIdx, { phases })}
@@ -548,7 +586,7 @@ export default function QuoteEditor() {
         discountPercent={String(quote.global_discount_percent ?? '')}
         subtotal={hasExtras ? partsSubtotal : undefined}
         total={total}
-        locked={isLocked}
+        locked={effectiveLocked}
         onCommit={onBottomCommit}
       />
 
@@ -589,6 +627,15 @@ export default function QuoteEditor() {
         confirmLabel="Elimina"
         onConfirm={async () => { if (confirmDeletePartIdx !== null) await deletePart(confirmDeletePartIdx); setConfirmDeletePartIdx(null) }}
         onCancel={() => setConfirmDeletePartIdx(null)}
+      />
+      <ConfirmDialog
+        open={askForeignEdit}
+        variant="default"
+        title="Modificare un preventivo non tuo?"
+        description={`Questo preventivo è stato creato da ${creatorName}. Continuando potrai modificarlo e le tue modifiche sovrascriveranno il suo lavoro. Vuoi procedere?`}
+        confirmLabel="Sì, modifica"
+        onConfirm={() => { setForeignEditConfirmed(true); setAskForeignEdit(false) }}
+        onCancel={() => setAskForeignEdit(false)}
       />
 
       {cloneSourceId != null && quote && (() => {

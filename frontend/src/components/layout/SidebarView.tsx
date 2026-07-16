@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Gauge, Sun, Moon, LogOut, ChevronDown, KeyRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { RoleBadge } from '@/components/settings/RoleBadge'
 
 interface NavLeaf {
   key: string
@@ -24,7 +25,7 @@ interface NavSection {
 interface SidebarViewProps {
   sections: NavSection[]
   onNavigate: (key: string) => void
-  user: { name: string; roleLabel: string; initials: string }
+  user: { name: string; roleLabel: string; roleColor?: string; initials: string }
   theme: 'light' | 'dark'
   onToggleTheme: () => void
   onChangePassword: () => void
@@ -168,7 +169,11 @@ export function SidebarView({
           </div>
           <div className="min-w-0 flex-1 leading-tight">
             <div className="truncate text-[12.5px] font-semibold">{user.name}</div>
-            <div className="text-[11px] text-muted-foreground">{user.roleLabel}</div>
+            {user.roleLabel && (
+              <div className="mt-1">
+                <RoleBadge label={user.roleLabel} color={user.roleColor} />
+              </div>
+            )}
           </div>
           <button type="button" onClick={onLogout} aria-label="Esci" className="flex-none">
             <LogOut className="h-4 w-4 text-muted-foreground transition-colors hover:text-foreground" />

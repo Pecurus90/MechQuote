@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import api from '@/lib/api'
+import type { Role } from '@/types'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
 import { SidebarView } from '@/components/layout/SidebarView'
@@ -69,6 +70,20 @@ export default function Sidebar() {
     if (canConfirm) api.get('/dashboard/queue-counts').then(r => setReviewBadge(r.data?.to_review ?? 0)).catch(() => {})
   }, [canOrdersMaterials, canTools, canConfirm])
 
+  // Label + colore del ruolo dell'utente per la pillola nel footer. Presi da
+  // /api/roles (aperto a ogni utente autenticato) così valgono anche per i
+  // ruoli custom, non solo per i 4 di default.
+  const [roleMeta, setRoleMeta] = useState<{ label: string; color?: string } | null>(null)
+  useEffect(() => {
+    if (!user?.role) { setRoleMeta(null); return }
+    api.get('/roles')
+      .then(r => {
+        const found = (r.data as Role[]).find(x => x.name === user.role)
+        setRoleMeta(found ? { label: found.label, color: found.color } : null)
+      })
+      .catch(() => {})
+  }, [user?.role])
+
   // ─── Modello di navigazione ────────────────────────────────────────────────
   const operativita: Node[] = []
   if (canDashboard) operativita.push({ key: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, active: path === '/' || at('/dashboard') })
@@ -129,7 +144,12 @@ export default function Sidebar() {
       <SidebarView
         sections={sections}
         onNavigate={(key) => { if (key.startsWith('/')) navigate(key) }}
-        user={{ name, roleLabel: user ? (ROLE_LABELS[user.role] ?? user.role) : '', initials: initials(name) }}
+        user={{
+          name,
+          roleLabel: roleMeta?.label ?? (user ? (ROLE_LABELS[user.role] ?? user.role) : ''),
+          roleColor: roleMeta?.color,
+          initials: initials(name),
+        }}
         theme={theme}
         onToggleTheme={toggleTheme}
         onChangePassword={() => setPwOpen(true)}

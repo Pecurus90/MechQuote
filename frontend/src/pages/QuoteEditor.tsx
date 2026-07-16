@@ -75,7 +75,7 @@ export default function QuoteEditor() {
     ]).then(([m, mat, cat, cust, sup, tr, cs]) => {
       setMachines(m.data); setMaterials(mat.data); setCategories(cat.data)
       setCustomers(cust.data); setSuppliers(sup.data); setTreatments(tr.data); setCompanySettings(cs.data)
-    })
+    }).catch(() => toast.error('Errore nel caricamento dei dati di catalogo (materiali, macchine, clienti…). Ricarica la pagina.'))
   }, [])
 
   useEffect(() => {
@@ -156,7 +156,8 @@ export default function QuoteEditor() {
         customer_supplied_material: part.customer_supplied_material ?? false,
         material_from_stock: part.material_from_stock ?? false,
         margin_percent: part.margin_percent, minimum_price: part.minimum_price,
-        total_cost: part.total_cost, unit_price: part.unit_price, total_price: part.total_price,
+        // total_cost/unit_price/total_price NON inviati: li ricalcola il backend
+        // (recalculate_part) subito dopo il PUT. Inviarli era rumore fuorviante.
       })
       await reloadQuote()
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio della parte')); await reloadQuote() }
@@ -191,13 +192,16 @@ export default function QuoteEditor() {
   const deletePart = async (idx: number) => {
     if (!quote) return
     const part = quote.parts[idx]
-    setSelectedPartIdx(Math.max(0, idx - 1))
     if (part.id) {
       try {
         await api.delete(`/parts/${part.id}`)
+        // Sposta la selezione SOLO dopo un delete riuscito: se fallisce, la
+        // parte resta in lista e la selezione non deve saltare via.
+        setSelectedPartIdx(Math.max(0, idx - 1))
         await reloadQuote()
       } catch { toast.error("Errore nell'eliminazione della parte") }
     } else {
+      setSelectedPartIdx(Math.max(0, idx - 1))
       setQuote(q => q ? { ...q, parts: q.parts.filter((_, i) => i !== idx) } : q)
     }
   }

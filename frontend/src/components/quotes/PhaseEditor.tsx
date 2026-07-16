@@ -107,15 +107,20 @@ export default function PhaseEditor({
   const updateMany = (idx: number, updates: Partial<Phase>) =>
     onChange(phases.map((p, i) => i !== idx ? p : calcPhase({ ...p, ...updates }, machines, quantity, nParts)))
 
-  const saveImmediate = async (idx: number, updates: Partial<Phase>) => {
+  // Ritorna true se il salvataggio è andato a buon fine. Su errore fa il
+  // toast e ricarica dal server (fonte di verità = revert dell'anteprima
+  // ottimistica). Il booleano serve ai chiamanti che devono agire solo su
+  // successo (es. changeTreatment, per non ricaricare due volte).
+  const saveImmediate = async (idx: number, updates: Partial<Phase>): Promise<boolean> => {
     const current = phases[idx]
     updateMany(idx, updates)
-    if (!current.id) return
+    if (!current.id) return true
     try {
       const res = await api.put<Phase>(`/phases/${current.id}`, { ...current, ...updates })
       const saved = res.data
       updateMany(idx, { ...updates, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost })
-    } catch { toast.error('Errore nel salvataggio della fase'); onReload?.() }
+      return true
+    } catch { toast.error('Errore nel salvataggio della fase'); onReload?.(); return false }
   }
 
   const savePhase = async (idx: number) => {
@@ -176,8 +181,12 @@ export default function PhaseEditor({
       const varCost = calcTreatmentCost(t, finishedWeightKg, quantity, [], partDims)
       updates = { treatment_id: treatmentId, fixed_cost: t.supplier?.shipping_cost || 0, variable_cost_per_part: varCost, description: phase.description || t.name, supplier_id: t.supplier_id ?? phase.supplier_id }
     }
-    await saveImmediate(idx, updates)
-    onReload?.()
+    // Ricarica SOLO su successo: cambiare trattamento tocca le aggregazioni di
+    // batch/spedizione tra le parti sorelle, quindi il reload riallinea l'intero
+    // preventivo. Su errore saveImmediate ha già ricaricato (revert) → così si
+    // evita il doppio reload.
+    const ok = await saveImmediate(idx, updates)
+    if (ok) onReload?.()
   }
 
   const applyWorkflow = async (wf: WorkflowTemplate) => {
@@ -324,7 +333,7 @@ export default function PhaseEditor({
         onBlur={() => savePhase(idx)}
         onUnlockManual={() => setPendingConfirm({ title: 'Sbloccare i campi EDM manuali?', description: 'I valori calcolati da DXF (lunghezza, altezza, ciclo, fori) verranno azzerati: potrai inserirli a mano.', confirmLabel: 'Sblocca', variant: 'destructive', run: () => unlockManualEdm(idx) })}
         onPatch={(updates) => updateMany(idx, updates)}
-        onSaveImmediate={(updates) => saveImmediate(idx, updates)}
+        onSaveImmediate={(updates) => { void saveImmediate(idx, updates) }}
       />
     )
   }

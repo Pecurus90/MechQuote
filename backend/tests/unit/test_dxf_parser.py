@@ -67,3 +67,42 @@ def test_stitching_endpoints():
     p = result["profiles"][0]
     assert p["closed"] is False
     assert p["length_mm"] == 80.0
+
+
+def test_parse_insert_block_esploso():
+    """Geometria dentro un BLOCK richiamato via INSERT → profilo trovato (audit M3).
+
+    Prima dell'esplosione dei blocchi un disegno così risultava "vuoto".
+    """
+    doc = ezdxf.new("R2010")
+    doc.units = ezdxf.units.MM
+    blk = doc.blocks.new(name="RECT")
+    blk.add_lwpolyline([(0, 0), (100, 0), (100, 50), (0, 50)], close=True)
+    doc.modelspace().add_blockref("RECT", insert=(10, 20))
+    content = _dxf_to_bytes(doc)
+
+    result = parse_dxf(content)
+
+    assert len(result["profiles"]) == 1
+    p = result["profiles"][0]
+    assert p["closed"] is True
+    assert p["length_mm"] == 300.0        # perimetro 2×(100+50)
+    assert result["bbox_global"]["w"] == 100.0
+    assert result["bbox_global"]["h"] == 50.0
+
+
+def test_parse_insert_annidato():
+    """INSERT dentro un blocco a sua volta inserito → esploso ricorsivamente."""
+    doc = ezdxf.new("R2010")
+    doc.units = ezdxf.units.MM
+    inner = doc.blocks.new(name="INNER")
+    inner.add_lwpolyline([(0, 0), (20, 0), (20, 20), (0, 20)], close=True)
+    outer = doc.blocks.new(name="OUTER")
+    outer.add_blockref("INNER", insert=(0, 0))
+    doc.modelspace().add_blockref("OUTER", insert=(5, 5))
+    content = _dxf_to_bytes(doc)
+
+    result = parse_dxf(content)
+
+    assert len(result["profiles"]) == 1
+    assert result["profiles"][0]["length_mm"] == 80.0   # 4×20

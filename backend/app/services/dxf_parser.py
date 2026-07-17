@@ -20,8 +20,9 @@ from ezdxf.path import make_path, Path
 logger = logging.getLogger(__name__)
 
 # Entità DXF supportate. Tutto il resto viene saltato e segnalato in warnings.
-# (TEXT, MTEXT, DIMENSION, HATCH solido, BLOCK ref non vengono trasformati in profili
-#  tagliabili — sono entità decorative o di annotazione.)
+# (TEXT, MTEXT, DIMENSION, HATCH solido sono decorativi/annotazioni.) I BLOCK
+# richiamati via INSERT vengono ESPLOSI a monte (_iter_effective_entities): la
+# geometria al loro interno ricade quindi in questi tipi supportati.
 SUPPORTED_TYPES = {
     'LINE', 'ARC', 'CIRCLE', 'LWPOLYLINE', 'POLYLINE', 'ELLIPSE', 'SPLINE',
 }
@@ -68,6 +69,34 @@ def _unit_scale_factor(insunits: int) -> Tuple[float, str]:
     _INSUNITS_TO_MM sopra per la lista delle unità riconosciute.
     """
     return _INSUNITS_TO_MM.get(insunits, (1.0, 'unsupported'))
+
+
+# Profondità massima di annidamento blocchi (INSERT dentro INSERT) da esplodere.
+_MAX_BLOCK_DEPTH = 5
+
+
+def _iter_effective_entities(entities, depth: int = 0):
+    """Scorre le entità esplodendo i blocchi (INSERT) nei loro contenuti in
+    coordinate modelspace via `virtual_entities()`, ricorsivamente per i blocchi
+    annidati (fino a `_MAX_BLOCK_DEPTH`). Le entità non-INSERT passano invariate.
+
+    Molti DXF meccanici racchiudono il profilo in un BLOCK richiamato via INSERT:
+    senza esplosione il disegno risulterebbe "vuoto" (audit M3). `virtual_entities`
+    restituisce copie già trasformate in WCS, quindi a valle il pipeline (profili,
+    misure, unità) lavora come per le entità di primo livello.
+    """
+    for e in entities:
+        if e.dxftype() == 'INSERT':
+            if depth >= _MAX_BLOCK_DEPTH:
+                continue
+            try:
+                virtual = list(e.virtual_entities())
+            except Exception as ex:   # blocco corrotto/non esplodibile: skip
+                logger.debug("INSERT explode fallito: %s", ex)
+                continue
+            yield from _iter_effective_entities(virtual, depth + 1)
+        else:
+            yield e
 
 
 # ─── helper geometrici ──────────────────────────────────────────────────────
@@ -233,7 +262,7 @@ def _measure_primitives(msp, factor: float) -> Tuple[List[Dict], List[Dict]]:
         # float() esplicito: ezdxf/numpy possono restituire np.float64.
         return (round(float(x) * factor, 3), round(float(y) * factor, 3))
 
-    for e in msp:
+    for e in _iter_effective_entities(msp):
         try:
             t = e.dxftype()
             if t == 'LINE':
@@ -311,7 +340,7 @@ def _entities(msp, factor: float) -> List[Dict]:
         if len(pts) >= 2:
             out.append({'t': 'poly', 'pts': pts, 'closed': False})
 
-    for e in msp:
+    for e in _iter_effective_entities(msp):
         t = e.dxftype()
         if t not in SUPPORTED_TYPES:
             continue
@@ -359,7 +388,7 @@ def parse_dxf(content: bytes, tolerance: float = DEFAULT_TOLERANCE) -> Dict:
     skipped: Dict[str, int] = {}
 
     seen_entities = 0
-    for entity in msp:
+    for entity in _iter_effective_entities(msp):
         seen_entities += 1
         if seen_entities > MAX_ENTITIES:
             raise ValueError(

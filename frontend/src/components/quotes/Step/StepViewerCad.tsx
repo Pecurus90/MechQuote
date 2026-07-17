@@ -87,6 +87,14 @@ function stepWeightKg(volMm3: number, densityKgDm3?: number): number | undefined
   return densityKgDm3 ? Math.round((volMm3 / 1e6) * densityKgDm3 * 1000) / 1000 : undefined
 }
 
+// F4: la tassellazione del kernel OCCT è sincrona sul main thread → un assieme
+// grosso freeza la UI per secondi senza feedback. Il numero di facce (dal solo
+// esplode topologico, economico) è un buon proxy della complessità PRIMA della
+// tassellazione (la parte pesante). Oltre soglia interrompiamo con un messaggio
+// esplicito invece di bloccare: il viewer serve al singolo pezzo, non agli
+// assiemi. Euristica: un pezzo lavorato complesso resta ben sotto le 4000 facce.
+const MAX_STEP_FACES = 4000
+
 export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyGeometry, onClose }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
@@ -136,6 +144,15 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
         occtToFree.push(shape)
         faces = explodeFaces(oc, shape)
         faces.forEach(f => occtToFree.push(f))
+        // F4: interrompi PRIMA della tassellazione (pesante) se troppe facce.
+        if (faces.length > MAX_STEP_FACES) {
+          if (!disposed) {
+            setError(`STEP troppo complesso per l'anteprima (${faces.length} facce): `
+              + `probabilmente un assieme. Imposta il grezzo manualmente.`)
+            setLoading(false)
+          }
+          return   // gli oggetti OCCT già in occtToFree vengono liberati all'unmount
+        }
         faceInfos = faces.map((f, i) => faceInfo(oc, f, i))
         tess = tessellate(oc, shape)
         vol = volume(oc, shape)

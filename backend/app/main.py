@@ -1,7 +1,6 @@
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 import logging
@@ -966,4 +965,8 @@ def health():
 
 
 os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# NB: nessun mount statico su /uploads (rimosso, sicurezza). Serviva gli stessi
+# file SENZA autenticazione — backdoor rispetto agli endpoint autenticati che
+# già li servono (part-file, datasheet materiale, documenti officina) e vettore
+# stored-XSS same-origin. Il frontend non usa /uploads: accede ai file solo via
+# quegli endpoint (auth + permesso). I file restano su disco in uploads/.

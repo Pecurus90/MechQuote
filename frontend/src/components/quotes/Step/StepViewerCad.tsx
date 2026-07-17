@@ -80,6 +80,13 @@ function angleRelation(deg: number): string {
  * angolo esatti dalla geometria, non fittati. Lazy-loaded: il kernel WASM
  * (~50 MB) NON entra nel bundle principale.
  */
+// F3: peso finito dal volume esatto (mm³) e dalla densità del materiale. In
+// funzione a parte così l'inizializzazione e il ricalcolo su cambio materiale
+// usano la stessa formula.
+function stepWeightKg(volMm3: number, densityKgDm3?: number): number | undefined {
+  return densityKgDm3 ? Math.round((volMm3 / 1e6) * densityKgDm3 * 1000) / 1000 : undefined
+}
+
 export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyGeometry, onClose }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
@@ -87,6 +94,9 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
   const [tool, setTool] = useState<Tool>('none')
   const [result, setResult] = useState<Result>(null)
   const [geom, setGeom] = useState<StepGeometry | null>(null)
+  // Volume esatto (mm³) dell'ultimo STEP tessellato: serve a ricalcolare il
+  // peso quando cambia il materiale senza ri-tessellare (F3).
+  const rawVolRef = useRef(0)
 
   const toolRef = useRef(tool)
   toolRef.current = tool
@@ -190,10 +200,11 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       // Ingombro / volume / peso ESATTI (dal kernel, non dai triangoli).
       const r2 = (n: number) => Math.round(n * 100) / 100
       const stock = detectStockShape(faceInfos, bbox)
+      rawVolRef.current = vol
       setGeom({
         x: r2(bbox.x), y: r2(bbox.y), z: r2(bbox.z),
         volumeCm3: r2(vol / 1000),
-        weightKg: densityKgDm3 ? Math.round((vol / 1e6) * densityKgDm3 * 1000) / 1000 : undefined,
+        weightKg: stepWeightKg(vol, densityKgDm3),
         shape: stock.shape, diameter: stock.diameter, length: stock.length,
       })
 
@@ -457,6 +468,18 @@ export default function StepViewerCad({ fileId, filename, densityKgDm3, onApplyG
       occtToFree.forEach(o => { try { o.delete() } catch { /* già liberato */ } })
     }
   }, [fileId])
+
+  // F3: se il materiale (densità) cambia mentre il viewer è aperto, ricalcola
+  // solo il peso dal volume già noto — senza ri-eseguire il kernel STEP (che
+  // gira sul solo cambio di fileId). Evita di salvare un peso stantìo con
+  // "Applica al preventivo".
+  useEffect(() => {
+    setGeom(g => {
+      if (!g) return g
+      const w = stepWeightKg(rawVolRef.current, densityKgDm3)
+      return w === g.weightKg ? g : { ...g, weightKg: w }
+    })
+  }, [densityKgDm3])
 
   const switchTool = (t: Tool) => {
     setTool(cur => cur === t ? 'none' : t)

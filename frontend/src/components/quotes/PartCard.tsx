@@ -71,7 +71,15 @@ export default function PartCard({
     onSave({ ...cleared, material_cost: matCost } as Partial<Part>)
   }
   const applyProvenance = (v: string) => {
-    const updates = { customer_supplied_material: v === 'cl', material_from_stock: v === 'stock' }
+    const customerSupplied = v === 'cl'
+    const material = materials.find(m => m.id === part.material_id)
+    // F14: allinea material_cost alla provenienza come fa il backend
+    // (calculation.py): conto-lavoro cliente → 0; magazzino/normale → ricalcolo.
+    // Senza, l'anteprima mostrava un material_cost stantìo fino al reload (es.
+    // 0 residuo tornando da "conto lavoro" a "fornitore"). Il backend resta
+    // autoritativo e ricalcola comunque al salvataggio.
+    const matCost = customerSupplied ? 0 : calcMaterialCost(part, material)
+    const updates = { customer_supplied_material: customerSupplied, material_from_stock: v === 'stock', material_cost: matCost }
     onUpdate(updates); onSave(updates)
   }
 

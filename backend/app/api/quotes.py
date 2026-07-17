@@ -495,7 +495,11 @@ def unconfirm_quote(
     db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
     quote.material_ordered_at = None
     quote.material_ordered_by_user_id = None
-    quote.status = wf.STATUS_LETTO
+    # F20: torna allo stato reale precedente alla conferma, non sempre 'letto'.
+    # Se il preventivo era stato confermato senza essere mai aperto (read_at
+    # NULL, conferma diretta da 'inviato') atterrare su 'letto' produceva un
+    # 'letto' con read_at nullo. Ricostruzione coerente con restore_quote.
+    quote.status = wf.STATUS_LETTO if quote.read_at else wf.STATUS_INVIATO
     quote.confirmed_at = None
     quote.confirmed_by_user_id = None
     quote.completed_at = None

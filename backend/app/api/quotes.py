@@ -345,6 +345,7 @@ def confirm_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
     if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
         raise HTTPException(
             status_code=400,
@@ -398,6 +399,7 @@ def reopen_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
     if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
         raise HTTPException(
             status_code=400,
@@ -458,6 +460,7 @@ def unconfirm_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
     if quote.status not in (wf.STATUS_CONFERMATO, wf.STATUS_COMPLETO):
         raise HTTPException(
             status_code=400,
@@ -516,6 +519,7 @@ def await_client_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
     if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO):
         raise HTTPException(
             status_code=400,
@@ -558,6 +562,7 @@ def mark_not_ordered_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
     if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
         raise HTTPException(
             status_code=400,
@@ -604,6 +609,7 @@ def restore_quote(
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
     if quote.status != wf.STATUS_NON_ORDINATO:
         raise HTTPException(
             status_code=400,

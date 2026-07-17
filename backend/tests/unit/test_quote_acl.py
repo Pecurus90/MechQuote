@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from app.api.quotes import (
     confirm_quote, reopen_quote, unconfirm_quote,
-    await_client_quote, mark_not_ordered_quote, restore_quote,
+    await_client_quote, mark_not_ordered_quote, restore_quote, mark_quote_read,
 )
 from app.models import Quote
 
@@ -28,7 +28,8 @@ def _quote(db, **kw):
 
 
 # Endpoint con dependency _can_confirm (4° arg posizionale ignorato nella chiamata diretta).
-_CONFIRM_DEP = [confirm_quote, reopen_quote, await_client_quote, mark_not_ordered_quote, restore_quote]
+_CONFIRM_DEP = [confirm_quote, reopen_quote, await_client_quote, mark_not_ordered_quote,
+                restore_quote, mark_quote_read]
 
 
 @pytest.mark.parametrize('endpoint', _CONFIRM_DEP)
@@ -55,3 +56,17 @@ def test_creatore_non_e_bloccato_dallacl(db_session):
     reopen_quote(q.id, db_session, creator, None)
     db_session.refresh(q)
     assert q.status == 'bozza'
+
+
+def test_mark_read_inviato_a_letto_e_idempotente(db_session):
+    # M4: la marcatura 'letto' è un POST esplicito (non più side-effect su GET).
+    q = _quote(db_session, status='inviato', submitted_by_user_id=1)
+    admin = _user(2, ['quotes.confirm', 'quotes.view_all'])
+    mark_quote_read(q.id, db_session, admin, None)
+    db_session.refresh(q)
+    assert q.status == 'letto'
+    assert q.read_by_user_id == 2
+    # idempotente: ri-chiamare su un 'letto' non cambia nulla e non solleva.
+    mark_quote_read(q.id, db_session, admin, None)
+    db_session.refresh(q)
+    assert q.status == 'letto'

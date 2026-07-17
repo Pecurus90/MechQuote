@@ -82,8 +82,14 @@ export default function QuoteEditor() {
     if (!id) return
     setLoading(true)
     setForeignEditConfirmed(false)   // ogni preventivo riparte in sola lettura se non è tuo
-    api.get(`/quotes/${id}`).then(res => {
-      const q = res.data
+    api.get(`/quotes/${id}`).then(async res => {
+      let q = res.data
+      // M4: marcatura 'letto' esplicita all'apertura reale (non più side-effect
+      // sulla GET). Solo chi conferma (amministrazione) su un 'inviato'. Se la
+      // chiamata fallisce non blocchiamo l'apertura: si resta su 'inviato'.
+      if (q.status === 'inviato' && hasPermission('quotes.confirm')) {
+        try { q = (await api.post(`/quotes/${id}/read`)).data } catch { /* non bloccare l'apertura */ }
+      }
       setQuote({
         ...q,
         transport_cost: q.transport_cost ?? 0,

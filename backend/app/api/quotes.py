@@ -210,43 +210,9 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), current_user: User =
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
     ensure_quote_visible(quote, current_user)
-
-    # Auto-mark "letto" quando amministrazione (quotes.confirm) apre un 'inviato'
-    # (spec 18). Leggere NON completa più nulla: la conferma è manuale. Il
-    # creator (ufficio_tecnico) non ha quotes.confirm → aprire la propria bozza
-    # non altera il workflow. UPDATE atomico con WHERE status='inviato': sotto
-    # concorrenza solo un thread scrive read_by/read_at.
-    perms = getattr(current_user, '_permissions', [])
-    if quote.status == 'inviato' and 'quotes.confirm' in perms:
-        result = db.execute(
-            text("UPDATE quotes SET status='letto', "
-                 "read_by_user_id=:uid, read_at=:ts "
-                 "WHERE id=:qid AND status='inviato'"),
-            {"uid": current_user.id, "ts": utc_now(), "qid": quote_id},
-        )
-        changed = result.rowcount
-        db.commit()
-        db.refresh(quote)
-        # Notifica "letto" al creatore/mittente: colma il buco tra l'invio e
-        # l'esito — sa che l'offerta è stata presa in carico da amministrazione.
-        # `changed` (rowcount dell'UPDATE atomico con WHERE status='inviato')
-        # garantisce che sia stato QUESTO thread a fare la transizione: sotto
-        # apertura concorrente solo uno scrive → una sola notifica; ri-aprire un
-        # 'letto' non re-notifica (il ramo `if` non scatta). Guard
-        # anti-auto-notifica (lettore == creatore) come le altre transizioni.
-        target = quote.submitted_by_user_id or quote.created_by_user_id
-        if changed and target and target != current_user.id:
-            actor = current_user.full_name or current_user.username
-            create_notification(
-                db,
-                type='quote_read',
-                title=f"Preventivo {quote.quote_number} letto",
-                body=f"Preso in carico da {actor}",
-                created_by_user_id=current_user.id,
-                target_user_id=target,
-                data={'quote_id': quote.id, 'quote_number': quote.quote_number},
-            )
-
+    # La marcatura 'letto' NON avviene più qui (side-effect su GET, audit M4):
+    # è un endpoint esplicito POST /{id}/read che il frontend chiama all'apertura
+    # reale. Così un prefetch/retry della GET non altera lo stato.
     return quote
 
 
@@ -327,6 +293,53 @@ def notify_quote_completed(db: Session, quote: Quote, actor_user: User) -> None:
         target_user_id=target,
         data={'quote_id': quote.id, 'quote_number': quote.quote_number},
     )
+
+
+@router.post("/{quote_id}/read", response_model=QuoteOut)
+def mark_quote_read(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Amministrazione ha aperto un preventivo 'inviato' → 'letto' (spec 18).
+
+    Endpoint esplicito, chiamato dal frontend all'apertura reale: prima era un
+    side-effect sulla GET /{id} (audit M4), che un prefetch/retry poteva
+    innescare. Idempotente: UPDATE atomico con WHERE status='inviato', no-op sugli
+    altri stati; sotto apertura concorrente solo un thread scrive → una sola
+    notifica.
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
+    if quote.status == 'inviato':
+        result = db.execute(
+            text("UPDATE quotes SET status='letto', "
+                 "read_by_user_id=:uid, read_at=:ts "
+                 "WHERE id=:qid AND status='inviato'"),
+            {"uid": current_user.id, "ts": utc_now(), "qid": quote_id},
+        )
+        changed = result.rowcount
+        db.commit()
+        # Notifica "letto" al creatore/mittente: sa che l'offerta è stata presa
+        # in carico. `changed` (rowcount dell'UPDATE atomico) garantisce che sia
+        # stato QUESTO thread a transire → una sola notifica; guard
+        # anti-auto-notifica (lettore == creatore) come le altre transizioni.
+        target = quote.submitted_by_user_id or quote.created_by_user_id
+        if changed and target and target != current_user.id:
+            actor = current_user.full_name or current_user.username
+            create_notification(
+                db,
+                type='quote_read',
+                title=f"Preventivo {quote.quote_number} letto",
+                body=f"Preso in carico da {actor}",
+                created_by_user_id=current_user.id,
+                target_user_id=target,
+                data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            )
+    return _load_quote(quote_id, db)
 
 
 @router.post("/{quote_id}/confirm", response_model=QuoteOut)

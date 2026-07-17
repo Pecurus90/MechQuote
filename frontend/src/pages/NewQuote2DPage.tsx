@@ -244,6 +244,10 @@ export default function NewQuote2DPage() {
       if (match) customerId = String(match.id)
     }
     setSubmitting(true)
+    // Traccia il preventivo creato: se uno step successivo (parte/file/fasi)
+    // fallisce, lo eliminiamo per non lasciare un orfano incompleto e liberare
+    // il numero per un nuovo tentativo (audit M7 — submit non atomico).
+    let createdQuoteId: number | null = null
     try {
       const quoteRes = await api.post('/quotes', {
         quote_number: quoteNumber, quote_type: 'single',
@@ -256,6 +260,7 @@ export default function NewQuote2DPage() {
       const quoteId = quoteRes.data?.id
       const partId = quoteRes.data?.parts?.[0]?.id
       if (typeof quoteId !== 'number') throw new Error(`Risposta /quotes priva di id: ${JSON.stringify(quoteRes.data)}`)
+      createdQuoteId = quoteId
       if (typeof partId !== 'number') throw new Error('Part non trovata dopo creazione preventivo')
 
       await api.put(`/parts/${partId}`, {
@@ -298,8 +303,19 @@ export default function NewQuote2DPage() {
       toast.success('Preventivo creato')
       navigate(`/quotes/${quoteId}`)
     } catch (e) {
+      // Rollback dell'orfano: il preventivo era già creato ma il resto è fallito.
+      // Best-effort: se anche la delete fallisce, avvisiamo di controllare a mano.
+      let rolledBack = true
+      if (createdQuoteId != null) {
+        try { await api.delete(`/quotes/${createdQuoteId}`) } catch { rolledBack = false }
+      }
       const err = e as { message?: string; response?: { status?: number; data?: { detail?: string } } }
-      toast.error(err?.response?.data?.detail || err?.message || 'Errore nella creazione del preventivo')
+      const base = err?.response?.data?.detail || err?.message || 'Errore nella creazione del preventivo'
+      toast.error(
+        createdQuoteId != null && !rolledBack
+          ? `${base}. Attenzione: un preventivo parziale potrebbe essere rimasto — controlla l'archivio.`
+          : base,
+      )
     } finally { setSubmitting(false) }
   }
 

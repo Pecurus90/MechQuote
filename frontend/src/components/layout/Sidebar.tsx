@@ -4,6 +4,7 @@ import {
   LayoutDashboard, FileText, FilePlus2, ClipboardList, FolderOpen, Truck, Package,
   History, Drill, Users, BarChart3, Activity, Library, Settings, Box, Tag, Factory, Zap,
   Hammer, Building2, Shield, FileUp, Bolt, ShoppingCart, HardHat, Handshake, Sliders, Receipt,
+  BookOpen,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import api from '@/lib/api'
@@ -109,6 +110,8 @@ export default function Sidebar() {
   if (canOfficina) operativita.push({ key: '/officina', label: 'Officina', icon: HardHat, active: at('/officina') })
   if (canStatistics) operativita.push({ key: '/statistics', label: 'Statistiche', icon: BarChart3, active: at('/statistics') })
   if (canDashboard) operativita.push({ key: '/activity', label: 'Attività', icon: Activity, active: at('/activity') })
+  // Guide all'uso: visibili a ogni utente autenticato (nessun permesso dedicato).
+  operativita.push({ key: '/guide', label: 'Guide', icon: BookOpen, active: at('/guide') })
 
   const impostazioni: Node[] = []
   const showCatalog = canSettings || canTools

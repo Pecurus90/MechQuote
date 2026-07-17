@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/lib/auth'
@@ -35,6 +36,9 @@ import SuppliersSettingsPage from '@/pages/settings/SuppliersSettingsPage'
 import EdmSettingsPage from '@/pages/settings/EdmSettingsPage'
 import CatalogSettingsPage from '@/pages/settings/CatalogSettingsPage'
 import SystemSettingsPage from '@/pages/settings/SystemSettingsPage'
+import GuideIndexPage from '@/pages/guide/GuideIndexPage'
+// Visore guida: lazy: gli HTML con screenshot inline (~3 MB) pesano solo su richiesta.
+const GuideViewerPage = lazy(() => import('@/pages/guide/GuideViewerPage'))
 
 function ProtectedRoute({
   children,
@@ -83,6 +87,10 @@ function AppRoutes() {
         <Route path="officina/materiali" element={<ProtectedRoute permission="officina"><OfficinaMaterialsPage /></ProtectedRoute>} />
         <Route path="officina/tempra" element={<ProtectedRoute permission="officina"><TempraResultsPage /></ProtectedRoute>} />
         <Route path="activity" element={<ProtectedRoute permission="dashboard"><ActivityPage /></ProtectedRoute>} />
+
+        {/* Guide all'uso — dietro l'accesso (parent AppLayout), nessun permesso dedicato */}
+        <Route path="guide" element={<GuideIndexPage />} />
+        <Route path="guide/:slug" element={<Suspense fallback={<div className="p-10 text-center text-muted-foreground">Caricamento guida…</div>}><GuideViewerPage /></Suspense>} />
         <Route path="statistics" element={<ProtectedRoute permission="statistics"><StatisticsPage /></ProtectedRoute>} />
 
         {/* Settings — pagine atomiche residue */}

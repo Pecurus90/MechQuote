@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle, Lock } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
@@ -105,6 +105,10 @@ export default function QuoteEditor() {
       if (q.status === 'inviato' && hasPermission('quotes.confirm')) {
         try { q = (await api.post(`/quotes/${id}/read`)).data } catch { /* non bloccare l'apertura */ }
       }
+      // M6: baseline della versione per il rilevamento concorrenza. Senza,
+      // serverVersion restava undefined e il banner non scattava mai su
+      // apri→modifica→Salva.
+      serverVersion.current = q.updated_at
       setQuote({
         ...q,
         transport_cost: q.transport_cost ?? 0,
@@ -145,6 +149,19 @@ export default function QuoteEditor() {
       applyQuoteData(res.data)
     } catch { toast.error('Errore nel ricaricamento del preventivo') }
   }
+
+  // M6: re-sync leggero della versione dopo una NOSTRA scrittura che non passa
+  // da un reload completo (es. salvataggio rapido di una fase). recalculate_quote
+  // bumpa quote.updated_at: senza riallineare serverVersion il polling
+  // scambierebbe la nostra modifica per una altrui (falso conflitto).
+  const bumpVersion = useCallback(async () => {
+    if (!id) return
+    try {
+      const res = await api.get(`/quotes/${id}/version`)
+      serverVersion.current = res.data?.updated_at
+      setStaleConflict(false)
+    } catch { /* rete assente: il polling riproverà */ }
+  }, [id])
 
   // Rilevamento concorrenza: polla la versione leggera dell'aggregato ogni 15s
   // e al focus della finestra. Se il server ha una updated_at diversa da quella
@@ -291,7 +308,10 @@ export default function QuoteEditor() {
       const payload = quote.status === 'completo'
         ? (hasPermission('quotes.edit_locked') ? { ...quoteFields, ...closeout } : closeout)
         : quoteFields
-      await api.put(`/quotes/${quote.id}`, payload)
+      const res = await api.put(`/quotes/${quote.id}`, payload)
+      // M6: riallinea la versione al valore appena scritto, così il polling non
+      // scambia il nostro stesso salvataggio per una modifica altrui.
+      serverVersion.current = res.data?.updated_at ?? serverVersion.current
       toast.success('Preventivo salvato')
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio')) }
     finally { setSaving(false) }
@@ -602,6 +622,7 @@ export default function QuoteEditor() {
               onSave={(override) => savePart(selectedPartIdx, override)}
               onPhasesChange={phases => updatePart(selectedPartIdx, { phases })}
               onReload={() => reloadPart(selectedPartIdx)}
+              onSaved={bumpVersion}
             />
           )}
           </div>

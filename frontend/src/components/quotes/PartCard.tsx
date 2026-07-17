@@ -34,12 +34,15 @@ interface Props {
   onSave: (override?: Partial<Part>) => void
   onPhasesChange: (phases: Part['phases']) => void
   onReload?: () => void
+  /** Re-sync leggero della versione dopo un salvataggio fase che non ricarica
+   *  (audit M6): evita che una nostra modifica appaia come conflitto altrui. */
+  onSaved?: () => void
 }
 
 export default function PartCard({
   part, machines, materials, suppliers = [], treatments = [], nParts = 1,
   globalMarginPercent, siblings = [], companySettings, readOnly = false,
-  onUpdate, onSave, onPhasesChange, onReload,
+  onUpdate, onSave, onPhasesChange, onReload, onSaved,
 }: Props) {
   const selectedMaterial = materials.find(m => m.id === part.material_id)
 
@@ -249,6 +252,7 @@ export default function PartCard({
           partDxfFileId={part.files?.find(f => f.file_type === 'dxf')?.id}
           partHasRawStock={!!(part.raw_diameter_mm || part.raw_x_mm || part.raw_y_mm)}
           onReload={onReload}
+          onSaved={onSaved}
           readOnly={readOnly}
           onChange={onPhasesChange}
         />

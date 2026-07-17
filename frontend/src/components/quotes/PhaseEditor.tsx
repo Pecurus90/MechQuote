@@ -32,6 +32,10 @@ interface Props {
   partDxfFileId?: number
   partHasRawStock?: boolean
   onReload?: () => void
+  /** Re-sync leggero della versione dopo un salvataggio fase che non ricarica
+   *  (audit M6): il PUT/POST/DELETE fase fa recalculate_quote → bumpa
+   *  quote.updated_at; senza riallineare, il polling lo vedrebbe come conflitto. */
+  onSaved?: () => void
   readOnly?: boolean
   onChange: (phases: Phase[]) => void
 }
@@ -52,7 +56,7 @@ function calcPhase(phase: Phase, machines: Machine[], qty: number, nParts = 1): 
 export default function PhaseEditor({
   partId, partMaterialId, phases, quantity, nParts = 1, machines, suppliers = [], treatments = [],
   finishedWeightKg, siblings = [], partRawZmm, partRawXmm, partRawYmm, partRawDiameterMm,
-  partDxfFileId, partHasRawStock, onReload, readOnly = false, onChange,
+  partDxfFileId, partHasRawStock, onReload, onSaved, readOnly = false, onChange,
 }: Props) {
   const siblingsByTreatmentAndMaterial = (treatmentId: number) =>
     siblings.flatMap(p =>
@@ -119,6 +123,7 @@ export default function PhaseEditor({
       const res = await api.put<Phase>(`/phases/${current.id}`, { ...current, ...updates })
       const saved = res.data
       updateMany(idx, { ...updates, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost })
+      onSaved?.()   // M6: riallinea la versione (il PUT ha fatto recalculate_quote)
       return true
     } catch { toast.error('Errore nel salvataggio della fase'); onReload?.(); return false }
   }
@@ -130,7 +135,7 @@ export default function PhaseEditor({
       const res = await api.put(`/phases/${phase.id}`, phase)
       const saved: Phase = res.data
       onChange(phases.map((p, i) => i !== idx ? p : calcPhase({ ...p, cycle_hours_per_part: saved.cycle_hours_per_part, calculated_cost: saved.calculated_cost }, machines, quantity, nParts)))
-      if (phase.treatment_id && onReload) onReload()
+      if (phase.treatment_id && onReload) onReload(); else onSaved?.()  // M6: reload o re-sync versione
     } catch { toast.error('Errore nel salvataggio della fase'); onReload?.() }
   }
 
@@ -141,6 +146,7 @@ export default function PhaseEditor({
       try {
         const res = await api.post(`/parts/${partId}/phases`, newPhase)
         onChange([...phases, calcPhase(res.data, machines, quantity, nParts)])
+        onSaved?.()   // M6: riallinea la versione (il POST ha fatto recalculate_quote)
       } catch { toast.error("Errore nell'aggiunta della fase") }
     } else {
       onChange([...phases, calcPhase(newPhase, machines, quantity, nParts)])
@@ -158,8 +164,14 @@ export default function PhaseEditor({
     toast.success('Fase eliminata')
     if (partId && remaining.length > 0) {
       const ids = remaining.filter(p => p.id).map(p => p.id as number)
-      if (ids.length > 0) api.post(`/parts/${partId}/phases/reorder`, ids).catch(() => toast.error('Errore nella rinumerazione delle fasi'))
+      // Await del reorder (prima era fire-and-forget): così il re-sync versione
+      // sotto cattura lo stato finale e non scatta un falso conflitto (M6).
+      if (ids.length > 0) {
+        try { await api.post(`/parts/${partId}/phases/reorder`, ids) }
+        catch { toast.error('Errore nella rinumerazione delle fasi') }
+      }
     }
+    if (phase.id) onSaved?.()   // M6: riallinea la versione (delete+reorder = recalculate_quote)
   }
 
   const unlockManualEdm = async (idx: number) => {
@@ -214,7 +226,8 @@ export default function PhaseEditor({
     onChange(updated)
     if (partId) {
       const ids = updated.filter(p => p.id).map(p => p.id as number)
-      try { await api.post(`/parts/${partId}/phases/reorder`, ids) } catch { toast.error('Errore nel riordino delle fasi') }
+      try { await api.post(`/parts/${partId}/phases/reorder`, ids); onSaved?.() }  // M6: re-sync versione
+      catch { toast.error('Errore nel riordino delle fasi') }
     }
   }
 

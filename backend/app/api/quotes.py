@@ -135,7 +135,10 @@ def create_quote(
     from datetime import date as date_type
 
     num_components = data.num_components
-    default_quantity = data.default_quantity or 1
+    # Cintura-e-bretelle: lo schema impone già ge=1, ma clampiamo comunque per
+    # evitare che una qty < 1 (es. payload che salta lo schema) crei una parte
+    # con quantity negativa — riga che poi fa 500 la lista via validazione PartOut.
+    default_quantity = max(1, data.default_quantity or 1)
     quote_data = data.model_dump(exclude={"num_components", "default_quantity"}, exclude_unset=True)
 
     # Pre-check duplicato: meglio 400 esplicito di un IntegrityError 500

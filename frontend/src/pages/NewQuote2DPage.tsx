@@ -327,7 +327,7 @@ export default function NewQuote2DPage() {
       case 'year': set('year', val.replace(/\D/g, '').slice(0, 2)); break
       case 'categoryCode': set('category_code', val.toUpperCase().slice(0, 2)); break
       case 'progressive': set('progressive', val.replace(/\D/g, '').slice(0, 3)); break
-      case 'quantity': set('default_quantity', parseInt(val, 10) || 1); break
+      case 'quantity': set('default_quantity', Math.max(1, parseInt(val, 10) || 1)); break
       case 'marginPercent': set('global_margin_percent', parseDecimal(val) || 0); break
       case 'date': set('quote_date', val); break
       case 'description': set('description', val); break

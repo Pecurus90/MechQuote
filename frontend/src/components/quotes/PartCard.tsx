@@ -126,7 +126,12 @@ export default function PartCard({
     cuttingPerPiece = selectedMaterial?.material_supplier?.cutting_cost_per_part ?? 0
     materialTotal = part.material_cost + deliveryPerPiece + cuttingPerPiece
   }
-  const treatmentShippingPerPiece = (treatmentPhase?.fixed_cost ?? 0) / (part.quantity || 1)
+  // F12: somma la spedizione di TUTTI i trattamenti della parte (una parte può
+  // averne più d'uno via PhaseEditor), non solo del primo — coerente con
+  // treatmentPhaseCost sopra, che già li somma tutti.
+  const treatmentShippingPerPiece = part.phases
+    .filter(p => p.treatment_id != null)
+    .reduce((s, p) => s + (p.fixed_cost ?? 0), 0) / (part.quantity || 1)
 
   // ─── raw weight label ──────────────────────────────────────────────────────
   let rawWeightLabel: string | undefined

@@ -237,13 +237,18 @@ export default function QuoteEditor() {
     if (part.id) {
       try {
         await api.delete(`/parts/${part.id}`)
-        // Sposta la selezione SOLO dopo un delete riuscito: se fallisce, la
-        // parte resta in lista e la selezione non deve saltare via.
-        setSelectedPartIdx(Math.max(0, idx - 1))
+        // F15: sposta la selezione SOLO se elimini proprio la parte
+        // selezionata; eliminando una parte diversa, la selezione non deve
+        // saltare (applyQuoteData la rimappa per id dopo il reload). Sposta
+        // anche SOLO dopo un delete riuscito: se fallisce, la parte resta.
+        if (idx === selectedPartIdx) setSelectedPartIdx(Math.max(0, idx - 1))
         await reloadQuote()
       } catch { toast.error("Errore nell'eliminazione della parte") }
     } else {
-      setSelectedPartIdx(Math.max(0, idx - 1))
+      // Ramo locale (parte mai salvata): nessun reload/rimap, gestisco lo
+      // shift dell'indice a mano.
+      if (idx === selectedPartIdx) setSelectedPartIdx(Math.max(0, idx - 1))
+      else if (idx < selectedPartIdx) setSelectedPartIdx(selectedPartIdx - 1)
       setQuote(q => q ? { ...q, parts: q.parts.filter((_, i) => i !== idx) } : q)
     }
   }

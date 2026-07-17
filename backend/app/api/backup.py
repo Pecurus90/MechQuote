@@ -291,6 +291,14 @@ def import_data(
                 continue
             for raw in rows:
                 cleaned = _filter_to_columns(model_class, raw)
+                # F1b: una qty < 1 reimportata creerebbe una parte che poi manda
+                # in 500 la lista preventivi (validazione PartOut). L'import salta
+                # lo schema Pydantic, quindi clamp difensivo qui.
+                if model_class is Part and cleaned.get("quantity") is not None:
+                    try:
+                        cleaned["quantity"] = max(1, int(cleaned["quantity"]))
+                    except (TypeError, ValueError):
+                        cleaned["quantity"] = 1
                 db.add(model_class(**cleaned))
             counts[table] = len(rows)
 

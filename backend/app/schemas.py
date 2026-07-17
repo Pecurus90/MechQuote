@@ -391,6 +391,11 @@ class PartFileOut(BaseModel):
 
 
 class PartOut(PartBase):
+    # F1c: in output NON riapplichiamo il vincolo ge=1 (resta su PartCreate/
+    # PartUpdate). Senza questo override una singola riga legacy/corrotta con
+    # quantity < 1 farebbe fallire la serializzazione dell'INTERA lista
+    # preventivi (500), senza modo di trovarla/eliminarla dalla UI.
+    quantity: Optional[int] = None
     id: int
     quote_id: int
     phases: List[PhaseOut] = []

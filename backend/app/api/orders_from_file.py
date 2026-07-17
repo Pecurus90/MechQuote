@@ -362,11 +362,12 @@ def create_file_orders(
             else:
                 db.add(MaterialAlias(csv_name=key, material_id=mat_id))
 
-    db.commit()
+    # F7: ordini + notifiche in un solo commit atomico. Flush per avere gli id
+    # degli ordini prima di creare le notifiche (commit=False).
+    db.flush()
 
     actor = current_user.full_name or current_user.username
     for order in created:
-        db.refresh(order)
         create_notification(
             db,
             type='materials_ordered',
@@ -375,6 +376,9 @@ def create_file_orders(
             created_by_user_id=current_user.id,
             target_roles=['ufficio_tecnico', 'amministrazione'],
             data={'order_id': order.id, 'navigate_to': '/orders/history'},
+            commit=False,
         )
+
+    db.commit()
 
     return [_order_to_out(o, db) for o in created]

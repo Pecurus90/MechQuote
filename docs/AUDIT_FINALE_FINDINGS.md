@@ -45,10 +45,10 @@
   un effect leggero su `[densityKgDm3]` (senza ri-tessellare). Formula in
   `stepWeightKg()`.
 
-- [ ] **F4 — STEP: assiemi grossi freezano il main thread, senza feedback né cap.**
-  MEDIA · [CONFERMATO] (backlog noto) · `StepViewerCad.tsx:123-133`
-  Kernel OCCT sincrono sul thread UI.
-  *Fix:* Web Worker, oppure cap facce/vertici con messaggio esplicito.
+- [x] **F4 — STEP: assiemi grossi freezano il main thread, senza feedback né cap.**
+  FATTO in `becef85`: cap `MAX_STEP_FACES=4000` prima della tassellazione — oltre
+  soglia il viewer si ferma con messaggio esplicito invece di freezare (scelto il
+  cap, non la migrazione a Web Worker).
 
 - [x] **F5 — Wire-EDM autocalc → 0 ore in silenzio nel percorso MANUALE.**
   FATTO in `b3d1b05`: `warnIfEdmZero` in `EdmPhaseFields` — dopo il salvataggio
@@ -62,12 +62,16 @@
   Nello stesso commit anche il guard anti-auto-notifica su **conferma** quando
   submitter == confermatore (finding notifiche senza numero).
 
-- [ ] **F7 — Notifica non atomica col cambio di stato.**
-  MEDIA · [CONFERMATO] · `backend/app/services/notifications.py:52` + call-site
-  Commit dello stato, poi secondo commit per la notifica: crash tra i due →
-  destinatario mai avvisato, nessun retry.
-  *Fix:* `create_notification(commit=False)` nella stessa transazione del
-  cambio stato (rivedere la dedupe IntegrityError con flush/savepoint).
+- [x] **F7 — Notifica non atomica col cambio di stato.** FATTO: aggiunto
+  `create_notification(commit=False)` (aggiunge alla sessione, il chiamante fa un
+  solo commit → stato + notifica atomici). Convertiti tutti i cambi-stato quote
+  (submit, read, confirm, reopen, unconfirm, await-client, revert-await,
+  not-ordered, restore) e gli ordini (materials_ordered, tools_ordered, da-file).
+  `quote_completed` resta su commit proprio (UNIQUE dedupe + doppia sorgente: un
+  duplicato su commit condiviso annullerebbe il cambio stato). `tools_low_stock`
+  non ha cambio stato → invariato. E2e su copia isolata: ogni transizione crea la
+  sua notifica (verificato per tutti i tipi). Nota: su SQLite le FK non sono
+  enforce, quindi l'`add` non solleva sul commit del chiamante.
 
 - [ ] **F8 — Guardia "modifiche non salvate" assente sulla navigazione in-app
   dei wizard.** MEDIA · [CONFERMATO] · **DIFERITO** (richiede migrazione router).

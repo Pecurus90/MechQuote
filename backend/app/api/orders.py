@@ -527,13 +527,10 @@ def create_order(
         if wf.reconcile_material_state(db, q, current_user.id) and q.status == wf.STATUS_COMPLETO:
             completed_quotes.append(q)
 
-    db.commit()
-    db.refresh(order)
-
-    for q in completed_quotes:
-        from app.api.quotes import notify_quote_completed
-        notify_quote_completed(db, q, current_user)
-
+    # F7: materials_ordered nella stessa transazione di ordine + reconcile
+    # (commit=False) → un solo commit atomico. order.id è già disponibile dopo
+    # il flush sopra. quote_completed resta su commit proprio (UNIQUE dedupe +
+    # doppia sorgente: qui e confirm_quote).
     actor_name = current_user.full_name or current_user.username
     nums = sorted(quote_by_id[qid].quote_number for qid in new_ids)
     quote_list = ', '.join(nums[:5])
@@ -547,7 +544,15 @@ def create_order(
         created_by_user_id=current_user.id,
         target_roles=['ufficio_tecnico', 'amministrazione'],
         data={'order_id': order.id, 'material_supplier_id': supplier.id, 'navigate_to': '/orders/history'},
+        commit=False,
     )
+
+    db.commit()
+    db.refresh(order)
+
+    for q in completed_quotes:
+        from app.api.quotes import notify_quote_completed
+        notify_quote_completed(db, q, current_user)
 
     logger.info("Ordine materiali creato: id=%s supplier=%s by=%s n_quotes=%d",
                 order.id, supplier.name, current_user.username, len(new_ids))

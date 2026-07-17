@@ -260,8 +260,8 @@ def update_quote_status(
     quote.status = 'inviato'
     quote.submitted_by_user_id = current_user.id
     quote.submitted_at = utc_now()
-    db.commit()
-    # Notifica chi può completare (admin + amministrazione)
+    # Notifica chi può completare (admin + amministrazione). F7: commit=False
+    # → persistita nella stessa transazione del cambio stato (un solo commit).
     sender_name = current_user.full_name or current_user.username
     create_notification(
         db,
@@ -271,7 +271,9 @@ def update_quote_status(
         created_by_user_id=current_user.id,
         target_roles=['admin', 'amministrazione'],
         data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+        commit=False,
     )
+    db.commit()
 
     return _load_quote(quote_id, db)
 
@@ -325,11 +327,11 @@ def mark_quote_read(
             {"uid": current_user.id, "ts": utc_now(), "qid": quote_id},
         )
         changed = result.rowcount
-        db.commit()
         # Notifica "letto" al creatore/mittente: sa che l'offerta è stata presa
         # in carico. `changed` (rowcount dell'UPDATE atomico) garantisce che sia
         # stato QUESTO thread a transire → una sola notifica; guard
         # anti-auto-notifica (lettore == creatore) come le altre transizioni.
+        # F7: commit=False → l'UPDATE 'letto' e la notifica committano insieme.
         target = quote.submitted_by_user_id or quote.created_by_user_id
         if changed and target and target != current_user.id:
             actor = current_user.full_name or current_user.username
@@ -341,7 +343,9 @@ def mark_quote_read(
                 created_by_user_id=current_user.id,
                 target_user_id=target,
                 data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+                commit=False,
             )
+        db.commit()
     return _load_quote(quote_id, db)
 
 
@@ -385,8 +389,6 @@ def confirm_quote(
     quote.confirmed_by_user_id = current_user.id
     quote.confirmed_at = utc_now()
     completed = wf.maybe_complete(db, quote, current_user.id)
-    db.commit()
-    db.refresh(quote)
 
     actor = current_user.full_name or current_user.username
     # F22: fallback al creatore se manca il submitter (come notify_quote_completed).
@@ -401,7 +403,12 @@ def confirm_quote(
             created_by_user_id=current_user.id,
             target_user_id=confirm_target,
             data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            commit=False,
         )
+    # F7: stato (confermato + eventuale completo) e quote_confirmed committano
+    # insieme. quote_completed resta su commit proprio (UNIQUE dedupe + doppia
+    # sorgente: qui e ultimo ordine materiale in orders.py).
+    db.commit()
     if completed:
         notify_quote_completed(db, quote, current_user)
     return _load_quote(quote_id, db)
@@ -437,9 +444,6 @@ def reopen_quote(
     db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
     quote.material_ordered_at = None
     quote.material_ordered_by_user_id = None
-    db.commit()
-    db.refresh(quote)
-
     if creator_id:
         actor = current_user.full_name or current_user.username
         create_notification(
@@ -450,7 +454,9 @@ def reopen_quote(
             created_by_user_id=current_user.id,
             target_user_id=creator_id,
             data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            commit=False,
         )
+    db.commit()   # F7: cambio stato + notifica in un solo commit atomico
     return _load_quote(quote_id, db)
 
 
@@ -511,7 +517,6 @@ def unconfirm_quote(
     # non ne ha; dove esiste è un dato vero da preservare (coerente con la demote
     # completo→confermato guidata dagli ordini, che pure lo preserva).
     quote.awaiting_client_at = None
-    db.commit()
     if creator_id and creator_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
@@ -522,7 +527,9 @@ def unconfirm_quote(
             created_by_user_id=current_user.id,
             target_user_id=creator_id,
             data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            commit=False,
         )
+    db.commit()   # F7: annullo conferma + notifica in un solo commit atomico
     logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -552,10 +559,10 @@ def await_client_quote(
     quote.awaiting_client_at = utc_now()
     creator_id = quote.created_by_user_id or quote.submitted_by_user_id
     qnum = quote.quote_number
-    db.commit()
     # F3: avvisa il creatore che l'offerta è stata mandata al cliente — è un
     # esito di cui l'ufficio tecnico ha interesse a sapere. Guard
     # anti-auto-notifica (creatore == attore) come in unconfirm.
+    # F7: commit=False → cambio stato + notifica in un solo commit atomico.
     if creator_id and creator_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
@@ -566,7 +573,9 @@ def await_client_quote(
             created_by_user_id=current_user.id,
             target_user_id=creator_id,
             data={'quote_id': quote_id, 'quote_number': qnum},
+            commit=False,
         )
+    db.commit()
     logger.info("In attesa cliente: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -599,9 +608,9 @@ def revert_await_client_quote(
     quote.awaiting_client_at = None
     creator_id = quote.created_by_user_id or quote.submitted_by_user_id
     qnum = quote.quote_number
-    db.commit()
     # Speculare a await-client (che notifica "offerta mandata"): avvisa il
     # creatore che il preventivo è rientrato in lavorazione. Guard anti-auto.
+    # F7: commit=False → cambio stato + notifica in un solo commit atomico.
     if creator_id and creator_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
@@ -612,7 +621,9 @@ def revert_await_client_quote(
             created_by_user_id=current_user.id,
             target_user_id=creator_id,
             data={'quote_id': quote_id, 'quote_number': qnum},
+            commit=False,
         )
+    db.commit()
     logger.info("Attesa cliente annullata: quote_id=%s by=%s -> %s",
                 quote_id, current_user.username, quote.status)
     return _load_quote(quote_id, db)
@@ -643,10 +654,10 @@ def mark_not_ordered_quote(
     quote.not_ordered_by_user_id = current_user.id
     creator_id = quote.created_by_user_id or quote.submitted_by_user_id
     qnum = quote.quote_number
-    db.commit()
     # F2: il preventivo è perso (cliente non ha ordinato). Avvisa il creatore:
     # è l'esito negativo, speculare a quote_confirmed che notifica quello
     # positivo. Senza, l'ufficio tecnico non sa mai che l'offerta è persa.
+    # F7: commit=False → cambio stato + notifica in un solo commit atomico.
     if creator_id and creator_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
@@ -657,7 +668,9 @@ def mark_not_ordered_quote(
             created_by_user_id=current_user.id,
             target_user_id=creator_id,
             data={'quote_id': quote_id, 'quote_number': qnum},
+            commit=False,
         )
+    db.commit()
     logger.info("Non ordinato: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -695,9 +708,9 @@ def restore_quote(
     quote.not_ordered_by_user_id = None
     creator_id = quote.created_by_user_id or quote.submitted_by_user_id
     qnum = quote.quote_number
-    db.commit()
     # F3: il preventivo perso è stato rimesso in gioco. Avvisa il creatore
     # (speculare a mark-not-ordered), così sa che torna in lavorazione.
+    # F7: commit=False → cambio stato + notifica in un solo commit atomico.
     if creator_id and creator_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
@@ -708,7 +721,9 @@ def restore_quote(
             created_by_user_id=current_user.id,
             target_user_id=creator_id,
             data={'quote_id': quote_id, 'quote_number': qnum},
+            commit=False,
         )
+    db.commit()
     logger.info("Ripristino non-ordinato→%s: quote_id=%s by=%s",
                 quote.status, quote_id, current_user.username)
     return _load_quote(quote_id, db)

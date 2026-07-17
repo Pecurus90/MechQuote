@@ -180,10 +180,9 @@ def create_tool_order(
             quantity_to_order=qty_to_order,
         ))
 
-    db.commit()
-    db.refresh(order)
-
     actor_name = current_user.full_name or current_user.username
+    # F7: tools_ordered nella stessa transazione dell'ordine (commit=False) →
+    # un solo commit atomico. order.id è già assegnato (usato dagli item sopra).
     create_notification(
         db,
         type='tools_ordered',
@@ -193,7 +192,11 @@ def create_tool_order(
         created_by_user_id=current_user.id,
         target_roles=['ufficio_tecnico', 'amministrazione'],
         data={'order_id': order.id, 'supplier_name': sup_name, 'navigate_to': '/orders/history'},
+        commit=False,
     )
+
+    db.commit()
+    db.refresh(order)
 
     logger.info("Ordine utensili creato: id=%s supplier=%s by=%s items=%d",
                 order.id, sup_name, current_user.username, len(tools))

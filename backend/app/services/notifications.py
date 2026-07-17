@@ -21,6 +21,7 @@ def create_notification(
     target_roles: Optional[list[str]] = None,
     target_user_id: Optional[int] = None,
     data: Optional[dict] = None,
+    commit: bool = True,
 ) -> Optional[Notification]:
     """Create and persist a notification.
 
@@ -31,6 +32,16 @@ def create_notification(
     `quote_completed` esiste un UNIQUE INDEX parziale (type, target_user_id, target_quote_id):
     in caso di race concorrente lo INSERT duplicato fallisce con IntegrityError, che cattuiamo
     silenziosamente — la notifica esiste già.
+
+    F7 — `commit=False`: NON committa; aggiunge solo alla sessione, così la
+    notifica viene persistita nella STESSA transazione (e nello stesso commit)
+    del cambio di stato del chiamante → atomicità stato↔notifica (niente notifica
+    persa se il processo muore fra i due commit). Il chiamante deve poi fare
+    `db.commit()`. NON usare `commit=False` per tipi con UNIQUE dedupe
+    (`quote_completed`): un duplicato farebbe fallire il commit del chiamante e
+    annullerebbe anche il cambio di stato — quei tipi restano su `commit=True`,
+    protetti dal catch IntegrityError qui sotto (su SQLite le FK non sono enforce,
+    quindi l'`add` di un target inesistente non solleva).
     """
     if not target_roles and target_user_id is None:
         raise ValueError("create_notification requires target_roles or target_user_id")
@@ -49,6 +60,8 @@ def create_notification(
         target_quote_id=target_quote_id,
     )
     db.add(notification)
+    if not commit:
+        return notification
     try:
         db.commit()
     except IntegrityError:

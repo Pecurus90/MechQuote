@@ -337,11 +337,12 @@ def _quote_material_rows(quote_id: int, db: Session):
 def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     """KPI mini-dashboard per /orders/materials.
 
-    - `to_order`: preventivi confermati col materiale ancora da ordinare
-      (status 'confermato' + material_ordered_at NULL). Il flag si alza solo a
-      evasione totale, che porta subito a 'completo' → questi sono esattamente
-      i preventivi con residuo materiale reale (stessa base della rail
-      dashboard 'awaiting-materials').
+    - `to_order`: preventivi confermati col materiale ancora da ordinare.
+      Derivato dallo stato materiale reale (`material_is_resolved`, fonte unica
+      spec 18): conta i `confermato` il cui materiale NON è risolto (parziale o
+      non ordinato). Robusto anche se un `confermato` con materiale già risolto
+      restasse tale per un reconcile mancato (non lo conterebbe), a differenza
+      del vecchio conteggio basato sul flag legacy `material_ordered_at`.
     - `orders_this_month`: ordini creati nel mese corrente (UTC)
     - `orders_total`: ordini emessi all-time
     - `last_order_at`: timestamp ISO ultimo ordine (None se nessuno)
@@ -349,10 +350,8 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
     now = utc_now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    to_order = db.query(Quote).filter(
-        Quote.status == 'confermato',
-        Quote.material_ordered_at.is_(None),
-    ).count()
+    confirmed = db.query(Quote).filter(Quote.status == wf.STATUS_CONFERMATO).all()
+    to_order = sum(1 for q in confirmed if not wf.material_is_resolved(db, q))
 
     orders_total = db.query(MaterialOrder).count()
     orders_this_month = db.query(MaterialOrder).filter(

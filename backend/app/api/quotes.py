@@ -288,6 +288,8 @@ def notify_quote_completed(db: Session, quote: Quote, actor_user: User) -> None:
     target = quote.submitted_by_user_id or quote.created_by_user_id
     if not target:
         return
+    if target == actor_user.id:
+        return  # niente auto-notifica: chi completa è lo stesso destinatario
     actor = actor_user.full_name or actor_user.username
     create_notification(
         db,

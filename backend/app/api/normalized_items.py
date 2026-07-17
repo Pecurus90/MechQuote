@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.core.security import require_permission
 from app.core.csv_import import normalize_alias
-from app.models import NormalizedItem, NormalizedAlias
+from app.models import NormalizedItem, NormalizedAlias, NormalizedOrderItem
 from app.schemas import (
     NormalizedItemCreate, NormalizedItemOut, NormalizedItemUpdate, NormalizedAliasAdd,
 )
@@ -131,6 +131,13 @@ def delete_item(item_id: int, db: Session = Depends(get_db), _=_can_settings):
     item = db.query(NormalizedItem).filter(NormalizedItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Normalizzato non trovato")
+    # Le righe d'ordine storiche sono snapshot (article/description indipendenti
+    # dal catalogo): scollega esplicitamente la FK per non lasciare un puntatore
+    # orfano (SQLite non enforce le FK). Lo storico ordini resta leggibile.
+    # Gli alias della voce cascadano con essa (all, delete-orphan sul modello).
+    db.query(NormalizedOrderItem).filter(
+        NormalizedOrderItem.normalized_item_id == item_id
+    ).update({NormalizedOrderItem.normalized_item_id: None}, synchronize_session=False)
     db.delete(item)
     db.commit()
     return {"ok": True}

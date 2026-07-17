@@ -389,14 +389,17 @@ def confirm_quote(
     db.refresh(quote)
 
     actor = current_user.full_name or current_user.username
-    if quote.submitted_by_user_id:
+    # F22: fallback al creatore se manca il submitter (come notify_quote_completed).
+    # F24: niente auto-notifica se chi conferma è anche il destinatario.
+    confirm_target = quote.submitted_by_user_id or quote.created_by_user_id
+    if confirm_target and confirm_target != current_user.id:
         create_notification(
             db,
             type='quote_confirmed',
             title=f"Preventivo {quote.quote_number} confermato",
             body=f"Confermato da {actor}",
             created_by_user_id=current_user.id,
-            target_user_id=quote.submitted_by_user_id,
+            target_user_id=confirm_target,
             data={'quote_id': quote.id, 'quote_number': quote.quote_number},
         )
     if completed:

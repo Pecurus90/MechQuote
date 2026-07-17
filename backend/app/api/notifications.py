@@ -18,6 +18,13 @@ def _is_target(n: Notification, user: User) -> bool:
     if n.target_user_id == user.id:
         return True
     if n.target_roles and user.role in n.target_roles:
+        # F6: niente auto-notifica sui broadcast di ruolo. Chi ha generato
+        # l'evento (invio preventivo, ordine materiali/utensili) fa parte del
+        # ruolo destinatario ma non deve vedere la notifica del proprio gesto.
+        # Resta destinatario se la notifica lo targetta esplicitamente (ramo
+        # target_user_id sopra).
+        if n.created_by_user_id is not None and n.created_by_user_id == user.id:
+            return False
         return True
     return False
 

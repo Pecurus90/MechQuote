@@ -44,9 +44,23 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
 
   useEffect(() => {
     api.get<DxfAnalysis>(`/dxf/analyze-part-file/${partFileId}`)
-      .then(r => setAnalysis(r.data))
+      .then(r => {
+        setAnalysis(r.data)
+        // Audit M2: gli id profilo dipendono dall'analisi del file. Se il DXF
+        // allegato è cambiato, gli id salvati sulla fase possono non esistere
+        // più (o puntare ad altro): avvisa invece di evidenziare in silenzio
+        // profili sbagliati. Cattura il caso concreto (file sostituito → conteggio
+        // profili diverso); riverifica manuale prima di confermare.
+        const present = new Set(r.data.profiles.map(p => p.id))
+        const missing = initialSelectedIds.filter(id => !present.has(id))
+        if (missing.length > 0) {
+          toast.warning('La selezione salvata non corrisponde più al disegno (profili cambiati): riverifica prima di confermare.')
+        }
+      })
       .catch(() => toast.error('Errore nel caricamento del DXF allegato'))
       .finally(() => setLoading(false))
+    // initialSelectedIds è fissa per la vita del modale (montato a ogni apertura).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partFileId])
 
   const selectedProfiles = useMemo(

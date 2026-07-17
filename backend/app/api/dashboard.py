@@ -29,6 +29,7 @@ from app.schemas import (
     StatsCmpPoint, StatsQuotesComparison, MarginComparison,
 )
 from app.api.notifications import serialize_notification
+from app.services.costing.primitives import quote_total
 
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -79,7 +80,16 @@ def _quote_to_row(q: Quote) -> DashboardQuoteRow:
         # B1: totale persistito (fonte unica, allineato ad archivio e PDF).
         total = q.final_total
     else:
-        total = sum((p.total_price or 0.0) for p in q.parts) if q.parts else 0.0
+        # F9: fallback per quote storiche mai ricalcolate (final_total NULL).
+        # Include trasporto/imballaggio/sconto via la formula autoritativa
+        # (quote_total, gemello di calcQuoteTotal) invece della sola somma parti.
+        parts_sum = sum((p.total_price or 0.0) for p in q.parts) if q.parts else 0.0
+        total = quote_total(
+            parts_total_price_sum=parts_sum,
+            transport_cost=q.transport_cost,
+            packaging_cost=q.packaging_cost,
+            global_discount_percent=q.global_discount_percent,
+        )
     return DashboardQuoteRow(
         id=q.id,
         quote_number=q.quote_number,
@@ -218,7 +228,7 @@ def _quotes_comparison(db: Session, date_from, date_to, customer_id) -> StatsQuo
     mrows = db.execute(text(
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m,
-          COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
+          COALESCE(SUM(p.total_price), 0) AS revenue,
           COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
         FROM parts p JOIN quotes q ON q.id = p.quote_id
         WHERE p.total_cost > 0 {df}
@@ -359,7 +369,7 @@ def get_statistics(
     rows_margin = db.execute(text(
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m,
-          COALESCE(SUM(p.unit_price * p.quantity), 0) AS revenue,
+          COALESCE(SUM(p.total_price), 0) AS revenue,
           COALESCE(SUM(p.total_cost * p.quantity), 0) AS cost
         FROM parts p
         JOIN quotes q ON q.id = p.quote_id

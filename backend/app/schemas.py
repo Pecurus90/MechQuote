@@ -433,6 +433,19 @@ class QuoteCreate(QuoteBase):
     num_components: Optional[int] = None
     default_quantity: Optional[int] = Field(default=1, ge=1)
 
+    @field_validator('quote_number')
+    @classmethod
+    def _validate_quote_number(cls, v: str) -> str:
+        # F26: whitelist di caratteri (difesa in profondità). Il formato reale è
+        # {cli}-{yy}{cat}_{prog}; ammettiamo lettere, cifre e . _ - così da
+        # bloccare separatori di path, spazi e markup senza rompere la
+        # numerazione esistente. NB: '/' escluso di proposito (anti-traversal).
+        if not re.fullmatch(r'[A-Za-z0-9._-]+', v):
+            raise ValueError(
+                "Numero preventivo: ammessi solo lettere, cifre e i caratteri . _ -"
+            )
+        return v
+
 
 class QuoteUpdate(QuoteBase):
     pass

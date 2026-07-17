@@ -62,13 +62,12 @@
   *Fix:* `toast.warning` nei callback di `EdmPhaseFields` quando
   `cycle_hours_per_part ≤ 0` con i 3 campi valorizzati.
 
-- [ ] **F6 — Auto-notifica su eventi broadcast per ruolo.**
-  MEDIA · [CONFERMATO] · `backend/app/api/quotes.py:263`,
-  `orders.py:542`, `orders_tools.py:187`, `orders_from_file.py:370`
-  `quote_submitted`/`materials_ordered`/`tools_ordered` targettano un ruolo di
-  cui l'attore fa parte → riceve la notifica del proprio gesto (rumore).
-  *Fix:* filtrare `created_by_user_id == user.id` in serializzazione per i
-  broadcast per ruolo.
+- [x] **F6 — Auto-notifica su eventi broadcast per ruolo.** FATTO in `35aaddd`:
+  filtro in `_is_target` (escluso se `created_by_user_id == user.id`). Copre
+  `quote_submitted`/`materials_ordered`/`tools_ordered`. E2e: chi invia un
+  proprio preventivo vede 0 notifiche `quote_submitted`.
+  Nello stesso commit anche il guard anti-auto-notifica su **conferma** quando
+  submitter == confermatore (finding notifiche senza numero).
 
 - [ ] **F7 — Notifica non atomica col cambio di stato.**
   MEDIA · [CONFERMATO] · `backend/app/services/notifications.py:52` + call-site
@@ -91,13 +90,13 @@
 
 ## 🟡 BASSA — rifiniture
 
-- [ ] **F9 — Fallback `_quote_to_row` (final_total NULL) perde trasporto/
-  imballaggio/sconto.** [CONFERMATO] · `dashboard.py:82`. *Fix:* applicare
-  `_quote_total(...)` da `costing.primitives` nel ramo fallback.
+- [x] **F9 — Fallback `_quote_to_row` (final_total NULL) perde trasporto/
+  imballaggio/sconto.** FATTO in `218e79f`: il ramo fallback usa `quote_total`
+  (formula autoritativa) includendo trasporto/imballaggio/sconto.
 
-- [ ] **F10 — Tab Marginalità: revenue = Σ(`unit_price×qty`) ≠ Σ`total_price`
-  (scarto di centesimi).** [CONFERMATO] · `dashboard.py:211`. *Fix:* usare
-  `SUM(p.total_price)` come revenue e `SUM(p.total_cost*p.quantity)` come costo.
+- [x] **F10 — Tab Marginalità: revenue = Σ(`unit_price×qty`) ≠ Σ`total_price`
+  (scarto di centesimi).** FATTO in `218e79f`: revenue = `SUM(p.total_price)`
+  in entrambe le serie di marginalità mensile.
 
 - [ ] **F11 — `round4` half-away vs `Math.round` half-up sul mezzo negativo
   esatto.** [CONFERMATO], trascurabile · `primitives.py:22` vs `quoteCalc.ts:138`.
@@ -150,9 +149,9 @@
   probabilmente morto — `QuoteEditor` è corretto). [CONFERMATO]. *Fix:* allineare
   a `canEditLocked || canConfirm`, o eliminare il componente se inutilizzato.
 
-- [ ] **F22 — `quote_confirmed` non parte se `submitted_by_user_id` è NULL**
-  (manca fallback al creatore, che `quote_completed` ha). [CONFERMATO] ·
-  `quotes.py:389`. *Fix:* `target = submitted_by_user_id or created_by_user_id`.
+- [x] **F22 — `quote_confirmed` non parte se `submitted_by_user_id` è NULL**
+  (manca fallback al creatore). FATTO in `35aaddd`: `confirm_target =
+  submitted_by_user_id or created_by_user_id`, con guard anti-auto-notifica.
 
 - [ ] **F23 — `_is_target` valuta il ruolo corrente, non quello all'evento**
   (al cambio ruolo notifiche vecchie spariscono/appaiono). [CONFERMATO], raro ·
@@ -168,10 +167,9 @@
   mal-configurati** (senza `view_all`). [PLAUSIBILE] · `AppLayout.tsx:41`. *Fix:*
   intercettare il 403 in `openNotif` con un toast invece di navigare.
 
-- [ ] **F26 — `quote_number` senza whitelist di caratteri** (accetta `../../…`/
-  markup; non usato per path su FS, React fa escaping → nessuna injection oggi).
-  [CONFERMATO], difesa-in-profondità · `schemas.py:427`. *Fix:* `field_validator`
-  che restringe a `[A-Za-z0-9._\-/]`.
+- [x] **F26 — `quote_number` senza whitelist di caratteri.** FATTO: `field_validator`
+  su `QuoteCreate.quote_number` che ammette solo `[A-Za-z0-9._-]` ('/' escluso,
+  anti-traversal). E2e: formati reali OK, `../../…`/markup/spazi → 422.
 
 - [ ] **F27 — `quantity` enorme (2³¹) accettata** (SQLite INTEGER 64-bit, nessun
   crash; solo totali giganti). Marginale · `schemas.py:350`. *Fix (opz.):* tetto

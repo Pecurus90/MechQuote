@@ -40,27 +40,20 @@
 
 ## 🟠 MEDIA — prossimo giro (nessuna è un vicolo cieco)
 
-- [ ] **F3 — STEP: peso finito "stantìo" se si cambia materiale col viewer aperto.**
-  MEDIA · [CONFERMATO] · `frontend/src/components/quotes/Step/StepViewerCad.tsx:196,459`
-  `weightKg` è in un effect con deps `[fileId]`; cambiando materiale la densità
-  cambia ma il peso no → "Applica al preventivo" salva `finished_weight_kg`
-  errato (impatta costo trattamenti €/kg e spedizione).
-  *Fix:* aggiungere `densityKgDm3` alle deps / `useMemo` sul peso; oppure
-  disabilitare "Applica" se la densità è cambiata dopo l'apertura.
+- [x] **F3 — STEP: peso finito "stantìo" se si cambia materiale col viewer aperto.**
+  FATTO in `cc6f4b6`: volume esatto conservato in un ref, peso ricalcolato da
+  un effect leggero su `[densityKgDm3]` (senza ri-tessellare). Formula in
+  `stepWeightKg()`.
 
 - [ ] **F4 — STEP: assiemi grossi freezano il main thread, senza feedback né cap.**
   MEDIA · [CONFERMATO] (backlog noto) · `StepViewerCad.tsx:123-133`
   Kernel OCCT sincrono sul thread UI.
   *Fix:* Web Worker, oppure cap facce/vertici con messaggio esplicito.
 
-- [ ] **F5 — Wire-EDM autocalc → 0 ore in silenzio nel percorso MANUALE.**
-  MEDIA · [CONFERMATO] (backlog, mitigato solo in 2D) ·
-  `backend/app/services/calculation.py:81-82`,
-  `frontend/src/components/quotes/EdmPhaseFields.tsx`
-  Se `edm_cut_speeds` non ha la riga, la fase resta 0 €. Il wizard 2D avvisa
-  (`NewQuote2DPage.tsx:284`), il percorso manuale no.
-  *Fix:* `toast.warning` nei callback di `EdmPhaseFields` quando
-  `cycle_hours_per_part ≤ 0` con i 3 campi valorizzati.
+- [x] **F5 — Wire-EDM autocalc → 0 ore in silenzio nel percorso MANUALE.**
+  FATTO in `b3d1b05`: `warnIfEdmZero` in `EdmPhaseFields` — dopo il salvataggio
+  (import DXF e riselezione profili), se i due input EDM sono valorizzati ma il
+  ciclo torna ≤ 0 → `toast.warning`. Speculare all'avviso già presente nel 2D.
 
 - [x] **F6 — Auto-notifica su eventi broadcast per ruolo.** FATTO in `35aaddd`:
   filtro in `_is_target` (escluso se `created_by_user_id == user.id`). Copre
@@ -77,14 +70,12 @@
   cambio stato (rivedere la dedupe IntegrityError con flush/savepoint).
 
 - [ ] **F8 — Guardia "modifiche non salvate" assente sulla navigazione in-app
-  dei wizard.**
-  MEDIA · [CONFERMATO] · `frontend/src/lib/useUnsavedGuard.ts`,
-  `QuoteWizard.tsx:31`, `NewQuote2DPage.tsx:104`
-  `useUnsavedGuard` intercetta solo la navigazione hard (refresh/chiusura tab),
-  non i link react-router. Nota: `QuoteEditor` salva su blur, quindi lì non c'è
-  stato sporco accumulato (rischio residuo: campo digitato e non sfocato prima
-  di un `navigate()`).
-  *Fix:* `useBlocker`/`unstable_usePrompt` nei due wizard.
+  dei wizard.** MEDIA · [CONFERMATO] · **DIFERITO** (richiede migrazione router).
+  `useBlocker`/`unstable_usePrompt` funzionano solo con un data-router
+  (`createBrowserRouter`); l'app usa `<BrowserRouter>` (`main.tsx:11`). Il fix
+  proprio implica migrare tutto il routing → cambio grosso e rischioso per una
+  MEDIA. La navigazione hard (refresh/chiusura tab) è già coperta da
+  `useUnsavedGuard`. Da fare insieme a un'eventuale migrazione a data-router.
 
 ---
 
@@ -103,23 +94,24 @@
   *Fix:* allineare il ramo negativo, o correggere il docstring ("parità per
   valori non negativi").
 
-- [ ] **F12 — Breakdown "di cui spedizione" mostra solo il primo trattamento
-  della parte** (totale corretto). [CONFERMATO], solo display · `PartCard.tsx:129`.
-  *Fix:* `Σ part.phases.filter(p=>p.treatment_id).reduce(...fixed_cost)/qty`.
+- [x] **F12 — Breakdown "di cui spedizione" mostra solo il primo trattamento
+  della parte.** FATTO in `8f504e8`: somma la spedizione di tutti i trattamenti.
+  Solo display, prezzo invariato.
 
 - [ ] **F13 — Costo trattamento via PartCard ignora il batch tra sorelle**
   (anteprima transitoria, backend riconverge). [PLAUSIBILE] · `PartCard.tsx:90`.
-  *Fix:* instradare la select trattamento della PartCard sullo stesso percorso
-  batch-aware di `PhaseEditor.changeTreatment`, o togliere il selettore doppio.
+  **SALTATO** (per ora): transitorio e a basso valore; instradare la select
+  della PartCard sul percorso batch-aware di `PhaseEditor` è un refactor che
+  rischia una divergenza nel gemello DRY del costo trattamento. Meglio farlo
+  insieme all'eventuale rimozione del selettore trattamento doppio.
 
-- [ ] **F14 — `applyProvenance` non ri-deriva `material_cost` lato client sul
-  toggle provenienza** (anteprima transitoria fino a reload). [PLAUSIBILE] ·
-  `PartCard.tsx:73`. *Fix:* ricomputare `calcMaterialCost` per la provenienza
-  target prima di `onSave`, come fa `applyMaterial`.
+- [x] **F14 — `applyProvenance` non ri-deriva `material_cost` lato client sul
+  toggle provenienza.** FATTO in `7052b8b`: allinea `material_cost` come il
+  backend (conto-lavoro → 0, magazzino/normale → `calcMaterialCost`).
 
-- [ ] **F15 — Eliminando una parte non selezionata precedente, la selezione
-  salta.** [CONFERMATO], solo UX · `QuoteEditor.tsx:234`. *Fix:* aggiustare
-  `selectedPartIdx` solo se `deletedIdx <= selectedPartIdx`.
+- [x] **F15 — Eliminando una parte non selezionata precedente, la selezione
+  salta.** FATTO in `8f504e8`: sposta la selezione solo se elimini la parte
+  selezionata; per le parti salvate `applyQuoteData` rimappa per id.
 
 - [ ] **F16 — `validateQuote` segnala ma non blocca invio/conferma**
   (probabilmente voluto — "conferma morbida"). [PLAUSIBILE] · `QuoteEditor.tsx:407`.
@@ -146,10 +138,9 @@
   altrimenti `inviato` (come `restore`). E2e: confermato-da-inviato → unconfirm
   → inviato.
 
-- [ ] **F21 — `QuoteStatusActions.tsx:51` mostra "Annulla conferma" solo a
-  `edit_locked`**, ma il backend la concede anche a `quotes.confirm` (componente
-  probabilmente morto — `QuoteEditor` è corretto). [CONFERMATO]. *Fix:* allineare
-  a `canEditLocked || canConfirm`, o eliminare il componente se inutilizzato.
+- [x] **F21 — `QuoteStatusActions.tsx` con gating divergente su "Annulla
+  conferma".** FATTO in `ef3739a`: il componente era morto (nessun import; la
+  logica è inlinata in `QuoteEditor` col gating corretto) → eliminato.
 
 - [x] **F22 — `quote_confirmed` non parte se `submitted_by_user_id` è NULL**
   (manca fallback al creatore). FATTO in `35aaddd`: `confirm_target =

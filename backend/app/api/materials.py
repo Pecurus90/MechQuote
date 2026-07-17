@@ -14,6 +14,7 @@ from app.core.csv_import import (
 )
 from app.core.database import get_db
 from app.core.security import require_permission
+from app.core.upload_validation import content_matches_ext
 from app.models import Material, MaterialAlias, MaterialSupplier, Part
 from app.schemas import (
     MaterialAliasAdd, MaterialCreate, MaterialUpdate, MaterialOut,
@@ -373,8 +374,13 @@ def upload_datasheet(
     unique_name = f"mat_{mid}_{int(time.time())}_{safe_filename}"
     new_path = os.path.join(DATASHEET_DIR, unique_name)
 
-    bytes_written = 0
+    # Validazione contenuto (magic bytes): deve essere un PDF vero, non solo .pdf.
+    head = file.file.read(4096)
+    if not content_matches_ext(head, ext):
+        raise HTTPException(400, "Il contenuto del file non è un PDF valido.")
+    bytes_written = len(head)
     with open(new_path, "wb") as buf:
+        buf.write(head)
         while True:
             chunk = file.file.read(1024 * 1024)
             if not chunk:

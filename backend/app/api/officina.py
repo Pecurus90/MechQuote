@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
+from app.core.upload_validation import content_matches_ext
 from app.models import OfficinaCategory, OfficinaDocument, User
 from app.schemas import (
     OfficinaCategoryCreate, OfficinaCategoryOut, OfficinaCategoryUpdate,
@@ -146,8 +147,14 @@ def upload_document(
     unique_name = f"{int(time.time())}_{safe_filename}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
 
-    bytes_written = 0
+    # Validazione contenuto (magic bytes): il contenuto deve corrispondere
+    # all'estensione (difesa in profondità oltre alla whitelist di estensioni).
+    head = file.file.read(4096)
+    if not content_matches_ext(head, ext):
+        raise HTTPException(status_code=400, detail="Il contenuto del file non corrisponde all'estensione dichiarata.")
+    bytes_written = len(head)
     with open(file_path, "wb") as buffer:
+        buffer.write(head)
         while True:
             chunk = file.file.read(1024 * 1024)
             if not chunk:

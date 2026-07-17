@@ -9,6 +9,7 @@ import uuid
 
 from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
+from app.core.upload_validation import content_matches_ext
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
 from app.schemas import PartCreate, PartUpdate, PartOut, PartCloneRequest
 from app.services.calculation import recalculate_part, recalculate_quote
@@ -445,8 +446,14 @@ def upload_file(
     # sovrascrivono più a vicenda (il nome originale resta come display in DB).
     file_path = f"uploads/part_{part_id}_{uuid.uuid4().hex[:8]}_{safe_filename}"
     MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
-    bytes_written = 0
+    # Validazione contenuto (magic bytes): il contenuto deve corrispondere
+    # all'estensione dichiarata (difesa in profondità oltre alla whitelist).
+    head = file.file.read(4096)
+    if not content_matches_ext(head, ext):
+        raise HTTPException(status_code=400, detail="Il contenuto del file non corrisponde all'estensione dichiarata.")
+    bytes_written = len(head)
     with open(file_path, "wb") as buffer:
+        buffer.write(head)
         while True:
             chunk = file.file.read(1024 * 1024)
             if not chunk:

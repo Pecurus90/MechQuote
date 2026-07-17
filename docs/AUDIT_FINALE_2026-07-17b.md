@@ -43,11 +43,12 @@ Macchina a 7 stati con uscita da ogni stato (incl. reversibilità di
   coerente con tutte le altre transizioni. Verificato su DB isolato: self→0
   notifiche, altri→1 notifica al creatore.
 
-- [ ] **M3 · KPI "da ordinare" (`get_stats`) dipende dal flag legacy
+- [x] **M3 · KPI "da ordinare" (`get_stats`) dipendeva dal flag legacy
   `material_ordered_at`.** [CONFERMATO, debito latente] · `backend/app/api/orders.py:352`.
-  Corretto nel caso normale (`maybe_complete` in-line alla conferma), ma
-  accoppiato a un invariante di un altro modulo. *Fix (robustezza):* derivare da
-  `quote_material_status ∈ {parziale, non_ordinato}`.
+  **FATTO** (commit `2b3f547`): `to_order` conta i `confermato` con materiale
+  NON risolto via `wf.material_is_resolved` (fonte unica spec 18), senza
+  dipendere dal flag ponte. Verificato su DB isolato: confermato con materiale
+  reale conta, confermato tutto-da-magazzino escluso.
 
 ## 🟡 BASSA (10)
 
@@ -119,7 +120,8 @@ Nessun bloccante, nessuna alta, nessun vicolo cieco o perdita dati. Le MEDIA
 sono coerenza/robustezza, non correttezza critica; le BASSA sono rifiniture.
 
 **Condizioni consigliate (non bloccano l'avvio):**
-1. M1, M2 e B1 chiusi in questo giro. Restano M3 (debito latente KPI) e le
-   BASSA rimanenti come rifiniture non urgenti.
+1. M1, M2, M3 e B1 chiusi in questo giro (tutte le MEDIA chiuse). Restano solo
+   le BASSA rimanenti (B2/B4/B5/B7/B8/B9/B10) come rifiniture non urgenti +
+   le 2 decisioni di prodotto (B3/B6).
 2. Decidere i punti di prodotto: B6 (notifiche ordini normalizzati?) e B3
    (`revert-await` nell'editor?).

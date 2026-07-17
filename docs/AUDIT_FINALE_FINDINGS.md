@@ -117,10 +117,14 @@
   salta.** FATTO in `8f504e8`: sposta la selezione solo se elimini la parte
   selezionata; per le parti salvate `applyQuoteData` rimappa per id.
 
-- [ ] **F16 — `validateQuote` segnala ma non blocca invio/conferma**
-  (probabilmente voluto — "conferma morbida"). [PLAUSIBILE] · `QuoteEditor.tsx:407`.
-  *Decisione prodotto:* se indesiderato, includere `partsWithIssues.size` nel
-  dialog di conferma/invio.
+- [x] **F16 — `validateQuote` segnala ma non blocca invio/conferma.** DECISO
+  (avviso NON bloccante, solo condizione prezzo/costo=0, su invio+conferma) e
+  FATTO: i dialog di Invio e Conferma mostrano "Attenzione: le parti … hanno
+  prezzo o costo a zero" (variante destructive) quando una parte ha
+  `total_cost==0` o `unit_price==0`, ma l'azione resta possibile. Scelte solo
+  queste due condizioni per evitare il falso positivo "materiale mancante" (conto
+  lavoro/magazzino). Verificato in browser. Il triangolino sidebar (tutti i casi)
+  resta invariato.
 
 - [x] **F17 — `detectStockShape` può confondere tondo/prismatico con un foro
   grande.** FATTO: considera solo i cilindri il cui asse è ∥ alla dimensione più

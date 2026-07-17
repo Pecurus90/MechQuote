@@ -401,13 +401,25 @@ export default function QuoteEditor() {
     total <= 0 ? 'Il totale del preventivo è € 0 o negativo.'
     : (quote.global_margin_percent ?? 0) < 0 ? 'Il margine globale è negativo (vendita sottocosto).'
     : null
+  // F16: avviso NON bloccante su invio/conferma quando una parte ha prezzo o
+  // costo a zero (preventivo incompleto/rotto). Solo queste due condizioni: sono
+  // i segnali più netti e non hanno falsi positivi (a differenza di "materiale
+  // mancante", legittimo per conto-lavoro/magazzino). Il triangolino in sidebar
+  // resta a coprire tutti i casi.
+  const zeroPriceParts = quote.parts.filter(p => (p.total_cost ?? 0) === 0 || (p.unit_price ?? 0) === 0)
+  const zeroPriceWarning = zeroPriceParts.length
+    ? `Attenzione: ${zeroPriceParts.length === 1 ? 'la parte' : 'le parti'} `
+      + `${zeroPriceParts.map(p => p.part_code).join(', ')} `
+      + `${zeroPriceParts.length === 1 ? 'ha' : 'hanno'} prezzo o costo a zero. `
+    : ''
   const askConfirm = () => setPendingStatus({
     path: 'confirm', okMsg: 'Preventivo confermato',
     title: 'Confermare il preventivo?',
     description: (confirmRiskReason ? `${confirmRiskReason} Di solito è un errore di battitura. ` : '')
+      + zeroPriceWarning
       + 'Da qui il preventivo sarà bloccato in modifica. Procedere?',
     confirmLabel: 'Conferma',
-    variant: confirmRiskReason ? 'destructive' : 'default',
+    variant: (confirmRiskReason || zeroPriceParts.length) ? 'destructive' : 'default',
   })
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
   const isLocked = !['bozza', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
@@ -647,9 +659,9 @@ export default function QuoteEditor() {
 
       <ConfirmDialog
         open={confirmSubmit}
-        variant="default"
+        variant={zeroPriceParts.length ? 'destructive' : 'default'}
         title="Inviare il preventivo per revisione?"
-        description="Non potrai più modificarlo come bozza."
+        description={zeroPriceWarning + 'Non potrai più modificarlo come bozza.'}
         confirmLabel="Invia"
         onConfirm={doSubmitForReview}
         onCancel={() => setConfirmSubmit(false)}

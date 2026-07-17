@@ -93,10 +93,10 @@
   (scarto di centesimi).** FATTO in `218e79f`: revenue = `SUM(p.total_price)`
   in entrambe le serie di marginalità mensile.
 
-- [ ] **F11 — `round4` half-away vs `Math.round` half-up sul mezzo negativo
-  esatto.** [CONFERMATO], trascurabile · `primitives.py:22` vs `quoteCalc.ts:138`.
-  *Fix:* allineare il ramo negativo, o correggere il docstring ("parità per
-  valori non negativi").
+- [x] **F11 — `round4` half-away vs `Math.round` half-up sul mezzo negativo
+  esatto.** FATTO: `round4 = math.floor(x*10000 + 0.5)/10000` → identico a
+  `Math.round` su TUTTO l'asse (verificato: `-0.00025→-0.0002`, `0.00025→0.0003`).
+  Golden invariati (per costi ≥ 0 il risultato non cambia).
 
 - [x] **F12 — Breakdown "di cui spedizione" mostra solo il primo trattamento
   della parte.** FATTO in `8f504e8`: somma la spedizione di tutti i trattamenti.
@@ -122,13 +122,18 @@
   *Decisione prodotto:* se indesiderato, includere `partsWithIssues.size` nel
   dialog di conferma/invio.
 
-- [ ] **F17 — `detectStockShape` può confondere tondo/prismatico con un foro
-  grande.** [CONFERMATO] (backlog) · `StepViewerCad.tsx:26`. *Fix:* filtrare i
-  cilindri per asse/raggio ≈ semi-bbox, o confrontare col volume reale.
+- [x] **F17 — `detectStockShape` può confondere tondo/prismatico con un foro
+  grande.** FATTO: considera solo i cilindri il cui asse è ∥ alla dimensione più
+  lunga del bbox (parete esterna), scartando fori radiali/raccordi che potrebbero
+  combaciare per caso con la sezione (usa `axisDirection` già esposto dal kernel).
+  Filtro conservativo: nel dubbio → prismatico (grezzo impostabile a mano), mai un
+  costo tondo silenziosamente sbagliato. Non verificato in browser (serve uno STEP
+  reale con foro): logica tsc-pulita.
 
-- [ ] **F18 — SPLINE/ELLIPSE senza snap-point nel viewer misure DXF.**
-  [CONFERMATO] (backlog) · `backend/app/services/dxf_parser.py:287`. *Fix:*
-  campionare estremi da `make_path(e).flattening()` come snap.
+- [x] **F18 — SPLINE/ELLIPSE senza snap-point nel viewer misure DXF.** FATTO:
+  in `_measure_primitives` gli estremi della curva appiattita (`make_path().
+  flattening()`) sono aggiunti come snap per SPLINE ed ELLIPSE. Verificato:
+  spline → 2 estremi, ellisse → centro + 2 estremi (prima 0 e 1).
 
 - [x] **F19 — `in_attesa_cliente` non ha ritorno diretto a `letto`.** FATTO:
   nuovo endpoint `POST /quotes/{id}/revert-await` (in_attesa_cliente → `letto`
@@ -168,9 +173,9 @@
   su `QuoteCreate.quote_number` che ammette solo `[A-Za-z0-9._-]` ('/' escluso,
   anti-traversal). E2e: formati reali OK, `../../…`/markup/spazi → 422.
 
-- [ ] **F27 — `quantity` enorme (2³¹) accettata** (SQLite INTEGER 64-bit, nessun
-  crash; solo totali giganti). Marginale · `schemas.py:350`. *Fix (opz.):* tetto
-  ragionevole `le=` su `PartBase.quantity`/`default_quantity`.
+- [x] **F27 — `quantity` enorme (2³¹) accettata.** FATTO: `le=1_000_000` su
+  `PartBase.quantity` e `QuoteCreate.default_quantity` (verificato: `1000001` e
+  `2³¹` → 422; `500` OK).
 
 ---
 

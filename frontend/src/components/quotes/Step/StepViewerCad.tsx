@@ -26,7 +26,17 @@ export interface StepGeometry {
 function detectStockShape(faceInfos: FaceInfo[], bbox: { x: number; y: number; z: number }):
   { shape: 'prismatic' | 'round'; diameter?: number; length?: number } {
   const dims = [bbox.x, bbox.y, bbox.z].sort((a, b) => a - b)
-  const radii = faceInfos.filter(f => f.surfaceType === 1 && f.radius).map(f => f.radius as number)
+  // F17: considera solo i cilindri il cui asse è ∥ alla dimensione più lunga del
+  // bbox (la parete esterna di un tondo). Così un foro radiale / raccordo il cui
+  // Ø combacia per caso con la sezione non fa classificare "tondo" un prismatico.
+  const axesLen = [bbox.x, bbox.y, bbox.z]
+  const longAxis = [0, 0, 0]
+  longAxis[axesLen.indexOf(Math.max(...axesLen))] = 1
+  const isAxial = (dir?: [number, number, number]) =>
+    !!dir && Math.abs(dir[0] * longAxis[0] + dir[1] * longAxis[1] + dir[2] * longAxis[2]) > 0.9
+  const radii = faceInfos
+    .filter(f => f.surfaceType === 1 && f.radius && isAxial(f.axisDirection))
+    .map(f => f.radius as number)
   if (radii.length) {
     const d = Math.max(...radii) * 2
     const tol = 0.03 * (dims[1] || 1)

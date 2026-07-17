@@ -18,37 +18,27 @@
 - [x] **F1 — Quantità < 1 in creazione preventivo → lista in 500 senza recovery.**
   ALTA · [CONFERMATO]. Fix in commit `175323a`: `QuoteCreate.default_quantity`
   `ge=1`, clamp in `create_quote`, clamp nell'handler del wizard 2D.
-  - Residui aperti → vedi **F1b** e **F1c** sotto.
+
+- [x] **F1b — `backup.import` costruisce i modelli saltando lo schema.**
+  ALTA-latente · [CONFERMATO] · `backend/app/api/backup.py:294`. FATTO in `94261f1`:
+  clamp difensivo `max(1, ...)` su `Part.quantity` prima dell'`add`.
+
+- [x] **F1c — Read-path fragile: una sola riga `quantity<1` fa 500 tutta la lista.**
+  ALTA-latente · [CONFERMATO]. FATTO in `94261f1`: rimosso il vincolo `ge=1` da
+  `PartOut` (resta su `PartCreate`/`PartUpdate`). E2e: con riga `qty=-3` iniettata,
+  `GET /api/quotes` → 200 (prima 500).
+
+- [x] **F2 — Dashboard/Statistiche: valore preventivo = Σ`parts.total_price`,
+  ignora trasporto/imballaggio/sconto globale.**
+  MEDIA · [CONFERMATO] · `backend/app/api/dashboard.py`. FATTO: introdotto
+  `_QUOTE_VALUE_SQL = COALESCE(final_total, Σparts)` usato in tutte e 5 le
+  aggregazioni "preventivato" (trend, top clienti, per categoria, comparison,
+  outcome). E2e: `trend_monthly` ora combacia col totale `final_total`-based.
+  Residuo separato: **F9** (fallback Python quando `final_total` è NULL).
 
 ---
 
 ## 🟠 MEDIA — prossimo giro (nessuna è un vicolo cieco)
-
-- [ ] **F1b — `backup.import` costruisce i modelli saltando lo schema.**
-  ALTA-latente · [CONFERMATO] · `backend/app/api/backup.py:294`
-  `db.add(model_class(**cleaned))` bypassa ogni vincolo Pydantic: un backup con
-  `quantity<1` (o margine/sconto fuori range) reintroduce lo stato che manda in
-  500 la lista. È il percorso di disaster-recovery, quindi sensibile.
-  *Fix:* validare le righe con lo schema Pydantic (o un clamp esplicito su
-  `quantity`) prima dell'`add`.
-
-- [ ] **F1c — Read-path fragile: una sola riga `quantity<1` fa 500 tutta la lista.**
-  ALTA-latente · [CONFERMATO] · `GET /api/quotes` (response_model `List[QuoteOut]`
-  → `PartOut` con `ge=1`)
-  Anche prevenendo le scritture, se una riga corrotta esiste (backup/legacy) la
-  lista non carica e non c'è modo di trovarla/eliminarla dalla UI.
-  *Fix:* resilienza in lettura (es. clamp/relax del vincolo su `PartOut`, o un
-  CHECK su `parts.quantity` a livello DB, o degradare la singola quote invece di
-  far fallire l'intera risposta).
-
-- [ ] **F2 — Dashboard/Statistiche: valore preventivo = Σ`parts.total_price`,
-  ignora trasporto/imballaggio/sconto globale.**
-  MEDIA · [CONFERMATO] · `backend/app/api/dashboard.py:196,211,270,285,318,415`
-  La fonte autoritativa è `Quote.final_total`; l'archivio la usa, i cruscotti no
-  → stesso preventivo mostrato con valori diversi (es. 123,50 € archivio vs
-  100,00 € dashboard).
-  *Fix:* usare `q.final_total` nelle aggregazioni; nel fallback (F9) sommare
-  comunque trasporto/imballaggio−sconto.
 
 - [ ] **F3 — STEP: peso finito "stantìo" se si cambia materiale col viewer aperto.**
   MEDIA · [CONFERMATO] · `frontend/src/components/quotes/Step/StepViewerCad.tsx:196,459`

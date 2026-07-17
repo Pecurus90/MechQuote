@@ -185,6 +185,16 @@ def _quotes_where(date_from, date_to, customer_id):
     return date_filter, params
 
 
+# F2: valore € di un preventivo = final_total persistito (include trasporto/
+# imballaggio/sconto globale), con fallback alla somma parti per le quote
+# storiche mai ricalcolate (final_total NULL). Fonte unica, allineata ad
+# archivio e a _quote_to_row. Usato in tutte le aggregazioni "preventivato".
+_QUOTE_VALUE_SQL = (
+    "COALESCE(q.final_total, "
+    "(SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id))"
+)
+
+
 def _quotes_comparison(db: Session, date_from, date_to, customer_id) -> StatsQuotesComparison:
     """Aggregati della finestra di confronto (tab Preventivi): € totale e
     margine % per mese (per la serie `cmp`) + scalari per i delta KPI."""
@@ -193,7 +203,7 @@ def _quotes_comparison(db: Session, date_from, date_to, customer_id) -> StatsQuo
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m,
           COALESCE(SUM(
-            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+            {_QUOTE_VALUE_SQL}
           ), 0) AS total
         FROM quotes q
         WHERE 1=1 {df}
@@ -267,9 +277,9 @@ def get_statistics(
     # ─── 1. Trend mensile (€ preventivato) ────────────────────────────
     rows_std = db.execute(text(
         f"""
-        SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(p.total_price), 0) AS v
-        FROM parts p
-        JOIN quotes q ON q.id = p.quote_id
+        SELECT strftime('%Y-%m', q.quote_date) AS m,
+          COALESCE(SUM({_QUOTE_VALUE_SQL}), 0) AS v
+        FROM quotes q
         WHERE 1=1
           {date_filter}
         GROUP BY m ORDER BY m
@@ -282,7 +292,7 @@ def get_statistics(
         f"""
         SELECT q.customer_id, q.customer_name,
           COALESCE(
-            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id), 0
+            {_QUOTE_VALUE_SQL}, 0
           ) AS total
         FROM quotes q
         WHERE q.customer_name IS NOT NULL AND q.customer_name != ''
@@ -315,7 +325,7 @@ def get_statistics(
           ) AS cat,
           COUNT(*) AS cnt,
           COALESCE(SUM(
-            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+            {_QUOTE_VALUE_SQL}
           ), 0) AS total
         FROM quotes q
         WHERE q.quote_number IS NOT NULL
@@ -412,7 +422,7 @@ def get_statistics(
           END AS outcome,
           COUNT(*) AS n,
           COALESCE(SUM(
-            (SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id)
+            {_QUOTE_VALUE_SQL}
           ), 0) AS value
         FROM quotes q
         WHERE 1=1 {date_filter}

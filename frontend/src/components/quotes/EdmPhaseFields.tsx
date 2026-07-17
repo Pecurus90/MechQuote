@@ -74,6 +74,19 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
     else { onChange(field, val as Phase[keyof Phase]); onBlur?.() }
   }
 
+  // F5: l'autocalc EDM (backend) restituisce 0 ore in silenzio se la tabella
+  // velocità di taglio non ha la riga per materiale×spessore. La fase resterebbe
+  // a costo 0 senza segnale. Avvisa quando i due input EDM sono valorizzati ma
+  // il ciclo torna 0. (Il wizard 2D ha già un avviso analogo; qui copriamo il
+  // percorso manuale: import e riselezione profili.)
+  const warnIfEdmZero = (saved: Phase) => {
+    if ((saved.cut_length_mm ?? 0) > 0 && (saved.cut_height_mm ?? 0) > 0
+        && (saved.cycle_hours_per_part ?? 0) <= 0) {
+      toast.warning('Tempo di taglio EDM a 0: manca la velocità di taglio per '
+        + 'questo materiale/spessore. Controlla la tabella velocità EDM.')
+    }
+  }
+
   const handleReselectConfirm = async (r: ReselectResult) => {
     if (!phase.id) return
     const updates: Partial<Phase> = {
@@ -86,7 +99,8 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
       updates.n_pierce = r.selectedClosedCount
     }
     try {
-      await api.put<Phase>(`/phases/${phase.id}`, { ...phase, ...updates })
+      const { data: saved } = await api.put<Phase>(`/phases/${phase.id}`, { ...phase, ...updates })
+      warnIfEdmZero(saved)
     } catch {
       toast.error('Errore nel salvataggio della fase')
       return
@@ -144,7 +158,8 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
       //    al backend i campi vecchi, sovrascrivendo lo state pendente.
       if (phase.id) {
         try {
-          await api.put<Phase>(`/phases/${phase.id}`, { ...phase, ...updates })
+          const { data: saved } = await api.put<Phase>(`/phases/${phase.id}`, { ...phase, ...updates })
+          warnIfEdmZero(saved)
         } catch {
           toast.error('Errore nel salvataggio della fase')
           return

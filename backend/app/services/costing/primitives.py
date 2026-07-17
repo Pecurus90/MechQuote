@@ -14,14 +14,15 @@ from typing import Optional, Tuple
 
 
 def round4(x: float) -> float:
-    """Arrotonda a 4 decimali half-away-from-zero (gemello di Math.round JS).
+    """Arrotonda a 4 decimali con la STESSA semantica di `Math.round` JS
+    (gemello DRY del frontend, quoteCalc.ts).
 
-    Python `round()` usa banker's rounding (0.5→0); Math.round in V8 usa
-    half-away-from-zero (0.5→1). Qui allineiamo il backend al frontend.
+    Python `round()` usa banker's rounding (0.5→0). `Math.round` in JS è half-up
+    verso +∞: 0.5→1 ma -0.5→0 (NON half-away-from-zero, che darebbe -0.5→-1).
+    `math.floor(y + 0.5)` riproduce esattamente `Math.round(y)` su tutto l'asse
+    reale — F11: prima il ramo negativo divergeva (era half-away) sui mezzi esatti.
     """
-    if x >= 0:
-        return int(x * 10000 + 0.5) / 10000
-    return -int(-x * 10000 + 0.5) / 10000
+    return math.floor(x * 10000 + 0.5) / 10000
 
 
 # ─── Geometria grezzo / costo materiale (duck-typed su Part/Material) ────────

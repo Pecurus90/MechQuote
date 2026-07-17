@@ -347,7 +347,7 @@ class PartBase(BaseModel):
     part_code: str
     revision: Optional[str] = "A"
     description: Optional[str] = None
-    quantity: Optional[int] = Field(default=1, ge=1)  # almeno 1, evita div/0 nel cost engine
+    quantity: Optional[int] = Field(default=1, ge=1, le=1_000_000)  # ≥1 (no div/0); tetto sano (F27)
     quote_mode: Optional[str] = "manual"
     material_id: Optional[int] = None
     raw_x_mm: Optional[float] = Field(default=None, ge=0)
@@ -431,7 +431,7 @@ class QuoteBase(BaseModel):
 class QuoteCreate(QuoteBase):
     quote_number: str = Field(min_length=1, max_length=50)  # unique sul modello
     num_components: Optional[int] = None
-    default_quantity: Optional[int] = Field(default=1, ge=1)
+    default_quantity: Optional[int] = Field(default=1, ge=1, le=1_000_000)  # tetto sano (F27)
 
     @field_validator('quote_number')
     @classmethod

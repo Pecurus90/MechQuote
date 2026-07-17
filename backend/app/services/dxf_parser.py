@@ -263,6 +263,12 @@ def _measure_primitives(msp, factor: float) -> List[Dict]:
         # float() esplicito: ezdxf/numpy possono restituire np.float64.
         return (round(float(x) * factor, 3), round(float(y) * factor, 3))
 
+    def curve_endpoints(entity):
+        # F18: estremi della curva appiattita — per SPLINE/ELLIPSE aperte lo
+        # strumento "Distanza" (snap ai punti) deve agganciare almeno gli estremi.
+        pts = list(make_path(entity).flattening(LENGTH_FLATTEN_TOL))
+        return [pts[0], pts[-1]] if pts else []
+
     for e in _iter_effective_entities(msp):
         try:
             t = e.dxftype()
@@ -286,6 +292,11 @@ def _measure_primitives(msp, factor: float) -> List[Dict]:
                     raw_pts.append(sc(loc.x, loc.y))
             elif t == 'ELLIPSE':
                 raw_pts.append(sc(e.dxf.center.x, e.dxf.center.y))
+                for p in curve_endpoints(e):
+                    raw_pts.append(sc(p.x, p.y))
+            elif t == 'SPLINE':
+                for p in curve_endpoints(e):
+                    raw_pts.append(sc(p.x, p.y))
         except Exception as ex:
             logger.debug("measure primitive skip %s: %s", e.dxftype(), ex)
             continue

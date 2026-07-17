@@ -20,8 +20,7 @@ Stato lavorazione:
 - `non_ordinato`: click manuale amministrazione = il cliente non ha ordinato
   (preventivo perso, terminale, reversibile con `restore` → letto)
 - `completo`: auto quando `confermato` e materiale risolto (evaso o non
-  necessario). Per i preventivi Stampi (`die`, fuori scope materiale) il
-  materiale è considerato sempre risolto → conferma = completo.
+  necessario).
 """
 from __future__ import annotations
 

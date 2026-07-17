@@ -372,7 +372,9 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
 
         margin = part.margin_percent
         if margin is None:
-            margin = quote.global_margin_percent if quote else 20.0
+            # `quote` è garantito non-None (recalculate_quote fa early-return
+            # se il preventivo non esiste): niente fallback hardcoded.
+            margin = quote.global_margin_percent
 
         # Totali parte: formula pura in costing.primitives.part_totals
         # (C4: niente doppio arrotondamento; gemello di quoteCalc.calcPartTotals).

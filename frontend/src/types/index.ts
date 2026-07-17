@@ -549,7 +549,6 @@ export interface DxfProfile {
 }
 
 export interface DxfPoint { x: number; y: number }
-export interface DxfCircle { x: number; y: number; r: number; full: boolean }
 export interface DxfEntity {
   t: 'line' | 'circle' | 'arc' | 'poly'
   x1?: number; y1?: number; x2?: number; y2?: number   // line
@@ -568,7 +567,6 @@ export interface DxfAnalysis {
   warnings: string[]
   // Primitive per gli strumenti di misura del viewer (assenti su risposte vecchie).
   snap_points?: DxfPoint[]
-  circles?: DxfCircle[]
   entities?: DxfEntity[]   // entità geometriche vere (line/circle/arc/poly)
 }
 

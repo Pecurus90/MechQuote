@@ -1139,13 +1139,6 @@ class DxfPointOut(BaseModel):
     y: float
 
 
-class DxfCircleOut(BaseModel):
-    x: float
-    y: float
-    r: float
-    full: bool          # True = CIRCLE completo, False = ARC
-
-
 class DxfEntityOut(BaseModel):
     """Entità geometrica DXF per il rendering/hover (coord in mm).
     `t`: 'line' | 'circle' | 'arc' | 'poly'. Campi valorizzati per tipo."""
@@ -1175,7 +1168,6 @@ class DxfAnalysisOut(BaseModel):
     # Primitive per gli strumenti di misura del viewer (default vuote per
     # retro-compat con eventuali chiamate/cachati che non le hanno).
     snap_points: List[DxfPointOut] = []
-    circles: List[DxfCircleOut] = []
     entities: List[DxfEntityOut] = []
 
 

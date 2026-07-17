@@ -352,8 +352,8 @@ def confirm_quote(
     """Conferma manuale (amministrazione) = il cliente ha ordinato.
 
     Da inviato/letto/in_attesa_cliente → confermato. Da qui il preventivo è
-    bloccato in modifica. Se il materiale è già risolto (non necessario, tutto
-    evaso, o preventivo stampo) passa subito a 'completo'.
+    bloccato in modifica. Se il materiale è già risolto (non necessario o
+    tutto evaso) passa subito a 'completo'.
     """
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
@@ -725,9 +725,9 @@ def update_quote(
     if not closeout_only:
         ensure_editable(quote, current_user)
 
-    # quote_type immutabile post-create: cambiare il tipo dopo la creazione
-    # corromperebbe le tabelle satellite (DieSpec orphan se die → single,
-    # o spec mancante se single → die). Rifiuta esplicitamente.
+    # quote_type ('single'/'commessa') immutabile post-create: cambiarlo dopo
+    # la creazione sposterebbe la struttura delle parti già impostate (numero
+    # componenti della commessa) in modo incoerente. Rifiuta esplicitamente.
     if 'quote_type' in payload and payload['quote_type'] != quote.quote_type:
         raise HTTPException(
             status_code=400,

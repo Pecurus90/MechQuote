@@ -12,6 +12,7 @@ import {
   CheckCheck,
   XCircle,
   RotateCcw,
+  Undo2,
   Trash2,
   SearchX,
 } from 'lucide-react'
@@ -64,12 +65,14 @@ interface Props {
 
   onOpen: (id: number) => void
   onAwaitClient?: (id: number) => void
+  onRevertAwait?: (id: number) => void
   onConfirm?: (id: number) => void
   onNotOrdered?: (id: number) => void
   onRestore?: (id: number) => void
   onMaterialCsv?: (id: number) => void
   onDelete?: (id: number) => void
   canAwaitClient?: (row: QuotesListRow) => boolean
+  canRevertAwait?: (row: QuotesListRow) => boolean
   canConfirm?: (row: QuotesListRow) => boolean
   canNotOrdered?: (row: QuotesListRow) => boolean
   canRestore?: (row: QuotesListRow) => boolean
@@ -164,8 +167,8 @@ export function QuotesListView(props: Props) {
     title, icon: Icon, subtitle, onNew, rows, emptyText,
     expandedId, onToggleExpand, articleRows,
     filters, onFilterChange, years, statusOptions,
-    onOpen, onAwaitClient, onConfirm, onNotOrdered, onRestore, onMaterialCsv, onDelete,
-    canAwaitClient, canConfirm, canNotOrdered, canRestore, canMaterialCsv, canDelete,
+    onOpen, onAwaitClient, onRevertAwait, onConfirm, onNotOrdered, onRestore, onMaterialCsv, onDelete,
+    canAwaitClient, canRevertAwait, canConfirm, canNotOrdered, canRestore, canMaterialCsv, canDelete,
     showPrices = false, onSavePrice, pagination,
   } = props
 
@@ -286,6 +289,7 @@ export function QuotesListView(props: Props) {
             const expanded = expandedId === r.id
             const last = i === rows.length - 1
             const showAwaitClient = !!onAwaitClient && (canAwaitClient ? canAwaitClient(r) : true)
+            const showRevertAwait = !!onRevertAwait && (canRevertAwait ? canRevertAwait(r) : true)
             const showConfirm = !!onConfirm && (canConfirm ? canConfirm(r) : true)
             const showNotOrdered = !!onNotOrdered && (canNotOrdered ? canNotOrdered(r) : true)
             const showRestore = !!onRestore && (canRestore ? canRestore(r) : true)
@@ -366,6 +370,12 @@ export function QuotesListView(props: Props) {
                       <button type="button" title="In attesa del cliente" aria-label="In attesa del cliente"
                         className="text-state-attesa transition-[filter] hover:brightness-110" onClick={() => onAwaitClient?.(r.id)}>
                         <Hourglass className="h-4 w-4" />
+                      </button>
+                    )}
+                    {showRevertAwait && (
+                      <button type="button" title="Annulla attesa cliente" aria-label="Annulla attesa cliente"
+                        className="text-muted-foreground transition-colors hover:text-foreground" onClick={() => onRevertAwait?.(r.id)}>
+                        <Undo2 className="h-4 w-4" />
                       </button>
                     )}
                     {showConfirm && (

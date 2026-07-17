@@ -133,6 +133,12 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
   }
 
+  // F19: annulla 'in attesa cliente' senza passare da bozza (torna a letto/inviato).
+  const doRevertAwait = async (id: number) => {
+    try { await api.post(`/quotes/${id}/revert-await`); toast.success('Attesa cliente annullata'); loadQuotes() }
+    catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+  }
+
   const doRestore = async (id: number) => {
     try { await api.post(`/quotes/${id}/restore`); setRestoreId(null); toast.success('Preventivo ripristinato'); loadQuotes() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
@@ -269,6 +275,8 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         onOpen={(id) => navigate(`/quotes/${id}`)}
         onAwaitClient={showQuickActions && canConfirmPerm ? (id) => setAwaitClientId(id) : undefined}
         canAwaitClient={(r) => ['inviato', 'letto'].includes(r.status)}
+        onRevertAwait={showQuickActions && canConfirmPerm ? (id) => doRevertAwait(id) : undefined}
+        canRevertAwait={(r) => r.status === 'in_attesa_cliente'}
         onConfirm={showQuickActions && canConfirmPerm ? (id) => setConfirmQuoteId(id) : undefined}
         canConfirm={(r) => ['inviato', 'letto', 'in_attesa_cliente'].includes(r.status)}
         onNotOrdered={showQuickActions && canConfirmPerm ? (id) => setNotOrderedId(id) : undefined}

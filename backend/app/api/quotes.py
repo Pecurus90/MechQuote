@@ -571,6 +571,53 @@ def await_client_quote(
     return _load_quote(quote_id, db)
 
 
+@router.post("/{quote_id}/revert-await", response_model=QuoteOut)
+def revert_await_client_quote(
+    quote_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_confirm,
+):
+    """Amministrazione: annulla 'in attesa cliente' (misclick / il cliente non
+    ha ancora risposto), tornando allo stato precedente SENZA passare da bozza.
+
+    F19: prima l'unico modo per uscire da in_attesa_cliente senza confermare o
+    segnare non-ordinato era 'reopen', che riporta a 'bozza' azzerando
+    submitted_at/read_at e obbliga a re-inviare. Qui si torna a 'letto' (se già
+    aperto) o 'inviato', azzerando solo awaiting_client_at.
+    """
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_quote_visible(quote, current_user)  # ACL per-id (audit M1)
+    if quote.status != wf.STATUS_IN_ATTESA_CLIENTE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nessuna 'attesa cliente' da annullare (stato '{quote.status}')",
+        )
+    quote.status = wf.STATUS_LETTO if quote.read_at else wf.STATUS_INVIATO
+    quote.awaiting_client_at = None
+    creator_id = quote.created_by_user_id or quote.submitted_by_user_id
+    qnum = quote.quote_number
+    db.commit()
+    # Speculare a await-client (che notifica "offerta mandata"): avvisa il
+    # creatore che il preventivo è rientrato in lavorazione. Guard anti-auto.
+    if creator_id and creator_id != current_user.id:
+        actor = current_user.full_name or current_user.username
+        create_notification(
+            db,
+            type='quote_await_reverted',
+            title=f"Preventivo {qnum}: attesa cliente annullata",
+            body=f"Rientrato in lavorazione da {actor}",
+            created_by_user_id=current_user.id,
+            target_user_id=creator_id,
+            data={'quote_id': quote_id, 'quote_number': qnum},
+        )
+    logger.info("Attesa cliente annullata: quote_id=%s by=%s -> %s",
+                quote_id, current_user.username, quote.status)
+    return _load_quote(quote_id, db)
+
+
 @router.post("/{quote_id}/mark-not-ordered", response_model=QuoteOut)
 def mark_not_ordered_quote(
     quote_id: int,

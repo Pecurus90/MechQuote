@@ -134,15 +134,17 @@
   [CONFERMATO] (backlog) · `backend/app/services/dxf_parser.py:287`. *Fix:*
   campionare estremi da `make_path(e).flattening()` come snap.
 
-- [ ] **F19 — `in_attesa_cliente` non ha ritorno diretto a `letto`** (per
-  annullare un misclick serve `reopen`→bozza, che azzera submit/read).
-  [CONFERMATO], nessuno stato-trappola · `quotes.py:520`. *Fix:* aggiungere
-  transizione `in_attesa_cliente → letto` su `quotes.confirm`.
+- [x] **F19 — `in_attesa_cliente` non ha ritorno diretto a `letto`.** FATTO:
+  nuovo endpoint `POST /quotes/{id}/revert-await` (in_attesa_cliente → `letto`
+  se `read_at`, altrimenti `inviato`; azzera `awaiting_client_at`; notifica il
+  creatore) + azione lista (icona Undo2, gated `quotes.confirm`, solo su
+  in_attesa_cliente). E2e: read→await→revert→letto, `awaiting_client_at` NULL,
+  revert da stato errato → 400. (Non passa più da bozza.)
 
-- [ ] **F20 — `unconfirm` atterra sempre su `letto`** anche per quote confermate
-  da `inviato` mai lette (→ `letto` con `read_at` nullo, cosmetico). [CONFERMATO]
-  · `quotes.py:492`. *Fix:* atterrare su `letto` solo se `read_at` è valorizzato,
-  altrimenti `inviato` (come fa `restore`).
+- [x] **F20 — `unconfirm` atterra sempre su `letto`** anche per quote confermate
+  da `inviato` mai lette. FATTO in `406ed1c`: atterra su `letto` se `read_at`,
+  altrimenti `inviato` (come `restore`). E2e: confermato-da-inviato → unconfirm
+  → inviato.
 
 - [ ] **F21 — `QuoteStatusActions.tsx:51` mostra "Annulla conferma" solo a
   `edit_locked`**, ma il backend la concede anche a `quotes.confirm` (componente

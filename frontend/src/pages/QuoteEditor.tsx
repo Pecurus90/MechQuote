@@ -78,6 +78,21 @@ export default function QuoteEditor() {
     }).catch(() => toast.error('Errore nel caricamento dei dati di catalogo (materiali, macchine, clienti…). Ricarica la pagina.'))
   }, [])
 
+  // M5: i CompanySettings arrivano da una fetch async. Se l'utente tocca una
+  // parte "a magazzino" mentre sono ancora null, l'anteprima usa il ramo
+  // fallback (spedizione/taglio del fornitore) invece degli override stock,
+  // divergendo dal backend. Appena disponibili, riallinea le parti a magazzino.
+  useEffect(() => {
+    if (!companySettings) return
+    setQuote(q => {
+      if (!q) return q
+      const nFromStock = q.parts.filter(p => p.material_from_stock && !p.customer_supplied_material).length
+      if (nFromStock === 0) return q   // nessuna parte a magazzino: niente da riallineare
+      const nParts = q.parts.length || 1
+      return { ...q, parts: q.parts.map(p => calcPartTotals(p, q.global_margin_percent, nParts, companySettings, nFromStock)) }
+    })
+  }, [companySettings])
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
@@ -112,8 +127,12 @@ export default function QuoteEditor() {
       const nParts = q.parts.length || 1
       const merged = q.parts.map((p, i) => i === idx ? { ...p, ...updates } : p)
       const nFromStock = merged.filter(p => p.material_from_stock && !p.customer_supplied_material).length
-      const parts = merged.map((p, i) =>
-        i === idx ? calcPartTotals(p, q.global_margin_percent, nParts, companySettings, nFromStock) : p
+      // M5: ricalcola TUTTE le parti, non solo quella toccata. La spedizione
+      // magazzino è distribuita su nFromStock (aggregato del preventivo): quando
+      // cambia, le parti "a magazzino" sorelle vanno ricalcolate anche loro,
+      // come fa il backend (recalculate_quote), altrimenti l'anteprima diverge.
+      const parts = merged.map(p =>
+        calcPartTotals(p, q.global_margin_percent, nParts, companySettings, nFromStock)
       )
       return { ...q, parts }
     })

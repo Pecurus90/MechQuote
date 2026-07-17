@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.database import get_db
-from app.core.security import require_permission
+from app.core.security import require_any_permission, require_permission
 from app.models import NormalizedSupplier, OfficinaDocument
 from app.schemas import (
     NormalizedSupplierCreate, NormalizedSupplierOut, NormalizedSupplierUpdate,
@@ -22,9 +22,13 @@ from app.schemas import (
 router = APIRouter(prefix="/api/normalized-suppliers", tags=["normalized_suppliers"])
 
 _can_write = require_permission('settings')
+# Lettura: catalogo normalizzati (settings) o Officina che linka i documenti ai
+# fornitori (officina). Chiude il leak di recapiti fornitore a utenti senza
+# permesso (B1 audit finale run "b").
+_can_read = require_any_permission('settings', 'officina')
 
 
-@router.get("", response_model=List[NormalizedSupplierOut])
+@router.get("", response_model=List[NormalizedSupplierOut], dependencies=[_can_read])
 def list_normalized_suppliers(
     active: Optional[bool] = None,
     db: Session = Depends(get_db),

@@ -51,12 +51,17 @@ Backend:
 - DXF: `backend/app/services/dxf_parser.py`, `backend/app/api/dxf.py`
 - Notifiche: `backend/app/services/notifications.py`, `backend/app/api/notifications.py`
 - **Ordini materiale (spec 18)**: `backend/app/api/orders.py` (crea/lista/CSV/DELETE ordine,
-  aggregazione per fornitore), `backend/app/api/orders_from_file.py` (import distinta + alias),
-  `backend/app/services/material_status.py` (stato materiale parte/preventivo),
+  aggregazione per fornitore **da preventivi + richieste manuali**), `backend/app/api/orders_from_file.py`
+  (ora SOLO parse distinta + alias — l'endpoint POST `/from-file` che finalizzava l'ordine è
+  RIMOSSO), `backend/app/services/material_status.py` (stato materiale parte/preventivo),
   `backend/app/services/quote_workflow.py` (`reconcile_material_state`, `material_is_resolved`,
   `quote_material_status` — promozione/retrocessione stato). Modelli: `MaterialOrder`,
   `MaterialOrderQuote`, `MaterialOrderItem`, `QuoteSupplierOrder` (record evasione N:M, UNIQUE
   `(quote_id, material_supplier_id)`), `MaterialAlias`.
+- **Richieste materiale manuali** (NUOVO — ordini che NON passano da un preventivo):
+  `backend/app/api/material_requests.py` (CRUD bozza + `POST /{id}/send` invio + notifica). Modelli
+  `MaterialRequest` (stato `bozza`/`inviato`), `MaterialRequestItem` (riga con fornitore + evasione
+  per riga via `material_order_id`/`evaso_at`). Popolano il pool di `orders.py` insieme ai preventivi.
 - **Ordini utensili**: `backend/app/api/orders_tools.py`. Modelli `ToolOrder`/`ToolOrderItem`.
 - **Normalizzati**: `backend/app/api/normalized_items.py` (catalogo), `normalized_suppliers.py`
   (fornitori), `normalized_from_file.py` (import distinta + alias + ordini). Modelli:
@@ -72,14 +77,19 @@ Frontend:
 - Calcolo (gemelli DRY): `frontend/src/lib/quoteCalc.ts`, `frontend/src/lib/quoteValidation.ts`, `PhaseEditor.calcPhase()`, parte "setup" in `PartCard.tsx`
 - Liste/archivio: `frontend/src/components/quotes/QuotesListView.tsx`, `frontend/src/pages/quotes/QuotesListView.tsx`
 - **Ordini materiale**: `frontend/src/pages/orders/{OrdersMaterialsPage,MaterialOrdersView,
-  OrdersHistoryPage,OrderHistoryView,OrdersMaterialFilePage,MaterialsFileView}.tsx` +
+  OrdersHistoryPage,OrderHistoryView,OrdersMaterialFilePage,MaterialsFileView,RequestEditModal}.tsx` +
+  `frontend/src/lib/materialRows.ts` (mapper riga condivisi editor↔modale) +
   la mini-dashboard KPI inline; l'azione "CSV materiali del preventivo" in `QuotesListView`.
+  `OrdersMaterialsPage` è il **pool unificato** (preventivi confermati + richieste materiale inviate,
+  selezione su entrambe → CSV per fornitore); `OrdersMaterialFilePage` = "Nuovo ordine materiale"
+  (crea/invia una richiesta, righe a mano o da distinta); `RequestEditModal` = matita di modifica.
 - **Ordini utensili / normalizzati**: `frontend/src/pages/orders/{OrdersToolsPage,ToolOrdersView,
   OrdersNormalizedFilePage,NormalizedFileView}.tsx`.
 - **Catalogo normalizzati**: `frontend/src/pages/settings/{NormalizedItemsPage,
   NormalizedItemFormModal,NormalizedSuppliersPage}.tsx`.
 - Rotte + gating (`App.tsx`): `/orders/materials`→`orders.materials`, `/orders/materials-file`→
-  `orders.materials`, `/orders/normalized-file`→`orders.normalized`, `/orders/tools`→`orders.tools`,
+  `orders.materials` (le richieste manuali riusano `orders.materials`, nessuna chiave nuova),
+  `/orders/normalized-file`→`orders.normalized`, `/orders/tools`→`orders.tools`,
   `/orders/history`→any di `[orders.materials, orders.normalized, orders.tools]`,
   `/settings/normalized-items`→`settings`.
 
@@ -111,8 +121,20 @@ Frontend:
   Impostato solo se totalmente evaso; sul demote non è azzerato (retro-compat). Non basarci ragionamenti nuovi.
 - **Idempotenza ordine per `(preventivo, fornitore)`**: check applicativo + UNIQUE DB → 409 su race (AUD-25
   mitigato a livello DB). Un secondo POST sulla stessa coppia non deve creare doppioni.
-- **Ordini da file NON legati ai preventivi**: `orders_from_file`/`normalized_from_file` creano ordini
+- **Ordini normalizzati da file NON legati ai preventivi**: `normalized_from_file` crea ordini
   `source='file'` senza `QuoteSupplierOrder` né reconcile → nessun impatto sullo stato preventivo.
+- **Richieste materiale manuali (pool unificato)**: una `MaterialRequest` è il gemello del preventivo
+  per il materiale non-da-preventivo. Nasce `bozza` (modificabile), con `POST /{id}/send` passa a
+  `inviato` (notifica `material_to_order` a ufficio_tecnico+amministrazione) e compare nel pool di
+  `/orders/materials` INSIEME ai preventivi. `create_order` accetta `quote_ids` **e** `request_ids`:
+  fonde per fornitore in UN `MaterialOrder` (snapshot in `MaterialOrderItem`), evade le righe-richiesta
+  (`material_order_id`/`evaso_at`, evasione PER RIGA — multi-fornitore, come `QuoteSupplierOrder` per i
+  preventivi). `delete_order` ri-apre le righe. `source` dell'ordine emesso: `quotes`/`request`/`mixed`
+  (`file` = storico distinte pre-feature). Il **riferimento CSV** di una riga richiesta = il CODICE
+  ARTICOLO (campo Codice della riga), NON il numero RM; fallback al titolo dell'ordine, poi vuoto. Le
+  righe evase sono bloccate in modifica (la matita nel pool tocca solo le aperte). Idempotenza: righe
+  già evase escluse dal pool; niente UNIQUE DB sulla coppia richiesta×fornitore (last-write-wins,
+  azione manuale a bassa frequenza).
 - **Snapshot B6 (`MaterialOrderItem`)**: congela codice/dim/qty all'emissione → CSV fedele alla ri-stampa.
   Ordini pre-B6 ri-aggregano dal preventivo live (possono divergere): limite noto, non bug nuovo.
 - **Alias (`MaterialAlias`/`NormalizedAlias`)**: append-only, upsert idempotente, appresi SOLO su creazione
@@ -247,13 +269,38 @@ le proprie (anche modifiche di fase).
 - Preventivo con parti **senza fornitore** (`senza_fornitore`): non ordinabile/evaso; la
   conferma è già bloccata a monte (scenario B) — verifica coerenza.
 
-### J. Import da file — materiali e normalizzati (distinta → ordine)
+### I-bis. Richieste materiale manuali (pool unificato — NUOVO)
+- **Crea + invia**: "Nuovo ordine materiale" (`/orders/materials-file`) — righe a mano O import
+  distinta SolidWorks (stesso parse) → "Salva bozza" (righe anche incomplete) e "Invia ordine"
+  (bozza→inviato; all'invio ogni riga aperta DEVE avere fornitore + misure per forma, altrimenti
+  400). Lista bozze in cima (riprendi/elimina). Una richiesta copre **più fornitori** (fornitore
+  per riga).
+- **Pool** (`/orders/materials`): due sezioni selezionabili — "Preventivi confermati" + "Richieste
+  materiale" (solo `inviato` con righe aperte). Seleziona un mix qualsiasi → `POST /aggregate`
+  (con `quote_ids`+`request_ids`, nessun effetto) raggruppa per fornitore; "Crea CSV" per fornitore →
+  UN `MaterialOrder` che fonde righe-preventivo + righe-richiesta, evade entrambe, scarica il CSV.
+  Verifica: ordine solo-richieste, solo-preventivi, **misto**; `source` risultante corretto.
+- **Matita** su una richiesta nel pool → `RequestEditModal`: aggiungi la riga dimenticata / correggi;
+  salva (`PUT`) sostituisce solo le righe APERTE, le evase restano bloccate. Verifica che una richiesta
+  parzialmente evasa mostri le evase bloccate e non le sovrascriva.
+- **Riferimento CSV** = codice articolo della riga (campo Codice), NON `RM-xxxx`. Verifica sia col
+  codice compilato (→ quel codice) sia vuoto (→ titolo ordine, poi vuoto).
+- **Evasione/ri-apertura**: dopo l'ordine la richiesta con tutte le righe evase sparisce dal pool
+  (`open_count=0`); `DELETE` dell'ordine emesso ri-apre le sue righe-richiesta (tornano nel pool).
+  KPI "Da ordinare" conta preventivi confermati non risolti + richieste inviate con righe aperte.
+- **Notifica** `material_to_order` all'invio (ufficio_tecnico+amministrazione, deep-link al pool);
+  atomica col cambio stato (commit=False). Elimina bozza vs elimina richiesta con righe evase (bloccata).
+
+### J. Import da file — normalizzati (distinta → ordine)
+> Per i MATERIALI la "crea da file" immediata è stata RIMOSSA: la distinta ora popola una richiesta
+> materiale (vedi I-bis). Il parse (`/orders/materials/from-file/parse`) e gli alias restano. Sotto
+> vale per i NORMALIZZATI (`normalized_from_file`, invariato).
 - **Parse** (`/from-file/parse`, nessuna scrittura): CSV con header variabile (utf-8 **e**
   cp1252), colonne mescolate / separatore errato → **400 pulito**, MAI mis-mappatura silenziosa;
   calcolo grezzo (`+5`, spessore `ceil/5*5`); match via **alias** poi catalogo.
-- **Crea da file** (`/from-file`): righe senza fornitore → blocco; dimensioni mancanti per forma
-  (prismatico w/h/t · tondo d/l · tubo d/t/l) → blocco; **`material_id`/`normalized_item_id`
-  inesistente nel payload → rifiutato (AUD-26)**, niente item orfani né alias avvelenati.
+- **Crea da file** (`/from-file`, solo normalizzati): righe senza fornitore → blocco; dimensioni
+  mancanti per forma → blocco; **`normalized_item_id` inesistente nel payload → rifiutato (AUD-26)**,
+  niente item orfani né alias avvelenati.
 - **Alias appresi** (`MaterialAlias`/`NormalizedAlias`): solo su creazione riuscita, upsert
   idempotente, `csv_name` globalmente unico; DELETE alias per correggere un match errato.
 - **Atomicità apprendimento alias**: nei normalizzati gli alias sono imparati **dopo** il commit

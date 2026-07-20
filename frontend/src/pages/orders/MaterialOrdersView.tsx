@@ -328,35 +328,38 @@ export function MaterialOrdersView({
           return (
           <div key={g.supplierId} className="overflow-hidden rounded-[14px] border border-border">
             <div
-              role="button"
-              tabIndex={0}
-              onClick={() => toggleSupplier(g.supplierId)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSupplier(g.supplierId) } }}
               className={cn(
-                'flex cursor-pointer items-center justify-between bg-card-muted px-[18px] py-[13px] transition-colors hover:bg-muted',
+                'flex items-center justify-between bg-card-muted px-[18px] py-[13px]',
                 isOpen && 'border-b border-border',
               )}
             >
-              <div className="flex items-center gap-[11px]">
+              {/* Toggle espandi/chiudi = vero <button> (accessibile da tastiera).
+                  "Crea CSV" è un fratello, non annidato: niente button-in-button. */}
+              <button
+                type="button"
+                onClick={() => toggleSupplier(g.supplierId)}
+                aria-expanded={isOpen}
+                className="flex flex-1 items-center gap-[11px] rounded-[8px] text-left transition-opacity hover:opacity-80"
+              >
                 <ChevronDown
                   className={cn('h-[17px] w-[17px] flex-none text-muted-foreground transition-transform', !isOpen && '-rotate-90')}
                 />
-                <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-info/[0.13] text-info">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-info/[0.13] text-info">
                   <Factory className="h-[17px] w-[17px]" />
-                </div>
-                <div>
-                  <div className="text-[14px] font-semibold text-foreground">{g.supplierName}</div>
-                  <div className="text-[11.5px] text-muted-foreground">
+                </span>
+                <span className="block">
+                  <span className="block text-[14px] font-semibold text-foreground">{g.supplierName}</span>
+                  <span className="block text-[11.5px] text-muted-foreground">
                     {g.items.length} materiali · da {g.quoteCount}{' '}
                     {g.quoteCount === 1 ? 'riferimento' : 'riferimenti'}
-                  </div>
-                </div>
-              </div>
+                  </span>
+                </span>
+              </button>
               {g.items.some((it) => !it.fromStock) ? (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); onCreateOrder(g.supplierId) }}
-                  className="inline-flex h-9 items-center gap-[7px] rounded-[9px] border border-border bg-card px-[15px] text-[13px] font-semibold text-foreground transition-[filter] hover:brightness-105"
+                  onClick={() => onCreateOrder(g.supplierId)}
+                  className="ml-3 inline-flex h-9 flex-none items-center gap-[7px] rounded-[9px] border border-border bg-card px-[15px] text-[13px] font-semibold text-foreground transition-[filter] hover:brightness-105"
                 >
                   <FileDown className="h-[15px] w-[15px]" />
                   Crea CSV
@@ -365,7 +368,7 @@ export function MaterialOrdersView({
                 // Tutte le righe del fornitore sono da magazzino: niente da
                 // ordinare (il backend le esclude), quindi niente bottone CSV
                 // che finirebbe in 400. Le righe restano visibili come info.
-                <span className="inline-flex h-9 items-center gap-[7px] rounded-[9px] border border-dashed border-border px-[15px] text-[12.5px] font-medium text-muted-foreground">
+                <span className="ml-3 inline-flex h-9 flex-none items-center gap-[7px] rounded-[9px] border border-dashed border-border px-[15px] text-[12.5px] font-medium text-muted-foreground">
                   <Warehouse className="h-[14px] w-[14px]" />
                   Tutto da magazzino
                 </span>

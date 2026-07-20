@@ -46,7 +46,7 @@ export default function QuoteEditor() {
   // AUD-7: gate di conferma unico per le azioni di workflow (conferma, attesa,
   // non ordinato, ripristina, rimanda). Porta con sé il testo-conseguenza.
   const [pendingStatus, setPendingStatus] = useState<{
-    path: 'confirm' | 'reopen' | 'await-client' | 'mark-not-ordered' | 'restore'
+    path: 'confirm' | 'reopen' | 'await-client' | 'revert-await' | 'mark-not-ordered' | 'restore'
     okMsg: string; title: string; description: string; confirmLabel: string
     variant?: 'default' | 'destructive'
   } | null>(null)
@@ -358,7 +358,7 @@ export default function QuoteEditor() {
 
   // Workflow: conferma / rimanda in bozza / annulla conferma (ex QuoteStatusActions).
   const doStatus = async (
-    path: 'confirm' | 'reopen' | 'unconfirm' | 'await-client' | 'mark-not-ordered' | 'restore',
+    path: 'confirm' | 'reopen' | 'unconfirm' | 'await-client' | 'revert-await' | 'mark-not-ordered' | 'restore',
     okMsg: string,
   ) => {
     if (!quote?.id) return
@@ -441,6 +441,10 @@ export default function QuoteEditor() {
   const actions: EditorAction[] = [
     { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: st === 'bozza' && hasPermission('quotes.send') },
     { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => setPendingStatus({ path: 'await-client', okMsg: 'Offerta in attesa del cliente', title: 'Mettere in attesa del cliente?', description: "L'offerta risulterà in attesa della risposta del cliente.", confirmLabel: 'In attesa cliente' }), show: canConfirm && inReview },
+    // B-4: uscita "morbida" dall'attesa cliente senza passare da bozza (torna a
+    // letto/inviato), come già offre la lista (F19). Prima dall'editor l'unica
+    // uscita era 'Rimanda in bozza', che azzerava submitted_at/read_at.
+    { key: 'revert-await', label: 'Annulla attesa', icon: RotateCcw, variant: 'secondary', onClick: () => setPendingStatus({ path: 'revert-await', okMsg: 'Attesa cliente annullata', title: "Annullare l'attesa cliente?", description: 'Il preventivo torna in revisione, senza passare da bozza.', confirmLabel: 'Annulla attesa' }), show: canConfirm && st === 'in_attesa_cliente' },
     { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: askConfirm, show: canConfirm && preConfirm },
     { key: 'notordered', label: 'Non ordinato', icon: XCircle, variant: 'muted', onClick: () => setPendingStatus({ path: 'mark-not-ordered', okMsg: 'Segnato come non ordinato', title: 'Segnare come non ordinato?', description: 'Il preventivo risulterà non ordinato (perso). Potrai ripristinarlo in seguito.', confirmLabel: 'Non ordinato', variant: 'destructive' }), show: canConfirm && preConfirm },
     { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => setPendingStatus({ path: 'restore', okMsg: 'Preventivo ripristinato', title: 'Ripristinare il preventivo?', description: 'Il preventivo torna in lavorazione.', confirmLabel: 'Ripristina' }), show: canConfirm && st === 'non_ordinato' },

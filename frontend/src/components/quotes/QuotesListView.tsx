@@ -63,6 +63,10 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   const [markingNotOrdered, setMarkingNotOrdered] = useState(false)
   const [awaitClientId, setAwaitClientId] = useState<number | null>(null)
   const [restoreId, setRestoreId] = useState<number | null>(null)
+  // B-5: guardia anti doppio-invio per le azioni di stato senza flag proprio
+  // (await/revert-await/restore). Un secondo click durante l'in-flight è no-op
+  // → niente doppio POST (che il backend rifiuterebbe con un 400 fuorviante).
+  const [actionBusy, setActionBusy] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [detailCache, setDetailCache] = useState<Record<number, QuoteMaterialDetail | 'loading'>>({})
 
@@ -129,19 +133,28 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
   }
 
   const doAwaitClient = async (id: number) => {
+    if (actionBusy) return
+    setActionBusy(true)
     try { await api.post(`/quotes/${id}/await-client`); setAwaitClientId(null); toast.success('Offerta in attesa del cliente'); loadQuotes() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+    finally { setActionBusy(false) }
   }
 
   // F19: annulla 'in attesa cliente' senza passare da bozza (torna a letto/inviato).
   const doRevertAwait = async (id: number) => {
+    if (actionBusy) return
+    setActionBusy(true)
     try { await api.post(`/quotes/${id}/revert-await`); toast.success('Attesa cliente annullata'); loadQuotes() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+    finally { setActionBusy(false) }
   }
 
   const doRestore = async (id: number) => {
+    if (actionBusy) return
+    setActionBusy(true)
     try { await api.post(`/quotes/${id}/restore`); setRestoreId(null); toast.success('Preventivo ripristinato'); loadQuotes() }
     catch (e) { const err = e as { response?: { data?: { detail?: string } } }; toast.error(err?.response?.data?.detail || 'Operazione non riuscita') }
+    finally { setActionBusy(false) }
   }
 
   const doMarkNotOrdered = async (id: number) => {

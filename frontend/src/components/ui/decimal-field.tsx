@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import type { ComponentPropsWithoutRef } from 'react'
 import { Input } from '@/components/ui/input'
 
@@ -32,6 +32,18 @@ export const DecimalField = forwardRef<HTMLInputElement, Props>(function Decimal
 ) {
   const [buf, setBuf] = useState(value)
   const [focused, setFocused] = useState(false)
+
+  // M-1: flush del buffer pendente allo smontaggio. Se l'utente naviga via
+  // (link sidebar, tasto Indietro) mentre il campo è a FUOCO senza dare blur,
+  // `onBlur` non scatta e l'ultimo valore digitato andrebbe perso senza avviso.
+  // Un ref tiene sempre l'ultimo stato per il cleanup, che gira una sola volta
+  // all'unmount e committa solo se c'è davvero un edit non salvato.
+  const pending = useRef({ buf, value, focused, onCommit })
+  pending.current = { buf, value, focused, onCommit }
+  useEffect(() => () => {
+    const p = pending.current
+    if (p.focused && p.buf !== p.value) p.onCommit(p.buf)
+  }, [])
 
   return (
     <Input

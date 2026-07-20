@@ -231,7 +231,9 @@ def aggregate_materials(quote_ids: List[int], db: Session,
     # Entrano nel gruppo del loro fornitore come voci proprie (ref = codice riga
     # o RM-xxxx), aggregate per (fornitore, materiale, dimensioni).
     if request_ids:
-        req_items = db.query(MaterialRequestItem).filter(
+        req_items = db.query(MaterialRequestItem).options(
+            joinedload(MaterialRequestItem.request),
+        ).filter(
             MaterialRequestItem.material_request_id.in_(request_ids),
             MaterialRequestItem.material_order_id.is_(None),
         ).all()
@@ -241,7 +243,7 @@ def aggregate_materials(quote_ids: List[int], db: Session,
         raggr: Dict[Tuple, Dict[str, Any]] = {}
         for it in req_items:
             dim_str = f"{_shape_label_it(it.shape)} {_file_item_dim(it)}".strip()
-            ref = it.part_code or f"RM-{it.material_request_id:04d}"
+            ref = _req_ref(it) or f"RM-{it.material_request_id:04d}"
             key = (it.supplier_id, it.material_name, dim_str)
             slot = raggr.setdefault(key, {
                 'supplier_id': it.supplier_id,
@@ -372,12 +374,24 @@ def _persist_order_snapshot(order: MaterialOrder, quote_ids: List[int],
             ))
 
 
+def _req_ref(it: MaterialRequestItem) -> str:
+    """Riferimento CSV/preview di una riga richiesta = il CODICE ARTICOLO (campo
+    'Codice' della riga). Se non compilato, ripiega sul titolo dell'ordine;
+    altrimenti stringa vuota. NON usa il numero RM (che non è un riferimento
+    utile per il gestionale)."""
+    if it.part_code:
+        return it.part_code
+    return it.request.title if (it.request and it.request.title) else ''
+
+
 def _supplier_request_items(request_ids: List[int], supplier_id: int,
                             db: Session) -> List[MaterialRequestItem]:
     """Righe-richiesta APERTE (non evase) di un fornitore, dai request_ids dati."""
     if not request_ids:
         return []
-    return db.query(MaterialRequestItem).filter(
+    return db.query(MaterialRequestItem).options(
+        joinedload(MaterialRequestItem.request),
+    ).filter(
         MaterialRequestItem.material_request_id.in_(request_ids),
         MaterialRequestItem.supplier_id == supplier_id,
         MaterialRequestItem.material_order_id.is_(None),
@@ -394,7 +408,7 @@ def _persist_request_snapshot(order: MaterialOrder,
         db.add(MaterialOrderItem(
             material_order_id=order.id, material_id=it.material_id,
             material_name=it.material_name,
-            part_code=it.part_code or f"RM-{it.material_request_id:04d}",
+            part_code=_req_ref(it),   # riferimento = codice articolo (non RM)
             description=it.description or "",
             shape=it.shape or 'prismatico',
             width_mm=it.width_mm, height_mm=it.height_mm, thickness_mm=it.thickness_mm,
@@ -599,11 +613,13 @@ def create_order(
         )
 
     now = utc_now()
+    # Sorgente per lo storico: solo preventivi / solo richieste / misto.
+    source = 'mixed' if (new_ids and req_items) else ('quotes' if new_ids else 'request')
     order = MaterialOrder(
         created_by_user_id=current_user.id,
         material_supplier_id=supplier.id,
         supplier_name=supplier.name,
-        source='quotes' if new_ids else 'file',
+        source=source,
     )
     db.add(order)
     db.flush()

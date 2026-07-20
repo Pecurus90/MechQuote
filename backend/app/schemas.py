@@ -1210,8 +1210,8 @@ class MaterialOrderOut(BaseModel):
     supplier_name: Optional[str] = None
     quote_count: int
     quote_numbers: List[str] = []
-    source: str = "quotes"            # 'quotes' | 'file'
-    item_count: int = 0               # righe (solo ordini da file)
+    source: str = "quotes"            # 'quotes' | 'request' | 'mixed' | 'file'
+    item_count: int = 0               # righe snapshot dell'ordine
 
     class Config:
         from_attributes = True
@@ -1269,10 +1269,6 @@ class FileOrderRow(BaseModel):
 
 class FileOrderParseOut(BaseModel):
     rows: List[FileOrderRow] = []
-
-
-class FileOrderCreate(BaseModel):
-    rows: List[FileOrderRow] = Field(min_length=1)
 
 
 class MaterialAliasCreate(BaseModel):

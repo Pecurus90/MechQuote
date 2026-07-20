@@ -95,7 +95,7 @@ export default function OrdersHistoryPage() {
     date: o.created_at,
     supplierName: o.supplier_name || '—',
     createdBy: userName(o.created_by),
-    source: (o.source === 'file' ? 'file' : 'quotes'),
+    source: (['request', 'mixed', 'file'].includes(o.source ?? '') ? o.source : 'quotes') as 'quotes' | 'request' | 'mixed' | 'file',
     quoteRefs: o.quote_numbers,
     rowCount: o.item_count,
   }))

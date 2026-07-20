@@ -613,8 +613,9 @@ class MaterialOrder(Base):
     # storici pre-spec18 (retro-compatibile).
     material_supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
     supplier_name = Column(String(100), nullable=True)
-    # Origine dell'ordine: 'quotes' (righe derivate dai preventivi, storico) o
-    # 'file' (righe libere da distinta CSV/manuale, salvate in material_order_items).
+    # Origine dell'ordine: 'quotes' (solo preventivi), 'request' (solo richieste
+    # materiale manuali), 'mixed' (entrambe), 'file' (storico: vecchi ordini da
+    # distinta CSV finalizzati subito, endpoint rimosso). Righe in material_order_items.
     source = Column(String(10), default="quotes")
 
     created_by = relationship("User", foreign_keys=[created_by_user_id])

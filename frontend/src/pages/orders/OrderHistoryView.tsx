@@ -1,19 +1,20 @@
 // src/pages/orders/OrderHistoryView.tsx
-import { History, Search, Package, Drill, Bolt, FileDown, Trash2, FileSpreadsheet } from 'lucide-react'
+import { History, Search, Package, Drill, Bolt, FileDown, Trash2, FileSpreadsheet, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type HistoryTab = 'materials' | 'tools' | 'normalized'
 
-/** Ordine materiali emesso. `source` distingue ordini da preventivi vs da distinta (file). */
+/** Ordine materiali emesso. `source`: da preventivi / da richiesta materiale /
+ *  misto / da distinta (storico). */
 export interface MaterialOrder {
   id: number
   number: string // "MO-2026-014"
   date: string | null
   supplierName: string
   createdBy: string
-  source: 'quotes' | 'file'
-  quoteRefs?: string[] // presenti se source === 'quotes'
-  rowCount?: number // presente se source === 'file'
+  source: 'quotes' | 'request' | 'mixed' | 'file'
+  quoteRefs?: string[] // presenti se l'ordine include preventivi (quotes/mixed)
+  rowCount?: number // righe snapshot (request/mixed/file)
 }
 
 export interface ToolOrder {
@@ -184,15 +185,7 @@ export function OrderHistoryView({
                 <div className="font-medium text-foreground">{o.supplierName}</div>
                 <div className="text-[13px] text-muted-foreground">{o.createdBy}</div>
                 <div className="flex min-w-0 items-center gap-2">
-                  {o.source === 'file' ? (
-                    <>
-                      <span className="inline-flex items-center gap-[5px] rounded-full bg-info/[0.13] px-[9px] py-[2px] text-[10.5px] font-semibold text-info">
-                        <FileSpreadsheet className="h-[11px] w-[11px]" />
-                        Distinta (da file)
-                      </span>
-                      <span className="text-[12.5px] text-muted-foreground">{o.rowCount ?? 0} righe</span>
-                    </>
-                  ) : (
+                  {(o.source === 'quotes' || o.source === 'mixed') && (
                     <>
                       <span className="text-[12.5px] text-muted-foreground">
                         {(o.quoteRefs?.length ?? 0)}{' '}
@@ -207,6 +200,21 @@ export function OrderHistoryView({
                         </span>
                       ))}
                     </>
+                  )}
+                  {(o.source === 'request' || o.source === 'mixed') && (
+                    <span className="inline-flex items-center gap-[5px] rounded-full bg-warning/[0.13] px-[9px] py-[2px] text-[10.5px] font-semibold text-warning">
+                      <ClipboardList className="h-[11px] w-[11px]" />
+                      {o.source === 'mixed' ? 'Con richiesta' : 'Richiesta materiale'}
+                    </span>
+                  )}
+                  {o.source === 'file' && (
+                    <span className="inline-flex items-center gap-[5px] rounded-full bg-info/[0.13] px-[9px] py-[2px] text-[10.5px] font-semibold text-info">
+                      <FileSpreadsheet className="h-[11px] w-[11px]" />
+                      Distinta (da file)
+                    </span>
+                  )}
+                  {o.source !== 'quotes' && (
+                    <span className="text-[12.5px] text-muted-foreground">{o.rowCount ?? 0} righe</span>
                   )}
                 </div>
                 <RowActions onCsv={() => onDownloadCsv(o.id)} onDel={() => onDelete(o)} />

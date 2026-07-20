@@ -1,23 +1,22 @@
-"""Ordini materiale "da file" (distinta CSV / manuale, non legati ai preventivi).
+"""Parse distinta CSV (SolidWorks) + alias materiali — a servizio delle
+richieste materiale.
 
 Flusso:
 1. POST /from-file/parse — carica una distinta CSV (es. export SolidWorks),
    decodifica (utf-8/cp1252), ripulisce gli header sporchi, estrae le colonne
    utili, calcola le dimensioni GREZZO (larghezza/altezza +5 mm, spessore al
    multiplo di 5 per eccesso) e abbina il materiale al catalogo (+ alias).
-   Ritorna le righe per la tabella editabile — NIENTE scrittura su DB.
+   Ritorna le righe per la tabella editabile — NIENTE scrittura su DB. Le righe
+   popolano l'editor di una richiesta materiale (vedi api/material_requests.py).
 2. Alias: GET/POST /aliases — corrispondenze apprese nome-distinta → materiale.
-3. POST /from-file — dalle righe (editate) crea UN ordine per fornitore
-   (source='file') con le sue righe (MaterialOrderItem) e lo mette nello storico.
 
-Il CSV per-fornitore si scarica dallo stesso GET /{id}/csv di orders.py
-(esteso per gli ordini da file).
+`_REQUIRED_DIMS` / `_row_missing_dims` sono riusati da api/material_requests.py
+(validazione righe all'invio).
 """
 import csv
 import io
 import math
 import re
-from collections import defaultdict
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -25,15 +24,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.csv_import import _decode_csv_bytes, normalize_alias
 from app.core.database import get_db
-from app.core.security import get_current_user, require_permission
-from app.models import (
-    Material, MaterialAlias, MaterialOrder, MaterialOrderItem, MaterialSupplier, User,
-)
+from app.core.security import require_permission
+from app.models import Material, MaterialAlias
 from app.schemas import (
-    FileOrderCreate, FileOrderParseOut, FileOrderRow,
-    MaterialAliasCreate, MaterialAliasOut, MaterialOrderOut,
+    FileOrderParseOut, FileOrderRow, MaterialAliasCreate, MaterialAliasOut,
 )
-from app.services.notifications import create_notification
 
 router = APIRouter(prefix="/api/orders/materials", tags=["orders"])
 _can_orders = require_permission('orders.materials')
@@ -258,127 +253,3 @@ def delete_alias(alias_id: int, db: Session = Depends(get_db), _=_can_orders):
     db.delete(alias)
     db.commit()
     return {"ok": True}
-
-
-# ─── Creazione ordine/i da file ─────────────────────────────────────────────
-
-@router.post("/from-file", response_model=List[MaterialOrderOut])
-def create_file_orders(
-    payload: FileOrderCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _=_can_orders,
-):
-    """Crea UN ordine per fornitore (source='file') dalle righe editate, con le
-    sue righe (MaterialOrderItem). Nessun legame con i preventivi.
-    """
-    from app.api.orders import _order_to_out
-
-    rows = payload.rows
-    if not rows:
-        raise HTTPException(status_code=400, detail="Nessuna riga da ordinare")
-
-    def _label(r) -> str:
-        return r.part_code or r.material_name or r.csv_material or '(riga senza codice)'
-
-    missing_sup = [_label(r) for r in rows if not r.supplier_id]
-    if missing_sup:
-        raise HTTPException(
-            status_code=400,
-            detail="Assegna un materiale con fornitore a: " + ', '.join(missing_sup[:5]),
-        )
-    # Difesa in profondità: senza le misure il CSV stamperebbe '?'. Il frontend
-    # già disabilita "Crea ordine", ma un payload stantio/craftato passerebbe.
-    missing_dim = [_label(r) for r in rows if _row_missing_dims(r)]
-    if missing_dim:
-        raise HTTPException(
-            status_code=400,
-            detail="Completa le misure grezzo di: " + ', '.join(missing_dim[:5]),
-        )
-
-    # AUD-26: gli id materiale arrivano dal payload client. Validali contro il
-    # catalogo PRIMA di scriverli negli order item e negli alias appresi: un
-    # payload stantio/craftato con un material_id inesistente creerebbe item
-    # orfani e — peggio — un alias avvelenato che sbaglia i match CSV futuri.
-    # Coerente col check `missing_dim` poco sopra.
-    ref_mat_ids = {r.material_id for r in rows if r.material_id}
-    if ref_mat_ids:
-        known = {row.id for row in db.query(Material.id).filter(Material.id.in_(ref_mat_ids)).all()}
-        if ref_mat_ids - known:
-            raise HTTPException(
-                status_code=400,
-                detail="Uno o più materiali abbinati non esistono più a catalogo. "
-                       "Ricontrolla gli abbinamenti prima di creare l'ordine.",
-            )
-
-    by_supplier: dict = defaultdict(list)
-    for r in rows:
-        by_supplier[r.supplier_id].append(r)
-
-    created: List[MaterialOrder] = []
-    for sup_id, items in by_supplier.items():
-        sup = db.query(MaterialSupplier).filter(MaterialSupplier.id == sup_id).first()
-        if not sup:
-            raise HTTPException(status_code=404, detail=f"Fornitore id={sup_id} non trovato")
-        order = MaterialOrder(
-            created_by_user_id=current_user.id,
-            material_supplier_id=sup.id,
-            supplier_name=sup.name,
-            source='file',
-        )
-        db.add(order)
-        db.flush()
-        for r in items:
-            db.add(MaterialOrderItem(
-                material_order_id=order.id,
-                material_id=r.material_id,
-                material_name=r.material_name or r.csv_material,
-                part_code=r.part_code,
-                description=r.description,
-                shape=r.shape or 'prismatico',
-                width_mm=r.width_mm, height_mm=r.height_mm, thickness_mm=r.thickness_mm,
-                diameter_mm=r.diameter_mm, inner_diameter_mm=r.inner_diameter_mm, length_mm=r.length_mm,
-                quantity=r.quantity,
-            ))
-        created.append(order)
-
-    # Impara gli alias SOLO ora, dagli abbinamenti confermati con la creazione
-    # dell'ordine (nome-distinta → materiale): niente più apprendimento da click
-    # transitori/errati durante l'editing. Upsert idempotente per csv_name.
-    learned: dict = {}
-    for r in rows:
-        key = _norm(r.csv_material)
-        if key and r.material_id:
-            learned[key] = r.material_id
-    if learned:
-        existing = {
-            a.csv_name: a
-            for a in db.query(MaterialAlias).filter(MaterialAlias.csv_name.in_(list(learned))).all()
-        }
-        for key, mat_id in learned.items():
-            alias = existing.get(key)
-            if alias:
-                alias.material_id = mat_id
-            else:
-                db.add(MaterialAlias(csv_name=key, material_id=mat_id))
-
-    # F7: ordini + notifiche in un solo commit atomico. Flush per avere gli id
-    # degli ordini prima di creare le notifiche (commit=False).
-    db.flush()
-
-    actor = current_user.full_name or current_user.username
-    for order in created:
-        create_notification(
-            db,
-            type='materials_ordered',
-            title=f"Ordine materiali MO-{order.id:04d} (da file)",
-            body=f"{actor} ha creato l'ordine materiali da file per {order.supplier_name}",
-            created_by_user_id=current_user.id,
-            target_roles=['ufficio_tecnico', 'amministrazione'],
-            data={'order_id': order.id, 'navigate_to': '/orders/history'},
-            commit=False,
-        )
-
-    db.commit()
-
-    return [_order_to_out(o, db) for o in created]

@@ -16,7 +16,7 @@ from app.core.csv_import import (
 )
 from app.core.catalog_protect import check_duplicate_name
 from app.core.database import get_db, utc_now
-from app.core.security import get_current_user, require_permission
+from app.core.security import get_current_user, require_any_permission, require_permission
 from app.models import (
     Notification, Tool, ToolBrand, ToolLocation, ToolSupplier, ToolType, User,
 )
@@ -515,7 +515,10 @@ def low_stock_count(db: Session = Depends(get_db), _=_can_tools):
 def notify_low_stock(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    _=_can_tools,
+    # B-10: la notifica "ordinare utensili" appartiene al dominio ordini, non
+    # all'anagrafica. Accetta `orders.tools` OPPURE `tools` (lo scheduler gira
+    # come admin, che ha entrambe).
+    _=require_any_permission('orders.tools', 'tools'),
 ):
     """Crea notifica `tools_low_stock_alert` se ci sono utensili sotto minimo.
 

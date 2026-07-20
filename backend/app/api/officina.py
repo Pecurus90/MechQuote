@@ -10,6 +10,7 @@ Sprint A+B foundation:
 Tabelle reference, normative, calcolatori arriveranno in sprint successivi.
 """
 import logging
+import mimetypes
 import os
 from typing import List, Optional
 
@@ -206,21 +207,24 @@ def upload_document(
 
 @router.get("/documents/{doc_id}/download")
 def download_document(doc_id: int, db: Session = Depends(get_db), _=_can_read):
-    """Streaming download del PDF dal disco.
+    """Streaming download del documento dal disco.
 
     Inline display nel browser (Content-Disposition senza attachment): l'utente
-    apre il PDF in una tab/iframe senza scaricarlo a forza.
+    apre il file in una tab/iframe senza scaricarlo a forza. Il MIME è dedotto
+    dal nome file: `ALLOWED_EXT` ammette anche Word/Excel/immagini/DXF, non solo
+    PDF (B-12: prima era forzato a `application/pdf` → doc non-PDF serviti rotti).
     """
     doc = db.query(OfficinaDocument).filter(OfficinaDocument.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Documento non trovato")
     if not os.path.exists(doc.file_path):
         raise HTTPException(status_code=404, detail="File non trovato su disco")
+    media_type = mimetypes.guess_type(doc.filename)[0] or "application/octet-stream"
     return FileResponse(
         doc.file_path,
-        media_type="application/pdf",
+        media_type=media_type,
         filename=doc.filename,
-        # Nota: filename serve solo se il browser scarica; l'inline è il default per PDF.
+        # Nota: filename serve solo se il browser scarica; l'inline è il default per i tipi visualizzabili.
     )
 
 

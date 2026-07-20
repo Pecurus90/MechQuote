@@ -3,6 +3,7 @@ import { Paperclip, FileText, Image as ImageIcon, Box, Scan, Eye, Download, Tras
 import api, { getApiErrorDetail } from '@/lib/api'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { checkUploadFile } from '@/lib/uploadValidation'
 import type { PartFile } from '@/types'
 import DxfMeasureModal from '@/components/quotes/Dxf/DxfMeasureModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
@@ -43,6 +44,14 @@ export function PartAttachments({ partId, files, readOnly, onReload, densityKgDm
   const [pendingDelete, setPendingDelete] = useState<PartFile | null>(null)
 
   const upload = async (file: File) => {
+    // B-8: pre-check client (dimensione/estensione) come nel wizard 2D — evita
+    // di spedire un file oversize/errato e attendere il rifiuto del server.
+    const err = checkUploadFile(file, { maxMB: 50, exts: ACCEPT.split(',') })
+    if (err) {
+      toast.error(err)
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     setUploading(true)
     try {
       const fd = new FormData()

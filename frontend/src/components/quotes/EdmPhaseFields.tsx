@@ -105,6 +105,15 @@ export default function EdmPhaseFields({ phase, edmAuto, cuttingCycles, partId, 
       toast.error('Errore nel salvataggio della fase')
       return
     }
+    // B-7: allinea il grezzo della parte dalla bbox come fa confirmDxf all'import,
+    // ma SOLO se non è ancora impostato (non sovrascrive un grezzo scelto a mano).
+    if (partId && !partHasRawStock && r.bboxWmm > 0 && r.bboxHmm > 0) {
+      try {
+        await api.put(`/parts/${partId}`, { raw_x_mm: Math.ceil(r.bboxWmm), raw_y_mm: Math.ceil(r.bboxHmm) })
+      } catch {
+        toast.warning('Grezzo non aggiornato dalla bbox (compilalo manualmente)')
+      }
+    }
     if (onReload) onReload()
     else if (onPatch) onPatch(updates)
     toast.success(`${r.selectedIds.length} profili aggiornati (${updates.cut_length_mm} mm)`)

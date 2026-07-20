@@ -14,6 +14,10 @@ export interface ReselectResult {
   selectedIds: number[]
   selectedLengthMm: number
   selectedClosedCount: number
+  /** Bbox globale del DXF in mm reali (già ×unitScale). Serve ad aggiornare il
+   *  grezzo della parte se non ancora impostato, coerente con l'import (B-7). */
+  bboxWmm: number
+  bboxHmm: number
 }
 
 interface Props {
@@ -98,6 +102,8 @@ export default function Dxf2dReselectModal({ partFileId, initialSelectedIds, raw
         selectedIds: Array.from(selectedIds),
         selectedLengthMm,
         selectedClosedCount,
+        bboxWmm: (analysis?.bbox_global.w ?? 0) * unitScale,
+        bboxHmm: (analysis?.bbox_global.h ?? 0) * unitScale,
       })
     } finally {
       setSubmitting(false)

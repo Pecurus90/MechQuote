@@ -31,8 +31,9 @@ from app.core.csv_import import csv_export_response, sanitize_filename_part
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_permission
 from app.models import (
-    CompanySettings, MaterialOrder, MaterialOrderItem, MaterialOrderQuote,
-    MaterialSupplier, Part, Quote, QuoteSupplierOrder, User,
+    CompanySettings, Material, MaterialOrder, MaterialOrderItem, MaterialOrderQuote,
+    MaterialRequest, MaterialRequestItem, MaterialSupplier, Part, Quote,
+    QuoteSupplierOrder, User,
 )
 from app.schemas import (
     MaterialAggregateOut, MaterialAggregateBySupplier, MaterialItemAggregated,
@@ -123,16 +124,39 @@ def _estimate_weight_kg(part: Part) -> float:
     return 0.0
 
 
-def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateOut:
-    """Aggrega i materiali grezzi delle parti dei quote selezionati.
+def _request_item_weight_kg(it: MaterialRequestItem, mat: Optional[Material]) -> float:
+    """Peso stimato del grezzo di una riga richiesta (volume × densità × qty).
+    0 se manca il materiale a catalogo o la densità (→ "—" in UI)."""
+    if not mat or not mat.density_kg_dm3:
+        return 0.0
+    qty = it.quantity or 1
+    shape = it.shape or 'prismatico'
+    if shape == 'tondo':
+        r = (it.diameter_mm or 0) / 2
+        vol = math.pi * r * r * (it.length_mm or 0)
+    elif shape == 'tubo':
+        ro = (it.diameter_mm or 0) / 2
+        ri = max(ro - (it.thickness_mm or 0), 0)
+        vol = math.pi * (ro * ro - ri * ri) * (it.length_mm or 0)
+    else:
+        vol = (it.width_mm or 0) * (it.height_mm or 0) * (it.thickness_mm or 0)
+    return (vol / 1_000_000) * mat.density_kg_dm3 * qty
 
-    Esclude parti `customer_supplied_material=True` (cliente porta materiale).
-    Le parti `material_from_stock=True` sono INCLUSE ma marcate con
-    `from_stock=True` nell'entry aggregata, perché l'utente vuole comunque
-    vederle nella lista del fornitore abituale (con badge "Da magazzino").
-    Raggruppa per (supplier_id, material_id, dim_signature, from_stock).
-    Le parti senza `material_id` vengono escluse (niente materiale = niente
-    da ordinare).
+
+def aggregate_materials(quote_ids: List[int], db: Session,
+                        request_ids: Optional[List[int]] = None) -> MaterialAggregateOut:
+    """Aggrega i materiali grezzi da preventivi + richieste materiale manuali.
+
+    Preventivi: esclude parti `customer_supplied_material=True` (cliente porta
+    materiale). Le parti `material_from_stock=True` sono INCLUSE ma marcate con
+    `from_stock=True` (badge "Da magazzino"). Raggruppa per
+    (supplier_id, material_id, dim_signature, from_stock). Le parti senza
+    `material_id` sono escluse.
+
+    Richieste (`request_ids`): le righe ancora aperte (non evase) entrano nel
+    gruppo del loro fornitore come voci proprie (riferimento = codice riga o
+    `RM-xxxx`), NON fuse con le righe da preventivo — la tracciabilità del
+    riferimento resta distinta.
     """
     parts = db.query(Part).options(
         joinedload(Part.material).joinedload(__import__('app.models', fromlist=['Material']).Material.material_supplier),
@@ -202,6 +226,53 @@ def aggregate_materials(quote_ids: List[int], db: Session) -> MaterialAggregateO
             quote_refs=refs,
             from_stock=slot['from_stock'],
         ))
+
+    # ─ Righe da richieste materiale manuali (aperte) ─
+    # Entrano nel gruppo del loro fornitore come voci proprie (ref = codice riga
+    # o RM-xxxx), aggregate per (fornitore, materiale, dimensioni).
+    if request_ids:
+        req_items = db.query(MaterialRequestItem).filter(
+            MaterialRequestItem.material_request_id.in_(request_ids),
+            MaterialRequestItem.material_order_id.is_(None),
+        ).all()
+        mat_ids = {it.material_id for it in req_items if it.material_id}
+        mat_map = ({m.id: m for m in db.query(Material).filter(Material.id.in_(mat_ids)).all()}
+                   if mat_ids else {})
+        raggr: Dict[Tuple, Dict[str, Any]] = {}
+        for it in req_items:
+            dim_str = f"{_shape_label_it(it.shape)} {_file_item_dim(it)}".strip()
+            ref = it.part_code or f"RM-{it.material_request_id:04d}"
+            key = (it.supplier_id, it.material_name, dim_str)
+            slot = raggr.setdefault(key, {
+                'supplier_id': it.supplier_id,
+                'supplier_name': it.supplier_name or 'Senza fornitore',
+                'material_id': it.material_id,
+                'material_name': it.material_name,
+                'dim_str': dim_str,
+                'total_qty': 0,
+                'total_weight_kg': 0.0,
+                'refs': defaultdict(int),
+            })
+            slot['total_qty'] += (it.quantity or 1)
+            slot['total_weight_kg'] += _request_item_weight_kg(it, mat_map.get(it.material_id))
+            slot['refs'][ref] += (it.quantity or 1)
+        for slot in raggr.values():
+            sup_id = slot['supplier_id']
+            if sup_id not in by_supplier:
+                by_supplier[sup_id] = MaterialAggregateBySupplier(
+                    supplier_id=sup_id, supplier_name=slot['supplier_name'], items=[],
+                )
+            refs = [f"{r} ×{q}" for r, q in sorted(slot['refs'].items())]
+            by_supplier[sup_id].items.append(MaterialItemAggregated(
+                material_id=slot['material_id'],
+                material_name=slot['material_name'],
+                family=None,
+                dim_str=slot['dim_str'],
+                total_qty=slot['total_qty'],
+                total_weight_kg=round(slot['total_weight_kg'], 3),
+                quote_refs=refs,
+                from_stock=False,
+            ))
 
     # Ordina items dentro ogni gruppo per nome materiale; gruppi per nome fornitore.
     for g in by_supplier.values():
@@ -301,6 +372,39 @@ def _persist_order_snapshot(order: MaterialOrder, quote_ids: List[int],
             ))
 
 
+def _supplier_request_items(request_ids: List[int], supplier_id: int,
+                            db: Session) -> List[MaterialRequestItem]:
+    """Righe-richiesta APERTE (non evase) di un fornitore, dai request_ids dati."""
+    if not request_ids:
+        return []
+    return db.query(MaterialRequestItem).filter(
+        MaterialRequestItem.material_request_id.in_(request_ids),
+        MaterialRequestItem.supplier_id == supplier_id,
+        MaterialRequestItem.material_order_id.is_(None),
+    ).all()
+
+
+def _persist_request_snapshot(order: MaterialOrder,
+                              req_items: List[MaterialRequestItem],
+                              now, db: Session) -> None:
+    """Congela le righe-richiesta nell'ordine emesso (MaterialOrderItem) e le
+    marca evase (material_order_id/evaso_at). Il riferimento CSV = codice riga o
+    RM-xxxx. Stessa struttura degli item ordine-da-file."""
+    for it in req_items:
+        db.add(MaterialOrderItem(
+            material_order_id=order.id, material_id=it.material_id,
+            material_name=it.material_name,
+            part_code=it.part_code or f"RM-{it.material_request_id:04d}",
+            description=it.description or "",
+            shape=it.shape or 'prismatico',
+            width_mm=it.width_mm, height_mm=it.height_mm, thickness_mm=it.thickness_mm,
+            diameter_mm=it.diameter_mm, inner_diameter_mm=it.inner_diameter_mm,
+            length_mm=it.length_mm, quantity=it.quantity or 1,
+        ))
+        it.material_order_id = order.id
+        it.evaso_at = now
+
+
 def _quote_material_rows(quote_id: int, db: Session):
     """Righe CSV dei materiali da ordinare di UN preventivo (tutti i fornitori).
 
@@ -343,6 +447,8 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
       non ordinato). Robusto anche se un `confermato` con materiale già risolto
       restasse tale per un reconcile mancato (non lo conterebbe), a differenza
       del vecchio conteggio basato sul flag legacy `material_ordered_at`.
+      Include anche le RICHIESTE materiale inviate con righe ancora aperte
+      (stesso pool: entrambe le sorgenti sono "materiale da ordinare").
     - `orders_this_month`: ordini creati nel mese corrente (UTC)
     - `orders_total`: ordini emessi all-time
     - `last_order_at`: timestamp ISO ultimo ordine (None se nessuno)
@@ -352,6 +458,15 @@ def get_stats(db: Session = Depends(get_db), _=_can_orders) -> Dict[str, Any]:
 
     confirmed = db.query(Quote).filter(Quote.status == wf.STATUS_CONFERMATO).all()
     to_order = sum(1 for q in confirmed if not wf.material_is_resolved(db, q))
+    # Richieste inviate con almeno una riga aperta (non evasa).
+    open_request_ids = {
+        rid for (rid,) in db.query(MaterialRequestItem.material_request_id)
+        .join(MaterialRequest, MaterialRequest.id == MaterialRequestItem.material_request_id)
+        .filter(MaterialRequest.status == 'inviato',
+                MaterialRequestItem.material_order_id.is_(None))
+        .distinct().all()
+    }
+    to_order += len(open_request_ids)
 
     orders_total = db.query(MaterialOrder).count()
     orders_this_month = db.query(MaterialOrder).filter(
@@ -424,8 +539,9 @@ def preview_aggregate(
     db: Session = Depends(get_db),
     _=_can_orders,
 ):
-    """Preview senza side effect: ritorna la lista materiali aggregata."""
-    return aggregate_materials(payload.quote_ids, db)
+    """Preview senza side effect: ritorna la lista materiali aggregata
+    (preventivi + richieste materiale selezionati)."""
+    return aggregate_materials(payload.quote_ids, db, payload.request_ids)
 
 
 @router.post("", response_model=MaterialOrderOut)
@@ -435,13 +551,17 @@ def create_order(
     current_user: User = Depends(get_current_user),
     _=_can_orders,
 ):
-    """Crea un ordine materiali PER FORNITORE (spec 18).
+    """Crea un ordine materiali PER FORNITORE dal pool unificato (spec 18).
 
-    Dai preventivi selezionati prende le parti da ordinare del fornitore
-    scelto, marca le coppie (preventivo, fornitore) come ordinate, ricalcola
-    lo stato materiale e notifica. Idempotente: i preventivi già ordinati per
-    quel fornitore vengono saltati; se sono tutti già ordinati → 400.
-    Il CSV si scarica separatamente via GET /{id}/csv.
+    Combina, per il fornitore scelto:
+    - le parti da ordinare dei PREVENTIVI selezionati (marca le coppie
+      preventivo×fornitore come evase, riconcilia lo stato, può completare il
+      preventivo);
+    - le righe aperte delle RICHIESTE materiale manuali selezionate (le marca
+      evase).
+    Snapshotta tutte le righe in MaterialOrderItem (CSV fedele). Idempotente
+    sui preventivi già ordinati per quel fornitore (saltati) e sulle righe
+    richiesta già evase (escluse). Il CSV si scarica via GET /{id}/csv.
     """
     if payload.material_supplier_id is None:
         raise HTTPException(status_code=400, detail="Fornitore mancante per l'ordine")
@@ -456,32 +576,26 @@ def create_order(
         raise HTTPException(status_code=400, detail="Uno o più preventivi non esistono")
     quote_by_id = {q.id: q for q in quotes}
 
+    # ─ Lato preventivi: coinvolti per questo fornitore, non ancora ordinati
+    #   (idempotenza) e solo confermati (spec 18) ─
     involved, _rows = _supplier_order_data(payload.quote_ids, supplier.id, db)
-    if not involved:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Nessun materiale da ordinare per {supplier.name} nei preventivi selezionati",
-        )
-
-    # Salta i preventivi già ordinati per questo fornitore (idempotenza).
     existing = {
         r.quote_id for r in db.query(QuoteSupplierOrder).filter(
             QuoteSupplierOrder.material_supplier_id == supplier.id,
             QuoteSupplierOrder.quote_id.in_(list(involved)),
         ).all()
-    }
-    new_ids = involved - existing
-    if not new_ids:
+    } if involved else set()
+    new_ids = {qid for qid in (involved - existing)
+               if quote_by_id[qid].status in wf.ORDERABLE_STATUSES}
+
+    # ─ Lato richieste: righe aperte del fornitore ─
+    req_items = _supplier_request_items(payload.request_ids, supplier.id, db)
+
+    if not new_ids and not req_items:
         raise HTTPException(
             status_code=400,
-            detail=f"Materiale già ordinato per {supplier.name} in questi preventivi",
-        )
-    # Spec 18: il materiale si ordina solo dopo la Conferma del preventivo.
-    new_ids = {qid for qid in new_ids if quote_by_id[qid].status in wf.ORDERABLE_STATUSES}
-    if not new_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="Solo i preventivi confermati possono essere ordinati",
+            detail=f"Nessun materiale da ordinare per {supplier.name} nei selezionati "
+                   "(già ordinato, non confermato, o senza righe per questo fornitore)",
         )
 
     now = utc_now()
@@ -489,6 +603,7 @@ def create_order(
         created_by_user_id=current_user.id,
         material_supplier_id=supplier.id,
         supplier_name=supplier.name,
+        source='quotes' if new_ids else 'file',
     )
     db.add(order)
     db.flush()
@@ -502,13 +617,16 @@ def create_order(
             ordered_at=now,
             ordered_by_user_id=current_user.id,
         ))
-    # B6 — congela lo snapshot delle righe ordinate (fedeltà alla ristampa CSV).
-    _persist_order_snapshot(order, list(new_ids), supplier.id, db)
-    # AUD-25: il check di idempotenza sopra (legge `existing`) non è atomico —
-    # due POST concorrenti per (preventivo × fornitore) lo superano entrambi.
-    # Il vincolo UNIQUE(quote_id, material_supplier_id) impedisce il doppio
-    # ordine a livello DB; qui traduciamo l'IntegrityError del perdente in un
-    # 409 pulito invece di un 500 opaco.
+    if new_ids:
+        # B6 — congela lo snapshot delle righe da preventivo (fedeltà ristampa CSV).
+        _persist_order_snapshot(order, list(new_ids), supplier.id, db)
+    if req_items:
+        # Snapshot righe da richiesta + evasione (material_order_id/evaso_at).
+        _persist_request_snapshot(order, req_items, now, db)
+    # AUD-25: il check di idempotenza preventivi non è atomico — due POST
+    # concorrenti lo superano entrambi. Il vincolo UNIQUE(quote_id,
+    # material_supplier_id) impedisce il doppio ordine a livello DB; qui
+    # traduciamo l'IntegrityError del perdente in un 409 pulito.
     try:
         db.flush()
     except IntegrityError:
@@ -527,19 +645,20 @@ def create_order(
             completed_quotes.append(q)
 
     # F7: materials_ordered nella stessa transazione di ordine + reconcile
-    # (commit=False) → un solo commit atomico. order.id è già disponibile dopo
-    # il flush sopra. quote_completed resta su commit proprio (UNIQUE dedupe +
-    # doppia sorgente: qui e confirm_quote).
+    # (commit=False) → un solo commit atomico. Riepilogo = preventivi + richieste.
     actor_name = current_user.full_name or current_user.username
-    nums = sorted(quote_by_id[qid].quote_number for qid in new_ids)
-    quote_list = ', '.join(nums[:5])
-    if len(nums) > 5:
-        quote_list += f" e altri {len(nums) - 5}"
+    refs = sorted(quote_by_id[qid].quote_number for qid in new_ids)
+    if req_items:
+        refs += sorted({f"RM-{it.material_request_id:04d}" for it in req_items})
+    ref_list = ', '.join(refs[:5])
+    if len(refs) > 5:
+        ref_list += f" e altri {len(refs) - 5}"
     create_notification(
         db,
         type='materials_ordered',
         title=f"Ordine materiali MO-{order.id:04d}",
-        body=f"{actor_name} ha creato l'ordine materiali per {supplier.name} (prev. {quote_list})",
+        body=f"{actor_name} ha creato l'ordine materiali per {supplier.name}"
+             + (f" ({ref_list})" if ref_list else ""),
         created_by_user_id=current_user.id,
         target_roles=['ufficio_tecnico', 'amministrazione'],
         data={'order_id': order.id, 'material_supplier_id': supplier.id, 'navigate_to': '/orders/history'},
@@ -553,8 +672,8 @@ def create_order(
         from app.api.quotes import notify_quote_completed
         notify_quote_completed(db, q, current_user)
 
-    logger.info("Ordine materiali creato: id=%s supplier=%s by=%s n_quotes=%d",
-                order.id, supplier.name, current_user.username, len(new_ids))
+    logger.info("Ordine materiali creato: id=%s supplier=%s by=%s n_quotes=%d n_req_items=%d",
+                order.id, supplier.name, current_user.username, len(new_ids), len(req_items))
 
     return _order_to_out(order, db)
 
@@ -710,6 +829,9 @@ def delete_order(
     - un `completo` che perde la risoluzione del materiale viene RIAPERTO a
       `confermato` (auto-demote; il consuntivo venduto/costo è preservato).
     Risponde con il riepilogo (`reverted` / `reopened`) per l'avviso lato UI.
+
+    Riapre anche le righe delle RICHIESTE materiale evase da questo ordine
+    (azzera `material_order_id`/`evaso_at`): tornano nel pool selezionabili.
     """
     order = db.query(MaterialOrder).options(joinedload(MaterialOrder.quotes)).filter(
         MaterialOrder.id == order_id
@@ -726,6 +848,16 @@ def delete_order(
             QuoteSupplierOrder.material_order_id == order.id,
             QuoteSupplierOrder.quote_id == q.id,
         ).delete(synchronize_session=False)
+
+    # Riapri le righe-richiesta evase da questo ordine (tornano nel pool). Va
+    # fatto PRIMA di db.delete(order): su SQLite le FK non sono enforce, quindi
+    # senza questo resterebbero puntate a un ordine inesistente.
+    db.query(MaterialRequestItem).filter(
+        MaterialRequestItem.material_order_id == order.id,
+    ).update(
+        {MaterialRequestItem.material_order_id: None, MaterialRequestItem.evaso_at: None},
+        synchronize_session=False,
+    )
 
     # Le righe di join material_order_quotes vengono rimosse da SQLAlchemy con
     # la cancellazione dell'ordine (relazione m2m): NON eliminarle a mano, o il

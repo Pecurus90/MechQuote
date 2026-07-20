@@ -1192,10 +1192,13 @@ class DxfAnalysisOut(BaseModel):
 # ─── Ordini materiali ──────────────────────────────────────────────────────
 
 class MaterialOrderCreate(BaseModel):
-    quote_ids: List[int] = Field(min_length=1)
+    # Pool unificato: un ordine nasce da preventivi e/o richieste materiale
+    # manuali. Entrambe le liste opzionali (l'endpoint esige che almeno una sia
+    # non vuota); /aggregate (preview) usa lo stesso modello.
+    quote_ids: List[int] = Field(default_factory=list)
+    request_ids: List[int] = Field(default_factory=list)
     # Spec 18: creare l'ordine è per-fornitore. Opzionale nello schema perché
-    # /aggregate (preview) usa lo stesso modello e non lo richiede; l'endpoint
-    # di creazione lo esige.
+    # /aggregate (preview) non lo richiede; l'endpoint di creazione lo esige.
     material_supplier_id: Optional[int] = None
 
 

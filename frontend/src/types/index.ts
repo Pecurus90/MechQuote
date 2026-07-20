@@ -252,6 +252,40 @@ export interface MaterialOrder {
   item_count?: number      // righe (ordini da file)
 }
 
+// Richiesta materiale manuale (gemello del preventivo per il materiale).
+export interface MaterialRequestItem {
+  id: number
+  material_id: number | null
+  material_name: string
+  part_code: string
+  description: string
+  shape: 'prismatico' | 'tondo' | 'tubo'
+  width_mm: number | null
+  height_mm: number | null
+  thickness_mm: number | null
+  diameter_mm: number | null
+  inner_diameter_mm: number | null
+  length_mm: number | null
+  quantity: number
+  supplier_id: number | null
+  supplier_name: string | null
+  evaso: boolean                 // riga già confluita in un ordine emesso (bloccata)
+  material_order_id: number | null
+}
+
+export interface MaterialRequest {
+  id: number
+  created_at: string
+  created_by: UserMinimal | null
+  status: 'bozza' | 'inviato'
+  sent_at: string | null
+  title: string | null
+  items: MaterialRequestItem[]
+  item_count: number
+  open_count: number             // righe ancora da ordinare (non evase)
+  supplier_names: string[]       // fornitori distinti delle righe aperte
+}
+
 export interface MaterialItemAggregated {
   material_id: number | null
   material_name: string

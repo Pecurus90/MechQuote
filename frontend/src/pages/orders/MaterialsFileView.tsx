@@ -64,6 +64,12 @@ export interface AliasEntry {
 
 interface Props {
   subtitle?: string
+  /** Titolo header (default "Materiale da file"). */
+  headerTitle?: string
+  /** Campo titolo opzionale (per le richieste materiale): reso solo se
+   *  `onTitleChange` è fornito. */
+  titleValue?: string
+  onTitleChange?: (v: string) => void
   rows: FileRow[]
   materials: MaterialOption[]
   onPatchRow: (id: string, patch: Partial<Omit<FileRow, 'id'>>) => void
@@ -71,6 +77,12 @@ interface Props {
   onRemoveRow: (id: string) => void
   onImport: (file: File) => void
   onCreate: () => void
+  /** Label del pulsante primario (default "Crea ordine"). */
+  primaryLabel?: string
+  /** Pulsante secondario opzionale (es. "Salva bozza"): reso a sinistra del
+   *  primario, NON bloccato dalle righe incomplete. */
+  secondaryLabel?: string
+  onSecondary?: () => void
   onPickMaterial: (id: string, materialId: number) => void
   /** Crea un nuovo materiale a catalogo per una riga non abbinata (apre il form
    *  nel container). Fornito SOLO se l'utente ha i permessi catalogo ('settings')
@@ -99,6 +111,9 @@ function isRowInvalid(row: FileRow): boolean {
 
 export function MaterialsFileView({
   subtitle = 'Importa una distinta o inserisci a mano · crea ordini per fornitore senza legame ai preventivi',
+  headerTitle = 'Materiale da file',
+  titleValue,
+  onTitleChange,
   rows,
   materials,
   onPatchRow,
@@ -106,6 +121,9 @@ export function MaterialsFileView({
   onRemoveRow,
   onImport,
   onCreate,
+  primaryLabel = 'Crea ordine',
+  secondaryLabel,
+  onSecondary,
   onPickMaterial,
   onCreateNewMaterial,
   aliases = [],
@@ -124,7 +142,7 @@ export function MaterialsFileView({
           <FileSpreadsheet className="h-[23px] w-[23px]" />
         </div>
         <div className="flex-1">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">Materiale da file</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{headerTitle}</h1>
           <p className="text-[13.5px] text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex flex-none gap-2.5">
@@ -150,6 +168,16 @@ export function MaterialsFileView({
             <Plus className="h-4 w-4" />
             Aggiungi riga
           </button>
+          {onSecondary && (
+            <button
+              type="button"
+              onClick={onSecondary}
+              disabled={rows.length === 0}
+              className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-border bg-card px-[15px] text-sm font-semibold text-foreground transition-[filter] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {secondaryLabel ?? 'Salva bozza'}
+            </button>
+          )}
           <button
             type="button"
             onClick={onCreate}
@@ -158,10 +186,22 @@ export function MaterialsFileView({
             className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-[filter] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check className="h-4 w-4" />
-            Crea ordine
+            {primaryLabel}
           </button>
         </div>
       </div>
+
+      {/* Titolo richiesta (opzionale) */}
+      {onTitleChange && (
+        <div className="mb-4">
+          <input
+            value={titleValue ?? ''}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Titolo ordine (opzionale) — es. Ricambi manutenzione, Attrezzatura reparto…"
+            className="h-10 w-full rounded-[10px] border border-input bg-background px-3.5 text-[13.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
+          />
+        </div>
+      )}
 
       {rows.length === 0 ? (
         /* Empty state */

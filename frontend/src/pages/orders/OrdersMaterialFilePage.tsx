@@ -1,17 +1,23 @@
-// Container "Materiale da file": import distinta CSV / righe manuali, tabella
-// editabile (MaterialsFileView del design handoff), crea un ordine per fornitore.
-// Mappa tra la shape backend (FileOrderRow, campi espliciti) e quella della vista
-// (FileRow, dims Record per forma).
+// Container "Nuovo ordine materiale" (richiesta materiale manuale): righe a
+// mano o da distinta SolidWorks, salva come bozza o invia nel pool ordini
+// materiali (/orders/materials) insieme ai preventivi. Riusa MaterialsFileView
+// per la tabella righe. Mappa tra la shape backend (FileOrderRow) e la vista.
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FileClock, Send, Trash2 } from 'lucide-react'
 import api, { getApiErrorDetail } from '@/lib/api'
 import { toast } from 'sonner'
 import PageContainer from '@/components/ui/page-container'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import {
   MaterialsFileView, type FileRow, type MaterialOption, type Shape,
 } from '@/pages/orders/MaterialsFileView'
 import MaterialFormModal from '@/pages/settings/MaterialFormModal'
 import { useAuth } from '@/lib/auth'
-import type { FileOrderRow, Material, MaterialAlias, MaterialSupplier } from '@/types'
+import { timeAgo } from '@/lib/timeAgo'
+import type {
+  FileOrderRow, Material, MaterialAlias, MaterialRequest, MaterialRequestItem, MaterialSupplier,
+} from '@/types'
 
 // Riga interna = shape backend + id client per key/patch.
 type Row = FileOrderRow & { _id: string }
@@ -47,23 +53,39 @@ const emptyRow = (): Row => ({
   quantity: 1, needs_dimensions: true, needs_material: true,
 })
 
+// Riga richiesta (backend) → riga editor.
+const itemToRow = (it: MaterialRequestItem): Row => ({
+  _id: newId(), part_code: it.part_code, description: it.description,
+  csv_material: it.material_name,
+  material_id: it.material_id, material_name: it.material_name,
+  supplier_id: it.supplier_id, supplier_name: it.supplier_name,
+  shape: it.shape, width_mm: it.width_mm, height_mm: it.height_mm, thickness_mm: it.thickness_mm,
+  diameter_mm: it.diameter_mm, inner_diameter_mm: it.inner_diameter_mm, length_mm: it.length_mm,
+  quantity: it.quantity, needs_dimensions: false, needs_material: it.material_id == null,
+})
+
 export default function OrdersMaterialFilePage() {
   const { hasPermission } = useAuth()
+  const navigate = useNavigate()
   const [rows, setRows] = useState<Row[]>([])
+  const [title, setTitle] = useState('')
+  // Bozza in modifica (null = nuova richiesta). Impostata dopo il primo salvataggio.
+  const [requestId, setRequestId] = useState<number | null>(null)
+  const [drafts, setDrafts] = useState<MaterialRequest[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [suppliers, setSuppliers] = useState<MaterialSupplier[]>([])
   const [aliases, setAliases] = useState<MaterialAlias[]>([])
-  // Riga per cui si sta creando un nuovo materiale (apre il MaterialFormModal).
   const [newMatRowId, setNewMatRowId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<MaterialRequest | null>(null)
 
   const loadMaterials = () => api.get('/materials').then(r => setMaterials(r.data)).catch(() => undefined)
   const loadAliases = () => api.get('/orders/materials/aliases').then(r => setAliases(r.data)).catch(() => undefined)
+  const loadDrafts = () => api.get('/orders/material-requests?status=bozza').then(r => setDrafts(r.data)).catch(() => undefined)
   useEffect(() => {
     loadMaterials()
-    // Fornitori: servono al MaterialFormModal (creazione materiale da import).
-    // GET aperto (nessun permesso richiesto), quindi caricabile sempre.
     api.get('/material-suppliers').then(r => setSuppliers(r.data)).catch(() => undefined)
     loadAliases()
+    loadDrafts()
   }, [])
 
   const deleteAlias = async (id: number) => {
@@ -81,24 +103,17 @@ export default function OrdersMaterialFilePage() {
       const fd = new FormData(); fd.append('file', file)
       const res = await api.post('/orders/materials/from-file/parse', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       const parsed = (res.data.rows as FileOrderRow[]).map(r => ({ ...r, _id: newId() }))
-      setRows(parsed)
+      setRows(rs => [...rs, ...parsed])
       toast.success(`Distinta importata: ${parsed.length} righe`)
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'import del CSV')) }
   }
 
-  // Selezione materiale: aggiorna solo la riga. L'alias NON si salva qui (era
-  // apprendimento da click transitorio/errato): viene appreso alla creazione
-  // dell'ordine, dagli abbinamenti effettivamente confermati (vedi backend).
   const onPickMaterial = (id: string, materialId: number) => {
     const m = materials.find(x => x.id === materialId)
     if (!m) return
     patch(id, { material_id: m.id, material_name: m.name, supplier_id: m.supplier_id ?? null, supplier_name: m.material_supplier?.name ?? null })
   }
 
-  // Nuovo materiale creato dal modal per la riga `newMatRowId`: aggiungilo alla
-  // lista (per la tendina) e selezionalo sulla riga. L'alias nome-distinta →
-  // materiale si imparerà alla creazione dell'ordine, come per un abbinamento
-  // manuale (il backend usa row.csv_material, che resta invariato).
   const onNewMaterialSaved = (m?: Material) => {
     if (m && newMatRowId) {
       setMaterials(prev => prev.some(x => x.id === m.id) ? prev.map(x => (x.id === m.id ? m : x)) : [...prev, m])
@@ -111,32 +126,58 @@ export default function OrdersMaterialFilePage() {
     setNewMatRowId(null)
   }
 
-  const download = async (orderId: number) => {
-    const res = await api.get(`/orders/materials/${orderId}/csv`, { responseType: 'blob' })
-    const cd = res.headers['content-disposition'] as string | undefined
-    const match = cd?.match(/filename="?([^"]+)"?/)
-    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }))
-    const a = document.createElement('a')
-    a.href = url; a.download = match ? match[1] : `ordine_${orderId}.csv`
-    document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
-  }
+  const resetEditor = () => { setRows([]); setTitle(''); setRequestId(null) }
 
-  const onCreate = async () => {
-    if (rows.length === 0) { toast.error('Nessuna riga'); return }
-    const noSupplier = rows.filter(r => !r.supplier_id)
-    if (noSupplier.length) { toast.error(`Abbina un materiale (con fornitore) a ${noSupplier.length} riga/e`); return }
+  // Salva/aggiorna la bozza; ritorna l'id (o null in errore). Il backend ignora
+  // l'extra `_id` sulle righe (Pydantic extra=ignore).
+  const persist = async (): Promise<number | null> => {
     try {
-      // Il campo extra `_id` viene ignorato dal backend (Pydantic extra=ignore).
-      const res = await api.post('/orders/materials/from-file', { rows })
-      const orders = res.data as { id: number }[]
-      toast.success(`${orders.length} ordine/i creato/i — CSV in download`)
-      for (const o of orders) await download(o.id)
-      setRows([])
-      loadAliases()  // il backend ha appreso gli alias dagli abbinamenti confermati
-    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nella creazione dell\'ordine')) }
+      const payload = { title: title.trim() || null, rows }
+      if (requestId == null) {
+        const res = await api.post('/orders/material-requests', payload)
+        setRequestId(res.data.id)
+        return res.data.id as number
+      }
+      await api.put(`/orders/material-requests/${requestId}`, payload)
+      return requestId
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel salvataggio')); return null }
   }
 
-  // Map interno → props vista.
+  const saveDraft = async () => {
+    const id = await persist()
+    if (id != null) { toast.success('Bozza salvata'); loadDrafts() }
+  }
+
+  const send = async () => {
+    const id = await persist()
+    if (id == null) return
+    try {
+      await api.post(`/orders/material-requests/${id}/send`)
+      toast.success('Ordine inviato — è nel pool ordini materiali')
+      resetEditor(); loadDrafts()
+      navigate('/orders/materials')
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'invio dell\'ordine')) }
+  }
+
+  const resumeDraft = async (d: MaterialRequest) => {
+    try {
+      const res = await api.get(`/orders/material-requests/${d.id}`)
+      const req = res.data as MaterialRequest
+      setRequestId(req.id)
+      setTitle(req.title ?? '')
+      setRows(req.items.map(itemToRow))
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nel caricamento della bozza')) }
+  }
+
+  const deleteDraft = async (d: MaterialRequest) => {
+    try {
+      await api.delete(`/orders/material-requests/${d.id}`)
+      toast.success('Bozza eliminata')
+      if (requestId === d.id) resetEditor()
+      loadDrafts()
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'eliminazione')) }
+  }
+
   const materialOptions: MaterialOption[] = materials.map(m => ({ id: m.id, label: m.name, supplierName: m.material_supplier?.name ?? '—' }))
   const viewRows: FileRow[] = rows.map(r => ({
     id: r._id, code: r.part_code, description: r.description,
@@ -156,14 +197,60 @@ export default function OrdersMaterialFilePage() {
 
   return (
     <PageContainer width="xl">
+      {/* Bozze salvate: riprendi o elimina */}
+      {drafts.length > 0 && (
+        <div className="mb-4 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center gap-2 border-b border-border bg-card-muted px-[18px] py-3">
+            <FileClock className="h-[17px] w-[17px] text-muted-foreground" />
+            <span className="text-[13px] font-semibold text-foreground">Bozze salvate</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{drafts.length}</span>
+          </div>
+          <div className="divide-y divide-border">
+            {drafts.map(d => (
+              <div key={d.id} className="flex items-center gap-3 px-[18px] py-2.5 text-[13px]">
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                  {d.title || `RM-${String(d.id).padStart(4, '0')}`}
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    {d.item_count} righe · {timeAgo(d.created_at)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => resumeDraft(d)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-[filter] hover:brightness-105"
+                >
+                  <Send className="h-[13px] w-[13px]" /> Riprendi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(d)}
+                  title="Elimina bozza"
+                  aria-label="Elimina bozza"
+                  className="flex h-8 w-8 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:text-danger"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <MaterialsFileView
+        headerTitle={requestId != null ? `Modifica bozza RM-${String(requestId).padStart(4, '0')}` : 'Nuovo ordine materiale'}
+        subtitle="Importa una distinta o inserisci a mano · salva la bozza o invia l'ordine nel pool materiali (con o senza preventivi)"
+        titleValue={title}
+        onTitleChange={setTitle}
         rows={viewRows}
         materials={materialOptions}
         onPatchRow={onPatchRow}
         onAddRow={() => setRows(rs => [...rs, emptyRow()])}
         onRemoveRow={(id) => setRows(rs => rs.filter(r => r._id !== id))}
         onImport={onImport}
-        onCreate={onCreate}
+        onCreate={send}
+        primaryLabel="Invia ordine"
+        secondaryLabel="Salva bozza"
+        onSecondary={saveDraft}
         onPickMaterial={onPickMaterial}
         onCreateNewMaterial={hasPermission('settings') ? (rowId) => setNewMatRowId(rowId) : undefined}
         aliases={aliases}
@@ -178,6 +265,15 @@ export default function OrdersMaterialFilePage() {
           onSaved={onNewMaterialSaved}
         />
       )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        variant="destructive"
+        title={pendingDelete ? `Eliminare la bozza ${pendingDelete.title || `RM-${String(pendingDelete.id).padStart(4, '0')}`}?` : ''}
+        description="La bozza verrà rimossa. Non reversibile."
+        confirmLabel="Elimina"
+        onConfirm={() => { const d = pendingDelete; setPendingDelete(null); if (d) deleteDraft(d) }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </PageContainer>
   )
 }

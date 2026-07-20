@@ -99,7 +99,7 @@ export default function Sidebar() {
   if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {
     const children: Leaf[] = []
     if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials') })
-    if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Materiali da distinta', icon: FileUp, active: at('/orders/materials-file') })
+    if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Nuovo ordine materiale', icon: FileUp, active: at('/orders/materials-file') })
     if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da distinta', icon: Bolt, active: at('/orders/normalized-file') })
     if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: ShoppingCart, active: at('/orders/tools') })
     children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })

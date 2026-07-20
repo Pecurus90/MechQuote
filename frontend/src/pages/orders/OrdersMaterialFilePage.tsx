@@ -15,54 +15,10 @@ import {
 import MaterialFormModal from '@/pages/settings/MaterialFormModal'
 import { useAuth } from '@/lib/auth'
 import { timeAgo } from '@/lib/timeAgo'
-import type {
-  FileOrderRow, Material, MaterialAlias, MaterialRequest, MaterialRequestItem, MaterialSupplier,
-} from '@/types'
-
-// Riga interna = shape backend + id client per key/patch.
-type Row = FileOrderRow & { _id: string }
-let _seq = 0
-const newId = () => `r${++_seq}`
-
-const numOrNull = (v: string | undefined): number | null => {
-  const s = (v ?? '').trim().replace(',', '.')
-  if (s === '') return null
-  const n = parseFloat(s)
-  return Number.isFinite(n) ? n : null
-}
-const str = (v: number | null | undefined): string => (v == null ? '' : String(v))
-
-// backend row → dims Record della vista (per forma).
-function dimsToView(r: FileOrderRow): Record<string, string> {
-  if (r.shape === 'tondo') return { diameter: str(r.diameter_mm), length: str(r.length_mm) }
-  if (r.shape === 'tubo') return { outerDiameter: str(r.diameter_mm), wall: str(r.thickness_mm), length: str(r.length_mm) }
-  return { width: str(r.width_mm), height: str(r.height_mm), thickness: str(r.thickness_mm) }
-}
-// dims Record della vista → campi espliciti backend (per forma).
-function dimsToFields(shape: Shape, dims: Record<string, string>): Partial<FileOrderRow> {
-  if (shape === 'tondo') return { diameter_mm: numOrNull(dims.diameter), length_mm: numOrNull(dims.length), inner_diameter_mm: null, width_mm: null, height_mm: null, thickness_mm: null }
-  if (shape === 'tubo') return { diameter_mm: numOrNull(dims.outerDiameter), thickness_mm: numOrNull(dims.wall), length_mm: numOrNull(dims.length), inner_diameter_mm: null, width_mm: null, height_mm: null }
-  return { width_mm: numOrNull(dims.width), height_mm: numOrNull(dims.height), thickness_mm: numOrNull(dims.thickness), diameter_mm: null, inner_diameter_mm: null, length_mm: null }
-}
-
-const emptyRow = (): Row => ({
-  _id: newId(), part_code: '', description: '', csv_material: '',
-  material_id: null, material_name: '', supplier_id: null, supplier_name: null,
-  shape: 'prismatico', width_mm: null, height_mm: null, thickness_mm: null,
-  diameter_mm: null, inner_diameter_mm: null, length_mm: null,
-  quantity: 1, needs_dimensions: true, needs_material: true,
-})
-
-// Riga richiesta (backend) → riga editor.
-const itemToRow = (it: MaterialRequestItem): Row => ({
-  _id: newId(), part_code: it.part_code, description: it.description,
-  csv_material: it.material_name,
-  material_id: it.material_id, material_name: it.material_name,
-  supplier_id: it.supplier_id, supplier_name: it.supplier_name,
-  shape: it.shape, width_mm: it.width_mm, height_mm: it.height_mm, thickness_mm: it.thickness_mm,
-  diameter_mm: it.diameter_mm, inner_diameter_mm: it.inner_diameter_mm, length_mm: it.length_mm,
-  quantity: it.quantity, needs_dimensions: false, needs_material: it.material_id == null,
-})
+import {
+  type Row, newRowId, dimsToView, dimsToFields, emptyRow, itemToRow,
+} from '@/lib/materialRows'
+import type { FileOrderRow, Material, MaterialAlias, MaterialRequest, MaterialSupplier } from '@/types'
 
 export default function OrdersMaterialFilePage() {
   const { hasPermission } = useAuth()
@@ -102,7 +58,7 @@ export default function OrdersMaterialFilePage() {
     try {
       const fd = new FormData(); fd.append('file', file)
       const res = await api.post('/orders/materials/from-file/parse', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      const parsed = (res.data.rows as FileOrderRow[]).map(r => ({ ...r, _id: newId() }))
+      const parsed = (res.data.rows as FileOrderRow[]).map(r => ({ ...r, _id: newRowId() }))
       setRows(rs => [...rs, ...parsed])
       toast.success(`Distinta importata: ${parsed.length} righe`)
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'import del CSV')) }

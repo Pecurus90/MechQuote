@@ -28,6 +28,7 @@ const DOT_CLASS: Record<string, string> = {
   quote_not_ordered: 'bg-state-perso',
   quote_restored: 'bg-state-letto',
   materials_ordered: 'bg-info',
+  material_to_order: 'bg-warning',
   tools_ordered: 'bg-info',
   tools_low_stock_alert: 'bg-warning',
 }

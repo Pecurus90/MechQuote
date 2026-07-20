@@ -1,4 +1,5 @@
-// Container Ordini materiali: seleziona preventivi confermati (non ordinati),
+// Container Ordini materiali (pool unificato): preventivi confermati +
+// richieste materiale manuali inviate. Seleziona da entrambe le sorgenti,
 // aggrega per fornitore e crea l'ordine + CSV. Mappa sulle props di
 // MaterialOrdersView (design handoff). Nessuna grafica qui.
 import { useEffect, useMemo, useState } from 'react'
@@ -8,11 +9,12 @@ import { toast } from 'sonner'
 import { timeAgo } from '@/lib/timeAgo'
 import PageContainer from '@/components/ui/page-container'
 import {
-  MaterialOrdersView, type OrderKpi, type SelectableQuote, type SupplierAggregate,
+  MaterialOrdersView, type OrderKpi, type SelectableQuote, type SelectableRequest, type SupplierAggregate,
 } from '@/pages/orders/MaterialOrdersView'
+import RequestEditModal from '@/pages/orders/RequestEditModal'
 import type { QuoteType } from '@/components/quotes/TypeBadge'
 import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
-import type { MaterialAggregateResult, MaterialOrder, QuoteListItem } from '@/types'
+import type { MaterialAggregateResult, MaterialOrder, MaterialRequest, QuoteListItem } from '@/types'
 
 interface MaterialsStats {
   to_order: number; orders_this_month: number; orders_total: number; last_order_at: string | null
@@ -35,25 +37,37 @@ function splitDim(dim: string): { shape: string; dimensions: string } {
 
 export default function OrdersMaterialsPage() {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([])
+  const [requests, setRequests] = useState<MaterialRequest[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectedRequestIds, setSelectedRequestIds] = useState<Set<number>>(new Set())
   const [aggregate, setAggregate] = useState<MaterialAggregateResult | null>(null)
   const [stats, setStats] = useState<MaterialsStats | null>(null)
+  const [editingRequestId, setEditingRequestId] = useState<number | null>(null)
 
   const loadStats = () => api.get('/orders/materials/stats').then(r => setStats(r.data)).catch(() => undefined)
   const loadQuotes = () => {
     const p = new URLSearchParams({ status: 'confermato', only_unordered: 'true' })
     api.get(`/orders/materials/quotes-selectable?${p}`).then(r => setQuotes(r.data)).catch(() => toast.error('Errore nel caricamento dei preventivi'))
   }
-  useEffect(() => { loadQuotes(); loadStats() }, [])
+  // Richieste inviate con almeno una riga ancora aperta (le altre sono già evase).
+  const loadRequests = () =>
+    api.get('/orders/material-requests?status=inviato')
+      .then(r => setRequests((r.data as MaterialRequest[]).filter(x => x.open_count > 0)))
+      .catch(() => toast.error('Errore nel caricamento delle richieste'))
+  useEffect(() => { loadQuotes(); loadRequests(); loadStats() }, [])
 
   useEffect(() => {
-    if (selectedIds.size === 0) { setAggregate(null); return }
-    api.post('/orders/materials/aggregate', { quote_ids: Array.from(selectedIds) })
-      .then(r => setAggregate(r.data)).catch(() => toast.error('Errore nel calcolo aggregato'))
-  }, [selectedIds])
+    if (selectedIds.size === 0 && selectedRequestIds.size === 0) { setAggregate(null); return }
+    api.post('/orders/materials/aggregate', {
+      quote_ids: Array.from(selectedIds),
+      request_ids: Array.from(selectedRequestIds),
+    }).then(r => setAggregate(r.data)).catch(() => toast.error('Errore nel calcolo aggregato'))
+  }, [selectedIds, selectedRequestIds])
 
   const toggle = (id: number) => setSelectedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const toggleAll = () => setSelectedIds(s => s.size === quotes.length ? new Set() : new Set(quotes.map(q => q.id)))
+  const toggleRequest = (id: number) => setSelectedRequestIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleAllRequests = () => setSelectedRequestIds(s => s.size === requests.length ? new Set() : new Set(requests.map(r => r.id)))
 
   const downloadCsv = async (orderId: number) => {
     const res = await api.get(`/orders/materials/${orderId}/csv`, { responseType: 'blob' })
@@ -66,13 +80,18 @@ export default function OrdersMaterialsPage() {
   }
 
   const createOrder = async (supplierId: number) => {
-    if (selectedIds.size === 0) { toast.error('Seleziona almeno un preventivo'); return }
+    if (selectedIds.size === 0 && selectedRequestIds.size === 0) { toast.error('Seleziona almeno un preventivo o una richiesta'); return }
     try {
-      const res = await api.post('/orders/materials', { quote_ids: Array.from(selectedIds), material_supplier_id: supplierId })
+      const res = await api.post('/orders/materials', {
+        quote_ids: Array.from(selectedIds),
+        request_ids: Array.from(selectedRequestIds),
+        material_supplier_id: supplierId,
+      })
       const order = res.data as MaterialOrder
       await downloadCsv(order.id)
       toast.success(`Ordine MO-${String(order.id).padStart(4, '0')} creato — CSV scaricato`)
-      loadQuotes(); loadStats(); setSelectedIds(new Set())
+      loadQuotes(); loadRequests(); loadStats()
+      setSelectedIds(new Set()); setSelectedRequestIds(new Set())
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
@@ -86,19 +105,26 @@ export default function OrdersMaterialsPage() {
     quote_type: toQuoteType(q.quote_type),
     quote_date: q.quote_date,
     total_price: quoteTotal(q),
-    // La lista selezionabile è per default confermati-non-ordinati → materiale
-    // ancora da ordinare (dettaglio fine per-riga in fase di aggregazione).
     materialStatus: (q.material_status as MaterialStatus) ?? 'non_ordinato',
+  }))
+
+  const selectableRequests: SelectableRequest[] = requests.map(r => ({
+    id: r.id,
+    number: `RM-${String(r.id).padStart(4, '0')}`,
+    title: r.title,
+    created_at: r.created_at,
+    openCount: r.open_count,
+    supplierNames: r.supplier_names,
   }))
 
   const aggregateGroups: SupplierAggregate[] = useMemo(() => (aggregate?.groups ?? [])
     .filter(g => g.supplier_id != null)
     .map(g => {
-      const quoteNums = new Set(g.items.flatMap(i => i.quote_refs.map(r => r.split(' ')[0])))
+      const refs = new Set(g.items.flatMap(i => i.quote_refs.map(r => r.split(' ')[0])))
       return {
         supplierId: g.supplier_id as number,
         supplierName: g.supplier_name,
-        quoteCount: quoteNums.size,
+        quoteCount: refs.size,
         items: g.items.map(i => {
           const { shape, dimensions } = splitDim(i.dim_str)
           return {
@@ -115,7 +141,7 @@ export default function OrdersMaterialsPage() {
     }), [aggregate])
 
   const kpis: OrderKpi[] = stats ? [
-    { key: 'to-order', label: 'Da ordinare', value: stats.to_order, hint: stats.to_order === 0 ? 'tutti ordinati' : 'preventivi pronti', icon: ClipboardCheck, tone: stats.to_order > 0 ? 'primary' : 'success' },
+    { key: 'to-order', label: 'Da ordinare', value: stats.to_order, hint: stats.to_order === 0 ? 'tutto ordinato' : 'preventivi e richieste', icon: ClipboardCheck, tone: stats.to_order > 0 ? 'primary' : 'success' },
     { key: 'month', label: 'Ordini nel mese', value: stats.orders_this_month, icon: CalendarDays, tone: 'info' },
     { key: 'total', label: 'Totale ordini', value: stats.orders_total, hint: 'in totale', icon: Layers, tone: 'confirmed' },
     { key: 'last', label: 'Ultimo ordine', value: stats.last_order_at ? timeAgo(stats.last_order_at) : '—', icon: Clock, tone: 'warning' },
@@ -129,9 +155,21 @@ export default function OrdersMaterialsPage() {
         selectedIds={Array.from(selectedIds)}
         onToggle={toggle}
         onToggleAll={toggleAll}
+        selectableRequests={selectableRequests}
+        selectedRequestIds={Array.from(selectedRequestIds)}
+        onToggleRequest={toggleRequest}
+        onToggleAllRequests={toggleAllRequests}
+        onEditRequest={setEditingRequestId}
         aggregate={aggregateGroups}
         onCreateOrder={createOrder}
       />
+      {editingRequestId != null && (
+        <RequestEditModal
+          requestId={editingRequestId}
+          onClose={() => setEditingRequestId(null)}
+          onSaved={() => { loadRequests(); loadStats(); setSelectedRequestIds(new Set()) }}
+        />
+      )}
     </PageContainer>
   )
 }

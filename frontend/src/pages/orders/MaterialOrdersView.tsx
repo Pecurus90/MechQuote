@@ -1,7 +1,7 @@
 // src/pages/orders/MaterialOrdersView.tsx
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown } from 'lucide-react'
+import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown, ClipboardList, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiCard, type KpiTone } from '@/components/dashboard/KpiCard'
 import { MaterialStatusBadge, type MaterialStatus } from '@/components/dashboard/StatusBadges'
@@ -28,6 +28,17 @@ export interface SelectableQuote {
   quote_date: string | null
   total_price: number
   materialStatus: MaterialStatus
+}
+
+/** Richiesta materiale manuale inviata, selezionabile nel pool (gemella del
+ *  preventivo per il materiale non-da-preventivo). */
+export interface SelectableRequest {
+  id: number
+  number: string          // "RM-0007"
+  title: string | null
+  created_at: string | null
+  openCount: number       // righe ancora da ordinare
+  supplierNames: string[]
 }
 
 /** Riga materiale grezzo aggregata (già raggruppata dal container). */
@@ -57,12 +68,20 @@ interface Props {
   selectedIds: number[]
   onToggle: (id: number) => void
   onToggleAll: () => void
+  // Richieste materiale manuali (seconda sorgente del pool).
+  selectableRequests: SelectableRequest[]
+  selectedRequestIds: number[]
+  onToggleRequest: (id: number) => void
+  onToggleAllRequests: () => void
+  onEditRequest: (id: number) => void
   aggregate: SupplierAggregate[]
   onCreateOrder: (supplierId: number) => void
 }
 
 const SEL_GRID =
   'grid grid-cols-[38px_minmax(0,1.4fr)_minmax(0,1.3fr)_96px_110px_150px] items-center gap-3'
+const REQ_GRID =
+  'grid grid-cols-[38px_minmax(0,1fr)_minmax(0,1.5fr)_96px_120px_44px] items-center gap-3'
 const AGG_GRID =
   'grid grid-cols-[minmax(0,1.4fr)_120px_150px_74px_100px_minmax(0,1fr)] items-center gap-3'
 
@@ -75,17 +94,24 @@ const dateShort = (iso: string | null): string =>
     : '—'
 
 export function MaterialOrdersView({
-  subtitle = 'Preventivi confermati da mettere in ordine · lista grezzi aggregata per fornitore',
+  subtitle = 'Preventivi confermati e richieste materiale da mettere in ordine · grezzi aggregati per fornitore',
   kpis,
   selectableQuotes,
   selectedIds,
   onToggle,
   onToggleAll,
+  selectableRequests,
+  selectedRequestIds,
+  onToggleRequest,
+  onToggleAllRequests,
+  onEditRequest,
   aggregate,
   onCreateOrder,
 }: Props) {
   const allSelected = selectableQuotes.length > 0 && selectedIds.length === selectableQuotes.length
   const someSelected = selectedIds.length > 0 && !allSelected
+  const allReqSelected = selectableRequests.length > 0 && selectedRequestIds.length === selectableRequests.length
+  const someReqSelected = selectedRequestIds.length > 0 && !allReqSelected
 
   // Gruppi fornitore collassati di default: si aprono al click sull'intestazione.
   const [openSuppliers, setOpenSuppliers] = useState<Set<number>>(new Set())
@@ -193,6 +219,100 @@ export function MaterialOrdersView({
         })}
       </div>
 
+      {/* Richieste materiale manuali (seconda sorgente del pool) */}
+      <div className="mb-[22px] overflow-hidden rounded-[14px] border border-border">
+        <div className="flex items-center justify-between border-b border-border bg-card-muted px-[18px] py-3">
+          <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+            <ClipboardList className="h-[15px] w-[15px] text-muted-foreground" />
+            Richieste materiale
+          </div>
+          <span className="text-[12px] text-muted-foreground">
+            <span className="font-mono font-semibold text-primary">{selectedRequestIds.length}</span> selezionate
+          </span>
+        </div>
+        <div
+          className={cn(
+            REQ_GRID,
+            'border-b border-border bg-card-muted px-[18px] py-2.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground',
+          )}
+        >
+          <div>
+            <button
+              type="button"
+              onClick={onToggleAllRequests}
+              className={cn(
+                'inline-flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
+                allReqSelected || someReqSelected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-input text-transparent',
+              )}
+            >
+              {someReqSelected ? <Minus className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+            </button>
+          </div>
+          <div>Numero</div>
+          <div>Titolo / fornitori</div>
+          <div>Data</div>
+          <div className="text-right">Righe</div>
+          <div />
+        </div>
+        {selectableRequests.length === 0 && (
+          <div className="px-6 py-8 text-center text-[13px] text-muted-foreground">
+            Nessuna richiesta materiale inviata. Creane una da “Nuovo ordine materiale”.
+          </div>
+        )}
+        {selectableRequests.map((r, i) => {
+          const checked = selectedRequestIds.includes(r.id)
+          const last = i === selectableRequests.length - 1
+          return (
+            <div
+              key={r.id}
+              onClick={() => onToggleRequest(r.id)}
+              className={cn(
+                REQ_GRID,
+                'cursor-pointer px-[18px] py-3 text-[13.5px] transition-colors hover:bg-muted/45',
+                !last && 'border-b border-border',
+              )}
+            >
+              <div>
+                <span
+                  className={cn(
+                    'inline-flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border-[1.5px]',
+                    checked ? 'border-primary bg-primary text-primary-foreground' : 'border-input text-transparent',
+                  )}
+                >
+                  <Check className="h-3 w-3" />
+                </span>
+              </div>
+              <div className="whitespace-nowrap font-mono text-[13px] font-semibold text-foreground">{r.number}</div>
+              <div className="min-w-0 truncate">
+                {r.title ? (
+                  <span className="font-medium text-foreground">{r.title}</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+                {r.supplierNames.length > 0 && (
+                  <span className="text-muted-foreground"> · {r.supplierNames.join(', ')}</span>
+                )}
+              </div>
+              <div className="font-mono text-[13px] text-muted-foreground">{dateShort(r.created_at)}</div>
+              <div className="text-right font-mono text-foreground">{r.openCount}</div>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEditRequest(r.id) }}
+                  title="Modifica ordine"
+                  aria-label="Modifica ordine"
+                  className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <Pencil className="h-[15px] w-[15px]" />
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
       {/* Anteprima per fornitore */}
       <div className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
         Anteprima materiali per fornitore
@@ -200,7 +320,7 @@ export function MaterialOrdersView({
       <div className="flex flex-col gap-4">
         {aggregate.length === 0 && (
           <div className="rounded-[14px] border border-dashed border-border px-6 py-8 text-center text-[13px] text-muted-foreground">
-            Seleziona uno o più preventivi qui sopra per comporre l'ordine per fornitore.
+            Seleziona preventivi o richieste qui sopra per comporre l'ordine per fornitore.
           </div>
         )}
         {aggregate.map((g) => {
@@ -228,7 +348,7 @@ export function MaterialOrdersView({
                   <div className="text-[14px] font-semibold text-foreground">{g.supplierName}</div>
                   <div className="text-[11.5px] text-muted-foreground">
                     {g.items.length} materiali · da {g.quoteCount}{' '}
-                    {g.quoteCount === 1 ? 'preventivo' : 'preventivi'}
+                    {g.quoteCount === 1 ? 'riferimento' : 'riferimenti'}
                   </div>
                 </div>
               </div>
@@ -265,7 +385,7 @@ export function MaterialOrdersView({
                   <div>Dimensioni</div>
                   <div className="text-right">Q.tà</div>
                   <div className="text-right">Peso stim.</div>
-                  <div>Rif. preventivi</div>
+                  <div>Riferimenti</div>
                 </div>
                 {g.items.map((it, i) => {
                   const last = i === g.items.length - 1

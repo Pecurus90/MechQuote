@@ -110,6 +110,16 @@
         "phase_total": 0, "quantity": 5, "margin_percent": 20, "minimum_price": 0
       },
       "expected_total_price": 0.0
+    },
+    {
+      "id": "M15-round-tie",
+      "name": "Tie di arrotondamento .xx5: total_price half-up (0.625 → 0.63, NON 0.62 banker's). Blinda parità round2 BE↔FE (M-2 audit 2026-07-20).",
+      "input": {
+        "material_cost": 0.625, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 0, "quantity": 1, "margin_percent": 0, "minimum_price": 0
+      },
+      "expected_total_price": 0.63,
+      "expected_unit_price": 0.625
     }
   ],
 
@@ -123,6 +133,16 @@
         "transport_cost": 20, "packaging_cost": 10, "global_discount_percent": 5
       },
       "expected_quote_total": 123.50
+    },
+    {
+      "id": "M16-round-tie",
+      "name": "Tie di arrotondamento .xx5 sul totale preventivo: half-up (0.625 → 0.63, NON 0.62 banker's). Blinda parità round2 BE↔FE (M-2 audit 2026-07-20).",
+      "input": {
+        "quote_type": "single",
+        "parts_total_price_sum": 0.625,
+        "transport_cost": 0, "packaging_cost": 0, "global_discount_percent": 0
+      },
+      "expected_quote_total": 0.63
     }
   ],
 

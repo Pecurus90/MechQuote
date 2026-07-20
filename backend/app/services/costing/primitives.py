@@ -25,6 +25,16 @@ def round4(x: float) -> float:
     return math.floor(x * 10000 + 0.5) / 10000
 
 
+def round2(x: float) -> float:
+    """Arrotonda a 2 decimali con la STESSA semantica di `Math.round` JS
+    (half-up verso +∞), gemello DRY del frontend (quoteCalc.ts usa
+    `Math.round(x*100)/100`). Vedi `round4` per il razionale: il `round()`
+    nativo di Python è banker's (0.625→0.62), divergente da JS (0.625→0.63) sui
+    mezzi esatti; questo lo evita tenendo anteprima e valore salvato identici.
+    """
+    return math.floor(x * 100 + 0.5) / 100
+
+
 # ─── Geometria grezzo / costo materiale (duck-typed su Part/Material) ────────
 # Operano su oggetti con attributi raw_*/material/density_kg_dm3/... — nessun
 # import ORM per tenere il nucleo puro. Gemelli DRY del frontend quoteCalc.
@@ -99,7 +109,7 @@ def material_cost(part, material) -> Optional[float]:
             return None
         vol_dm3 = (math.pi * r * r * l) / 1_000_000
         kg = vol_dm3 * density
-        return round(kg * cost_per_kg * scrap, 2)
+        return round2(kg * cost_per_kg * scrap)
 
     x = part.raw_x_mm or 0
     y = part.raw_y_mm or 0
@@ -108,7 +118,7 @@ def material_cost(part, material) -> Optional[float]:
         return None
     vol_dm3 = (x * y * z) / 1_000_000
     kg = vol_dm3 * density
-    return round(kg * cost_per_kg * scrap, 2)
+    return round2(kg * cost_per_kg * scrap)
 
 
 def phase_cost(
@@ -151,12 +161,12 @@ def part_totals(
     C4: niente doppio arrotondamento — `base` a piena precisione, `unit_price`
     a 4 decimali (display), `total_price` arrotondato a 2 dal valore esatto.
     """
-    total_cost = round(
-        (material_cost or 0.0) + delivery_per_piece + cutting_per_piece + phase_total, 4
+    total_cost = round4(
+        (material_cost or 0.0) + delivery_per_piece + cutting_per_piece + phase_total
     )
     base = max(total_cost, minimum_price or 0.0) * (1 + (margin_percent or 0.0) / 100)
-    unit_price = round(base, 4)
-    total_price = round(base * qty, 2)
+    unit_price = round4(base)
+    total_price = round2(base * qty)
     return total_cost, unit_price, total_price
 
 
@@ -206,4 +216,4 @@ def quote_total(
     """
     after = parts_total_price_sum + (transport_cost or 0.0) + (packaging_cost or 0.0)
     discount = after * ((global_discount_percent or 0.0) / 100)
-    return round(after - discount, 2)
+    return round2(after - discount)

@@ -793,6 +793,37 @@ def _run_migrations():
         "SELECT r.id, 'quotes.send' FROM roles r "
         "WHERE r.name = 'amministrazione' "
         "AND NOT EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id AND rp.permission_key = 'quotes.send')",
+
+        # ═══ Richieste materiale manuali (gemello del preventivo per il materiale) ═══
+        # Ordine materiale "a mano"/da distinta che NON passa da un preventivo:
+        # nasce bozza, con "Invia" entra nel pool di /orders/materials insieme
+        # ai preventivi da ordinare. Le righe portano il proprio fornitore
+        # (una richiesta copre più fornitori) e la propria evasione
+        # (material_order_id/evaso_at), come QuoteSupplierOrder per i preventivi.
+        # Nessun permesso nuovo: si riusa 'orders.materials'.
+        ("CREATE TABLE IF NOT EXISTS material_requests ("
+         "id INTEGER PRIMARY KEY, "
+         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
+         "created_by_user_id INTEGER REFERENCES users(id), "
+         "status VARCHAR(12) DEFAULT 'bozza', "
+         "sent_at DATETIME, "
+         "title VARCHAR(120))"),
+        ("CREATE TABLE IF NOT EXISTS material_request_items ("
+         "id INTEGER PRIMARY KEY, "
+         "material_request_id INTEGER NOT NULL REFERENCES material_requests(id), "
+         "material_id INTEGER REFERENCES materials(id), "
+         "material_name VARCHAR(100) NOT NULL DEFAULT '', "
+         "part_code VARCHAR(120) DEFAULT '', "
+         "description VARCHAR(200) DEFAULT '', "
+         "shape VARCHAR(12) DEFAULT 'prismatico', "
+         "width_mm FLOAT, height_mm FLOAT, thickness_mm FLOAT, "
+         "diameter_mm FLOAT, inner_diameter_mm FLOAT, length_mm FLOAT, "
+         "quantity INTEGER DEFAULT 1, "
+         "supplier_id INTEGER REFERENCES material_suppliers(id), "
+         "supplier_name VARCHAR(100), "
+         "material_order_id INTEGER REFERENCES material_orders(id), "
+         "evaso_at DATETIME)"),
+        "CREATE INDEX IF NOT EXISTS ix_material_request_items_request ON material_request_items(material_request_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

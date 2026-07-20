@@ -711,6 +711,79 @@ class QuoteSupplierOrder(Base):
     )
 
 
+class MaterialRequest(Base):
+    """Richiesta materiale "a mano" — gemello del preventivo per il materiale.
+
+    Un ordine materiale che NON passa da un preventivo: righe libere inserite
+    a mano o importate da distinta (es. SolidWorks). Nasce `bozza`
+    (modificabile); con "Invia ordine" passa a `inviato`, notifica "materiale
+    da ordinare" e confluisce nel pool di `/orders/materials` INSIEME ai
+    preventivi confermati da ordinare. Da lì l'aggregazione per fornitore e il
+    CSV/`MaterialOrder` emesso sono comuni alle due sorgenti.
+
+    Copre PIÙ fornitori: il fornitore vive sulla singola riga
+    (`MaterialRequestItem.supplier_id`), non sulla richiesta — come un
+    preventivo può toccare più fornitori. L'evasione è per riga
+    (`MaterialRequestItem.material_order_id`/`evaso_at`), speculare a
+    `QuoteSupplierOrder` per i preventivi: la richiesta è "tutta evasa" quando
+    tutte le sue righe hanno un ordine, parziale se solo alcune.
+
+    status: 'bozza' | 'inviato' (String, non Enum — vedi §6 CLAUDE.md).
+    """
+    __tablename__ = "material_requests"
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String(12), default="bozza")   # bozza | inviato
+    sent_at = Column(DateTime, nullable=True)       # timestamp dell'invio nel pool
+    title = Column(String(120), nullable=True)      # etichetta/nota opzionale
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+    items = relationship(
+        "MaterialRequestItem", back_populates="request",
+        cascade="all, delete-orphan",
+    )
+
+
+class MaterialRequestItem(Base):
+    """Riga di una `MaterialRequest`: materiale + dimensioni grezzo + qty +
+    fornitore + evasione.
+
+    Stessa forma delle righe ordine-da-file (`MaterialOrderItem`) più il
+    fornitore della riga (`supplier_id`, obbligatorio prima dell'invio) e i
+    campi di evasione. Quando la riga viene inclusa in un `MaterialOrder`
+    emesso dal pool, `material_order_id`/`evaso_at` vengono valorizzati e la
+    riga risulta ordinata (bloccata in modifica). Dimensioni GREZZO già
+    calcolate, come per gli ordini da file.
+    """
+    __tablename__ = "material_request_items"
+
+    id = Column(Integer, primary_key=True)
+    material_request_id = Column(Integer, ForeignKey("material_requests.id"), nullable=False)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=True)
+    material_name = Column(String(100), nullable=False, default="")
+    part_code = Column(String(120), default="")     # riferimento libero
+    description = Column(String(200), default="")
+    # Forma grezzo: 'prismatico' (L×A×S) | 'tondo' (Ø×lung) | 'tubo' (Øest×parete×lung).
+    shape = Column(String(12), default="prismatico")
+    width_mm = Column(Float, nullable=True)
+    height_mm = Column(Float, nullable=True)
+    thickness_mm = Column(Float, nullable=True)     # prismatico: spessore / tubo: parete
+    diameter_mm = Column(Float, nullable=True)      # tondo/tubo: Ø esterno
+    inner_diameter_mm = Column(Float, nullable=True)  # tondo cavo: Ø interno (opz.)
+    length_mm = Column(Float, nullable=True)        # tondo/tubo: lunghezza
+    quantity = Column(Integer, default=1)
+    supplier_id = Column(Integer, ForeignKey("material_suppliers.id"), nullable=True)
+    supplier_name = Column(String(100), nullable=True)  # snapshot per storico/CSV
+    # Evasione: l'ordine emesso che ha ordinato questa riga (NULL = ancora da
+    # ordinare). Speculare a QuoteSupplierOrder per i preventivi.
+    material_order_id = Column(Integer, ForeignKey("material_orders.id"), nullable=True)
+    evaso_at = Column(DateTime, nullable=True)
+
+    request = relationship("MaterialRequest", back_populates="items")
+
+
 # ─── Utensili (porting da legacy `utensili`) ───────────────────────────────
 
 class ToolSupplier(Base):

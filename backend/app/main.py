@@ -60,7 +60,7 @@ _backup = [require_permission('backup')]
 from app.api import (
     auth, quotes, parts, phases, dashboard, backup, customers, quotes_archive,
     materials, machines, treatments, catalog, roles, notifications, company, activity, edm, dxf,
-    workflow_templates, operations, orders, orders_from_file, normalized_from_file,
+    workflow_templates, operations, orders, orders_from_file, material_requests, normalized_from_file,
     tools, orders_tools, officina,
     heat_treatments,
     normalized_suppliers, normalized_items, direct_sales,
@@ -90,6 +90,7 @@ app.include_router(workflow_templates.router, dependencies=_auth)
 app.include_router(operations.router, dependencies=_auth)
 app.include_router(orders.router, dependencies=_auth)
 app.include_router(orders_from_file.router, dependencies=_auth)
+app.include_router(material_requests.router, dependencies=_auth)
 app.include_router(normalized_from_file.router, dependencies=_auth)
 app.include_router(tools.router, dependencies=_auth)
 app.include_router(orders_tools.router, dependencies=_auth)

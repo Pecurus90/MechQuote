@@ -1281,6 +1281,66 @@ class MaterialAliasOut(BaseModel):
     id: int
     csv_name: str
     material_id: int
+
+
+# ─── Richieste materiale manuali (gemello del preventivo per il materiale) ──
+
+class MaterialRequestItemOut(BaseModel):
+    """Riga di una richiesta materiale (output)."""
+    id: int
+    material_id: Optional[int] = None
+    material_name: str = ""
+    part_code: str = ""
+    description: str = ""
+    shape: str = "prismatico"
+    width_mm: Optional[float] = None
+    height_mm: Optional[float] = None
+    thickness_mm: Optional[float] = None
+    diameter_mm: Optional[float] = None
+    inner_diameter_mm: Optional[float] = None
+    length_mm: Optional[float] = None
+    quantity: int = 1
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    # Evasione: True quando la riga è confluita in un MaterialOrder emesso
+    # (bloccata in modifica). Speculare all'evasione dei preventivi.
+    evaso: bool = False
+    material_order_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MaterialRequestOut(BaseModel):
+    """Richiesta materiale con righe (detail) o senza (per la lista pool)."""
+    id: int
+    created_at: datetime
+    created_by: Optional[UserMinimal] = None
+    status: str = "bozza"                  # 'bozza' | 'inviato'
+    sent_at: Optional[datetime] = None
+    title: Optional[str] = None
+    items: List[MaterialRequestItemOut] = []
+    item_count: int = 0                    # righe totali
+    open_count: int = 0                    # righe ancora da ordinare (non evase)
+    supplier_names: List[str] = []         # fornitori distinti delle righe aperte
+
+    class Config:
+        from_attributes = True
+
+
+class MaterialRequestCreate(BaseModel):
+    title: Optional[str] = None
+    rows: List[FileOrderRow] = Field(default_factory=list)
+
+
+class MaterialRequestUpdate(BaseModel):
+    """Aggiorna titolo e/o righe di una richiesta.
+
+    `rows` sostituisce le righe ANCORA APERTE (non evase): quelle già ordinate
+    restano intoccabili. `None` = non toccare le righe (aggiorna solo il titolo).
+    """
+    title: Optional[str] = None
+    rows: Optional[List[FileOrderRow]] = None
     material_name: str = ""
 
     class Config:

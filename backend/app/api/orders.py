@@ -243,7 +243,10 @@ def aggregate_materials(quote_ids: List[int], db: Session,
         raggr: Dict[Tuple, Dict[str, Any]] = {}
         for it in req_items:
             dim_str = f"{_shape_label_it(it.shape)} {_file_item_dim(it)}".strip()
-            ref = _req_ref(it) or f"RM-{it.material_request_id:04d}"
+            # B-3: stesso riferimento che finirà nel CSV/snapshot (codice → titolo
+            # → vuoto). NIENTE fallback RM-xxxx qui: mostrava in anteprima un
+            # riferimento fabbricato che poi nel CSV emesso era vuoto.
+            ref = _req_ref(it)
             key = (it.supplier_id, it.material_name, dim_str)
             slot = raggr.setdefault(key, {
                 'supplier_id': it.supplier_id,
@@ -264,7 +267,7 @@ def aggregate_materials(quote_ids: List[int], db: Session,
                 by_supplier[sup_id] = MaterialAggregateBySupplier(
                     supplier_id=sup_id, supplier_name=slot['supplier_name'], items=[],
                 )
-            refs = [f"{r} ×{q}" for r, q in sorted(slot['refs'].items())]
+            refs = [f"{r or '—'} ×{q}" for r, q in sorted(slot['refs'].items())]
             by_supplier[sup_id].items.append(MaterialItemAggregated(
                 material_id=slot['material_id'],
                 material_name=slot['material_name'],
@@ -402,8 +405,9 @@ def _persist_request_snapshot(order: MaterialOrder,
                               req_items: List[MaterialRequestItem],
                               now, db: Session) -> None:
     """Congela le righe-richiesta nell'ordine emesso (MaterialOrderItem) e le
-    marca evase (material_order_id/evaso_at). Il riferimento CSV = codice riga o
-    RM-xxxx. Stessa struttura degli item ordine-da-file."""
+    marca evase (material_order_id/evaso_at). Il riferimento CSV = codice articolo,
+    poi titolo dell'ordine, poi vuoto (`_req_ref`). Stessa struttura degli item
+    ordine-da-file."""
     for it in req_items:
         db.add(MaterialOrderItem(
             material_order_id=order.id, material_id=it.material_id,
@@ -886,11 +890,26 @@ def delete_order(
     # 'confermato' resta tale, col materiale di nuovo da ordinare.
     reverted: List[str] = []
     reopened: List[str] = []
+    actor = current_user.full_name or current_user.username
     for q in quotes:
         was_completo = q.status == wf.STATUS_COMPLETO
         wf.reconcile_material_state(db, q, current_user.id)
         if was_completo and q.status != wf.STATUS_COMPLETO:
             reopened.append(q.quote_number)
+            # M-3: la riapertura da eliminazione ordine era silenziosa. Avvisa il
+            # creatore, come già fa _reconcile_after_write in parts.py. commit=False
+            # → notifica atomica col cambio stato (unico db.commit() qui sotto).
+            if q.created_by_user_id:
+                create_notification(
+                    db,
+                    type='quote_reopened',
+                    title=f"Preventivo {q.quote_number} riaperto",
+                    body=f"L'eliminazione di un ordine ha reso il materiale di nuovo da ordinare ({actor})",
+                    created_by_user_id=current_user.id,
+                    target_user_id=q.created_by_user_id,
+                    data={'quote_id': q.id, 'quote_number': q.quote_number},
+                    commit=False,
+                )
         else:
             reverted.append(q.quote_number)
 

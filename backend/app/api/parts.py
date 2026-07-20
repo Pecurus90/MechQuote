@@ -67,7 +67,10 @@ def _reconcile_after_write(db: Session, quote: Quote, user: User) -> None:
     was_completo = quote.status == wf.STATUS_COMPLETO
     if not wf.reconcile_material_state(db, quote, user.id):
         return
-    db.commit()
+    # B-1: notifica atomica col cambio stato (un solo commit). Prima era su un
+    # secondo commit → una morte del processo fra i due lasciava il preventivo
+    # riaperto senza avviso. `quote_reopened` non ha dedupe UNIQUE → commit=False
+    # è sicuro.
     if was_completo and quote.status == wf.STATUS_CONFERMATO and quote.created_by_user_id:
         actor = user.full_name or user.username
         create_notification(
@@ -78,7 +81,9 @@ def _reconcile_after_write(db: Session, quote: Quote, user: User) -> None:
             created_by_user_id=user.id,
             target_user_id=quote.created_by_user_id,
             data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            commit=False,
         )
+    db.commit()
 
 
 @router.post("/quotes/{quote_id}/parts", response_model=PartOut)

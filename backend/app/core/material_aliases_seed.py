@@ -50,3 +50,25 @@ MATERIAL_ALIASES: Dict[str, List[str]] = {
     "Alluminio 5083": ["5083", "AA5083", "EN AW-5083", "3.3547", "AlMg4,5Mn"],
     "Alluminio 7075": ["7075", "AA7075", "EN AW-7075", "3.4365", "Ergal", "Fortal", "Zicral"],
 }
+
+# Generici (Bronzo/Ottone/Rame): l'officina ordina il generico, "quello che
+# arriva arriva" (decisione utente 2026-07-21) → TUTTI i gradi comuni della
+# famiglia puntano alla voce generica, così qualunque dicitura in distinta
+# aggancia. Applicati da una PASSATA separata (marker proprio) per non
+# reintrodurre alias eliminati a mano nella passata principale.
+GENERIC_ALIASES: Dict[str, List[str]] = {
+    "Bronzo": [
+        "bronze", "CuSn12", "CuSn12-C", "CuSn10", "CuSn8", "CuSn6", "CuSn5",
+        "CuSn12Ni2", "CuSn12Pb2", "CuSn7Zn4Pb7", "CuAl10Fe3", "CuAl10Ni5Fe4",
+        "CuAl11Fe6Ni6", "G-CuSn12", "RG7", "CC483K", "CC480K",
+    ],
+    "Ottone": [
+        "brass", "CuZn39Pb3", "CuZn40Pb2", "CuZn38Pb2", "CuZn39Pb2", "CuZn37",
+        "CuZn36", "CuZn35", "OT58", "OT63", "OT67", "CW614N", "CW617N",
+        "CW508L", "CW511L", "MS58", "MS63",
+    ],
+    "Rame": [
+        "copper", "Cu", "Cu-ETP", "Cu-DHP", "Cu-OF", "Cu-OFE", "E-Cu", "E-Cu58",
+        "SF-Cu", "SE-Cu", "C11000", "C10200", "CW004A", "CW008A", "CW024A",
+    ],
+}

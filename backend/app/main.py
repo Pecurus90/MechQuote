@@ -993,46 +993,89 @@ def _seed_edm_defaults():
 #   venv/bin/python -m scripts.one_shot_db_fixes
 
 
-def _seed_material_aliases():
-    """TD-15 — seed UNA-TANTUM di alias per i materiali a catalogo (designazioni
-    equivalenti verificate: W.Nr, EN, AISI, nomi commerciali). Serve ad
-    abbinare i nomi delle distinte/gestionale al materiale a catalogo.
-
-    ONE-TIME via marker in `seed_markers`: gira una volta sola per DB e NON
-    re-inserisce alias eliminati a mano dopo il primo seed (a differenza di un
-    seed che rigira ad ogni avvio). Match materiale per nome normalizzato;
-    alias saltato se già usato (unicità globale), se coincide col nome del
-    materiale stesso, o col nome esatto di un altro materiale a catalogo."""
+def _seed_merge_p20():
+    """TD-15 — unifica 1.2311 e 40CrMnMo7 (stesso acciaio, AISI P20) in un'unica
+    voce a catalogo: sopravvive 1.2311. ONE-TIME via marker. Riassegna OGNI
+    riferimento (parti, righe ordine, righe richiesta, alias) da 40CrMnMo7 a
+    1.2311, poi elimina 40CrMnMo7 e aggiunge '40crmnmo7' come alias di 1.2311
+    (così le distinte con quel nome continuano ad agganciare). Idempotente: se
+    una delle due voci manca (già unificate / rinominate) non fa nulla."""
     from sqlalchemy.orm import Session
-    from app.models import Material, MaterialAlias
+    from app.models import (Material, Part, MaterialAlias, MaterialOrderItem,
+                            MaterialRequestItem)
     from app.core.csv_import import normalize_alias
-    from app.core.material_aliases_seed import MATERIAL_ALIASES
-    marker = 'material_aliases_v1'
+    marker = 'merge_p20_v1'
     with Session(engine) as db:
         db.execute(text("CREATE TABLE IF NOT EXISTS seed_markers (key VARCHAR(80) PRIMARY KEY)"))
         db.commit()
         if db.execute(text("SELECT 1 FROM seed_markers WHERE key=:k"), {"k": marker}).first():
             return
         mats = {normalize_alias(m.name): m for m in db.query(Material).all()}
-        taken = {a.csv_name for a in db.query(MaterialAlias).all()}
-        added = 0
-        for name, aliases in MATERIAL_ALIASES.items():
-            mat = mats.get(normalize_alias(name))
-            if not mat:
-                continue
-            for al in aliases:
-                key = normalize_alias(al)
-                if not key or key in taken or key == normalize_alias(mat.name):
-                    continue
-                other = mats.get(key)
-                if other is not None and other.id != mat.id:
-                    continue   # è il nome esatto di un ALTRO materiale
-                db.add(MaterialAlias(csv_name=key, material_id=mat.id))
-                taken.add(key)
-                added += 1
+        keep, drop = mats.get('1.2311'), mats.get('40crmnmo7')
+        if keep and drop and keep.id != drop.id:
+            # Alias: sposta quelli non in conflitto, elimina i redondanti.
+            keep_aliases = {a.csv_name for a in db.query(MaterialAlias).filter(
+                MaterialAlias.material_id == keep.id).all()}
+            for a in db.query(MaterialAlias).filter(MaterialAlias.material_id == drop.id).all():
+                if a.csv_name in keep_aliases or a.csv_name == normalize_alias(keep.name):
+                    db.delete(a)
+                else:
+                    a.material_id = keep.id
+            # Riferimenti d'uso: riassegna a 1.2311.
+            for model in (Part, MaterialOrderItem, MaterialRequestItem):
+                db.query(model).filter(model.material_id == drop.id).update(
+                    {model.material_id: keep.id}, synchronize_session=False)
+            db.delete(drop)
+            # Il vecchio nome diventa alias della voce sopravvissuta.
+            old = normalize_alias('40CrMnMo7')
+            if old not in keep_aliases and not db.query(MaterialAlias).filter(
+                    MaterialAlias.csv_name == old).first():
+                db.add(MaterialAlias(csv_name=old, material_id=keep.id))
+            logging.getLogger("mechquote.seed").info("merge P20: 40CrMnMo7 → 1.2311 unificati")
         db.execute(text("INSERT INTO seed_markers (key) VALUES (:k)"), {"k": marker})
         db.commit()
-        logging.getLogger("mechquote.seed").info("seed alias materiali (v1): %d alias creati", added)
+
+
+def _seed_material_aliases():
+    """TD-15 — alias per i materiali a catalogo (designazioni equivalenti
+    verificate). A PASSATE, ognuna ONE-TIME via marker in `seed_markers`: gira
+    una volta per DB e NON re-inserisce alias eliminati a mano (a differenza di
+    un seed che rigira ad ogni avvio). Passate: 'v1' (acciai/inox/allu) e
+    'generics_v1' (Bronzo/Ottone/Rame — tutti i gradi → voce generica). Ogni
+    alias è saltato se già usato (unicità globale), se coincide col nome del
+    materiale, o col nome esatto di un altro materiale."""
+    from sqlalchemy.orm import Session
+    from app.models import Material, MaterialAlias
+    from app.core.csv_import import normalize_alias
+    from app.core.material_aliases_seed import MATERIAL_ALIASES, GENERIC_ALIASES
+
+    with Session(engine) as db:
+        db.execute(text("CREATE TABLE IF NOT EXISTS seed_markers (key VARCHAR(80) PRIMARY KEY)"))
+        db.commit()
+        mats = {normalize_alias(m.name): m for m in db.query(Material).all()}
+        for marker, mapping in (('material_aliases_v1', MATERIAL_ALIASES),
+                                ('material_aliases_generics_v1', GENERIC_ALIASES)):
+            if db.execute(text("SELECT 1 FROM seed_markers WHERE key=:k"), {"k": marker}).first():
+                continue
+            taken = {a.csv_name for a in db.query(MaterialAlias).all()}
+            added = 0
+            for name, aliases in mapping.items():
+                mat = mats.get(normalize_alias(name))
+                if not mat:
+                    continue
+                for al in aliases:
+                    key = normalize_alias(al)
+                    if not key or key in taken or key == normalize_alias(mat.name):
+                        continue
+                    other = mats.get(key)
+                    if other is not None and other.id != mat.id:
+                        continue   # è il nome esatto di un ALTRO materiale
+                    db.add(MaterialAlias(csv_name=key, material_id=mat.id))
+                    taken.add(key)
+                    added += 1
+            db.execute(text("INSERT INTO seed_markers (key) VALUES (:k)"), {"k": marker})
+            db.commit()
+            logging.getLogger("mechquote.seed").info("seed alias materiali (%s): %d creati", marker, added)
 
 
 _run_migrations()
@@ -1041,7 +1084,7 @@ _run_migrations()
 # uvicorn non partiva affatto. Ora ogni seed è isolato: se uno fallisce viene
 # loggato e l'app parte comunque (degradazione parziale invece di down totale).
 for _seed in (_seed_categories, _seed_roles, _seed_operations,
-              _seed_edm_defaults, _seed_material_aliases):
+              _seed_edm_defaults, _seed_merge_p20, _seed_material_aliases):
     try:
         _seed()
     except Exception as exc:

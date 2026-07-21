@@ -259,12 +259,13 @@ da TD-10.
   → gira una volta per DB e **non re-inserisce alias eliminati a mano** (evita
   l'errore inverso del bug TD-13); salta collisioni (alias già usato o = nome di
   un altro materiale). Applica su dev + server (al prossimo update).
-  **110 alias** creati su 23 materiali (verificato + idempotenza OK, 147 unit
-  pass). Decisioni utente: 316→316L; K455 include ~1.2550/~S1.
-  **Restano:** (a) alias per **Bronzo/Ottone/Rame** — l'utente fornirà i gradi
-  esatti a stock (CuSn../CuZn../Cu-..); (b) **unificazione P20** (`1.2311` ≡
-  `40CrMnMo7`, stesso acciaio) — merge di catalogo con riassegnazione parti,
-  passo separato e cauto (gli alias P20 sono già su `1.2311`).
+  **160 alias** totali. Decisioni utente: 316→316L; K455 include ~1.2550/~S1.
+  ✅ **Generici** (Bronzo/Ottone/Rame): tutti i gradi comuni della famiglia →
+  voce generica (l'officina ordina generico), passata `generics_v1` (49 alias).
+  ✅ **Unificazione P20**: `_seed_merge_p20()` (marker `merge_p20_v1`) unifica
+  `40CrMnMo7` in `1.2311` (sopravvive 1.2311): riassegna parti/righe ordine/
+  righe richiesta/alias, elimina 40CrMnMo7, e ne conserva il nome come alias di
+  1.2311. Verificato: 26 materiali, 0 parti orfane, idempotente, 147 unit pass.
 
 ---
 

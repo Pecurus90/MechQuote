@@ -4,7 +4,7 @@ import { Plus, Drill } from 'lucide-react'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import StandardPage from '@/components/layout/StandardPage'
 import api from '@/lib/api'
-import type { DrillingTime } from '@/types'
+import type { DrillingTime, Electrode } from '@/types'
 import { toast } from 'sonner'
 import { MATERIAL_FAMILIES, familyLabel } from '@/lib/materialFamilies'
 import { parseDecimal } from '@/lib/decimalInput'
@@ -30,9 +30,12 @@ export default function DrillingTimesPage() {
   const [newRow, setNewRow] = useState<FormState>(empty())
   const [loading, setLoading] = useState(true)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
+  // TD-7: Ø elettrodo scelto dal catalogo Elettrodi (stessi diametri riusati).
+  const [electrodes, setElectrodes] = useState<Electrode[]>([])
+  const diameters = Array.from(new Set(electrodes.map(e => e.diameter_mm))).sort((a, b) => a - b)
 
   const load = () => { setLoading(true); api.get('/drilling-times').then(r => { setRows(r.data); setLoading(false) }) }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); api.get('/electrodes').then(r => setElectrodes(r.data)).catch(() => undefined) }, [])
 
   const startEdit = (row: DrillingTime) => {
     setEditingId(row.id)
@@ -63,7 +66,18 @@ export default function DrillingTimesPage() {
           {MATERIAL_FAMILIES.map(fam => <option key={fam.slug} value={fam.slug}>{fam.label}</option>)}
         </select>
       </td>
-      <td className="p-2"><Input onFocus={e => e.currentTarget.select()} className={inp} type="text" inputMode="decimal" value={form.electrode_diameter_mm} onChange={e => set({ ...form, electrode_diameter_mm: e.target.value })} /></td>
+      <td className="p-2">
+        <select className="h-8 rounded-md border border-input bg-background px-1.5 text-xs"
+          value={form.electrode_diameter_mm}
+          onChange={e => set({ ...form, electrode_diameter_mm: e.target.value })}>
+          <option value="">— Ø —</option>
+          {/* Preserva un eventuale Ø legacy non più a catalogo */}
+          {form.electrode_diameter_mm && !diameters.map(String).includes(form.electrode_diameter_mm) && (
+            <option value={form.electrode_diameter_mm}>{form.electrode_diameter_mm}</option>
+          )}
+          {diameters.map(d => <option key={d} value={String(d)}>{d}</option>)}
+        </select>
+      </td>
       <td className="p-2"><Input onFocus={e => e.currentTarget.select()} className={inp} type="text" inputMode="decimal" value={form.speed_mm_per_sec} onChange={e => set({ ...form, speed_mm_per_sec: e.target.value })} /></td>
       <td className="p-2"><Input className={inp} value={form.notes} onChange={e => set({ ...form, notes: e.target.value })} /></td>
     </>
@@ -75,7 +89,7 @@ export default function DrillingTimesPage() {
       color="edm"
       width="xl"
       title="Velocità di foratura"
-      subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Lookup discreto su diametro."
+      subtitle="Velocità avanzamento (mm/sec) per famiglia materiale × diametro elettrodo. Il Ø elettrodo si sceglie dal catalogo Elettrodi (stessi diametri riusati)."
       actions={!showNew ? (
         <PrimaryCtaButton color="edm" size="sm" onClick={() => { setShowNew(true); setEditingId(null) }}>
           <Plus className="h-4 w-4" /> Nuova riga

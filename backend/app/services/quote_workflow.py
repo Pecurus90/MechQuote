@@ -8,10 +8,16 @@ Cuore del workflow, condiviso tra `api/quotes.py` (transizioni) e
 - `maybe_complete`: confermato → completo quando il materiale è risolto
 
 Stato lavorazione:
-    bozza → inviato → letto → in_attesa_cliente ─┬→ confermato → completo
-                                                 └→ non_ordinato (perso)
+    bozza ─┐
+           ├→ inviato → letto → in_attesa_cliente ─┬→ confermato → completo
+    in_revisione ─┘ (rimando indietro)             └→ non_ordinato (perso)
 - modificabile fino a `in_attesa_cliente` compreso; bloccato da `confermato`
   (admin esente). `non_ordinato` è terminale e non modificabile.
+- `in_revisione` (TD-16): un preventivo già revisionato/mandato al cliente e
+  poi "rimandato in revisione" (da inviato/letto/in_attesa_cliente). È
+  modificabile come `bozza` e riparte il ciclo con "invia per revisione"; a
+  differenza di `bozza` (mai inviato) conserva lo storico prezzo per il
+  confronto (`Quote.revision_baseline_total`).
 - `letto`: auto quando amministrazione apre un `inviato`
 - `in_attesa_cliente`: click manuale amministrazione — l'offerta è dal cliente,
   si attende la sua risposta (materiale non ancora ordinabile)
@@ -31,6 +37,7 @@ from app.models import Part, Quote, QuoteSupplierOrder
 from app.services import material_status as ms
 
 STATUS_BOZZA = "bozza"
+STATUS_IN_REVISIONE = "in_revisione"   # TD-16: rimandato indietro per modifiche
 STATUS_INVIATO = "inviato"
 STATUS_LETTO = "letto"
 STATUS_IN_ATTESA_CLIENTE = "in_attesa_cliente"
@@ -39,14 +46,17 @@ STATUS_COMPLETO = "completo"
 STATUS_NON_ORDINATO = "non_ordinato"
 
 QUOTE_STATUSES = (
-    STATUS_BOZZA, STATUS_INVIATO, STATUS_LETTO, STATUS_IN_ATTESA_CLIENTE,
-    STATUS_CONFERMATO, STATUS_COMPLETO, STATUS_NON_ORDINATO,
+    STATUS_BOZZA, STATUS_IN_REVISIONE, STATUS_INVIATO, STATUS_LETTO,
+    STATUS_IN_ATTESA_CLIENTE, STATUS_CONFERMATO, STATUS_COMPLETO,
+    STATUS_NON_ORDINATO,
 )
 
 # Fino a "in attesa cliente" il preventivo è modificabile; dalla Conferma è
 # bloccato. 'non_ordinato' (perso) è terminale e non modificabile.
+# `in_revisione` è modificabile come `bozza` (TD-16).
 EDITABLE_STATUSES = frozenset({
-    STATUS_BOZZA, STATUS_INVIATO, STATUS_LETTO, STATUS_IN_ATTESA_CLIENTE,
+    STATUS_BOZZA, STATUS_IN_REVISIONE, STATUS_INVIATO, STATUS_LETTO,
+    STATUS_IN_ATTESA_CLIENTE,
 })
 
 # Da questi stati si può creare un ordine materiale (dopo la Conferma).

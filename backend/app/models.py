@@ -86,13 +86,14 @@ class Quote(Base):
     final_total = Column(Float, nullable=True)
     notes_customer = Column(Text)
     notes_internal = Column(Text)
-    # Spec 18: bozza|inviato|letto|in_attesa_cliente|confermato|completo|
-    # non_ordinato (String, no Enum). 'letto' auto quando amministrazione apre
-    # un 'inviato'; 'in_attesa_cliente' pulsante manuale (offerta dal cliente);
-    # 'confermato' pulsante manuale = cliente ha ordinato (blocca modifica);
-    # 'non_ordinato' = cliente non ha ordinato (perso, terminale, reversibile);
-    # 'completo' auto quando confermato + materiale risolto.
-    # Vedi services/quote_workflow.py.
+    # Spec 18: bozza|in_revisione|inviato|letto|in_attesa_cliente|confermato|
+    # completo|non_ordinato (String, no Enum). 'letto' auto quando amministrazione
+    # apre un 'inviato'; 'in_attesa_cliente' pulsante manuale (offerta dal
+    # cliente); 'confermato' pulsante manuale = cliente ha ordinato (blocca
+    # modifica); 'non_ordinato' = cliente non ha ordinato (perso, terminale,
+    # reversibile); 'completo' auto quando confermato + materiale risolto.
+    # 'in_revisione' (TD-16) = rimandato indietro per modifiche, editabile come
+    # bozza. Vedi services/quote_workflow.py.
     status = Column(String(20), default="bozza")
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     submitted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -121,6 +122,11 @@ class Quote(Base):
     # cost-to-quoted, calibrazione passiva del cost engine.
     sold_price = Column(Float, nullable=True)
     actual_cost = Column(Float, nullable=True)
+    # TD-16 — snapshot del prezzo (final_total) al momento del "manda in
+    # revisione": baseline per mostrare nell'editor "prezzo precedente → attuale
+    # (Δ)" durante/dopo la revisione. Baseline singolo (ultimo rimando indietro).
+    revision_baseline_total = Column(Float, nullable=True)
+    revision_baseline_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

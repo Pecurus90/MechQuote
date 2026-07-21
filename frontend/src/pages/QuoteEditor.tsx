@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle, Lock } from 'lucide-react'
+import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle, Lock, History } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal, parseDecimalOrNull } from '@/lib/decimalInput'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
@@ -411,7 +411,7 @@ export default function QuoteEditor() {
     variant: (confirmRiskReason || zeroPriceParts.length) ? 'destructive' : 'default',
   })
   const partsWithIssues = new Set(validateQuote(quote).map(i => i.partIdx))
-  const isLocked = !['bozza', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
+  const isLocked = !['bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente'].includes(quote.status) && !hasPermission('quotes.edit_locked')
   // Guardia "non tuo": se il preventivo è di un altro utente resta in sola
   // lettura finché non confermi. `effectiveLocked` somma il blocco di workflow
   // (isLocked) e questa guardia → tutti i figli (parti, fasi, campi) la
@@ -428,7 +428,7 @@ export default function QuoteEditor() {
   const preConfirm = inReview || st === 'in_attesa_cliente'    // esito ancora aperto
   const showUnconfirm = (hasPermission('quotes.edit_locked') || hasPermission('quotes.confirm')) && (st === 'confermato' || st === 'completo')
   const actions: EditorAction[] = [
-    { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: st === 'bozza' && hasPermission('quotes.send') },
+    { key: 'send', label: 'Invia per revisione', icon: Send, variant: 'primary', onClick: submitForReview, show: (st === 'bozza' || st === 'in_revisione') && hasPermission('quotes.send') },
     { key: 'await', label: 'In attesa cliente', icon: Hourglass, variant: 'secondary', onClick: () => setPendingStatus({ path: 'await-client', okMsg: 'Offerta in attesa del cliente', title: 'Mettere in attesa del cliente?', description: "L'offerta risulterà in attesa della risposta del cliente.", confirmLabel: 'In attesa cliente' }), show: canConfirm && inReview },
     // B-4: uscita "morbida" dall'attesa cliente senza passare da bozza (torna a
     // letto/inviato), come già offre la lista (F19). Prima dall'editor l'unica
@@ -437,7 +437,7 @@ export default function QuoteEditor() {
     { key: 'confirm', label: 'Conferma ordine', icon: CheckCheck, variant: 'confirm', onClick: askConfirm, show: canConfirm && preConfirm },
     { key: 'notordered', label: 'Non ordinato', icon: XCircle, variant: 'muted', onClick: () => setPendingStatus({ path: 'mark-not-ordered', okMsg: 'Segnato come non ordinato', title: 'Segnare come non ordinato?', description: 'Il preventivo risulterà non ordinato (perso). Potrai ripristinarlo in seguito.', confirmLabel: 'Non ordinato', variant: 'destructive' }), show: canConfirm && preConfirm },
     { key: 'restore', label: 'Ripristina', icon: RotateCcw, variant: 'secondary', onClick: () => setPendingStatus({ path: 'restore', okMsg: 'Preventivo ripristinato', title: 'Ripristinare il preventivo?', description: 'Il preventivo torna in lavorazione.', confirmLabel: 'Ripristina' }), show: canConfirm && st === 'non_ordinato' },
-    { key: 'reopen', label: 'Rimanda in bozza', icon: Undo2, variant: 'ghost', onClick: () => setPendingStatus({ path: 'reopen', okMsg: 'Rimandato in bozza', title: 'Rimandare in bozza?', description: 'Il preventivo tornerà modificabile come bozza.', confirmLabel: 'Rimanda in bozza' }), show: canConfirm && preConfirm },
+    { key: 'reopen', label: 'Manda in revisione', icon: Undo2, variant: 'ghost', onClick: () => setPendingStatus({ path: 'reopen', okMsg: 'Mandato in revisione', title: 'Sei sicuro di mandare in revisione il preventivo?', description: 'Il preventivo tornerà modificabile (stato "in revisione") e il prezzo attuale verrà salvato per il confronto con le modifiche.', confirmLabel: 'Manda in revisione' }), show: canConfirm && preConfirm },
     { key: 'unconfirm', label: 'Annulla conferma', icon: RotateCcw, variant: 'muted', onClick: () => setConfirmUnconfirm(true), show: showUnconfirm },
     { key: 'save', label: 'Salva', icon: Save, variant: 'primary', onClick: saveQuote, show: !effectiveLocked },
   ]
@@ -518,10 +518,32 @@ export default function QuoteEditor() {
         stepDates={stepDates}
         actions={actions}
         locked={isLocked}
+        isRevision={!!quote.revision_baseline_at}
         lockedText={quote.status === 'confermato' ? 'Preventivo confermato — non più modificabile.' : 'Preventivo completo — non più modificabile.'}
         onBack={() => navigate('/quotes/active')}
         busy={saving}
       />
+
+      {/* TD-16: banner confronto prezzo per i preventivi in revisione. */}
+      {quote.revision_baseline_total != null && (() => {
+        const prev = quote.revision_baseline_total
+        const now = quote.final_total ?? 0
+        const delta = now - prev
+        return (
+          <div className="flex items-center gap-3 border-b border-state-revisione/30 bg-state-revisione/10 px-5 py-2.5 text-sm text-foreground">
+            <History className="h-4 w-4 flex-none text-state-revisione" />
+            <span className="flex-1">
+              Revisione — prezzo precedente <b className="font-mono">{eur0(prev)}</b> → attuale{' '}
+              <b className="font-mono">{eur0(now)}</b>
+              {Math.abs(delta) >= 0.5 && (
+                <span className={`ml-2 font-mono font-semibold ${delta > 0 ? 'text-success' : 'text-danger'}`}>
+                  ({delta > 0 ? '+' : ''}{eur0(delta)})
+                </span>
+              )}
+            </span>
+          </div>
+        )
+      })()}
 
       {staleConflict && (
         <div className="flex items-center gap-3 border-b border-warning/30 bg-warning/10 px-5 py-2.5 text-sm text-foreground">

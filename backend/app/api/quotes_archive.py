@@ -92,7 +92,7 @@ def list_archive(
         query = query.filter(Quote.status.in_(['completo', 'non_ordinato']))
     elif phase == 'active':
         query = query.filter(Quote.status.in_(
-            ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato']))
+            ['bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente', 'confermato']))
     # Filtri "sintetici" per far coincidere i KPI dashboard con la lista:
     #  - da_confermare = inviato + letto (KPI "Preventivi da confermare")
     #  - senza_prezzo  = completo senza prezzo di vendita (KPI "Senza prezzo")

@@ -505,6 +505,9 @@ class QuoteOut(QuoteBase):
     # B1: totale finale persistito (Σ parti + trasporto + imballaggio − sconto;
     # stampi = L7). NULL per preventivi mai ricalcolati dopo la migrazione.
     final_total: Optional[float] = None
+    # TD-16: prezzo baseline al "manda in revisione" (per il confronto editor).
+    revision_baseline_total: Optional[float] = None
+    revision_baseline_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     parts: List[PartOut] = []

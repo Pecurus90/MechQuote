@@ -19,6 +19,7 @@ def _fake_quote(**kw):
 
 def test_is_editable():
     assert wf.is_editable('bozza') is True
+    assert wf.is_editable('in_revisione') is True   # TD-16
     assert wf.is_editable('inviato') is True
     assert wf.is_editable('letto') is True
     assert wf.is_editable('in_attesa_cliente') is True
@@ -28,10 +29,10 @@ def test_is_editable():
 
 
 def test_status_sets():
-    assert wf.EDITABLE_STATUSES == {'bozza', 'inviato', 'letto', 'in_attesa_cliente'}
+    assert wf.EDITABLE_STATUSES == {'bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente'}
     assert wf.ORDERABLE_STATUSES == {'confermato', 'completo'}
     assert set(wf.QUOTE_STATUSES) == {
-        'bozza', 'inviato', 'letto', 'in_attesa_cliente',
+        'bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente',
         'confermato', 'completo', 'non_ordinato',
     }
 

@@ -5,12 +5,15 @@ import { cn } from '@/lib/utils'
 
 // Nodi della linea "vinta" + il terminale "perso" (non ordinato), gestito a parte.
 type StepKey =
-  | 'bozza' | 'inviato' | 'letto' | 'in_attesa_cliente'
+  | 'bozza' | 'in_revisione' | 'inviato' | 'letto' | 'in_attesa_cliente'
   | 'confermato' | 'completo' | 'non_ordinato'
 
 interface Props {
   current: StepKey
   dates?: Partial<Record<StepKey, string>>
+  // TD-16: se true (o current='in_revisione'), il primo nodo mostra "In
+  // revisione" invece di "Bozza" per tutto il ciclo della revisione.
+  isRevision?: boolean
 }
 
 // Percorso principale (esito positivo): 6 nodi.
@@ -32,6 +35,7 @@ const LOST_NODE: { key: StepKey; label: string; icon: LucideIcon } = {
 // Classi statiche per stato (Tailwind JIT deve poterle leggere).
 const NODE_REACHED: Record<StepKey, string> = {
   bozza: 'bg-state-bozza text-white',
+  in_revisione: 'bg-state-revisione text-white',
   inviato: 'bg-state-inviato text-white',
   letto: 'bg-state-letto text-white',
   in_attesa_cliente: 'bg-state-attesa text-white',
@@ -41,6 +45,7 @@ const NODE_REACHED: Record<StepKey, string> = {
 }
 const RING_CURRENT: Record<StepKey, string> = {
   bozza: 'ring-4 ring-state-bozza/20',
+  in_revisione: 'ring-4 ring-state-revisione/20',
   inviato: 'ring-4 ring-state-inviato/20',
   letto: 'ring-4 ring-state-letto/20',
   in_attesa_cliente: 'ring-4 ring-state-attesa/20',
@@ -50,6 +55,7 @@ const RING_CURRENT: Record<StepKey, string> = {
 }
 const LABEL_CURRENT: Record<StepKey, string> = {
   bozza: 'text-state-bozza',
+  in_revisione: 'text-state-revisione',
   inviato: 'text-state-inviato',
   letto: 'text-state-letto',
   in_attesa_cliente: 'text-state-attesa',
@@ -59,6 +65,7 @@ const LABEL_CURRENT: Record<StepKey, string> = {
 }
 const CONNECTOR_COLOR: Record<StepKey, string> = {
   bozza: 'bg-state-bozza',
+  in_revisione: 'bg-state-revisione',
   inviato: 'bg-state-inviato',
   letto: 'bg-state-letto',
   in_attesa_cliente: 'bg-state-attesa',
@@ -67,10 +74,16 @@ const CONNECTOR_COLOR: Record<StepKey, string> = {
   non_ordinato: 'bg-state-perso',
 }
 
-export function StatusStepper({ current, dates }: Props) {
+export function StatusStepper({ current, dates, isRevision }: Props) {
+  // TD-16: 'in_revisione' occupa lo slot iniziale (come bozza); se è una
+  // revisione l'etichetta del primo nodo diventa "In revisione".
+  const rev = isRevision || current === 'in_revisione'
+  const happy = rev
+    ? [{ key: 'in_revisione' as StepKey, label: 'In revisione', icon: HAPPY[0].icon }, ...HAPPY.slice(1)]
+    : HAPPY
   // Percorso "perso": bozza→inviato→letto→attesa (tutti raggiunti) + terminale rosso.
   const lost = current === 'non_ordinato'
-  const steps = lost ? [...HAPPY.slice(0, 4), LOST_NODE] : HAPPY
+  const steps = lost ? [...happy.slice(0, 4), LOST_NODE] : happy
   const currentIdx = lost ? steps.length - 1 : steps.findIndex((s) => s.key === current)
 
   return (

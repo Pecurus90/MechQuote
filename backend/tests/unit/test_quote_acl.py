@@ -55,7 +55,10 @@ def test_creatore_non_e_bloccato_dallacl(db_session):
     creator = _user(1, ['quotes.confirm'])   # id == created_by_user_id
     reopen_quote(q.id, db_session, creator, None)
     db_session.refresh(q)
-    assert q.status == 'bozza'
+    # TD-16: il rimando indietro porta a 'in_revisione' (non più 'bozza') e
+    # salva il prezzo baseline per il confronto.
+    assert q.status == 'in_revisione'
+    assert q.revision_baseline_at is not None
 
 
 def test_mark_read_inviato_a_letto_e_idempotente(db_session):

@@ -1019,7 +1019,7 @@ def get_my_quotes(
     non i chiusi (confermato/completo/non_ordinato).
     """
     if status is not None and status not in (
-        'bozza', 'inviato', 'letto', 'in_attesa_cliente',
+        'bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente',
         'confermato', 'completo', 'non_ordinato',
     ):
         raise HTTPException(status_code=400, detail="Stato non valido")

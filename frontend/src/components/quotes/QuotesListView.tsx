@@ -30,7 +30,7 @@ interface Props {
 
 // 'da_confermare' / 'senza_prezzo' = filtri sintetici (il backend li traduce)
 // per far coincidere i KPI dashboard con la lista.
-const ACTIVE_STATUSES = ['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato', 'da_confermare'] as const
+const ACTIVE_STATUSES = ['bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente', 'confermato', 'da_confermare'] as const
 const COMPLETED_STATUSES = ['completo', 'non_ordinato', 'senza_prezzo'] as const
 
 export default function QuotesListView({ phase, title, subtitle, icon, showQuickActions = false }: Props) {
@@ -250,6 +250,7 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
     ? [
         { value: 'all', label: 'Tutti' },
         { value: 'bozza', label: 'Bozza' },
+        { value: 'in_revisione', label: 'In revisione' },
         { value: 'inviato', label: 'Inviato' },
         { value: 'letto', label: 'Letto' },
         { value: 'in_attesa_cliente', label: 'Attesa cliente' },

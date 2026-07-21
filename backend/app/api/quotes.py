@@ -254,7 +254,8 @@ def update_quote_status(
     # letto → confermato (POST /confirm), confermato → completo (auto).
     if data.status != 'inviato':
         raise HTTPException(status_code=400, detail="Solo la transizione a 'inviato' è permessa qui")
-    if quote.status != 'bozza':
+    # TD-16: si invia per revisione da 'bozza' (nuovo) o 'in_revisione' (rimandato indietro).
+    if quote.status not in (wf.STATUS_BOZZA, wf.STATUS_IN_REVISIONE):
         raise HTTPException(status_code=400, detail=f"Impossibile inviare: stato corrente '{quote.status}'")
 
     quote.status = 'inviato'
@@ -423,7 +424,10 @@ def reopen_quote(
     current_user: User = Depends(get_current_user),
     _=_can_confirm,
 ):
-    """Rimanda in bozza (amministrazione): inviato/letto/in_attesa_cliente → bozza."""
+    """Manda in revisione (amministrazione): inviato/letto/in_attesa_cliente →
+    in_revisione (TD-16). Prima portava a 'bozza'; ora a 'in_revisione', così il
+    preventivo resta riconoscibile come revisione e conserva il prezzo
+    precedente (`revision_baseline_total`) per il confronto nell'editor."""
     quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Preventivo non trovato")
@@ -431,10 +435,14 @@ def reopen_quote(
     if quote.status not in (wf.STATUS_INVIATO, wf.STATUS_LETTO, wf.STATUS_IN_ATTESA_CLIENTE):
         raise HTTPException(
             status_code=400,
-            detail=f"Rimando in bozza non possibile dallo stato '{quote.status}'",
+            detail=f"Invio in revisione non possibile dallo stato '{quote.status}'",
         )
     creator_id = quote.created_by_user_id
-    quote.status = wf.STATUS_BOZZA
+    # TD-16: snapshot del prezzo attuale (quello revisionato/mandato al cliente)
+    # come baseline per il confronto dopo le modifiche del tecnico.
+    quote.revision_baseline_total = quote.final_total
+    quote.revision_baseline_at = utc_now()
+    quote.status = wf.STATUS_IN_REVISIONE
     quote.submitted_at = None
     quote.submitted_by_user_id = None
     quote.read_at = None
@@ -451,7 +459,7 @@ def reopen_quote(
         create_notification(
             db,
             type='quote_reopened',
-            title=f"Preventivo {quote.quote_number} rimandato in bozza",
+            title=f"Preventivo {quote.quote_number} rimandato in revisione",
             body=f"Rimandato da {actor} — serve una revisione",
             created_by_user_id=current_user.id,
             target_user_id=creator_id,

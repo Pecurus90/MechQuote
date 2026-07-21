@@ -36,6 +36,7 @@
     /* Stati preventivo (bozza → inviato → letto → attesa cliente →
        confermato → completo; perso = non ordinato) */
     --state-bozza: 220 9% 46%;
+    --state-revisione: 45 93% 40%;
     --state-inviato: 214 90% 52%;
     --state-letto: 33 92% 47%;
     --state-attesa: 25 95% 53%;
@@ -88,6 +89,7 @@
     --destructive-foreground: 0 0% 100%;
 
     --state-bozza: 220 9% 62%;
+    --state-revisione: 45 93% 55%;
     --state-inviato: 213 93% 66%;
     --state-letto: 36 96% 56%;
     --state-attesa: 25 95% 62%;

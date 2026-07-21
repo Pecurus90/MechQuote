@@ -48,6 +48,49 @@ assorbiti nei temi corrispondenti.
 
 ---
 
+## 🗒️ TODO DESKTOP 2026-07-21 — batch 3 (workflow revisione)
+
+- **TD-16** — ✅ **FATTO 2026-07-21** (resta prova a mano nel browser).
+  **Stato "in revisione" + conferma + prezzo vecchio.**
+  Fatto: nuovo stato `in_revisione` (editable, in `EDITABLE_STATUSES`/
+  `QUOTE_STATUSES`); `/reopen` → `in_revisione` + snapshot `revision_baseline_total`;
+  invio consentito da bozza O in_revisione; migrazione 2 colonne; liste "in
+  corso"/validazione stati aggiornate. FE: token colore `state-revisione`,
+  label/badge/chip, `StatusStepper` (primo nodo "In revisione"), editor (azioni
+  come bozza, "Manda in revisione" con ConfirmDialog "Sei sicuro…", badge
+  "prezzo precedente → attuale (Δ)"), filtro lista. Collaudo:
+  `test_revision_flow.py` (3) + `test_quote_workflow`/`test_quote_acl` aggiornati,
+  **150 unit pass**, tsc pulito, backend OK.
+  <!-- design storico sotto -->
+  **Storico design.** Oggi "Rimanda in bozza"
+  (da inviato/letto/in_attesa_cliente → bozza) confonde un preventivo revisionato
+  con uno nuovo e perde il prezzo precedente.
+  **Decisioni utente:** reopen va **sempre** in `in_revisione` (mai più bozza);
+  prezzo = **baseline singolo** (ultimo); "annulla conferma" resta → letto.
+  **Design:**
+  1. Nuovo stato `in_revisione` (editable come bozza; bozza = mai inviato,
+     in_revisione = rimandato indietro). `EDITABLE_STATUSES` lo include; non
+     ordinabile.
+  2. `/reopen` (rinominato UX "Manda in revisione", da inviato/letto/
+     in_attesa_cliente) → `in_revisione`, con **ConfirmDialog** "Sei sicuro di
+     mandare in revisione?"; azzera invio/lettura/attesa + ordini come oggi;
+     **snapshot** `revision_baseline_total = final_total` + `_at`.
+  3. `PATCH /status` (invia per revisione): consentito da **bozza O in_revisione**
+     → inviato (oggi solo bozza). Resto del ciclo invariato.
+  4. Editor: `in_revisione` ha le azioni di un nuovo preventivo (modifica +
+     "Invia per revisione"). Stepper: **In revisione → Inviato → Letto →
+     Confermato → Completo** (il primo nodo è "In revisione" quando
+     `revision_baseline_at` è valorizzato). Badge "Prezzo precedente X →
+     attuale Y (Δ)".
+  **Tocco:** BE `quote_workflow.py` (+stato/editable), `quotes.py` (reopen +
+  snapshot, send da in_revisione), `models.py`+migrazione (2 colonne
+  `revision_baseline_total`/`_at`), commento stato. FE `types`, `StatusStepper`,
+  `constants.ts` (label/colore in_revisione), `QuoteEditorTopBar`/`QuoteEditor`
+  (azioni + conferma + rinomina), badge prezzo. Collaudo: unit su workflow +
+  tsc.
+
+---
+
 ## 🗒️ TODO DESKTOP 2026-07-21 — richieste utente (file "to do .txt")
 
 Dieci richieste raccolte dall'utente. Analizzate contro il codice (5

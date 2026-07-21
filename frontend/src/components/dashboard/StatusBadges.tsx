@@ -5,11 +5,12 @@ import { cn } from '@/lib/utils'
  * StatusBadge — pill stato preventivo (5 stati)
  * ------------------------------------------------------------------------- */
 export type QuoteStatus =
-  | 'bozza' | 'inviato' | 'letto' | 'in_attesa_cliente'
+  | 'bozza' | 'in_revisione' | 'inviato' | 'letto' | 'in_attesa_cliente'
   | 'confermato' | 'completo' | 'non_ordinato'
 
 const STATUS_LABEL: Record<QuoteStatus, string> = {
   bozza: 'Bozza',
+  in_revisione: 'In revisione',
   inviato: 'Inviato',
   letto: 'Letto',
   in_attesa_cliente: 'Attesa cliente',
@@ -20,6 +21,7 @@ const STATUS_LABEL: Record<QuoteStatus, string> = {
 
 const STATUS_CLASS: Record<QuoteStatus, string> = {
   bozza: 'bg-state-bozza/15 text-state-bozza',
+  in_revisione: 'bg-state-revisione/15 text-state-revisione',
   inviato: 'bg-state-inviato/15 text-state-inviato',
   letto: 'bg-state-letto/15 text-state-letto',
   in_attesa_cliente: 'bg-state-attesa/15 text-state-attesa',
@@ -84,6 +86,7 @@ export function MaterialStatusBadge({ status }: { status: MaterialStatus }) {
  * ------------------------------------------------------------------------- */
 const CHIP_CLASS: Record<string, string> = {
   bozza: 'bg-state-bozza/15 text-state-bozza',
+  in_revisione: 'bg-state-revisione/15 text-state-revisione',
   inviato: 'bg-state-inviato/15 text-state-inviato',
   letto: 'bg-state-letto/15 text-state-letto',
   in_attesa_cliente: 'bg-state-attesa/15 text-state-attesa',
@@ -94,6 +97,7 @@ const CHIP_CLASS: Record<string, string> = {
 
 const CHIP_LABEL: Record<string, string> = {
   bozza: 'Bozza',
+  in_revisione: 'In revisione',
   inviato: 'Inviato',
   letto: 'Letto',
   in_attesa_cliente: 'Attesa cliente',

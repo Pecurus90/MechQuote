@@ -29,6 +29,7 @@ export default {
         // Stati preventivo + semantici (handoff): con <alpha-value> per
         // supportare i modificatori /alpha (es. bg-state-inviato/15).
         'state-bozza': 'hsl(var(--state-bozza) / <alpha-value>)',
+        'state-revisione': 'hsl(var(--state-revisione) / <alpha-value>)',
         'state-inviato': 'hsl(var(--state-inviato) / <alpha-value>)',
         'state-letto': 'hsl(var(--state-letto) / <alpha-value>)',
         'state-attesa': 'hsl(var(--state-attesa) / <alpha-value>)',

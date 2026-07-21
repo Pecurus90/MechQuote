@@ -27,6 +27,8 @@ interface Props {
   actions: EditorAction[]
   locked: boolean
   lockedText?: string
+  // TD-16: primo nodo dello stepper "In revisione" invece di "Bozza".
+  isRevision?: boolean
   onBack?: () => void
   /** AUD-34: quando true (es. salvataggio/transizione in corso) disabilita
    *  tutte le azioni di workflow, così non si ri-entra in doStatus/doSubmit. */
@@ -52,6 +54,7 @@ export function QuoteEditorTopBar(props: Props) {
     actions,
     locked,
     lockedText = 'Preventivo non più modificabile.',
+    isRevision = false,
     onBack,
     busy = false,
   } = props
@@ -110,7 +113,7 @@ export function QuoteEditorTopBar(props: Props) {
       {/* row 2: stepper */}
       <div className="px-[90px] pb-[18px] pt-1.5">
         <div className="mx-auto max-w-[860px]">
-          <StatusStepper current={status} dates={stepDates} />
+          <StatusStepper current={status} dates={stepDates} isRevision={isRevision} />
         </div>
       </div>
     </div>

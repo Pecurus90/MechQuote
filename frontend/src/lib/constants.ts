@@ -3,6 +3,7 @@
 //                                              └→ non_ordinato (perso)
 export const STATUS_LABELS: Record<string, string> = {
   bozza:             'Bozza',
+  in_revisione:      'In revisione',
   inviato:           'Inviato',
   letto:             'Letto',
   in_attesa_cliente: 'Attesa cliente',
@@ -20,6 +21,7 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const STATUS_COLORS: Record<string, string> = {
   bozza:             'bg-gray-100 text-gray-700',
+  in_revisione:      'bg-yellow-100 text-yellow-800',
   inviato:           'bg-amber-100 text-amber-700',
   letto:             'bg-sky-100 text-sky-700',
   in_attesa_cliente: 'bg-orange-100 text-orange-700',

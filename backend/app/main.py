@@ -842,6 +842,12 @@ def _run_migrations():
         "ALTER TABLE manufacturing_phases ADD COLUMN electrode_diameter_mm FLOAT",
         "ALTER TABLE manufacturing_phases ADD COLUMN n_holes INTEGER",
         "ALTER TABLE manufacturing_phases ADD COLUMN drill_depth_mm FLOAT",
+
+        # ═══ TD-16 — Stato 'in_revisione' + snapshot prezzo baseline ═══
+        # Nuovo stato workflow (String, nessun vincolo da migrare); baseline del
+        # prezzo salvata al "manda in revisione" per il confronto nell'editor.
+        "ALTER TABLE quotes ADD COLUMN revision_baseline_total FLOAT",
+        "ALTER TABLE quotes ADD COLUMN revision_baseline_at DATETIME",
     ]
     with engine.connect() as conn:
         for sql in migrations:

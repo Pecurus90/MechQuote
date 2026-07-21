@@ -213,6 +213,53 @@ Le feature EDM (TD-7/TD-8) toccano `services/calculation.py` = **zona fragile**
 
 ---
 
+## 🗒️ TODO DESKTOP 2026-07-21 — batch 2 (nuove richieste)
+
+Seconda tornata dal file "to do .txt" (riscritto dall'utente). Analizzate
+contro il codice (5 ricognizioni read-only, 2026-07-21). Numerazione continua
+da TD-10.
+
+- **TD-13** — ✅ **FATTO 2026-07-21** (bug data-loss risolto). I template di
+  flusso (e le lavorazioni custom) non spariscono più al riavvio. Causa: in
+  `main.py _run_migrations()` c'erano `DROP TABLE` **incondizionati** su
+  `workflow_template_steps`/`workflow_templates`/`phase_templates`/`operations`
+  (giravano a OGNI avvio → cancellavano i dati utente ogni restart). Fix:
+  rimossi i DROP + `CREATE TABLE IF NOT EXISTS` (le tabelle hanno da mesi il
+  nuovo schema; `_seed_operations` è idempotente → non re-semina se non vuota).
+  Verifica concreta: inserito template+operation, ri-eseguito `_run_migrations`,
+  entrambi **sopravvivono** (prima venivano azzerati); 144 unit pass. Backup DB
+  `mechquote.db.bak-*` creato prima del test.
+- **TD-11** — Dashboard: rimuovere la card **"Utensili da ordinare"** (rail
+  destro, `DashboardView.tsx:163-183` + fetch `/orders/tools/preview` in
+  `DashboardPage.tsx:72`) e portare **"Materiale da ordinare"** in alto e
+  **più alta** (più righe: oggi `.slice(0,6)` in `DashboardPage.tsx:131`).
+  Inoltre includere le **richieste materiale manuali**: oggi
+  `/dashboard/awaiting-materials` (`dashboard.py:1078-1109`) mostra SOLO Quote
+  confermati, non le `MaterialRequest` inviate → estendere l'endpoint per
+  unire le due fonti (come fa il pool `/orders/materials`).
+- **TD-14** — Ricerca **anche sulla descrizione** (match parziale ILIKE) in
+  preventivi e ordini materiali. Preventivi: `quotes_archive.py:76-81` oggi
+  filtra solo `quote_number` + `customer_name` → aggiungere `Part.description`
+  (+ note) via join + `distinct()`. Ordini: `orders.py:799-826` filtra
+  numero/fornitore/creatore → aggiungere `MaterialOrderItem.material_name`/
+  `description`/`part_code` via join. Da decidere quali campi includere.
+- **TD-12** — Notifica ordini materiale: **replicare il badge**. Chiarito
+  (2026-07-21): oggi il badge (materiali da ordinare, da
+  `/orders/materials/stats` → `to_order`) compare solo sul **genitore "Ordini"**
+  in sidebar; l'utente lo vuole **anche sulla sotto-voce "Ordini materiali"**
+  (dov'è davvero il lavoro). Fix piccolo in `Sidebar.tsx`: mostrare `ordersBadge`
+  anche sull'item figlio "Ordini materiali".
+- **TD-15** — Arricchimento alias materiali via ricerca online. Chiarito
+  (2026-07-21): NON è autofill in un flusso — l'utente vuole che **si cerchino
+  online i nomi/designazioni equivalenti** dei materiali **già a catalogo** e si
+  **creino gli alias** in automatico (es. "C45" → "1.0503", "C45E", "Ck45",
+  "EN 10083"). Task **dati** (non feature): serve la lista materiali reale +
+  web search per designazioni normative (EN/DIN/W.Nr/AISI/UNI) → inserimento
+  alias via `MaterialAlias`. Da fare con revisione utente prima di scrivere in
+  DB (backup §2.E). Da scopare quando ci arriviamo.
+
+---
+
 ## 🔎 AUDIT 2026-07-13 — findings consolidati (3 audit paralleli)
 
 Tre revisioni parallele di **sola lettura** (logica/bug backend · estetica

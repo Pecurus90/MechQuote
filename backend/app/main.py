@@ -281,18 +281,18 @@ def _run_migrations():
         # (setup_hourly_rate ?? hourly_rate). NULL → fallback a hourly_rate.
         "ALTER TABLE machines ADD COLUMN setup_hourly_rate FLOAT",
 
-        # ═══ Operation (catalogo Lavorazioni utente) ═══
-        # Tabella libera, gestita dall'utente da UI. Sostituisce l'enum
-        # PHASE_TYPES hardcoded. Il cost engine non dipende più da questa:
-        # behavior speciali dedotti da machine.machine_type (autocalc EDM)
-        # e da treatment_id (fasi trattamento).
-        # DROP & ricreo: schema cambiato (phase_type rimosso). Nessun dato
-        # utente reale da preservare in questa fase del progetto.
-        "DROP TABLE IF EXISTS workflow_template_steps",
-        "DROP TABLE IF EXISTS workflow_templates",
-        "DROP TABLE IF EXISTS phase_templates",  # rimosso
-        "DROP TABLE IF EXISTS operations",
-        ("CREATE TABLE operations ("
+        # ═══ Operation (catalogo Lavorazioni utente) + WorkflowTemplate ═══
+        # Tabelle libere, gestite dall'utente da UI (lavorazioni + template di
+        # flusso). CREATE idempotenti.
+        # ⚠️ TD-13 (2026-07-21) — FIX PERDITA DATI: qui c'erano DROP TABLE
+        # INCONDIZIONATI su operations/workflow_templates(+steps)/phase_templates,
+        # nati per un cambio schema una-tantum (phase_type rimosso). Ma giravano
+        # a OGNI avvio → cancellavano i template di flusso e le lavorazioni
+        # custom dell'utente ad ogni restart/aggiornamento del server. Rimossi:
+        # le tabelle hanno da tempo il nuovo schema (la migrazione è passata da
+        # mesi), quindi i DROP erano solo distruttivi. Ora `CREATE TABLE IF NOT
+        # EXISTS`: no-op se la tabella esiste già, dati preservati.
+        ("CREATE TABLE IF NOT EXISTS operations ("
          "id INTEGER PRIMARY KEY, "
          "name VARCHAR(100) UNIQUE NOT NULL, "
          "active BOOLEAN DEFAULT 1)"),
@@ -300,12 +300,12 @@ def _run_migrations():
         # già esistere come legacy (Sprint 13c volumetric smontato): try/except
         # del runner ALTER TABLE coprirà il "duplicate column" silenziosamente.
         "ALTER TABLE manufacturing_phases ADD COLUMN operation_id INTEGER REFERENCES operations(id)",
-        ("CREATE TABLE workflow_templates ("
+        ("CREATE TABLE IF NOT EXISTS workflow_templates ("
          "id INTEGER PRIMARY KEY, "
          "name VARCHAR(100) NOT NULL, "
          "description TEXT, "
          "active BOOLEAN DEFAULT 1)"),
-        ("CREATE TABLE workflow_template_steps ("
+        ("CREATE TABLE IF NOT EXISTS workflow_template_steps ("
          "id INTEGER PRIMARY KEY, "
          "workflow_id INTEGER NOT NULL REFERENCES workflow_templates(id), "
          "sequence_number INTEGER NOT NULL, "

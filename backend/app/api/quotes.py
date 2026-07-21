@@ -437,7 +437,10 @@ def reopen_quote(
             status_code=400,
             detail=f"Invio in revisione non possibile dallo stato '{quote.status}'",
         )
-    creator_id = quote.created_by_user_id
+    # La notifica di "rimandato in revisione" va a chi ha INVIATO il preventivo
+    # (submitted_by), con fallback al creatore — coerente con le notifiche
+    # 'letto'/'completato'. Catturato PRIMA di azzerare submitted_by_user_id.
+    target_id = quote.submitted_by_user_id or quote.created_by_user_id
     # TD-16: snapshot del prezzo attuale (quello revisionato/mandato al cliente)
     # come baseline per il confronto dopo le modifiche del tecnico.
     quote.revision_baseline_total = quote.final_total
@@ -454,7 +457,7 @@ def reopen_quote(
     db.query(QuoteSupplierOrder).filter(QuoteSupplierOrder.quote_id == quote_id).delete()
     quote.material_ordered_at = None
     quote.material_ordered_by_user_id = None
-    if creator_id:
+    if target_id and target_id != current_user.id:
         actor = current_user.full_name or current_user.username
         create_notification(
             db,
@@ -462,7 +465,7 @@ def reopen_quote(
             title=f"Preventivo {quote.quote_number} rimandato in revisione",
             body=f"Rimandato da {actor} — serve una revisione",
             created_by_user_id=current_user.id,
-            target_user_id=creator_id,
+            target_user_id=target_id,
             data={'quote_id': quote.id, 'quote_number': quote.quote_number},
             commit=False,
         )

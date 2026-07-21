@@ -38,6 +38,20 @@ def test_invio_consentito_da_in_revisione(db_session):
     assert q.status == 'inviato'
 
 
+def test_notifica_reopen_va_a_chi_ha_inviato(db_session):
+    from app.models import Notification
+    # creato da 1, inviato da 2; rimandato indietro dall'admin 3 → notifica a 2.
+    q = _quote(db_session, status='letto', submitted_by_user_id=2)
+    admin = SimpleNamespace(id=3, full_name='Laura', username='laura',
+                            _permissions=['quotes.confirm', 'quotes.view_all'])
+    reopen_quote(q.id, db_session, admin, None)
+    n = db_session.query(Notification).filter(
+        Notification.type == 'quote_reopened',
+        Notification.target_quote_id == q.id,
+    ).first()
+    assert n is not None and n.target_user_id == 2   # chi ha inviato, non il creatore
+
+
 def test_invio_bloccato_da_stati_non_ammessi(db_session):
     import pytest
     from fastapi import HTTPException

@@ -993,13 +993,55 @@ def _seed_edm_defaults():
 #   venv/bin/python -m scripts.one_shot_db_fixes
 
 
+def _seed_material_aliases():
+    """TD-15 — seed UNA-TANTUM di alias per i materiali a catalogo (designazioni
+    equivalenti verificate: W.Nr, EN, AISI, nomi commerciali). Serve ad
+    abbinare i nomi delle distinte/gestionale al materiale a catalogo.
+
+    ONE-TIME via marker in `seed_markers`: gira una volta sola per DB e NON
+    re-inserisce alias eliminati a mano dopo il primo seed (a differenza di un
+    seed che rigira ad ogni avvio). Match materiale per nome normalizzato;
+    alias saltato se già usato (unicità globale), se coincide col nome del
+    materiale stesso, o col nome esatto di un altro materiale a catalogo."""
+    from sqlalchemy.orm import Session
+    from app.models import Material, MaterialAlias
+    from app.core.csv_import import normalize_alias
+    from app.core.material_aliases_seed import MATERIAL_ALIASES
+    marker = 'material_aliases_v1'
+    with Session(engine) as db:
+        db.execute(text("CREATE TABLE IF NOT EXISTS seed_markers (key VARCHAR(80) PRIMARY KEY)"))
+        db.commit()
+        if db.execute(text("SELECT 1 FROM seed_markers WHERE key=:k"), {"k": marker}).first():
+            return
+        mats = {normalize_alias(m.name): m for m in db.query(Material).all()}
+        taken = {a.csv_name for a in db.query(MaterialAlias).all()}
+        added = 0
+        for name, aliases in MATERIAL_ALIASES.items():
+            mat = mats.get(normalize_alias(name))
+            if not mat:
+                continue
+            for al in aliases:
+                key = normalize_alias(al)
+                if not key or key in taken or key == normalize_alias(mat.name):
+                    continue
+                other = mats.get(key)
+                if other is not None and other.id != mat.id:
+                    continue   # è il nome esatto di un ALTRO materiale
+                db.add(MaterialAlias(csv_name=key, material_id=mat.id))
+                taken.add(key)
+                added += 1
+        db.execute(text("INSERT INTO seed_markers (key) VALUES (:k)"), {"k": marker})
+        db.commit()
+        logging.getLogger("mechquote.seed").info("seed alias materiali (v1): %d alias creati", added)
+
+
 _run_migrations()
 # AUD-47: i seed girano a import-time. Prima, un seed che sollevava (DB
 # parzialmente migrato, lock transitorio) faceva fallire `import app.main` →
 # uvicorn non partiva affatto. Ora ogni seed è isolato: se uno fallisce viene
 # loggato e l'app parte comunque (degradazione parziale invece di down totale).
 for _seed in (_seed_categories, _seed_roles, _seed_operations,
-              _seed_edm_defaults):
+              _seed_edm_defaults, _seed_material_aliases):
     try:
         _seed()
     except Exception as exc:

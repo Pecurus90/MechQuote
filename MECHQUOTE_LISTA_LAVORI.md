@@ -251,14 +251,20 @@ da TD-10.
   (oltre che sul genitore "Ordini"), così l'utente vede dov'è il lavoro.
   `Sidebar.tsx` (dato sul leaf) + `SidebarView.tsx` (render badge sulle voci
   figlie, prima non previsto). tsc pulito.
-- **TD-15** — Arricchimento alias materiali via ricerca online. Chiarito
-  (2026-07-21): NON è autofill in un flusso — l'utente vuole che **si cerchino
-  online i nomi/designazioni equivalenti** dei materiali **già a catalogo** e si
-  **creino gli alias** in automatico (es. "C45" → "1.0503", "C45E", "Ck45",
-  "EN 10083"). Task **dati** (non feature): serve la lista materiali reale +
-  web search per designazioni normative (EN/DIN/W.Nr/AISI/UNI) → inserimento
-  alias via `MaterialAlias`. Da fare con revisione utente prima di scrivere in
-  DB (backup §2.E). Da scopare quando ci arriviamo.
+- **TD-15** — ✅ **FATTO 2026-07-21** (v1; restano generici + unificazione P20).
+  Alias materiali da designazioni equivalenti verificate online (fonti:
+  steelnumber, Böhler, virgamet…). Dati in `core/material_aliases_seed.py`
+  (mappa nome→alias per 23 materiali). Applicati da `_seed_material_aliases()`
+  in `main.py`: seed **UNA-TANTUM** (marker `seed_markers/material_aliases_v1`)
+  → gira una volta per DB e **non re-inserisce alias eliminati a mano** (evita
+  l'errore inverso del bug TD-13); salta collisioni (alias già usato o = nome di
+  un altro materiale). Applica su dev + server (al prossimo update).
+  **110 alias** creati su 23 materiali (verificato + idempotenza OK, 147 unit
+  pass). Decisioni utente: 316→316L; K455 include ~1.2550/~S1.
+  **Restano:** (a) alias per **Bronzo/Ottone/Rame** — l'utente fornirà i gradi
+  esatti a stock (CuSn../CuZn../Cu-..); (b) **unificazione P20** (`1.2311` ≡
+  `40CrMnMo7`, stesso acciaio) — merge di catalogo con riassegnazione parti,
+  passo separato e cauto (gli alias P20 sono già su `1.2311`).
 
 ---
 

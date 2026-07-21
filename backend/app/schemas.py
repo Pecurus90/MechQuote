@@ -1191,6 +1191,30 @@ class DxfAnalysisOut(BaseModel):
 
 # ─── Ordini materiali ──────────────────────────────────────────────────────
 
+class BarPiece(BaseModel):
+    """Una barra da ordinare (lunghezza × quantità) dentro un BarSpec."""
+    length_mm: float = Field(gt=0)
+    quantity: int = Field(default=1, ge=1)
+
+
+class BarSpec(BaseModel):
+    """TD-3 — consolidamento in barre dei tondi con stesso materiale + diametro.
+
+    Il frontend, al "Crea CSV", propone di sostituire N spezzoni tondi con una
+    o più barre. `lengths` = le lunghezze (mm) dei componenti da consolidare:
+    gli item tondi (stesso material + diametro) con quelle lunghezze vengono
+    rimossi dallo snapshot e sostituiti dalle barre in `pieces` (una riga per
+    lunghezza-barra). Gli spezzoni con lunghezze non incluse restano righe
+    singole (override utente). Es.: fabbisogno 4000 mm → pieces = [{3000,1},
+    {1000,1}] oppure [{2000,2}].
+    """
+    material_id: Optional[int] = None
+    material_name: str
+    diameter_mm: float
+    lengths: List[float] = Field(default_factory=list)
+    pieces: List[BarPiece] = Field(default_factory=list)
+
+
 class MaterialOrderCreate(BaseModel):
     # Pool unificato: un ordine nasce da preventivi e/o richieste materiale
     # manuali. Entrambe le liste opzionali (l'endpoint esige che almeno una sia
@@ -1200,6 +1224,8 @@ class MaterialOrderCreate(BaseModel):
     # Spec 18: creare l'ordine è per-fornitore. Opzionale nello schema perché
     # /aggregate (preview) non lo richiede; l'endpoint di creazione lo esige.
     material_supplier_id: Optional[int] = None
+    # TD-3: consolidamenti in barra scelti nel popup (vuoto = nessuno).
+    bars: List[BarSpec] = Field(default_factory=list)
 
 
 class MaterialOrderOut(BaseModel):
@@ -1227,6 +1253,11 @@ class MaterialItemAggregated(BaseModel):
     total_weight_kg: float                # somma peso grezzo stimato
     quote_refs: List[str] = []            # es. ["240-26A_003 ×4", "240-26B_010 ×1"]
     from_stock: bool = False              # True se parti marcate "a magazzino" (badge UI/PDF)
+    # TD-3: dimensioni strutturate (oltre a dim_str) per il consolidamento barra
+    # lato client — evitano di ri-parsare la stringa. Valorizzate per forma.
+    shape: str = 'prismatico'             # 'tondo' | 'prismatico' | 'tubo'
+    diameter_mm: Optional[float] = None   # tondo/tubo: Ø esterno
+    length_mm: Optional[float] = None     # tondo/tubo: lunghezza (raw_z_mm)
 
 
 class MaterialAggregateBySupplier(BaseModel):

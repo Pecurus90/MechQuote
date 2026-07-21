@@ -37,7 +37,7 @@ from app.models import (
 )
 from app.schemas import (
     MaterialAggregateOut, MaterialAggregateBySupplier, MaterialItemAggregated,
-    MaterialOrderCreate, MaterialOrderOut, ArchiveQuoteOut,
+    MaterialOrderCreate, MaterialOrderOut, ArchiveQuoteOut, BarSpec,
 )
 from app.services import quote_workflow as wf
 from app.services.material_status import (
@@ -197,6 +197,9 @@ def aggregate_materials(quote_ids: List[int], db: Session,
         slot['material_name'] = mat.name
         slot['family'] = mat.family
         slot['dim_str'] = _format_dim(p)
+        slot['shape'] = 'tondo' if p.raw_diameter_mm else 'prismatico'
+        slot['diameter_mm'] = p.raw_diameter_mm
+        slot['length_mm'] = p.raw_z_mm
         slot['supplier_id'] = sup_id
         slot['supplier_name'] = sup_name
         slot['from_stock'] = bool(p.material_from_stock)
@@ -225,6 +228,9 @@ def aggregate_materials(quote_ids: List[int], db: Session,
             total_weight_kg=round(slot['total_weight_kg'], 3),
             quote_refs=refs,
             from_stock=slot['from_stock'],
+            shape=slot.get('shape', 'prismatico'),
+            diameter_mm=slot.get('diameter_mm'),
+            length_mm=slot.get('length_mm'),
         ))
 
     # ─ Righe da richieste materiale manuali (aperte) ─
@@ -254,6 +260,9 @@ def aggregate_materials(quote_ids: List[int], db: Session,
                 'material_id': it.material_id,
                 'material_name': it.material_name,
                 'dim_str': dim_str,
+                'shape': it.shape or 'prismatico',
+                'diameter_mm': it.diameter_mm,
+                'length_mm': it.length_mm,
                 'total_qty': 0,
                 'total_weight_kg': 0.0,
                 'refs': defaultdict(int),
@@ -277,6 +286,9 @@ def aggregate_materials(quote_ids: List[int], db: Session,
                 total_weight_kg=round(slot['total_weight_kg'], 3),
                 quote_refs=refs,
                 from_stock=False,
+                shape=slot.get('shape', 'prismatico'),
+                diameter_mm=slot.get('diameter_mm'),
+                length_mm=slot.get('length_mm'),
             ))
 
     # Ordina items dentro ogni gruppo per nome materiale; gruppi per nome fornitore.
@@ -421,6 +433,69 @@ def _persist_request_snapshot(order: MaterialOrder,
         ))
         it.material_order_id = order.id
         it.evaso_at = now
+
+
+def _apply_bars(order: MaterialOrder, bars: List["BarSpec"], db: Session) -> None:
+    """TD-3 — consolida gli spezzoni tondi in barre sullo snapshot dell'ordine.
+
+    Per ogni `BarSpec`: trova gli item tondi già snapshottati con stesso
+    materiale (material_id, o material_name se id assente) + stesso diametro e
+    lunghezza tra `lengths`; li rimuove e li sostituisce con le barre indicate
+    in `pieces` (una riga item per barra: tondo, `length_mm` = lunghezza barra,
+    `quantity` = n° barre di quella lunghezza). Il riferimento (part_code,
+    colonna 'Riferimento' del CSV) è l'unione dei riferimenti degli spezzoni
+    consolidati, uguale su tutte le righe barra. Gli spezzoni con lunghezza non
+    inclusa restano righe singole (override utente). Chiamato dopo il flush
+    degli snapshot: gli item esistono già in `order.id`.
+    """
+    if not bars:
+        return
+    items = db.query(MaterialOrderItem).filter(
+        MaterialOrderItem.material_order_id == order.id,
+        MaterialOrderItem.shape == 'tondo',
+    ).all()
+
+    def close(a: Optional[float], b: Optional[float]) -> bool:
+        return a is not None and b is not None and abs(round(a, 2) - round(b, 2)) < 0.01
+
+    for bar in bars:
+        if not bar.pieces:
+            continue   # niente barre da ordinare per questo candidato → no-op
+        wanted = {round(l, 2) for l in bar.lengths}
+        matched = [
+            it for it in items
+            if (it.material_id == bar.material_id if bar.material_id is not None
+                else it.material_name == bar.material_name)
+            and close(it.diameter_mm, bar.diameter_mm)
+            and it.length_mm is not None and round(it.length_mm, 2) in wanted
+        ]
+        if not matched:
+            continue
+        # Riferimento barra = unione (ordinata, deduplicata) dei riferimenti.
+        refs: List[str] = []
+        for it in matched:
+            if it.part_code and it.part_code not in refs:
+                refs.append(it.part_code)
+        ref = ' + '.join(refs)
+        if len(ref) > 200:
+            ref = ref[:197] + '…'
+        for it in matched:
+            items.remove(it)
+            db.delete(it)
+        # Una riga item per barra scelta (lunghezza × quantità).
+        for pc in bar.pieces:
+            db.add(MaterialOrderItem(
+                material_order_id=order.id,
+                material_id=bar.material_id,
+                material_name=bar.material_name,
+                part_code=ref,
+                description='Barra',
+                shape='tondo',
+                diameter_mm=bar.diameter_mm,
+                length_mm=pc.length_mm,
+                quantity=pc.quantity or 1,
+            ))
+    db.flush()
 
 
 def _quote_material_rows(quote_id: int, db: Session):
@@ -655,6 +730,10 @@ def create_order(
             status_code=409,
             detail=f"Materiale già ordinato per {supplier.name} (ordine concorrente)",
         )
+
+    # TD-3: consolida gli spezzoni tondi scelti nel popup in barre (sullo
+    # snapshot appena creato). No-op se payload.bars è vuoto.
+    _apply_bars(order, payload.bars, db)
 
     completed_quotes = []
     for qid in new_ids:

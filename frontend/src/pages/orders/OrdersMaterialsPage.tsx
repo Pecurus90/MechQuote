@@ -13,9 +13,10 @@ import {
 } from '@/pages/orders/MaterialOrdersView'
 import RequestEditModal from '@/pages/orders/RequestEditModal'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
+import BarConsolidationModal, { type BarCandidate } from '@/pages/orders/BarConsolidationModal'
 import type { QuoteType } from '@/components/quotes/TypeBadge'
 import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
-import type { MaterialAggregateResult, MaterialOrder, MaterialRequest, QuoteListItem } from '@/types'
+import type { BarSpec, MaterialAggregateResult, MaterialOrder, MaterialRequest, QuoteListItem } from '@/types'
 
 interface MaterialsStats {
   to_order: number; orders_this_month: number; orders_total: number; last_order_at: string | null
@@ -45,6 +46,8 @@ export default function OrdersMaterialsPage() {
   const [stats, setStats] = useState<MaterialsStats | null>(null)
   const [editingRequestId, setEditingRequestId] = useState<number | null>(null)
   const [deletingRequestId, setDeletingRequestId] = useState<number | null>(null)
+  // TD-3: popup consolidamento barra al "Crea CSV" (supplierId + candidati).
+  const [barPrompt, setBarPrompt] = useState<{ supplierId: number; candidates: BarCandidate[] } | null>(null)
 
   const loadStats = () => api.get('/orders/materials/stats').then(r => setStats(r.data)).catch(() => undefined)
   const loadQuotes = () => {
@@ -81,13 +84,13 @@ export default function OrdersMaterialsPage() {
     document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
   }
 
-  const createOrder = async (supplierId: number) => {
-    if (selectedIds.size === 0 && selectedRequestIds.size === 0) { toast.error('Seleziona almeno un preventivo o una richiesta'); return }
+  const postOrder = async (supplierId: number, bars: BarSpec[]) => {
     try {
       const res = await api.post('/orders/materials', {
         quote_ids: Array.from(selectedIds),
         request_ids: Array.from(selectedRequestIds),
         material_supplier_id: supplierId,
+        bars,
       })
       const order = res.data as MaterialOrder
       await downloadCsv(order.id)
@@ -98,6 +101,35 @@ export default function OrdersMaterialsPage() {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
     }
+  }
+
+  // TD-3: candidati barra = tondi da ordinare con stesso materiale + diametro
+  // (≥2 pezzi complessivi) del fornitore. Righe fuse per lunghezza.
+  const barCandidatesFor = (supplierId: number): BarCandidate[] => {
+    const group = aggregate?.groups.find(g => g.supplier_id === supplierId)
+    if (!group) return []
+    const byKey = new Map<string, BarCandidate>()
+    for (const it of group.items) {
+      if (it.shape !== 'tondo' || it.from_stock) continue
+      if (it.diameter_mm == null || it.length_mm == null) continue
+      const key = `${it.material_id ?? 'n:' + it.material_name}|${it.diameter_mm}`
+      let cand = byKey.get(key)
+      if (!cand) {
+        cand = { key, materialId: it.material_id, materialName: it.material_name, diameterMm: it.diameter_mm, rows: [] }
+        byKey.set(key, cand)
+      }
+      const row = cand.rows.find(r => r.lengthMm === it.length_mm)
+      if (row) { row.qty += it.total_qty; row.refs = [...row.refs, ...it.quote_refs] }
+      else cand.rows.push({ lengthMm: it.length_mm, qty: it.total_qty, refs: it.quote_refs })
+    }
+    return Array.from(byKey.values()).filter(c => c.rows.reduce((s, r) => s + r.qty, 0) >= 2)
+  }
+
+  const requestCreateOrder = (supplierId: number) => {
+    if (selectedIds.size === 0 && selectedRequestIds.size === 0) { toast.error('Seleziona almeno un preventivo o una richiesta'); return }
+    const candidates = barCandidatesFor(supplierId)
+    if (candidates.length > 0) setBarPrompt({ supplierId, candidates })
+    else postOrder(supplierId, [])
   }
 
   const deleteRequest = async (id: number) => {
@@ -176,13 +208,20 @@ export default function OrdersMaterialsPage() {
         onEditRequest={setEditingRequestId}
         onDeleteRequest={setDeletingRequestId}
         aggregate={aggregateGroups}
-        onCreateOrder={createOrder}
+        onCreateOrder={requestCreateOrder}
       />
       {editingRequestId != null && (
         <RequestEditModal
           requestId={editingRequestId}
           onClose={() => setEditingRequestId(null)}
           onSaved={() => { loadRequests(); loadStats(); setSelectedRequestIds(new Set()) }}
+        />
+      )}
+      {barPrompt && (
+        <BarConsolidationModal
+          candidates={barPrompt.candidates}
+          onCancel={() => setBarPrompt(null)}
+          onConfirm={(bars) => { const sup = barPrompt.supplierId; setBarPrompt(null); postOrder(sup, bars) }}
         />
       )}
       <ConfirmDialog

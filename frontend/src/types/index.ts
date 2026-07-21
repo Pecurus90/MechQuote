@@ -295,6 +295,23 @@ export interface MaterialItemAggregated {
   total_weight_kg: number
   quote_refs: string[]
   from_stock?: boolean
+  // TD-3: dimensioni strutturate per il consolidamento in barra dei tondi.
+  shape?: string
+  diameter_mm?: number | null
+  length_mm?: number | null
+}
+
+// TD-3: consolidamento in barre inviato a POST /orders/materials.
+export interface BarPiece {
+  length_mm: number
+  quantity: number
+}
+export interface BarSpec {
+  material_id: number | null
+  material_name: string
+  diameter_mm: number
+  lengths: number[]        // spezzoni consolidati (quali togliere)
+  pieces: BarPiece[]       // barre da ordinare (lunghezza × quantità)
 }
 
 export interface MaterialAggregateBySupplier {

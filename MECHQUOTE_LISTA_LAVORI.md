@@ -77,15 +77,46 @@ Le feature EDM (TD-7/TD-8) toccano `services/calculation.py` = **zona fragile**
 
 ### Feature da progettare insieme (serve una decisione prima)
 
-- **TD-3 — Ordine materiale tondo: popup "raggruppa in barra".**
-  Quando si genera l'ordine, se più articoli hanno **stesso materiale + stesso
-  diametro** (forma tondo), proporre un popup: "Trovati N pezzi Ø X dello
-  stesso materiale — ordinare **una barra** invece dei pezzi singoli? Quanto
-  lunga?" con **override sui singoli pezzi**. Fattibile: i dati ci sono già
-  (`raw_diameter_mm`/`length_mm`, l'aggregazione raggruppa già per
-  diametro+lunghezza in `orders.py _dim_signature`); **non** esiste un modello
-  "barra" esplicito. Da decidere insieme: dove scatta il popup, come si
-  rappresenta la barra nell'ordine/CSV, come funziona l'override.
+- **TD-3** — ✅ **IMPLEMENTATO 2026-07-21** (collaudato con test automatici;
+  resta il click-through browser con dati reali). Popup "raggruppa in barre"
+  al "Crea CSV". **Multi-barra**: per ogni candidato l'utente sceglie quali
+  lunghezze includere e compone le **barre da ordinare** (lunghezza × quantità:
+  es. fabbisogno 4000 → 3000×1 + 1000×1 oppure 2000×2), con fabbisogno/coperto/
+  avanzo live. Backend: `BarSpec{lengths, pieces:[BarPiece]}` + campo `bars` su
+  `MaterialOrderCreate`; `aggregate_materials` espone shape/diametro/lunghezza
+  numerici; helper `_apply_bars` rimuove gli spezzoni tondi consolidati e li
+  sostituisce con una riga item per barra (riferimento = unione codici).
+  Frontend: `BarConsolidationModal` (editor barre) + `requestCreateOrder`/
+  `postOrder` in `OrdersMaterialsPage`. Nessuna migrazione, cost engine intatto.
+  Collaudo: `tests/unit/test_bar_consolidation.py` (6 casi: barra singola,
+  split multi-barra, esclusione, ref cross-preventivo, isolamento Ø, no-op) +
+  suite completa **133 unit pass**, tsc pulito, backend OK.
+  **Decisioni utente:** (1) raggruppo i tondi con **stesso materiale +
+  diametro** sommando le lunghezze; (2) **lunghezza barra = Σ(lunghezza×qtà)
+  dei componenti inclusi + un offset manuale** (una sola barra, niente calcolo
+  n° barre); (3) **popup al "Crea CSV"** del fornitore, con possibilità di
+  **escludere singoli pezzi** (interpretato a livello di riga/lunghezza:
+  l'utente esclude una lunghezza dalla barra; resta come spezzone singolo).
+  **Rappresentazione:** una barra = un `MaterialOrderItem` tondo (diametro,
+  `length_mm`=lunghezza barra, `quantity`=1). **Nessuna migrazione** (nessuna
+  colonna nuova), nessun tocco a cost engine/aggregazione/idempotenza.
+  **Piano implementativo:**
+  1. `schemas.py`: aggiungere a `MaterialItemAggregated` i campi strutturati
+     `shape`/`diameter_mm`/`length_mm` (oggi c'è solo `dim_str` stringa);
+     nuovo `BarSpec {material_id?, material_name, diameter_mm, bar_length_mm,
+     lengths[]}`; campo opzionale `bars: List[BarSpec]` su `MaterialOrderCreate`.
+  2. `orders.py` `aggregate_materials`: riempire i nuovi campi numerici.
+  3. `orders.py` `create_order`: dopo i due snapshot + flush, helper
+     `_apply_bars(order, payload.bars, db)` che, per ogni BarSpec, rimuove gli
+     item tondi (match material+diametro+lunghezza∈lengths) e inserisce l'item
+     barra unico (part_code = refs uniti). CSV e storico ereditano da soli.
+  4. Frontend: estendere il tipo aggregato; nuovo `BarConsolidationModal`;
+     in `OrdersMaterialsPage`, al "Crea CSV" rilevare i candidati barra
+     (tondi con stesso material_id+diametro) → se presenti aprire il modale,
+     altrimenti creare l'ordine com'è. Il modale raccoglie inclusioni +
+     offset e passa `bars` a `createOrder`.
+  Stima: ~mezza giornata. File: `schemas.py`, `api/orders.py`,
+  `types/index.ts`, `pages/orders/OrdersMaterialsPage.tsx` + nuovo modale.
 - **TD-7 — Consumo elettrodo (foratura EDM).**
   Formula utente: `consumo_elettrodo = lunghezza_foratura × 2 + 5%`; costo
   elettrodo in base al **diametro**; costo totale in base a **n° forature** e

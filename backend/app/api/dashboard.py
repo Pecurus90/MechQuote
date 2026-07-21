@@ -134,11 +134,19 @@ def get_workflow_stats(
         ).scalar() or 0
     ) if has_archive else 0
 
+    # TD-16: preventivi rimandati indietro, da rilavorare (coda del tecnico).
+    in_revision = (
+        db.query(func.count(Quote.id)).filter(
+            Quote.status == 'in_revisione',
+        ).scalar() or 0
+    ) if has_archive else 0
+
     return WorkflowStats(
         by_status=by_status,
         to_review_count=to_review,
         awaiting_client_count=awaiting_client,
         completed_missing_price_count=missing_price,
+        in_revision_count=in_revision,
         standard_count=standard_count,
     )
 

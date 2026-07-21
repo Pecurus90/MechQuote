@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingCart, Drill, FileSearch, Hourglass, Euro } from 'lucide-react'
+import { ShoppingCart, Drill, FileSearch, Hourglass, Euro, History } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
@@ -91,6 +91,7 @@ export default function DashboardPage() {
   type Kpi = { key: string; label: string; value: string | number; hint: string; icon: LucideIcon; tone: KpiTone; to: string; show: boolean }
   const allKpis: Kpi[] = [
     { key: 'da-revisionare', label: 'Preventivi da confermare', value: stats.to_review_count, hint: 'inviati o letti', icon: FileSearch, tone: 'confirmed', to: '/quotes/active?status=da_confermare', show: canSeeQuotes },
+    { key: 'in-revisione', label: 'In revisione', value: stats.in_revision_count, hint: 'rimandati da rivedere', icon: History, tone: 'warning', to: '/quotes/active?status=in_revisione', show: canSeeQuotes },
     { key: 'attesa-cliente', label: 'In attesa del cliente', value: stats.awaiting_client_count, hint: 'offerta inviata', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canSeeQuotes },
     { key: 'prezzi-mancanti', label: 'Preventivi senza prezzo', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=senza_prezzo', show: canSeeQuotes },
     { key: 'da-ordinare', label: 'Materiale da ordinare', value: matStats?.to_order ?? 0, hint: 'da preventivi confermati', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },

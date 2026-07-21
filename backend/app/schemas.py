@@ -786,6 +786,7 @@ class WorkflowStats(BaseModel):
     to_review_count: int
     awaiting_client_count: int = 0        # offerte in attesa risposta cliente
     completed_missing_price_count: int = 0  # ordini completi senza prezzo di vendita
+    in_revision_count: int = 0            # TD-16: rimandati indietro da revisionare
     standard_count: int = 0   # totale preventivi
 
 

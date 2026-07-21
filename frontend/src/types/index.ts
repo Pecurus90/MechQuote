@@ -446,6 +446,7 @@ export interface WorkflowStats {
   to_review_count: number
   awaiting_client_count: number
   completed_missing_price_count: number
+  in_revision_count: number
   standard_count: number
 }
 

@@ -33,10 +33,13 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-):
+def get_user_from_token(token: str, db: Session):
+    """Decodifica il JWT, carica l'utente attivo e popola `_permissions`.
+
+    Nucleo condiviso da `get_current_user` (header Bearer) e dagli endpoint che
+    ricevono il token altrove (es. lo stream SSE, dove `EventSource` non può
+    inviare header e passa il token in query param). Solleva 401 come l'header.
+    """
     from app.models import User, Role  # local import to avoid circular dependency
     from sqlalchemy.orm import joinedload
     from app.core.permissions import PERMISSION_KEYS
@@ -62,6 +65,13 @@ def get_current_user(
         user._permissions = []
 
     return user
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    return get_user_from_token(token, db)
 
 
 def require_permission(key: str):

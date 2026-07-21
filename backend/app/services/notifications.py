@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Notification
+from app.services.notification_stream import queue_publish
 
 
 def create_notification(
@@ -60,6 +61,9 @@ def create_notification(
         target_quote_id=target_quote_id,
     )
     db.add(notification)
+    # TD-10: segnale SSE emesso AL COMMIT (della sessione, propria o del
+    # chiamante se commit=False) → push reale solo a notifica persistita.
+    queue_publish(db, target_user_id, target_roles)
     if not commit:
         return notification
     try:

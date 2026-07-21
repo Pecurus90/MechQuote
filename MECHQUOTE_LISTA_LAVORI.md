@@ -130,11 +130,20 @@ Le feature EDM (TD-7/TD-8) toccano `services/calculation.py` = **zona fragile**
   `cut_length_mm`/`cut_height_mm` esistono già sulla fase; manca il costo filo
   (per m) e la formula di consumo. Anche questo tocca `calculation.py` (zona
   fragile) + gemello frontend. Da definire formula e dove vive il costo filo.
-- **TD-10 — Notifiche in tempo reale senza reload.**
-  Oggi polling ogni 60s su `/notifications/unread-count`; nessun
-  WebSocket/SSE. Opzioni: (1) abbassare il polling a ~10-15s (minimo sforzo),
-  (2) SSE unidirezionale, (3) WebSocket. Da scegliere l'approccio in base a
-  quanto "istantaneo" serve vs complessità/carico.
+- **TD-10** — ✅ **IMPLEMENTATO 2026-07-21** (SSE; resta la prova live nel
+  browser + verifica buffering proxy sul server). Notifiche in tempo reale via
+  **Server-Sent Events** (scelto vs WebSocket: unidirezionale basta, niente
+  `mod_proxy_wstunnel`). Backend: broker in-process `services/notification_stream.py`
+  (subscribe/unsubscribe + `queue_publish` emesso su `after_commit`, scartato su
+  rollback → push solo a notifica persistita, gestisce anche `commit=False`);
+  endpoint `GET /api/notifications/stream` (token in query param via
+  `get_user_from_token`, keepalive 20s, chiude subito la sessione DB). Frontend:
+  `useNotifications` apre un `EventSource`, all'evento `notify` rifà il conteggio;
+  polling sceso a 120s come sola rete di sicurezza. **Limite noto**: broker in
+  memoria → richiede uvicorn a **1 worker** (ok per uso interno); più worker
+  → servirebbe un bus esterno. Collaudo: `tests/unit/test_notification_stream.py`
+  (5 casi: emesso al commit, gate commit=False, drop su rollback, filtro ruolo,
+  match per utente) + suite **138 unit pass**, tsc pulito, backend OK.
 
 ### Da chiarire prima di toccare
 
@@ -159,12 +168,10 @@ Le feature EDM (TD-7/TD-8) toccano `services/calculation.py` = **zona fragile**
 
 ### Ops server (nessun codice)
 
-- **TD-4 — Backup giornaliero automatico alle 18:00.** **Già esistente**:
-  backup WAL-aware (`backup.ps1`, `sqlite3.backup()`) schedulato nel Task
-  Scheduler di Windows come "MechQuote Backup" **alle 23:00**, rotazione a 30
-  copie (`INSTALLAZIONE.md` §9). Azione: sul server, Task Scheduler →
-  "MechQuote Backup" → Trigger → cambiare 23:00 in 18:00. ~30 secondi, nessun
-  codice. (Resta valida A1: le copie sono sullo stesso disco → sync off-disk.)
+- **TD-4** — ✅ **CHIUSO 2026-07-21** (decisione utente: **va bene alle 23:00**).
+  Il backup automatico giornaliero WAL-aware esiste già (Task Scheduler
+  "MechQuote Backup", rotazione 30, `INSTALLAZIONE.md` §9): nessuna modifica.
+  (Resta valida A1: le copie sono sullo stesso disco → sync off-disk.)
 
 ---
 

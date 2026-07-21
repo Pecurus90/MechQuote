@@ -13,7 +13,9 @@ export interface Notification {
   read_at: string | null
 }
 
-const POLL_MS = 60_000
+// TD-10: con l'SSE (push reale) il polling serve solo da rete di sicurezza
+// se la connessione stream cade → intervallo ampio.
+const POLL_MS = 120_000
 
 export function useNotifications() {
   const { hasPermission } = useAuth()
@@ -67,8 +69,21 @@ export function useNotifications() {
     if (!enabled) return
     fetchCount()
     intervalRef.current = window.setInterval(fetchCount, POLL_MS)
+
+    // TD-10: push in tempo reale via SSE. EventSource non manda header, quindi
+    // il token va in query param. Il browser riconnette da solo se cade; il
+    // polling qui sopra resta come fallback. All'evento aggiorno il conteggio
+    // (la lista si ricarica all'apertura del pannello).
+    let es: EventSource | null = null
+    const token = localStorage.getItem('token')
+    if (token) {
+      es = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`)
+      es.addEventListener('notify', () => { fetchCount() })
+    }
+
     return () => {
       if (intervalRef.current !== null) window.clearInterval(intervalRef.current)
+      if (es) es.close()
     }
   }, [enabled, fetchCount])
 

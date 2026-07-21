@@ -1,12 +1,15 @@
+import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db, utc_now
-from app.core.security import require_permission, get_current_user
+from app.core.database import get_db, utc_now, SessionLocal
+from app.core.security import require_permission, get_current_user, get_user_from_token
 from app.models import Notification, NotificationRead, Quote, User
+from app.services import notification_stream
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -107,6 +110,53 @@ def list_notifications(
     limit: int = 50,
 ):
     return _user_notifications(db, current_user, limit=limit)
+
+
+@router.get("/stream")
+async def stream(request: Request, token: str):
+    """TD-10 — stream SSE: push in tempo reale quando arriva una notifica.
+
+    `EventSource` non può inviare header Authorization → il token viaggia in
+    query param e viene validato qui. Emette `event: notify` a ogni notifica
+    destinata all'utente (il client rifà /unread-count) e un keepalive ogni 20s
+    per tenere viva la connessione dietro i proxy. La sessione DB si usa solo
+    per autenticare e si chiude subito: lo stream NON tiene aperta una
+    connessione al database."""
+    db = SessionLocal()
+    try:
+        user = get_user_from_token(token, db)
+        perms = list(getattr(user, "_permissions", []))
+        uid, role = user.id, user.role
+    finally:
+        db.close()
+    if "notifications" not in perms:
+        raise HTTPException(status_code=403, detail="Permesso negato")
+
+    sub = notification_stream.subscribe(uid, role)
+
+    async def gen():
+        try:
+            yield ": connected\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    await asyncio.wait_for(sub.queue.get(), timeout=20)
+                    yield "event: notify\ndata: 1\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            notification_stream.unsubscribe(sub)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",   # disabilita il buffering su proxy (nginx)
+        },
+    )
 
 
 @router.get("/unread-count")

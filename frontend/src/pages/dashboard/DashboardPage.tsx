@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingCart, Drill, FileSearch, Hourglass, Euro, History } from 'lucide-react'
+import { ShoppingCart, FileSearch, Hourglass, Euro, History } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
@@ -14,7 +14,6 @@ import type { KpiTone } from '@/components/dashboard/KpiCard'
 // (design handoff). Qui si passano solo dati reali e handler.
 
 interface MaterialsStats { to_order: number; orders_this_month: number; orders_total: number; last_order_at: string | null }
-interface ToolsStats { low_stock: number; total_active: number; orders_this_month: number; orders_total: number; last_order_at: string | null }
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -46,7 +45,6 @@ export default function DashboardPage() {
   const [monthly, setMonthly] = useState<MonthlyData[]>([])
   const [stats, setStats] = useState<WorkflowStats | null>(null)
   const [matStats, setMatStats] = useState<MaterialsStats | null>(null)
-  const [toolStats, setToolStats] = useState<ToolsStats | null>(null)
   const [myQuotes, setMyQuotes] = useState<DashboardQuoteRow[]>([])
   const [toReview, setToReview] = useState<DashboardQuoteRow[]>([])
   const [awaitingMaterials, setAwaitingMaterials] = useState<DashboardQuoteRow[]>([])
@@ -67,7 +65,6 @@ export default function DashboardPage() {
       canSeeQuotes ? get<DashboardQuoteRow[]>('/dashboard/to-review').then(d => d && setToReview(d)) : null,
       (canSeeQuotes || canOrderMaterials) ? get<DashboardQuoteRow[]>('/dashboard/awaiting-materials').then(d => d && setAwaitingMaterials(d)) : null,
       canOrderMaterials ? get<MaterialsStats>('/orders/materials/stats').then(d => d && setMatStats(d)) : null,
-      canOrderTools ? get<ToolsStats>('/orders/tools/stats').then(d => d && setToolStats(d)) : null,
     ]).catch(() => toast.error('Errore nel caricamento dashboard')).finally(() => setLoading(false))
   }, [hasDashboard, canSeeQuotes, canOrderMaterials, canOrderTools])
 
@@ -95,7 +92,6 @@ export default function DashboardPage() {
     { key: 'attesa-cliente', label: 'In attesa del cliente', value: stats.awaiting_client_count, hint: 'offerta inviata', icon: Hourglass, tone: 'warning', to: '/quotes/active?status=in_attesa_cliente', show: canSeeQuotes },
     { key: 'prezzi-mancanti', label: 'Preventivi senza prezzo', value: stats.completed_missing_price_count, hint: 'ordini completi senza prezzo', icon: Euro, tone: 'info', to: '/quotes/archive?status=senza_prezzo', show: canSeeQuotes },
     { key: 'da-ordinare', label: 'Materiale da ordinare', value: matStats?.to_order ?? 0, hint: 'da preventivi confermati', icon: ShoppingCart, tone: 'danger', to: '/orders/materials', show: canOrderMaterials },
-    { key: 'sotto-scorta', label: 'Utensili da ordinare', value: toolStats?.low_stock ?? 0, hint: 'sotto la scorta minima', icon: Drill, tone: 'warning', to: '/orders/tools', show: canOrderTools },
   ]
   const kpis = allKpis
     .filter(k => k.show)

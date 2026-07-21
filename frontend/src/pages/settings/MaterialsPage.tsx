@@ -129,7 +129,7 @@ export default function MaterialsPage() {
         <div className={tWrap}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-sm">
-              <colgroup><col style={{ width: '18%' }} /><col style={{ width: 130 }} /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col /><col style={{ width: 110 }} /><col style={{ width: 70 }} /><col style={{ width: 90 }} /></colgroup>
+              <colgroup><col style={{ width: '18%' }} /><col style={{ width: 158 }} /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col /><col style={{ width: 110 }} /><col style={{ width: 70 }} /><col style={{ width: 90 }} /></colgroup>
               <thead>
                 <tr className={tHead}>
                   <th className="p-2.5 text-left font-medium">Nome</th>
@@ -148,7 +148,7 @@ export default function MaterialsPage() {
                 ) : visibleMat.map(m => (
                   <tr key={m.id} className={tRow}>
                     <td className="truncate p-2.5 font-mono font-semibold text-foreground">{m.name}</td>
-                    <td className="p-2.5">{m.family && <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${famClass(m.family)}`}>{familyLabel(m.family)}</span>}</td>
+                    <td className="p-2.5">{m.family && <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${famClass(m.family)}`}>{familyLabel(m.family)}</span>}</td>
                     <td className="p-2.5 text-right font-mono">{m.density_kg_dm3}</td>
                     <td className="p-2.5 text-right font-mono">{m.cost_per_kg}</td>
                     <td className="truncate p-2.5 text-xs text-muted-foreground">{m.material_supplier?.name || '—'}</td>

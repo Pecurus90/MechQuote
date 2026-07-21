@@ -97,7 +97,7 @@ export function StatusStepper({ current, dates }: Props) {
               </div>
               <div
                 className={cn(
-                  'mt-2 text-xs',
+                  'mt-2 whitespace-nowrap text-xs',
                   isCurrent
                     ? cn('font-bold', LABEL_CURRENT[step.key])
                     : isReached

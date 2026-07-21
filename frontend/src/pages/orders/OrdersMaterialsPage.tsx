@@ -12,6 +12,7 @@ import {
   MaterialOrdersView, type OrderKpi, type SelectableQuote, type SelectableRequest, type SupplierAggregate,
 } from '@/pages/orders/MaterialOrdersView'
 import RequestEditModal from '@/pages/orders/RequestEditModal'
+import ConfirmDialog from '@/components/ui/confirm-dialog'
 import type { QuoteType } from '@/components/quotes/TypeBadge'
 import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
 import type { MaterialAggregateResult, MaterialOrder, MaterialRequest, QuoteListItem } from '@/types'
@@ -43,6 +44,7 @@ export default function OrdersMaterialsPage() {
   const [aggregate, setAggregate] = useState<MaterialAggregateResult | null>(null)
   const [stats, setStats] = useState<MaterialsStats | null>(null)
   const [editingRequestId, setEditingRequestId] = useState<number | null>(null)
+  const [deletingRequestId, setDeletingRequestId] = useState<number | null>(null)
 
   const loadStats = () => api.get('/orders/materials/stats').then(r => setStats(r.data)).catch(() => undefined)
   const loadQuotes = () => {
@@ -95,6 +97,18 @@ export default function OrdersMaterialsPage() {
     } catch (e) {
       const err = e as { response?: { data?: { detail?: string } } }
       toast.error(err?.response?.data?.detail || 'Errore nella creazione dell\'ordine')
+    }
+  }
+
+  const deleteRequest = async (id: number) => {
+    try {
+      await api.delete(`/orders/material-requests/${id}`)
+      toast.success(`Richiesta RM-${String(id).padStart(4, '0')} eliminata`)
+      setSelectedRequestIds(s => { const n = new Set(s); n.delete(id); return n })
+      loadRequests(); loadStats()
+    } catch (e) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      toast.error(err?.response?.data?.detail || 'Errore nell\'eliminazione della richiesta')
     }
   }
 
@@ -160,6 +174,7 @@ export default function OrdersMaterialsPage() {
         onToggleRequest={toggleRequest}
         onToggleAllRequests={toggleAllRequests}
         onEditRequest={setEditingRequestId}
+        onDeleteRequest={setDeletingRequestId}
         aggregate={aggregateGroups}
         onCreateOrder={createOrder}
       />
@@ -170,6 +185,14 @@ export default function OrdersMaterialsPage() {
           onSaved={() => { loadRequests(); loadStats(); setSelectedRequestIds(new Set()) }}
         />
       )}
+      <ConfirmDialog
+        open={deletingRequestId != null}
+        title={`Eliminare la richiesta RM-${String(deletingRequestId ?? 0).padStart(4, '0')}?`}
+        description="La richiesta materiale e le sue righe verranno eliminate. Le righe già ordinate (evase) impediscono l'eliminazione."
+        confirmLabel="Elimina"
+        onConfirm={async () => { if (deletingRequestId != null) await deleteRequest(deletingRequestId); setDeletingRequestId(null) }}
+        onCancel={() => setDeletingRequestId(null)}
+      />
     </PageContainer>
   )
 }

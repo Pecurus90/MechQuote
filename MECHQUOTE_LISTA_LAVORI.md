@@ -48,6 +48,95 @@ assorbiti nei temi corrispondenti.
 
 ---
 
+## 🗒️ TODO DESKTOP 2026-07-21 — richieste utente (file "to do .txt")
+
+Dieci richieste raccolte dall'utente. Analizzate contro il codice (5
+ricognizioni read-only, 2026-07-21). Classificate per natura: **quick-win**
+(codice a basso rischio), **feature da progettare insieme**, **da chiarire**,
+**ops server**. Da affrontare una alla volta con verifica (§7 CLAUDE.md).
+Le feature EDM (TD-7/TD-8) toccano `services/calculation.py` = **zona fragile**
+(§0-quater): piano prima, poi codice.
+
+### Quick-win (codice, basso rischio)
+
+- **TD-5** — ✅ **FATTO 2026-07-21** — Pipeline stati "in attesa cliente" non va
+  più a capo. Causa: l'etichetta "Attesa cliente" senza `whitespace-nowrap`
+  andava su due righe. Fix: aggiunto `whitespace-nowrap` al label in
+  `StatusStepper.tsx`. (NB: i nodi max sono 6, non 7.)
+- **TD-6** — ✅ **FATTO 2026-07-21** — Pulsante "Svuota lette" nel pannello
+  notifiche (top-bar, dropdown campanello). Espone `clearRead`
+  (`useNotifications.ts` → `AppLayout` → `TopBar`); appare solo se ci sono
+  notifiche già lette; usa l'endpoint esistente `clear-read` (dismiss, non
+  distruttivo: non tocca le non lette).
+- **TD-9** — ✅ **FATTO 2026-07-21** — Cestino per eliminare una richiesta
+  materiale manuale nel pool ordini. Aggiunto pulsante Trash2 accanto alla
+  matita in `MaterialOrdersView.tsx` (+ `onDeleteRequest`), handler nel
+  container `OrdersMaterialsPage.tsx` che chiama il DELETE esistente con
+  `ConfirmDialog`; il 400 "ha righe già ordinate" viene mostrato col `detail`
+  del backend. Refresh lista + stats dopo l'eliminazione.
+
+### Feature da progettare insieme (serve una decisione prima)
+
+- **TD-3 — Ordine materiale tondo: popup "raggruppa in barra".**
+  Quando si genera l'ordine, se più articoli hanno **stesso materiale + stesso
+  diametro** (forma tondo), proporre un popup: "Trovati N pezzi Ø X dello
+  stesso materiale — ordinare **una barra** invece dei pezzi singoli? Quanto
+  lunga?" con **override sui singoli pezzi**. Fattibile: i dati ci sono già
+  (`raw_diameter_mm`/`length_mm`, l'aggregazione raggruppa già per
+  diametro+lunghezza in `orders.py _dim_signature`); **non** esiste un modello
+  "barra" esplicito. Da decidere insieme: dove scatta il popup, come si
+  rappresenta la barra nell'ordine/CSV, come funziona l'override.
+- **TD-7 — Consumo elettrodo (foratura EDM).**
+  Formula utente: `consumo_elettrodo = lunghezza_foratura × 2 + 5%`; costo
+  elettrodo in base al **diametro**; costo totale in base a **n° forature** e
+  **lunghezza fori**. Oggi `DrillingTime` (famiglia × Ø elettrodo × velocità)
+  esiste ma **non è collegato** al cost engine (nessun autocalc foratura).
+  Serve: campi fase (Ø elettrodo/`drilling_time_id`, n° fori, lunghezza foro),
+  costo elettrodo per Ø, autocalc in `calculation.py` (**zona fragile**) +
+  gemello frontend. Da definire con l'utente le formule esatte e le unità.
+- **TD-8 — Consumo filo (taglio a filo EDM).**
+  Consumo filo in base a **lunghezza taglio (mm)** e **altezza taglio**.
+  `cut_length_mm`/`cut_height_mm` esistono già sulla fase; manca il costo filo
+  (per m) e la formula di consumo. Anche questo tocca `calculation.py` (zona
+  fragile) + gemello frontend. Da definire formula e dove vive il costo filo.
+- **TD-10 — Notifiche in tempo reale senza reload.**
+  Oggi polling ogni 60s su `/notifications/unread-count`; nessun
+  WebSocket/SSE. Opzioni: (1) abbassare il polling a ~10-15s (minimo sforzo),
+  (2) SSE unidirezionale, (3) WebSocket. Da scegliere l'approccio in base a
+  quanto "istantaneo" serve vs complessità/carico.
+
+### Da chiarire prima di toccare
+
+- **TD-1** — ✅ **FATTO 2026-07-21** — Rimossa l'icona `Copy` "Duplica in un
+  nuovo articolo" da ogni parte in `PartsSidebar.tsx` (+ prop `onDuplicate` e
+  funzione `duplicatePart` in `QuoteEditor.tsx`). Restano `CopyPlus` "Clona la
+  ricetta su altri articoli" (quello con selezione) e il cestino. L'endpoint
+  backend `POST /parts/{id}/duplicate` resta ma è ora **inerte** (nessun
+  caller frontend): lasciato per non allargare lo scope; eventuale rimozione
+  = cleanup separato.
+
+### Domanda (non un lavoro di codice)
+
+- **TD-2 — Comportamento commessa con più pezzi stesso materiale/trattamento.**
+  Non è un task ma una domanda dell'utente: come si comportano spedizioni e
+  trattamenti quando più parti condividono materiale/fornitore. **Risposta
+  data il 2026-07-21** (vedi sintesi in chat): spedizione materiale aggregata
+  per fornitore e ripartita sul peso grezzo; costo trattamento in batch per
+  `(trattamento, materiale)` sul peso finito; spedizione trattamento aggregata
+  per fornitore. Se da qui emerge un cambio di comportamento voluto, diventa
+  un task a sé.
+
+### Ops server (nessun codice)
+
+- **TD-4 — Backup giornaliero automatico alle 18:00.** **Già esistente**:
+  backup WAL-aware (`backup.ps1`, `sqlite3.backup()`) schedulato nel Task
+  Scheduler di Windows come "MechQuote Backup" **alle 23:00**, rotazione a 30
+  copie (`INSTALLAZIONE.md` §9). Azione: sul server, Task Scheduler →
+  "MechQuote Backup" → Trigger → cambiare 23:00 in 18:00. ~30 secondi, nessun
+  codice. (Resta valida A1: le copie sono sullo stesso disco → sync off-disk.)
+
+---
+
 ## 🔎 AUDIT 2026-07-13 — findings consolidati (3 audit paralleli)
 
 Tre revisioni parallele di **sola lettura** (logica/bug backend · estetica

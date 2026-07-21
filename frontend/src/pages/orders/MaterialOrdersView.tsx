@@ -1,7 +1,7 @@
 // src/pages/orders/MaterialOrdersView.tsx
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown, ClipboardList, Pencil } from 'lucide-react'
+import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown, ClipboardList, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiCard, type KpiTone } from '@/components/dashboard/KpiCard'
 import { MaterialStatusBadge, type MaterialStatus } from '@/components/dashboard/StatusBadges'
@@ -74,6 +74,7 @@ interface Props {
   onToggleRequest: (id: number) => void
   onToggleAllRequests: () => void
   onEditRequest: (id: number) => void
+  onDeleteRequest: (id: number) => void
   aggregate: SupplierAggregate[]
   onCreateOrder: (supplierId: number) => void
 }
@@ -81,7 +82,7 @@ interface Props {
 const SEL_GRID =
   'grid grid-cols-[38px_minmax(0,1.4fr)_minmax(0,1.3fr)_96px_110px_150px] items-center gap-3'
 const REQ_GRID =
-  'grid grid-cols-[38px_minmax(0,1fr)_minmax(0,1.5fr)_96px_120px_44px] items-center gap-3'
+  'grid grid-cols-[38px_minmax(0,1fr)_minmax(0,1.5fr)_96px_120px_76px] items-center gap-3'
 const AGG_GRID =
   'grid grid-cols-[minmax(0,1.4fr)_120px_150px_74px_100px_minmax(0,1fr)] items-center gap-3'
 
@@ -105,6 +106,7 @@ export function MaterialOrdersView({
   onToggleRequest,
   onToggleAllRequests,
   onEditRequest,
+  onDeleteRequest,
   aggregate,
   onCreateOrder,
 }: Props) {
@@ -297,15 +299,24 @@ export function MaterialOrdersView({
               </div>
               <div className="font-mono text-[13px] text-muted-foreground">{dateShort(r.created_at)}</div>
               <div className="text-right font-mono text-foreground">{r.openCount}</div>
-              <div className="flex justify-center">
+              <div className="flex items-center justify-center gap-1">
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onEditRequest(r.id) }}
-                  title="Modifica ordine"
-                  aria-label="Modifica ordine"
+                  title="Modifica richiesta"
+                  aria-label="Modifica richiesta"
                   className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-primary"
                 >
                   <Pencil className="h-[15px] w-[15px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDeleteRequest(r.id) }}
+                  title="Elimina richiesta"
+                  aria-label="Elimina richiesta"
+                  className="flex h-7 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-danger"
+                >
+                  <Trash2 className="h-[15px] w-[15px]" />
                 </button>
               </div>
             </div>

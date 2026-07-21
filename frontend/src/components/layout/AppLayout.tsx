@@ -12,7 +12,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
   const canQuote = hasPermission('quotes.create')
-  const { unreadCount, items, fetchList, markRead, markAllRead } = useNotifications()
+  const { unreadCount, items, fetchList, markRead, markAllRead, clearRead } = useNotifications()
 
   const [search, setSearch] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
@@ -65,6 +65,7 @@ export default function AppLayout() {
             notifications={items}
             onOpenNotif={openNotif}
             onMarkAllRead={markAllRead}
+            onClearRead={clearRead}
           />
         </div>
         <Outlet />

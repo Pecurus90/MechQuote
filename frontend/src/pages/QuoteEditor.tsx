@@ -207,17 +207,6 @@ export default function QuoteEditor() {
 
   const reloadPart = async (_idx: number) => { await reloadQuote() }
 
-  const duplicatePart = async (idx: number) => {
-    if (!quote) return
-    const part = quote.parts[idx]
-    if (!part.id) return
-    try {
-      await api.post(`/parts/${part.id}/duplicate`)
-      await reloadQuote()   // riallinea anche la versione dell'aggregato
-      toast.success('Parte duplicata')
-    } catch { toast.error('Errore nella duplicazione') }
-  }
-
   const clonePartOnto = async (targetIds: number[]) => {
     if (cloneSourceId == null) return
     setCloning(true)
@@ -583,7 +572,6 @@ export default function QuoteEditor() {
           locked={effectiveLocked}
           onSelect={(sel) => setSelectedPartIdx(sel === 'quote' ? -1 : idxOf(sel))}
           onAdd={addPart}
-          onDuplicate={(pid) => duplicatePart(idxOf(pid))}
           onClone={(pid) => setCloneSourceId(pid)}
           onDelete={(pid) => setConfirmDeletePartIdx(idxOf(pid))}
         />

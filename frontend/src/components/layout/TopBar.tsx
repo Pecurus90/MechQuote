@@ -15,6 +15,7 @@ interface TopBarProps {
   notifications: Notification[]
   onOpenNotif: (n: Notification) => void
   onMarkAllRead: () => void
+  onClearRead: () => void
 }
 
 // Pallino colorato per tipo evento (classi statiche per Tailwind JIT).
@@ -59,7 +60,9 @@ export function TopBar({
   notifications,
   onOpenNotif,
   onMarkAllRead,
+  onClearRead,
 }: TopBarProps) {
+  const hasRead = notifications.some((n) => n.read_at)
   return (
     <div className="sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/80 px-[26px] py-[11px] backdrop-blur">
       <form
@@ -110,13 +113,24 @@ export function TopBar({
           <div className="absolute right-0 top-11 z-30 w-80 overflow-hidden rounded-[13px] border border-border bg-card shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
             <div className="flex items-center justify-between border-b border-border px-[15px] py-3">
               <span className="text-[13px] font-semibold">Notifiche</span>
-              <button
-                type="button"
-                onClick={onMarkAllRead}
-                className="text-[11px] font-semibold text-primary"
-              >
-                Segna lette
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onMarkAllRead}
+                  className="text-[11px] font-semibold text-primary"
+                >
+                  Segna lette
+                </button>
+                {hasRead && (
+                  <button
+                    type="button"
+                    onClick={onClearRead}
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Svuota lette
+                  </button>
+                )}
+              </div>
             </div>
             {notifications.length === 0 ? (
               <div className="px-[15px] py-8 text-center text-[12.5px] text-muted-foreground">

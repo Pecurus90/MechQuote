@@ -98,7 +98,9 @@ export default function Sidebar() {
   if (canSalesDirect) operativita.push({ key: '/sales/direct', label: 'Vendite dirette', icon: Receipt, active: at('/sales/direct') })
   if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {
     const children: Leaf[] = []
-    if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials') })
+    // TD-12: replica il badge "materiali da ordinare" anche sulla voce
+    // "Ordini materiali" (dov'è davvero il lavoro), oltre che sul genitore.
+    if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials'), badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
     if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Nuovo ordine materiale', icon: FileUp, active: at('/orders/materials-file') })
     if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da distinta', icon: Bolt, active: at('/orders/normalized-file') })
     if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: ShoppingCart, active: at('/orders/tools') })

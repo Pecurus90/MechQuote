@@ -1,15 +1,15 @@
 // src/pages/dashboard/DashboardView.tsx
 import { LayoutDashboard } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Drill, PackagePlus, FileSearch, UserRoundPen } from 'lucide-react'
-import type { MonthlyData, DashboardQuoteRow, ToolLowStockPreviewItem } from '@/types'
+import { PackagePlus, FileSearch, UserRoundPen } from 'lucide-react'
+import type { MonthlyData, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { KpiCard, type KpiTone } from '@/components/dashboard/KpiCard'
 import MonthlyChart from '@/pages/dashboard/MonthlyChart'
 import PerStatusChart from '@/pages/dashboard/PerStatusChart'
 import { ActivityTimeline } from '@/pages/dashboard/ActivityTimeline'
 import { QuoteTable } from '@/pages/dashboard/QuoteTable'
-import { RailCard, ToolLowStockRow, MaterialTodoRow } from '@/pages/dashboard/RailCard'
+import { RailCard, MaterialTodoRow } from '@/pages/dashboard/RailCard'
 import type { MaterialStatus } from '@/components/dashboard/StatusBadges'
 
 interface KpiSpec {
@@ -44,16 +44,8 @@ interface DashboardViewProps {
   onOpenActivity: (quoteId: number) => void
   onSeeAllActivity?: () => void
 
-  tools?: ToolLowStockPreviewItem[]
-  onOrderTools?: () => void
   materials?: DashboardQuoteRow[]
   onOrderMaterials?: () => void
-}
-
-function toolName(t: ToolLowStockPreviewItem): string {
-  return [t.tool_type, t.model, t.diameter_mm != null ? `Ø${t.diameter_mm}` : null]
-    .filter(Boolean)
-    .join(' ') || t.code
 }
 
 export function DashboardView(props: DashboardViewProps) {
@@ -72,8 +64,6 @@ export function DashboardView(props: DashboardViewProps) {
     onOpenQuote,
     activity,
     onOpenActivity,
-    tools,
-    onOrderTools,
     materials,
     onOrderMaterials,
   } = props
@@ -156,32 +146,9 @@ export function DashboardView(props: DashboardViewProps) {
           )}
         </div>
 
-        {/* Rail destro */}
+        {/* Rail destro — TD-11: "Materiale da ordinare" in cima e alta
+            (scroll interno), poi l'attività. Card utensili rimossa. */}
         <div className="flex flex-col gap-4">
-          <ActivityTimeline items={activityItems} onOpen={onOpenActivity} />
-
-          {tools && (
-            <RailCard
-              title="Utensili da ordinare"
-              icon={Drill}
-              iconClass="text-warning"
-              actionLabel="Ordina"
-              onAction={onOrderTools}
-              empty={tools.length === 0}
-              emptyText="Scorte utensili a posto."
-            >
-              {tools.map((t) => (
-                <ToolLowStockRow
-                  key={t.tool_id}
-                  name={toolName(t)}
-                  brand={t.brand}
-                  quantity={t.quantity}
-                  minimum={t.minimum_quantity}
-                />
-              ))}
-            </RailCard>
-          )}
-
           {materials && (
             <RailCard
               title="Materiale da ordinare"
@@ -193,21 +160,27 @@ export function DashboardView(props: DashboardViewProps) {
               empty={materials.length === 0}
               emptyText="Nessun materiale da ordinare."
             >
-              {materials.map((m) => (
-                // Stato materiale REALE dal backend: può essere "parziale"
-                // (alcuni fornitori già ordinati) e non solo "non ordinato".
-                // Il fornitore non è unico per preventivo (più parti) → omesso.
-                <MaterialTodoRow
-                  key={m.id}
-                  description={m.customer_name ?? m.quote_number}
-                  quoteNumber={m.quote_number}
-                  supplier=""
-                  status={(m.material_status as MaterialStatus) ?? 'non_ordinato'}
-                  onClick={() => onOpenQuote(m.id)}
-                />
-              ))}
+              <div className="max-h-[560px] overflow-y-auto">
+                {materials.map((m) => (
+                  // Stato materiale REALE dal backend: può essere "parziale"
+                  // (alcuni fornitori già ordinati) e non solo "non ordinato".
+                  // Il fornitore non è unico per preventivo (più parti) → omesso.
+                  // TD-11: le richieste manuali (kind='request') portano al pool
+                  // ordini materiali, non a un preventivo.
+                  <MaterialTodoRow
+                    key={`${m.kind ?? 'quote'}-${m.id}`}
+                    description={m.customer_name ?? m.quote_number}
+                    quoteNumber={m.quote_number}
+                    supplier=""
+                    status={(m.material_status as MaterialStatus) ?? 'non_ordinato'}
+                    onClick={() => (m.kind === 'request' ? onOrderMaterials?.() : onOpenQuote(m.id))}
+                  />
+                ))}
+              </div>
             </RailCard>
           )}
+
+          <ActivityTimeline items={activityItems} onOpen={onOpenActivity} />
         </div>
       </div>
     </div>

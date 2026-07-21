@@ -106,6 +106,16 @@ function NavRow({
             >
               <child.icon className="h-[17px] w-[17px] shrink-0" />
               <span className="truncate">{child.label}</span>
+              {child.badge && (
+                <span
+                  className={cn(
+                    'ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-[10.5px] font-bold text-white',
+                    badgeTone[child.badge.tone],
+                  )}
+                >
+                  {child.badge.n}
+                </span>
+              )}
             </button>
           ))}
         </div>

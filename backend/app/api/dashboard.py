@@ -1080,10 +1080,11 @@ def get_awaiting_materials(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_view,
-    limit: int = 10,
+    limit: int = 30,
 ):
-    """Preventivi confermati in attesa di ordine materiale (spec 18/19):
-    status 'confermato' con materiale non ancora totalmente evaso."""
+    """Materiale da ordinare (spec 18/19): preventivi confermati con materiale
+    non ancora totalmente evaso + richieste materiale manuali (RM) inviate con
+    righe ancora aperte. TD-11: la dashboard mostra entrambe le fonti."""
     # Espone dati di preventivi (cliente, numero, totale): gate come il gemello
     # to-review. Visibile a chi vede l'archivio O gestisce gli ordini materiale
     # (allineato al frontend: canSeeQuotes || canOrderMaterials).
@@ -1106,6 +1107,28 @@ def get_awaiting_materials(
         row = _quote_to_row(q)
         row.material_status = wf.quote_material_status(db, q)
         rows.append(row)
+
+    # TD-11: richieste materiale manuali (RM) inviate con almeno una riga aperta
+    # (non ancora evasa in un ordine). Riga in shape DashboardQuoteRow, kind
+    # 'request': il frontend le porta al pool /orders/materials.
+    from app.models import MaterialRequest
+    reqs = db.query(MaterialRequest).options(
+        joinedload(MaterialRequest.items),
+    ).filter(MaterialRequest.status == 'inviato').order_by(
+        MaterialRequest.sent_at.desc().nullslast()
+    ).limit(limit).all()
+    for r in reqs:
+        if not any(it.material_order_id is None for it in r.items):
+            continue
+        rows.append(DashboardQuoteRow(
+            id=r.id,
+            quote_number=f"RM-{r.id:04d}",
+            customer_name=r.title,
+            status='inviato',
+            total_price=0.0,
+            material_status='non_ordinato',
+            kind='request',
+        ))
     return rows
 
 

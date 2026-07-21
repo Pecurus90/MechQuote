@@ -229,14 +229,15 @@ da TD-10.
   Verifica concreta: inserito template+operation, ri-eseguito `_run_migrations`,
   entrambi **sopravvivono** (prima venivano azzerati); 144 unit pass. Backup DB
   `mechquote.db.bak-*` creato prima del test.
-- **TD-11** — Dashboard: rimuovere la card **"Utensili da ordinare"** (rail
-  destro, `DashboardView.tsx:163-183` + fetch `/orders/tools/preview` in
-  `DashboardPage.tsx:72`) e portare **"Materiale da ordinare"** in alto e
-  **più alta** (più righe: oggi `.slice(0,6)` in `DashboardPage.tsx:131`).
-  Inoltre includere le **richieste materiale manuali**: oggi
-  `/dashboard/awaiting-materials` (`dashboard.py:1078-1109`) mostra SOLO Quote
-  confermati, non le `MaterialRequest` inviate → estendere l'endpoint per
-  unire le due fonti (come fa il pool `/orders/materials`).
+- **TD-11** — ✅ **FATTO 2026-07-21** — Dashboard rivista. Rimossa la card
+  "Utensili da ordinare" dal rail (+ fetch `/orders/tools/preview`); il KPI
+  "Utensili da ordinare" resta. "Materiale da ordinare" portata **in cima al
+  rail** e **alta** (fino a 20 righe, scroll interno `max-h-[560px]`).
+  Backend `/dashboard/awaiting-materials`: ora include **anche le richieste
+  materiale manuali** (RM inviate con righe aperte) come righe `kind='request'`
+  (portano al pool `/orders/materials`), oltre ai preventivi confermati. Collaudo:
+  `tests/unit/test_dashboard_awaiting_materials.py` + 147 unit pass, tsc pulito.
+  NB: il KPI utensili è stato lasciato; se lo vuoi togliere anche quello, 1 riga.
 - **TD-14** — ✅ **FATTO 2026-07-21** — Ricerca anche sulla descrizione (ILIKE
   parziale). Preventivi (`quotes_archive.py`): aggiunto match su
   `Part.description` + `Part.part_code` via `Quote.parts.any()` (EXISTS,
@@ -245,12 +246,11 @@ da TD-10.
   `part_code` + `MaterialOrder.supplier_name` (con `.distinct()` già presente).
   Placeholder aggiornati (TopBar + storico ordini). Collaudo:
   `tests/unit/test_search_description.py` (2 casi) + 146 unit pass, tsc pulito.
-- **TD-12** — Notifica ordini materiale: **replicare il badge**. Chiarito
-  (2026-07-21): oggi il badge (materiali da ordinare, da
-  `/orders/materials/stats` → `to_order`) compare solo sul **genitore "Ordini"**
-  in sidebar; l'utente lo vuole **anche sulla sotto-voce "Ordini materiali"**
-  (dov'è davvero il lavoro). Fix piccolo in `Sidebar.tsx`: mostrare `ordersBadge`
-  anche sull'item figlio "Ordini materiali".
+- **TD-12** — ✅ **FATTO 2026-07-21** — Badge "materiali da ordinare"
+  (`ordersBadge`) replicato sulla voce figlia **"Ordini materiali"** in sidebar
+  (oltre che sul genitore "Ordini"), così l'utente vede dov'è il lavoro.
+  `Sidebar.tsx` (dato sul leaf) + `SidebarView.tsx` (render badge sulle voci
+  figlie, prima non previsto). tsc pulito.
 - **TD-15** — Arricchimento alias materiali via ricerca online. Chiarito
   (2026-07-21): NON è autofill in un flusso — l'utente vuole che **si cerchino
   online i nomi/designazioni equivalenti** dei materiali **già a catalogo** e si

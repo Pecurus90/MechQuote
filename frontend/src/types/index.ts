@@ -457,6 +457,9 @@ export interface DashboardQuoteRow {
   submitted_at?: string | null
   submitted_by?: UserMinimal | null
   material_status?: string | null
+  // TD-11: 'quote' (preventivo) | 'request' (richiesta manuale RM) nella lista
+  // "materiale da ordinare" della dashboard.
+  kind?: 'quote' | 'request'
 }
 
 // Minimal shape returned by the archive/list endpoints

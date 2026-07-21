@@ -1018,6 +1018,9 @@ class DashboardQuoteRow(BaseModel):
     submitted_by: Optional[UserMinimal] = None
     # Stato materiale aggregato (solo dove serve, es. "materiale da fare").
     material_status: Optional[str] = None
+    # TD-11: distingue la fonte nella lista "materiale da ordinare" della
+    # dashboard — 'quote' (preventivo) o 'request' (richiesta manuale RM).
+    kind: str = 'quote'
 
     class Config:
         from_attributes = True

@@ -3,7 +3,7 @@ import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { ShoppingCart, Drill, FileSearch, Hourglass, Euro } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { MonthlyData, WorkflowStats, DashboardQuoteRow, ToolLowStockPreview } from '@/types'
+import type { MonthlyData, WorkflowStats, DashboardQuoteRow } from '@/types'
 import type { Notification } from '@/lib/useNotifications'
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
@@ -47,7 +47,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<WorkflowStats | null>(null)
   const [matStats, setMatStats] = useState<MaterialsStats | null>(null)
   const [toolStats, setToolStats] = useState<ToolsStats | null>(null)
-  const [toolPreview, setToolPreview] = useState<ToolLowStockPreview | null>(null)
   const [myQuotes, setMyQuotes] = useState<DashboardQuoteRow[]>([])
   const [toReview, setToReview] = useState<DashboardQuoteRow[]>([])
   const [awaitingMaterials, setAwaitingMaterials] = useState<DashboardQuoteRow[]>([])
@@ -69,7 +68,6 @@ export default function DashboardPage() {
       (canSeeQuotes || canOrderMaterials) ? get<DashboardQuoteRow[]>('/dashboard/awaiting-materials').then(d => d && setAwaitingMaterials(d)) : null,
       canOrderMaterials ? get<MaterialsStats>('/orders/materials/stats').then(d => d && setMatStats(d)) : null,
       canOrderTools ? get<ToolsStats>('/orders/tools/stats').then(d => d && setToolStats(d)) : null,
-      canOrderTools ? get<ToolLowStockPreview>('/orders/tools/preview').then(d => d && setToolPreview(d)) : null,
     ]).catch(() => toast.error('Errore nel caricamento dashboard')).finally(() => setLoading(false))
   }, [hasDashboard, canSeeQuotes, canOrderMaterials, canOrderTools])
 
@@ -103,7 +101,6 @@ export default function DashboardPage() {
     .map(k => ({ key: k.key, label: k.label, value: k.value, hint: k.hint, icon: k.icon, tone: k.tone, onClick: () => navigate(k.to) }))
 
   const today = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const tools = canOrderTools ? (toolPreview?.groups.flatMap(g => g.items) ?? []).slice(0, 6) : undefined
 
   return (
     <DashboardView
@@ -126,9 +123,7 @@ export default function DashboardPage() {
       activity={activity}
       onOpenActivity={(quoteId) => navigate(`/quotes/${quoteId}`)}
       onSeeAllActivity={() => navigate('/activity')}
-      tools={tools}
-      onOrderTools={() => navigate('/orders/tools')}
-      materials={(canSeeQuotes || canOrderMaterials) ? awaitingMaterials.slice(0, 6) : undefined}
+      materials={(canSeeQuotes || canOrderMaterials) ? awaitingMaterials.slice(0, 20) : undefined}
       onOrderMaterials={() => navigate('/orders/materials')}
     />
   )

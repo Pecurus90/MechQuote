@@ -163,7 +163,7 @@ export function OrderHistoryView({
           <input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Cerca per numero o fornitore…"
+            placeholder="Cerca per numero, fornitore, materiale, descrizione…"
             className="h-[38px] w-full rounded-[9px] border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
           />
         </div>

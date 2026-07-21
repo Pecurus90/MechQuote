@@ -76,7 +76,7 @@ export function TopBar({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Cerca preventivo, cliente, N°…"
+          placeholder="Cerca preventivo, cliente, descrizione…"
           className="h-9 w-full rounded-[9px] border border-input bg-card pl-9 pr-3 text-[13px] text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/[0.18]"
         />
       </form>

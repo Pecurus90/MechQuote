@@ -75,9 +75,16 @@ def list_archive(
         query = query.filter(Quote.quote_type == quote_type)
     if q:
         like = f"%{q.strip()}%"
+        # TD-14: ricerca anche su descrizione/codice delle parti (match parziale).
+        # `.any()` = EXISTS subquery: nessun join che duplichi le righe o rompa
+        # la paginazione.
         query = query.filter(or_(
             Quote.quote_number.ilike(like),
             Quote.customer_name.ilike(like),
+            Quote.parts.any(or_(
+                Part.description.ilike(like),
+                Part.part_code.ilike(like),
+            )),
         ))
     # Spec 18: split "Preventivi in corso" (in lavorazione) vs Archivio
     # (terminali: completo o non ordinato/perso).

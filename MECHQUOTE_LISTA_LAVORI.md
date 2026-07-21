@@ -237,12 +237,14 @@ da TD-10.
   `/dashboard/awaiting-materials` (`dashboard.py:1078-1109`) mostra SOLO Quote
   confermati, non le `MaterialRequest` inviate → estendere l'endpoint per
   unire le due fonti (come fa il pool `/orders/materials`).
-- **TD-14** — Ricerca **anche sulla descrizione** (match parziale ILIKE) in
-  preventivi e ordini materiali. Preventivi: `quotes_archive.py:76-81` oggi
-  filtra solo `quote_number` + `customer_name` → aggiungere `Part.description`
-  (+ note) via join + `distinct()`. Ordini: `orders.py:799-826` filtra
-  numero/fornitore/creatore → aggiungere `MaterialOrderItem.material_name`/
-  `description`/`part_code` via join. Da decidere quali campi includere.
+- **TD-14** — ✅ **FATTO 2026-07-21** — Ricerca anche sulla descrizione (ILIKE
+  parziale). Preventivi (`quotes_archive.py`): aggiunto match su
+  `Part.description` + `Part.part_code` via `Quote.parts.any()` (EXISTS,
+  niente duplicati/paginazione rotta). Ordini (`orders.py list_orders`):
+  aggiunto join `MaterialOrderItem` + match su `material_name`/`description`/
+  `part_code` + `MaterialOrder.supplier_name` (con `.distinct()` già presente).
+  Placeholder aggiornati (TopBar + storico ordini). Collaudo:
+  `tests/unit/test_search_description.py` (2 casi) + 146 unit pass, tsc pulito.
 - **TD-12** — Notifica ordini materiale: **replicare il badge**. Chiarito
   (2026-07-21): oggi il badge (materiali da ordinare, da
   `/orders/materials/stats` → `to_order`) compare solo sul **genitore "Ordini"**

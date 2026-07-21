@@ -815,11 +815,17 @@ def list_orders(
             .outerjoin(MaterialOrderQuote, MaterialOrderQuote.material_order_id == MaterialOrder.id)
             .outerjoin(Quote, Quote.id == MaterialOrderQuote.quote_id)
             .outerjoin(User, User.id == MaterialOrder.created_by_user_id)
+            # TD-14: ricerca anche sulle righe dell'ordine (materiale/descrizione/codice).
+            .outerjoin(MaterialOrderItem, MaterialOrderItem.material_order_id == MaterialOrder.id)
         )
         conditions = [
             Quote.quote_number.ilike(like),
             User.username.ilike(like),
             User.full_name.ilike(like),
+            MaterialOrder.supplier_name.ilike(like),
+            MaterialOrderItem.material_name.ilike(like),
+            MaterialOrderItem.description.ilike(like),
+            MaterialOrderItem.part_code.ilike(like),
         ]
         if id_match is not None:
             conditions.append(MaterialOrder.id == id_match)

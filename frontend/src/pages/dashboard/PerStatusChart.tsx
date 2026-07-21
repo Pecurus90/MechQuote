@@ -20,6 +20,7 @@ interface Props {
 
 const ORDER: { key: string; label: string }[] = [
   { key: 'bozza', label: 'Bozza' },
+  { key: 'in_revisione', label: 'In revisione' },
   { key: 'inviato', label: 'Inviato' },
   { key: 'letto', label: 'Letto' },
   { key: 'in_attesa_cliente', label: 'Attesa cliente' },
@@ -32,7 +33,7 @@ const ORDER: { key: string; label: string }[] = [
 // gli stati terminali (completo/non_ordinato) accumulano centinaia di preventivi
 // e schiacciano visivamente quelli ancora da lavorare. I chip qui sopra restano
 // completi (drill-down verso l'archivio anche per completo/non_ordinato).
-const CHART_STATES = new Set(['bozza', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'])
+const CHART_STATES = new Set(['bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente', 'confermato'])
 
 export default function PerStatusChart({ byStatus, standardCount, onSelect }: Props) {
   const { theme } = useTheme()
@@ -47,6 +48,7 @@ export default function PerStatusChart({ byStatus, standardCount, onSelect }: Pr
         text: 'hsl(210 16% 90%)',
         cursor: 'hsl(220 7% 30% / .35)',
         bozza: 'hsl(220 9% 62%)',
+        in_revisione: 'hsl(45 93% 55%)',
         inviato: 'hsl(213 93% 66%)',
         letto: 'hsl(36 96% 56%)',
         in_attesa_cliente: 'hsl(25 95% 62%)',
@@ -62,6 +64,7 @@ export default function PerStatusChart({ byStatus, standardCount, onSelect }: Pr
         text: 'hsl(220 18% 16%)',
         cursor: 'hsl(220 16% 92% / .6)',
         bozza: 'hsl(220 9% 46%)',
+        in_revisione: 'hsl(45 93% 40%)',
         inviato: 'hsl(214 90% 52%)',
         letto: 'hsl(33 92% 45%)',
         in_attesa_cliente: 'hsl(25 95% 53%)',

@@ -7,14 +7,16 @@ import EdmConfigPage from './edm/EdmConfigPage'
 import EdmSpeedsPage from './edm/EdmSpeedsPage'
 import CuttingCyclesPage from './edm/CuttingCyclesPage'
 import DrillingTimesPage from './edm/DrillingTimesPage'
+import ElectrodesPage from './edm/ElectrodesPage'
 
-type Tab = 'config' | 'speeds' | 'cycles' | 'drilling'
+type Tab = 'config' | 'speeds' | 'cycles' | 'drilling' | 'electrodes'
 
 const TABS = [
   { key: 'config', label: 'Parametri globali' },
   { key: 'speeds', label: 'Velocità di taglio' },
   { key: 'cycles', label: 'Cicli di taglio' },
   { key: 'drilling', label: 'Tempi foratura' },
+  { key: 'electrodes', label: 'Elettrodi' },
 ]
 
 export default function EdmSettingsPage() {
@@ -29,6 +31,7 @@ export default function EdmSettingsPage() {
         {tab === 'speeds' && <EdmSpeedsPage />}
         {tab === 'cycles' && <CuttingCyclesPage />}
         {tab === 'drilling' && <DrillingTimesPage />}
+        {tab === 'electrodes' && <ElectrodesPage />}
       </div>
     </PageContainer>
   )

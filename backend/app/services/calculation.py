@@ -5,7 +5,7 @@ from app.core.database import utc_now
 from app.models import (
     Part, ManufacturingPhase, Quote, Material, Machine,
     EdmConfig, EdmCutSpeed, CuttingCycle, Treatment, MaterialSupplier, Supplier,
-    CompanySettings,
+    CompanySettings, DrillingTime, Electrode,
 )
 from app.services.costing.primitives import (
     round4 as _round4, phase_cost, part_totals, treatment_cost_per_part,
@@ -127,6 +127,60 @@ def _compute_edm_cycle_hours(phase: ManufacturingPhase, part: Part, db: Session)
         n_pierce=phase.n_pierce or 0,
         db=db,
     )
+
+
+def _compute_drill_edm(
+    phase: ManufacturingPhase, part: Part, db: Session
+) -> Optional[Tuple[Optional[float], Optional[float]]]:
+    """TD-7 — foratura a elettrodo: ritorna (ore_ciclo, costo_elettrodo_per_pezzo).
+
+    Gemello di `_compute_edm_cycle_hours` per il wire. Si attiva SOLO se la
+    macchina della fase è la foratrice designata in `EdmConfig`
+    (`default_drilling_machine_id`). Ritorna:
+      - `None` se la fase NON è di foratura (nessun override: valori manuali intatti);
+      - `(ore, costo)` se lo è. Ogni componente può essere `None` singolarmente
+        se manca il dato per calcolarlo (es. nessuna riga DrillingTime o Electrode).
+
+    Formule (n=n° fori, d=profondità, per pezzo):
+      ore   = n × d / speed(famiglia, Ø) / 3600      (speed da DrillingTime, mm/s)
+      cons. = n × d × wear × (1 + margin/100)  [mm]  (wear/margin da EdmConfig)
+      costo = cons × (price / length)  [€]           (€/mm da Electrode per quel Ø)
+    """
+    cfg = db.query(EdmConfig).filter(EdmConfig.id == 1).first()
+    if not cfg or not cfg.default_drilling_machine_id:
+        return None
+    if not phase.machine or phase.machine.id != cfg.default_drilling_machine_id:
+        return None
+
+    n = phase.n_holes or 0
+    depth = phase.drill_depth_mm or 0.0
+    dia = phase.electrode_diameter_mm
+    if n <= 0 or depth <= 0 or not dia:
+        return (None, None)   # è foratura ma mancano input → non sovrascrivere
+
+    # Tempo: velocità discreta per (famiglia, Ø elettrodo).
+    hours: Optional[float] = None
+    material = db.query(Material).filter(Material.id == part.material_id).first() if part.material_id else None
+    family = material.family if material else None
+    if family:
+        speed = db.query(DrillingTime).filter(
+            DrillingTime.material_family == family,
+            DrillingTime.electrode_diameter_mm == dia,
+        ).first()
+        if speed and speed.speed_mm_per_sec:
+            hours = round(n * depth / speed.speed_mm_per_sec / 3600.0, 4)
+
+    # Costo elettrodo: €/mm dal catalogo Electrode per quel Ø.
+    elec_cost: Optional[float] = None
+    electrode = db.query(Electrode).filter(Electrode.diameter_mm == dia).first()
+    if electrode and electrode.length_mm and electrode.price is not None:
+        cost_per_mm = electrode.price / electrode.length_mm
+        wear = cfg.electrode_wear_factor if cfg.electrode_wear_factor is not None else 2.0
+        margin = cfg.electrode_margin_percent if cfg.electrode_margin_percent is not None else 5.0
+        consumo_mm = n * depth * wear * (1.0 + margin / 100.0)
+        elec_cost = _round4(consumo_mm * cost_per_mm)
+
+    return (hours, elec_cost)
 
 
 def recalculate_part(part_id: int, db: Session) -> None:
@@ -305,6 +359,17 @@ def recalculate_quote(quote_id: int, db: Session) -> None:
             edm_hours = _compute_edm_cycle_hours(phase, part, db)
             if edm_hours is not None:
                 phase.cycle_hours_per_part = edm_hours
+
+            # TD-7 — Foratura a elettrodo (fase sulla foratrice designata):
+            # autocalc ore + consumo elettrodo. Additivo; sovrascrive solo i
+            # campi calcolabili, lasciando intatti i manuali se manca un dato.
+            drill = _compute_drill_edm(phase, part, db)
+            if drill is not None:
+                d_hours, d_elec = drill
+                if d_hours is not None:
+                    phase.cycle_hours_per_part = d_hours
+                if d_elec is not None:
+                    phase.variable_cost_per_part = d_elec
 
             # Trattamento: aggregazione per (treatment_id, material_id).
             # Peso finito + costo proporzionale al peso del batch del proprio

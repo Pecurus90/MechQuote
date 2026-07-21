@@ -3,14 +3,18 @@ import ConfirmDialog from '@/components/ui/confirm-dialog'
 import api from '@/lib/api'
 import { parseDecimal } from '@/lib/decimalInput'
 import { hoursToMinutes, minutesToHours } from '@/lib/timeUnits'
-import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation } from '@/types'
+import type { Part, Phase, Machine, Treatment, Supplier, CuttingCycle, WorkflowTemplate, Operation, Electrode } from '@/types'
 import { calcTreatmentCost, calcPhaseCost } from '@/lib/quoteCalc'
 import { toast } from 'sonner'
 import EdmPhaseFields from '@/components/quotes/EdmPhaseFields'
+import DrillPhaseFields from '@/components/quotes/DrillPhaseFields'
 import { PhaseListView, type PhaseVM, type PhaseField, type SelectOption } from '@/components/quotes/PhaseListView'
 
 const isWireEdmMachine = (p: Phase, machines: Machine[]) =>
   !!p.machine_id && machines.find(m => m.id === p.machine_id)?.machine_type === 'wire_edm'
+// TD-7: fase di foratura a elettrodo = macchina della fase = foratrice designata.
+const isDrillMachine = (p: Phase, drillMachineId: number | null) =>
+  !!p.machine_id && drillMachineId != null && p.machine_id === drillMachineId
 const isEdmAuto = (p: Phase, machines: Machine[]) =>
   isWireEdmMachine(p, machines) && !!p.cut_length_mm && p.cut_length_mm > 0 && !!p.cut_height_mm && p.cut_height_mm > 0 && !!p.cutting_cycle_id
 
@@ -69,6 +73,9 @@ export default function PhaseEditor({
   const [cuttingCycles, setCuttingCycles] = useState<CuttingCycle[]>([])
   const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([])
   const [operations, setOperations] = useState<Operation[]>([])
+  // TD-7: foratrice designata + catalogo elettrodi per il pannello foratura.
+  const [drillMachineId, setDrillMachineId] = useState<number | null>(null)
+  const [electrodes, setElectrodes] = useState<Electrode[]>([])
   // AUD-8/9: gate di conferma per le azioni distruttive (elimina fase, sblocco
   // EDM manuale, sostituzione fasi da flusso). Sostituisce i confirm() nativi.
   const [pendingConfirm, setPendingConfirm] = useState<{
@@ -81,6 +88,8 @@ export default function PhaseEditor({
     api.get('/cutting-cycles').then(r => setCuttingCycles(r.data)).catch(devWarn('cutting-cycles'))
     api.get('/workflow-templates').then(r => setWorkflows(r.data)).catch(devWarn('workflow-templates'))
     api.get('/operations?active=true').then(r => setOperations(r.data)).catch(devWarn('operations'))
+    api.get('/edm-config').then(r => setDrillMachineId(r.data?.default_drilling_machine_id ?? null)).catch(devWarn('edm-config'))
+    api.get('/electrodes').then(r => setElectrodes(r.data)).catch(devWarn('electrodes'))
   }, [])
 
   // Ricalcolo locale delle fasi quando cambiano gli input che influenzano il
@@ -266,6 +275,7 @@ export default function PhaseEditor({
       belowMinimum: info.showMinWarning || info.weightThresholdActive,
       isTreatment,
       isWireEdm: isWireEdmMachine(phase, machines),
+      isDrillEdm: isDrillMachine(phase, drillMachineId),
       operationId: phase.operation_id != null ? String(phase.operation_id) : '',
       machineId: phase.machine_id != null ? String(phase.machine_id) : '',
       treatmentId: phase.treatment_id != null ? String(phase.treatment_id) : '',
@@ -354,6 +364,18 @@ export default function PhaseEditor({
     )
   }
 
+  const renderDrill = (id: number) => {
+    const idx = idxById(id); if (idx < 0) return null
+    const phase = phases[idx]
+    return (
+      <DrillPhaseFields
+        phase={phase}
+        electrodes={electrodes}
+        onSaveImmediate={(updates) => { void saveImmediate(idx, updates) }}
+      />
+    )
+  }
+
   const renderTreatmentInfo = (id: number) => {
     const idx = idxById(id); if (idx < 0) return null
     const phase = phases[idx]
@@ -408,6 +430,7 @@ export default function PhaseEditor({
         onDelete={(id) => { const idx = idxById(id); if (idx >= 0) setPendingConfirm({ title: 'Eliminare la fase?', description: 'La fase verrà rimossa dalla parte.', confirmLabel: 'Elimina', variant: 'destructive', run: () => removePhase(idx) }) }}
         onReorder={(fromId, toId) => { const f = idxById(fromId), t = idxById(toId); if (f >= 0 && t >= 0) reorder(f, t) }}
         renderEdm={renderEdm}
+        renderDrill={renderDrill}
         renderTreatmentInfo={renderTreatmentInfo}
       />
       <ConfirmDialog

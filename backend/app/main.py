@@ -825,6 +825,23 @@ def _run_migrations():
          "material_order_id INTEGER REFERENCES material_orders(id), "
          "evaso_at DATETIME)"),
         "CREATE INDEX IF NOT EXISTS ix_material_request_items_request ON material_request_items(material_request_id)",
+
+        # ═══ TD-7 — Foratura a elettrodo: consumo elettrodo + tempo ═══
+        # Catalogo elettrodi (Ø, lunghezza barretta, prezzo → €/mm derivato).
+        ("CREATE TABLE IF NOT EXISTS electrodes ("
+         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+         "diameter_mm FLOAT NOT NULL, "
+         "length_mm FLOAT NOT NULL, "
+         "price FLOAT NOT NULL, "
+         "notes TEXT, "
+         "active BOOLEAN DEFAULT 1)"),
+        # Fattori di consumo configurabili su EdmConfig (default ×2, +5%).
+        "ALTER TABLE edm_config ADD COLUMN electrode_wear_factor FLOAT DEFAULT 2.0",
+        "ALTER TABLE edm_config ADD COLUMN electrode_margin_percent FLOAT DEFAULT 5.0",
+        # Input foratura sulla fase (autocalc quando la macchina è la foratrice designata).
+        "ALTER TABLE manufacturing_phases ADD COLUMN electrode_diameter_mm FLOAT",
+        "ALTER TABLE manufacturing_phases ADD COLUMN n_holes INTEGER",
+        "ALTER TABLE manufacturing_phases ADD COLUMN drill_depth_mm FLOAT",
     ]
     with engine.connect() as conn:
         for sql in migrations:

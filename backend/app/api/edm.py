@@ -16,13 +16,14 @@ from app.core.database import get_db
 from app.core.security import require_permission
 from app.models import (
     EdmConfig, EdmCutSpeed, CuttingCycle, CuttingPass, DrillingTime,
-    ManufacturingPhase,
+    ManufacturingPhase, Electrode,
 )
 from app.schemas import (
     EdmConfigOut, EdmConfigUpdate,
     EdmCutSpeedOut, EdmCutSpeedCreate, EdmCutSpeedUpdate,
     CuttingCycleOut, CuttingCycleCreate, CuttingCycleUpdate,
     DrillingTimeOut, DrillingTimeCreate, DrillingTimeUpdate,
+    ElectrodeOut, ElectrodeCreate, ElectrodeUpdate,
 )
 
 router = APIRouter(prefix="/api", tags=["edm"])
@@ -186,6 +187,45 @@ def delete_drilling_time(rid: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Tempo foratura non trovato")
     # Lookup consultativo (no FK formale): segnaposto coerente col pattern.
     block_if_in_use(db, f"Tempo foratura {row.material_family} Ø{row.electrode_diameter_mm}mm")
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
+
+
+# ─── Electrode (CRUD) — TD-7 catalogo elettrodi per foratura ─────────────────
+
+@router.get("/electrodes", response_model=List[ElectrodeOut])
+def list_electrodes(db: Session = Depends(get_db)):
+    return db.query(Electrode).order_by(Electrode.diameter_mm).all()
+
+
+@router.post("/electrodes", response_model=ElectrodeOut, dependencies=[_can_edit])
+def create_electrode(data: ElectrodeCreate, db: Session = Depends(get_db)):
+    row = Electrode(**data.model_dump())
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.put("/electrodes/{rid}", response_model=ElectrodeOut, dependencies=[_can_edit])
+def update_electrode(rid: int, data: ElectrodeUpdate, db: Session = Depends(get_db)):
+    row = db.query(Electrode).filter(Electrode.id == rid).first()
+    if not row:
+        raise HTTPException(404, "Elettrodo non trovato")
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.delete("/electrodes/{rid}", dependencies=[_can_edit])
+def delete_electrode(rid: int, db: Session = Depends(get_db)):
+    row = db.query(Electrode).filter(Electrode.id == rid).first()
+    if not row:
+        raise HTTPException(404, "Elettrodo non trovato")
+    # Referenziato per valore Ø sulla fase (no FK): delete diretto, niente orfani.
     db.delete(row)
     db.commit()
     return {"ok": True}

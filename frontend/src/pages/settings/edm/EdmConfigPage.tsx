@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 const empty: Omit<EdmConfig, 'id' | 'updated_at'> = {
   rough_speed_factor: 1.0, semi_speed_factor: 0.9, finish_speed_factor: 0.7,
   default_pierce_time_s: 2.0, default_drilling_machine_id: null,
+  electrode_wear_factor: 2.0, electrode_margin_percent: 5.0,
 }
 const labelCls = 'mb-1 block text-[12px] font-medium text-foreground'
 
@@ -90,6 +91,13 @@ export default function EdmConfigPage() {
             {machines.map(m => <option key={m.id} value={m.id}>{m.name} ({m.hourly_rate.toFixed(0)} €/h{m.machine_type ? ` · ${m.machine_type}` : ''})</option>)}
           </select>
           {!cfg.default_drilling_machine_id && <p className="mt-1 text-[11px] text-warning">Senza foratrice EDM dedicata, la modalità "Foratrice EDM" del wizard 2D non crea la fase Foratura automaticamente.</p>}
+        </div>
+      </Section>
+
+      <Section title="Consumo elettrodo (foratura)" desc={<>Formula del consumo per foro: <span className="font-mono">profondità × usura × (1 + margine/100)</span>. Costo = consumo × €/mm dell'elettrodo (catalogo Elettrodi).</>}>
+        <div className="grid max-w-md grid-cols-1 gap-4 md:grid-cols-2">
+          {nf('electrode_wear_factor', 'Fattore usura', 'rapporto usura elettrodo:foro (tipico 2)')}
+          {nf('electrode_margin_percent', 'Margine (%)', 'margine sul consumo (tipico 5)')}
         </div>
       </Section>
     </StandardPage>

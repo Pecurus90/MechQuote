@@ -117,14 +117,52 @@ Le feature EDM (TD-7/TD-8) toccano `services/calculation.py` = **zona fragile**
      offset e passa `bars` a `createOrder`.
   Stima: ~mezza giornata. File: `schemas.py`, `api/orders.py`,
   `types/index.ts`, `pages/orders/OrdersMaterialsPage.tsx` + nuovo modale.
-- **TD-7 — Consumo elettrodo (foratura EDM).**
-  Formula utente: `consumo_elettrodo = lunghezza_foratura × 2 + 5%`; costo
-  elettrodo in base al **diametro**; costo totale in base a **n° forature** e
-  **lunghezza fori**. Oggi `DrillingTime` (famiglia × Ø elettrodo × velocità)
-  esiste ma **non è collegato** al cost engine (nessun autocalc foratura).
-  Serve: campi fase (Ø elettrodo/`drilling_time_id`, n° fori, lunghezza foro),
-  costo elettrodo per Ø, autocalc in `calculation.py` (**zona fragile**) +
-  gemello frontend. Da definire con l'utente le formule esatte e le unità.
+- **TD-7** — ✅ **IMPLEMENTATO 2026-07-21** (collaudo automatico; resta il
+  click-through browser). Foratura a elettrodo: **tempo** (via DrillingTime) +
+  **consumo/costo elettrodo** ora calcolati dal motore. Backend: modello
+  `Electrode` (electrodes) + 2 fattori su `EdmConfig` + 3 campi su
+  `ManufacturingPhase`; migrazioni idempotenti; helper `_compute_drill_edm`
+  (gemello del wire) agganciato nel loop fasi (additivo, gate su foratrice
+  designata); schemi + CRUD `/electrodes` + EdmConfig. Frontend: tipi;
+  `ElectrodesPage` (tab in hub EDM); 2 fattori in `EdmConfigPage`;
+  `DrillPhaseFields` mostrato quando la macchina della fase è la foratrice
+  designata (Ø elettrodo/n° fori/profondità → il backend ricalcola).
+  Collaudo: `tests/unit/test_drill_edm.py` (6 casi) + suite **144 unit pass**,
+  golden costo intatti, tsc pulito, backend OK. Design/decisioni sotto.
+  <!-- DESIGN STORICO -->
+  **Zona fragile** (`recalculate_quote`) — modifica additiva verificata.
+  **Decisioni utente:**
+  - Costo elettrodo → **nuovo mini-catalogo `Electrode`** con righe *(Ø,
+    lunghezza barretta mm, prezzo €)*; €/mm = prezzo / lunghezza.
+  - **Lunghezza foratura** = **campo separato** sulla fase (non lo spessore).
+  - **Tempo foratura** calcolato in automatico via `DrillingTime` (oggi
+    catalogo esistente ma non collegato al motore).
+  - Fattore consumo **configurabile** in `EdmConfig`: `electrode_wear_factor`
+    (default 2), `electrode_margin_percent` (default 5).
+  - Fase di foratura riconosciuta se `phase.machine_id ==
+    EdmConfig.default_drilling_machine_id` (foratrice designata, già esistente).
+  **Formule** (per pezzo, `n`=n° fori, `d`=profondità):
+  - consumo_mm = `n × d × wear × (1 + margin/100)` → costo = `consumo_mm × €/mm(Ø)`
+    → `phase.variable_cost_per_part`
+  - tempo_h = `n × d / speed(famiglia, Ø) / 3600` → `phase.cycle_hours_per_part`
+  **Piano:**
+  1. `models.py`: nuovo `Electrode` (electrodes) + `EdmConfig.electrode_wear_factor`/
+     `electrode_margin_percent` + `ManufacturingPhase.electrode_diameter_mm`/
+     `n_holes`/`drill_depth_mm`.
+  2. `main.py _run_migrations`: CREATE TABLE electrodes + 5 ADD COLUMN idempotenti.
+  3. `calculation.py`: helper `_compute_drill_edm(phase, part, db)` (mirror di
+     `_compute_edm_cycle_hours`) che ritorna (ore, costo_elettrodo); aggancio di
+     ~5 righe nel loop fasi, dopo il blocco wire. Backend-only (come il wire):
+     nessun gemello frontend del calcolo.
+  4. `schemas.py`: Electrode Base/Create/Update/Out; EdmConfig + i 2 fattori;
+     Phase + i 3 campi foratura.
+  5. `api/edm.py`: CRUD `Electrode` (lookup catalog, no block_if_in_use — la
+     fase referenzia per valore Ø); EdmConfig PUT + i 2 fattori.
+  6. Frontend: tipi; pagina catalogo Elettrodi (gemella di DrillingTimesPage);
+     EdmConfigPage + 2 fattori; `EdmPhaseFields` mostra i campi foratura quando
+     la macchina della fase è la foratrice designata → salva → il backend
+     ricalcola ore + costo e li restituisce.
+  Collaudo: unit test su `_compute_drill_edm` (in-memory) + suite + tsc.
 - **TD-8 — Consumo filo (taglio a filo EDM).**
   Consumo filo in base a **lunghezza taglio (mm)** e **altezza taglio**.
   `cut_length_mm`/`cut_height_mm` esistono già sulla fase; manca il costo filo

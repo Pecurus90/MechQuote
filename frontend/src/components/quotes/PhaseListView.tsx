@@ -30,6 +30,7 @@ export interface PhaseVM {
   belowMinimum?: boolean
   isTreatment?: boolean
   isWireEdm?: boolean
+  isDrillEdm?: boolean
   operationId: string
   machineId: string
   treatmentId: string
@@ -68,6 +69,8 @@ interface Props extends Options {
   onReorder?: (fromId: number, toId: number) => void
   /** Slot EDM (EdmPhaseFields esistente) reso dal container. */
   renderEdm?: (phaseId: number) => ReactNode
+  /** Slot foratura EDM (DrillPhaseFields) reso dal container. */
+  renderDrill?: (phaseId: number) => ReactNode
   /** Slot aiuto-trattamento (preview batch) reso dal container. */
   renderTreatmentInfo?: (phaseId: number) => ReactNode
 }
@@ -95,11 +98,12 @@ function PhaseRow(props: {
   onDragStart: () => void
   onDrop: () => void
   renderEdm?: (phaseId: number) => ReactNode
+  renderDrill?: (phaseId: number) => ReactNode
   renderTreatmentInfo?: (phaseId: number) => ReactNode
 }) {
   const {
     phase, open, locked, operations, machines, treatments, suppliers,
-    onToggle, onChange, onCommitField, onBlurField, onDelete, onDragStart, onDrop, renderEdm, renderTreatmentInfo,
+    onToggle, onChange, onCommitField, onBlurField, onDelete, onDragStart, onDrop, renderEdm, renderDrill, renderTreatmentInfo,
   } = props
   const [advanced, setAdvanced] = useState(false)
   const blur = (f: PhaseField) => () => onBlurField?.(phase.id, f)
@@ -199,6 +203,9 @@ function PhaseRow(props: {
           {/* EDM sub-panel dal container (EdmPhaseFields) */}
           {phase.isWireEdm && renderEdm?.(phase.id)}
 
+          {/* Foratura EDM sub-panel (DrillPhaseFields) */}
+          {phase.isDrillEdm && renderDrill?.(phase.id)}
+
           {/* row 2 */}
           <div className="mt-3.5 grid grid-cols-4 gap-2.5">
             {!phase.isTreatment && (
@@ -250,7 +257,7 @@ function PhaseRow(props: {
 export function PhaseListView(props: Props) {
   const {
     phases, locked, workflowTemplates = [], operations, machines, treatments, suppliers,
-    onAdd, onApplyTemplate, onChange, onCommitField, onBlurField, onDelete, onReorder, renderEdm, renderTreatmentInfo,
+    onAdd, onApplyTemplate, onChange, onCommitField, onBlurField, onDelete, onReorder, renderEdm, renderDrill, renderTreatmentInfo,
   } = props
   const [openId, setOpenId] = useState<number | null>(phases.length ? phases[0].id : null)
   const [dragId, setDragId] = useState<number | null>(null)
@@ -301,6 +308,7 @@ export function PhaseListView(props: Props) {
               onDragStart={() => setDragId(p.id)}
               onDrop={() => { if (dragId != null && dragId !== p.id) onReorder?.(dragId, p.id); setDragId(null) }}
               renderEdm={renderEdm}
+              renderDrill={renderDrill}
               renderTreatmentInfo={renderTreatmentInfo}
             />
           ))}

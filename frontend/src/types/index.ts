@@ -57,6 +57,10 @@ export interface Phase {
   cutting_cycle_id?: number | null
   n_pierce?: number | null
   dxf_profile_ids?: number[] | null
+  // TD-7 — foratura a elettrodo (autocalc se la macchina è la foratrice designata)
+  electrode_diameter_mm?: number | null
+  n_holes?: number | null
+  drill_depth_mm?: number | null
   // CAT-1 Fase 2: voci di catalogo agganciate, esposte da PhaseOut per
   // costruire l'option "ritirato" nelle dropdown del preventivatore
   // quando il GET di lista è filtrato `?active=true`.
@@ -544,6 +548,9 @@ export interface EdmConfig {
   finish_speed_factor: number
   default_pierce_time_s: number
   default_drilling_machine_id?: number | null
+  // TD-7: consumo elettrodo = n_fori × profondità × wear × (1 + margin/100)
+  electrode_wear_factor: number
+  electrode_margin_percent: number
   updated_at?: string
 }
 
@@ -578,6 +585,15 @@ export interface DrillingTime {
   material_family: string  // slug da MATERIAL_FAMILIES
   electrode_diameter_mm: number
   speed_mm_per_sec: number
+  notes: string | null
+}
+
+// TD-7 — catalogo elettrodi per la foratura (costo per Ø).
+export interface Electrode {
+  id: number
+  diameter_mm: number
+  length_mm: number
+  price: number
   notes: string | null
 }
 

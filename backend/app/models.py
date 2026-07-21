@@ -238,6 +238,11 @@ class ManufacturingPhase(Base):
     cutting_cycle_id = Column(Integer, ForeignKey("cutting_cycles.id"), nullable=True)
     n_pierce = Column(Integer, nullable=True)
     dxf_profile_ids = Column(JSON, nullable=True)
+    # TD-7 — foratura a elettrodo: autocalc tempo + consumo elettrodo quando la
+    # macchina della fase è la foratrice designata (EdmConfig.default_drilling_machine_id).
+    electrode_diameter_mm = Column(Float, nullable=True)   # Ø elettrodo (link a Electrode/DrillingTime)
+    n_holes = Column(Integer, nullable=True)               # n° forature per pezzo
+    drill_depth_mm = Column(Float, nullable=True)          # profondità del foro
     # Colonne legacy in DB ma non mappate (prototipo Sprint 13c volumetric):
     # input_volume_cm3 — non più letta.
 
@@ -507,6 +512,10 @@ class EdmConfig(Base):
     # wizard 2D quando l'utente sceglie modalità "Foratrice EDM" per popolare
     # automaticamente la fase Foratura del preventivo.
     default_drilling_machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
+    # TD-7: consumo elettrodo in foratura. consumo_mm = n_fori × profondità ×
+    # wear × (1 + margin/100). Configurabili per non cablare la formula.
+    electrode_wear_factor = Column(Float, default=2.0)      # rapporto usura elettrodo:foro
+    electrode_margin_percent = Column(Float, default=5.0)   # margine % sul consumo
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     default_drilling_machine = relationship("Machine")
@@ -589,6 +598,24 @@ class DrillingTime(Base):
     # Colonne legacy nel DB ma non mappate (Sprint 1.5 + Sprint 11):
     #   material_id, diameter_min_mm, diameter_max_mm, height_min_mm,
     #   height_max_mm, seconds_per_hole — il modello smette di leggerle.
+
+
+class Electrode(Base):
+    """TD-7 — catalogo elettrodi per la foratura EDM (costo in base al Ø).
+
+    L'azienda compra elettrodi a barretta: ogni riga = un Ø con la sua
+    lunghezza (mm) e il suo prezzo (€). Il costo al mm consumato è derivato:
+    `€/mm = price / length_mm`. La fase referenzia l'elettrodo per **valore di
+    Ø** (`ManufacturingPhase.electrode_diameter_mm`), come DrillingTime.
+    """
+    __tablename__ = "electrodes"
+
+    id = Column(Integer, primary_key=True)
+    diameter_mm = Column(Float, nullable=False)   # Ø elettrodo
+    length_mm = Column(Float, nullable=False)     # lunghezza barretta
+    price = Column(Float, nullable=False)         # € per elettrodo
+    notes = Column(Text)
+    active = Column(Boolean, default=True)        # non esposto in UI (convenzione cataloghi)
 
 
 # ─── Ordini materiali ──────────────────────────────────────────────────────

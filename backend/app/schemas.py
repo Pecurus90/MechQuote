@@ -202,6 +202,10 @@ class PhaseBase(BaseModel):
     cutting_cycle_id: Optional[int] = None
     n_pierce: Optional[int] = Field(default=None, ge=0)
     dxf_profile_ids: Optional[list] = None
+    # TD-7 — foratura a elettrodo (autocalc se la macchina è la foratrice designata)
+    electrode_diameter_mm: Optional[float] = Field(default=None, ge=0)
+    n_holes: Optional[int] = Field(default=None, ge=0)
+    drill_depth_mm: Optional[float] = Field(default=None, ge=0)
 
 
 class PhaseCreate(PhaseBase):
@@ -233,6 +237,9 @@ class PhaseUpdate(BaseModel):
     cutting_cycle_id: Optional[int] = None
     n_pierce: Optional[int] = Field(default=None, ge=0)
     dxf_profile_ids: Optional[list] = None
+    electrode_diameter_mm: Optional[float] = Field(default=None, ge=0)
+    n_holes: Optional[int] = Field(default=None, ge=0)
+    drill_depth_mm: Optional[float] = Field(default=None, ge=0)
 
 
 class PhaseOut(PhaseBase):
@@ -1024,6 +1031,9 @@ class EdmConfigBase(BaseModel):
     finish_speed_factor: float = Field(default=0.7, ge=0)
     default_pierce_time_s: float = Field(default=2.0, ge=0)
     default_drilling_machine_id: Optional[int] = None
+    # TD-7: consumo elettrodo = n_fori × profondità × wear × (1 + margin/100).
+    electrode_wear_factor: float = Field(default=2.0, ge=0)
+    electrode_margin_percent: float = Field(default=5.0, ge=0)
 
 
 class EdmConfigUpdate(EdmConfigBase):
@@ -1128,6 +1138,29 @@ class DrillingTimeUpdate(DrillingTimeBase):
 
 
 class DrillingTimeOut(DrillingTimeBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ElectrodeBase(BaseModel):
+    """TD-7 — riga catalogo elettrodo (Ø, lunghezza barretta, prezzo)."""
+    diameter_mm: float = Field(gt=0)
+    length_mm: float = Field(gt=0)
+    price: float = Field(ge=0)
+    notes: Optional[str] = None
+
+
+class ElectrodeCreate(ElectrodeBase):
+    pass
+
+
+class ElectrodeUpdate(ElectrodeBase):
+    pass
+
+
+class ElectrodeOut(ElectrodeBase):
     id: int
 
     class Config:

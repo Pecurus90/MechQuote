@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth'
 import PageContainer from '@/components/ui/page-container'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import {
-  OrderHistoryView, type HistoryTab,
+  OrderHistoryView, type HistoryTab, type OrderItemRow,
   type MaterialOrder as VMaterialOrder, type ToolOrder as VToolOrder, type NormOrder as VNormOrder,
 } from '@/pages/orders/OrderHistoryView'
 import type { MaterialOrder, ToolOrder } from '@/types'
@@ -117,11 +117,22 @@ export default function OrdersHistoryPage() {
     itemCount: o.item_count,
   }))
 
+  // Righe (item) di un ordine, caricate all'espansione della riga.
+  const fetchItems = async (t: HistoryTab, id: number): Promise<OrderItemRow[]> => {
+    const path =
+      t === 'materials' ? `/orders/materials/${id}/items`
+      : t === 'tools' ? `/orders/tools/${id}/items`
+      : `/orders/normalized/${id}/items`
+    const r = await api.get(path)
+    return (r.data?.items ?? []) as OrderItemRow[]
+  }
+
   return (
     <PageContainer width="xl">
       <OrderHistoryView
         tab={tab}
         onTabChange={setTab}
+        fetchItems={fetchItems}
         search={search}
         onSearch={setSearch}
         materialOrders={matRows}

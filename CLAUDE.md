@@ -669,15 +669,31 @@ frontend/src/
 
 ---
 
-## 12. Spec docs (`docs/specs/`)
+## 12. Documentazione del progetto (`docs/`)
+
+Struttura (riordinata 2026-07-22):
+
+```
+docs/
+  audit/     AUDIT_FUNZIONALE.md (registro audit — §15) · METODO_AUDIT.md
+             (metodologia per audit) · CHECKLIST_PREVENTIVATORE.md (QA numerica
+             del motore costi) · AUDIT_FINALE_2026-07-20.md (ultimo verdetto go/no-go)
+  guide/     TUTORIAL_PREVENTIVATORI.md (guida utente ai modi di preventivare)
+  history/   CORREZIONI_PREZZI.md (storico correzioni prezzo T0) ·
+             NOTA_IMPORT_CSV_VALIDAZIONE.md (incidente 2026-06-05 + mitigazioni)
+  specs/     spec numerate (vedi sotto)
+```
+
+### Spec (`docs/specs/`)
 
 Le spec sono **target storici/documentati**, non sempre allineate al codice corrente. In caso di divergenza: il codice ha priorità. Aggiorna la spec quando la divergenza è intenzionale, altrimenti pianifica con l'utente.
 
-`02`, `04`, `06`, `10` sono marcate **DEPRECATED — DRIFT** in testa al file: non usarle come riferimento operativo. `04_data_model.md` → leggi `models.py`. `06_cost_engine_formulas.md` → leggi §4 "Cost engine" qui sopra + `services/calculation.py`. `10_settings_and_rules.md` → `CompanySettings` singleton + UI Catalogo/Sistema.
+- **Deprecate** (header ⚠️ in testa, non usare come riferimento operativo): `02` (UI/nav → `Sidebar.tsx` + §10-11), `06` (cost engine → §4 + `services/calculation.py` ↔ `quoteCalc.ts`). `03` è **parzialmente in drift** (oggi 2 modi di creazione, non 3).
+- **Rimosse** nella pulizia 2026-07-22 (recuperabili da git history): `04` (data model → `models.py`), `10` (settings → `CompanySettings` + UI), `13` (frontend components → `frontend/src/` + §10), `14` (workflow 3 stati → sostituita da `18`).
+- **Archeologia**: `16_legacy_columns.md` (campi deferred / colonne orfane / campi rimossi). Fonte di verità resta `models.py`.
+- **Core vive**: `01 03 05 07 08 09 11 12 15`. **Roadmap/futuro**: `17` (architettura target), `18` (stati preventivo + ordini materiale), `19` (dashboard/statistiche), `20` (dashboard cockpit), `21` (concorrenza/optimistic lock).
 
-`16_legacy_columns.md` archeologia DB (campi deferred / colonne orfane / campi rimossi).
-
-`docs/ROADMAP.md` è stato ritirato come diario di stato: lo stato vive in `MECHQUOTE_RIFERIMENTO.md` §0 e `MECHQUOTE_LISTA_LAVORI.md`.
+`docs/ROADMAP.md` è stato **rimosso**: lo stato vive in `MECHQUOTE_RIFERIMENTO.md` §0 e `MECHQUOTE_LISTA_LAVORI.md`.
 
 > Nota: la cartella `PRV/` contiene il vecchio sito aziendale — un progetto
 > diverso, completamente estraneo a MechQuote. È isolata (esclusa da Git) e il
@@ -712,3 +728,33 @@ Quando inizi una sessione nuova, in quest'ordine:
    a `MECHQUOTE_RIFERIMENTO.md` e `MECHQUOTE_LISTA_LAVORI.md` (§0).
 4. Se l'utente cita un dominio specifico, leggi la spec relativa in `docs/specs/`.
 5. **Solo poi** proponi/agisci.
+
+---
+
+## 15. Audit funzionale e Skill
+
+### Registro audit funzionale
+
+`docs/audit/AUDIT_FUNZIONALE.md` è l'**indice permanente di tutte le
+funzionalità** dell'app, ognuna con lo scheletro d'audit (correttezza / vicoli
+ciechi / bug / riuso-DRY / migliorie) e uno stato. Non è un audit: è la **lista
+da eseguire**. Gli audit si fanno **un modulo per volta** (§0-ter), compilando
+la checklist della voce e aggiornandone lo stato. I problemi reali che emergono
+diventano voci in `MECHQUOTE_LISTA_LAVORI.md` (il registro non è il tracker dei
+lavori). La metodologia di riferimento è `docs/audit/METODO_AUDIT.md`.
+
+### Skill (`/comando`)
+
+Skill di progetto in `.claude/skills/` per il lavoro ripetitivo. Invocabili con
+`/<nome>`:
+
+- **`/audit-modulo`** — esegue l'audit di un modulo del registro: legge i suoi
+  file, compila la checklist, scrive le note, aggiorna lo stato.
+- **`/verifica`** — la verifica obbligatoria §7 (tsc + startup backend + pytest
+  unit) prima di ogni commit.
+- **`/backup-db`** — backup WAL-aware del DB (`sqlite3 .backup`) prima di test
+  distruttivi (§2.E).
+- **`/nuovo-catalogo`** — scaffold di un CRUD catalogo completo (list/create/
+  update/delete + `block_if_in_use` + import CSV + tipo TS + pagina).
+- **`/nuovo-campo`** — guida la sequenza modello → migration → schema → API →
+  tipo TS → componente (routine B), col check "colonna anche in `_run_migrations`".

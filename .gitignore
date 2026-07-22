@@ -26,8 +26,10 @@ frontend/test-results/
 frontend/playwright-report/
 backend/test-results/
 
-# Claude Code local settings
-.claude/
+# Claude Code — impostazioni locali ignorate, ma le skill di progetto
+# (.claude/skills/) vanno versionate e condivise nel repo.
+.claude/*
+!.claude/skills/
 
 # IDE
 .vscode/

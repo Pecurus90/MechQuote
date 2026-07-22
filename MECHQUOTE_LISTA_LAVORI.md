@@ -580,14 +580,14 @@ e **un test rotto**. Tutto ripulito il 2026-07-15 (3 commit):
   PrimaryCtaButton, crud, SettingsTabs, index.css, tailwind.config); ripuliti il
   testo utente in `NormalizedItemsPage` e i commenti in `types/index.ts`/stats/lista.
 - **✅ Docs orfani** — cancellati `docs/import_historical_dies_{README.md,template.csv}`;
-  banner "modulo rimosso" sul Modo 3 di `docs/TUTORIAL_PREVENTIVATORI.md`.
+  banner "modulo rimosso" sul Modo 3 di `docs/guide/TUTORIAL_PREVENTIVATORI.md`.
 
 **Lasciato intenzionalmente** (non è debito attivo):
 - Colonne DB `parts.die_*`/`plate_role`: SQLite non fa DROP COLUMN, restano inerti.
 - La colonna `quotes.quote_type` (valori `single`/`commessa`) e la relativa
   migration restano: sono il tipo preventivo standard, non un residuo stampi.
 - Commenti di migrazione in `main.py` che documentano i DROP TABLE die (storia).
-- Voci die storiche in `MECHQUOTE_CORREZIONI_PREZZI.md` e nelle spec 14/16/17/18/19:
+- Voci die storiche in `docs/history/CORREZIONI_PREZZI.md` e nelle spec 16/17/18/19:
   sono record di lavoro/design già rimandati al "cantiere stampi", non fuorvianti.
 
 Verifica finale: backend startup OK, `pytest tests/unit` 92 pass, `tsc --noEmit`
@@ -748,7 +748,7 @@ con 500 ogni lettura dei materiali. Asimmetria scrittura↔lettura presente in
 lavorazioni, fornitori — e clienti, endpoint a parte).
 
 Dettaglio completo, runbook d'emergenza e fix strutturale in
-**`docs/NOTA_IMPORT_CSV_VALIDAZIONE.md`**.
+**`docs/history/NOTA_IMPORT_CSV_VALIDAZIONE.md`**.
 
 - ✅ Incidente 2026-06-05 riparato (dati corretti, app operativa).
 - ⏸ **Livello 1** — validazione di ogni riga via schema `...Create` nel motore
@@ -932,7 +932,7 @@ risposta determina quanto è urgente. *Stima: media.*
 ### B2 — Riallineare le due "calcolatrici" dei prezzi 🔴
 Anteprima a schermo e calcolo del server devono dare lo stesso numero; in
 piu' punti non lo fanno. **Stato e dettaglio completo in
-`MECHQUOTE_CORREZIONI_PREZZI.md`** (fonte unica sul calcolo prezzi).
+`docs/history/CORREZIONI_PREZZI.md`** (fonte unica sul calcolo prezzi).
 Sintesi: **Fascia 1 CHIUSA** (C1-C5 applicate; C6 -> P3, C7 -> P2, spostate
 al cantiere stampi). Restano la **Fascia 2** (fragilita' medie: anteprime
 stantie, calcoli che vanno a 0 in silenzio, forma pezzo nel wizard 2D,

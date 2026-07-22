@@ -60,7 +60,7 @@ Stato precedente (fotografia 2026-06-04):
 - **Fascia 1 calcolo prezzi**: **CHIUSA**. 5 correzioni di codice
   applicate (C1-C5). C6 e C7 spostate al cantiere stampi come modifiche
   di prodotto (vedi P2/P3 in `MECHQUOTE_LISTA_LAVORI.md`). Storico
-  completo in `MECHQUOTE_CORREZIONI_PREZZI.md`.
+  completo in `docs/history/CORREZIONI_PREZZI.md`.
 - **Rete di test T0**: in piedi, 32 passed + 1 xfailed (S7 promemoria
   P_die_shape) backend, 19/19 frontend.
 - **Cantieri di prodotto aperti**: Catalogo Normalizzati (Step 1-3 fatti,
@@ -375,7 +375,7 @@ finire.
 - Backup in INSTALLAZIONE.md reso WAL-aware (§9.1); §10 rimanda a `update.bat`
   (commit `893a3ef`).
 - Rimossa nota obsoleta su CLAUDE.md dalla lista lavori (`7cc2e9c`).
-- B2 della lista lavori ridotto a rimando verso `MECHQUOTE_CORREZIONI_PREZZI.md`.
+- B2 della lista lavori ridotto a rimando verso `docs/history/CORREZIONI_PREZZI.md`.
 - Stato cantiere normalizzati aggiornato: Step 2-3 fatti.
 - Fonte unica di stato adottata: RIFERIMENTO §0. `docs/ROADMAP.md` ridotto a
   rimando; puntatori in `CLAUDE.md` aggiornati.

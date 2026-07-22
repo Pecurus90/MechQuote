@@ -1,5 +1,11 @@
 # Create Quote Workflows
 
+> ⚠️ **PARZIALMENTE IN DRIFT** (CLAUDE.md §12). Oggi la schermata di creazione
+> offre **due** modi: *Manuale* e *2D DXF*. Il *3D STEP* descritto qui sotto è
+> pianificato/in ricostruzione (vedi spec 09), non ancora attivo nella UI. Il
+> *Preventivo Stampi* è stato **rimosso** (2026-07-14, tag `stampi-pre-rimozione`).
+> Fonte autoritativa del flusso stati: spec 18 + `services/quote_workflow.py`.
+
 ## Create Quote screen
 
 When the user clicks "+ Create Quote", replace the dashboard with a mode selection screen.

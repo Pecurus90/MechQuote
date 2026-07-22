@@ -1,6 +1,6 @@
 # AUDIT FINALE END-TO-END — 2026-07-20 (decisione go/no-go produzione)
 
-> Esecuzione del prompt `docs/AUDIT_FINALE_PROMPT.md`. Modalità **DIAGNOSTICA
+> Esecuzione del prompt `docs/audit/METODO_AUDIT.md`. Modalità **DIAGNOSTICA
 > read-only**: nessun file di codice modificato, nessun commit, DB live non
 > toccato. Audit condotto su 6 aree in parallelo, ogni finding verificato sul
 > codice reale e/o con test riproducibili su copia isolata WAL-aware del DB
@@ -42,7 +42,7 @@
 ### A-1 · Import CSV cataloghi scrive in DB bypassando i validatori Pydantic · [CONFERMATO]
 - **Area**: normalizzati / motore CSV condiviso · `backend/app/core/csv_import.py:313` + `backend/app/api/materials.py:319-325`
 - **Scenario**: `import_catalog_csv` fa `db.add(config.model(**fields))` senza passare da uno schema `...Create`. Un CSV materiali con `Famiglia` valorizzata a **etichetta** ("Alluminio") invece che slug ("alluminio") entra in DB; alla prima `GET /api/materials` il `response_model=MaterialOut` rifiuta il valore → **500 su ogni lettura** → catalogo materiali + editor preventivo + ogni pagina che carica materiali va offline.
-- **Impatto**: è l'**incidente di produzione del 2026-06-05** (`docs/NOTA_IMPORT_CSV_VALIDAZIONE.md`). La classe di guasto è ancora aperta (fix strutturale marcato "⏸ DA IMPLEMENTARE"). Colpisce tutti i moduli col motore condiviso (materiali, trattamenti, utensili, macchine, lavorazioni, fornitori). Non irreversibile (runbook ~5 min), ma è un blocco-app a portata di un import sbagliato. **Nota**: i flussi normalizzati-da-file e richieste-materiale NON usano questo motore → immuni.
+- **Impatto**: è l'**incidente di produzione del 2026-06-05** (`docs/history/NOTA_IMPORT_CSV_VALIDAZIONE.md`). La classe di guasto è ancora aperta (fix strutturale marcato "⏸ DA IMPLEMENTARE"). Colpisce tutti i moduli col motore condiviso (materiali, trattamenti, utensili, macchine, lavorazioni, fornitori). Non irreversibile (runbook ~5 min), ma è un blocco-app a portata di un import sbagliato. **Nota**: i flussi normalizzati-da-file e richieste-materiale NON usano questo motore → immuni.
 - **Fix**: aggiungere `create_schema: Optional[type] = None` a `CsvImportConfig` e validare `create_schema.model_validate(fields)` prima di `db.add` (Livello 1 della nota), cablando `create_schema=MaterialCreate` ecc.
 
 ---
@@ -218,6 +218,6 @@ cataloghi a utenti non tecnici. Nessun finding blocca l'avvio.
 
 ---
 
-*Audit generato il 2026-07-20 seguendo `docs/AUDIT_FINALE_PROMPT.md`. Read-only:
+*Audit generato il 2026-07-20 seguendo `docs/audit/METODO_AUDIT.md`. Read-only:
 nessun codice modificato, nessun commit, DB live non toccato. Test su copia
 isolata `mechquote_audit.db` (eliminata a fine audit).*

@@ -811,6 +811,31 @@ Con certificato self-signed i browser dei client mostrano un avviso al primo acc
 
 ---
 
+## 14. Note storiche di deploy (sessione 2026-06-05)
+
+> Fatti verificati sul primo deploy del server d'ufficio, conservati qui perché
+> **non ovvi** e facili da dimenticare a un reinstallo. (La guida sopra è la
+> procedura corrente; questa sezione è un promemoria di due accorgimenti
+> tecnici emersi in produzione.)
+
+- **Rate-limit dietro reverse proxy** — negli *Arguments* del servizio NSSM
+  (§5.2) aggiungere `--proxy-headers --forwarded-allow-ips 127.0.0.1`. Senza,
+  uvicorn vede tutti i client come `127.0.0.1` (dietro Apache) e il limite
+  anti-bruteforce sul login diventa un unico contatore condiviso per tutti.
+- **PDF (Playwright) col servizio come SYSTEM** — il servizio gira come
+  LocalSystem e non trova Chromium installato nel profilo utente. Soluzione:
+  browser in un percorso neutro `C:\MechQuote\ms-playwright` + variabile
+  d'ambiente del servizio `PLAYWRIGHT_BROWSERS_PATH=C:\MechQuote\ms-playwright`
+  (via `nssm ... AppEnvironmentExtra`).
+  ⚠️ Se in futuro si aggiorna il pacchetto `playwright`, rifare il download nel
+  percorso neutro:
+  `$env:PLAYWRIGHT_BROWSERS_PATH="C:\MechQuote\ms-playwright"; venv\Scripts\playwright install chromium`.
+- **Nota**: il primo setup usava XAMPP/Apache sulla porta 8080; la procedura
+  corrente (§6–§7) è su porta 80. Se un vecchio server è ancora su 8080, il
+  riferimento storico è coerente ma non è più la configurazione consigliata.
+
+---
+
 ## Contatti
 
 - **Repository**: https://github.com/Pecurus90/MechQuote.git

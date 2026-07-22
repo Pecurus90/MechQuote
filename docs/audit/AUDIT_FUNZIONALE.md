@@ -52,7 +52,7 @@ Per ogni modulo si compilano sempre questi punti:
 
 | # | Dominio / Modulo | Stato | Ultimo audit |
 |---|------------------|-------|--------------|
-| 1 | [Ciclo di vita preventivo (stati/workflow)](#1-ciclo-di-vita-preventivo) | ⬜ | — |
+| 1 | [Ciclo di vita preventivo (stati/workflow)](#1-ciclo-di-vita-preventivo) | ✅ | 2026-07-22 |
 | 2 | [Editor preventivo (QuoteEditor)](#2-editor-preventivo) | ⬜ | — |
 | 3 | [Parti (Part)](#3-parti-part) | ⬜ | — |
 | 4 | [Fasi di lavorazione (Phase)](#4-fasi-di-lavorazione-phase) | ⬜ | — |
@@ -98,7 +98,7 @@ Per ogni modulo si compilano sempre questi punti:
 
 ## 1. Ciclo di vita preventivo
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/services/quote_workflow.py` · `backend/app/api/quotes.py` · `frontend/src/components/quotes/CloseoutPanel.tsx` · `frontend/src/lib/constants.ts` (STATUS_LABELS/COLORS)
 
@@ -120,14 +120,22 @@ Per ogni modulo si compilano sempre questi punti:
 **Punti d'ingresso:** CloseoutPanel nell'editor; azioni rapide in QuotesActivePage; apertura da amministrazione.
 
 **Checklist audit:**
-- [ ] **Correttezza** — ogni transizione rispetta le regole di §"Workflow stati" del CLAUDE.md? `reconcile_material_state` promuove/retrocede correttamente? Baseline prezzo su reopen coerente?
-- [ ] **Vicoli ciechi** — esistono stati senza uscita non voluti? Un preventivo `non_ordinato` è sempre ripristinabile? Errore transizione mostra recovery?
-- [ ] **Bug noti/sospetti** — race su doppia conferma; notifica inviata al destinatario giusto (TD-16 già fixato: verificare); atomicità stato↔notifica (F7).
-- [ ] **Riuso & DRY** — le costanti di stato sono usate ovunque (niente stringhe status hardcoded sparse)? `is_editable` è l'unico gate di modificabilità?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ ogni transizione ha precondizione esplicita sullo stato di partenza (→ 400 altrimenti). Restore stato-consapevole (F19/F20): `unconfirm`/`revert-await`/`restore` ricostruiscono lo stato reale precedente da `read_at`/`awaiting_client_at`, niente stati fantasma. `confirm` blocca se una parte ha materiale senza fornitore (guardia spec 18 → niente preventivo bloccato per sempre in `confermato`). `update_quote` fa `payload.pop('status')` (transizioni solo dagli endpoint dedicati), closeout gated su `completo`, `quote_type` immutabile. Baseline prezzo `reopen` (TD-16) snapshottata prima di azzerare submitted_by.
+- [x] **Vicoli ciechi** — ✅ nessuno: `non_ordinato`→restore, `confermato/completo`→unconfirm, `in_attesa`→revert-await, `reopen`→in_revisione rientra nel ciclo. Ogni stato "terminale" ha un'uscita reversibile documentata.
+- [x] **Bug noti/sospetti** — **G1** (race last-write-wins sulle transizioni); nessun bug funzionale trovato. Atomicità F7 corretta; `mark_quote_read` è già race-safe (UPDATE…WHERE status='inviato' + rowcount).
+- [x] **Riuso & DRY** — ✅ costanti stato centralizzate (`wf.STATUS_*`), `is_editable` gate unico, `ensure_editable` include l'ACL (ogni sito di scrittura eredita il controllo). Rilievi **G3/G4** (blocchi notifica duplicati + priorità destinatario incoerente).
+- [x] **Migliorie** — vedi G3/G4 + estrarre `_prior_open_status(quote)`.
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Modulo **eccellente** — il meglio ingegnerizzato visto finora. Macchina a stati coerente con spec 18, precondizioni ovunque, retrocessioni reversibili e stato-consapevoli, notifiche atomiche (F7) con guardia anti-auto-notifica, ACL per-id inclusa in `ensure_editable`. **Nessun bug funzionale.** Rilievi:
+
+- **G4 — priorità destinatario notifica incoerente** *(reale, sottile)*. Le notifiche "positive/di invio" (`read`, `confirm`, `reopen`, `completed`) risolvono il target come `submitted_by_user_id or created_by_user_id` (**mittente prima**); quelle di "reversal/stato" (`unconfirm`, `await-client`, `revert-await`, `not-ordered`, `restore`) come `created_by_user_id or submitted_by_user_id` (**creatore prima**). Se mittente ≠ creatore (un collega invia in revisione il preventivo di un altro), metà delle notifiche vanno al mittente e metà al creatore. Nel caso comune mittente==creatore è invisibile. Da **normalizzare** su una regola unica (probabilmente non intenzionale). → LISTA_LAVORI (Blocco B/C).
+- **G3 — blocchi notifica duplicati (~8 copie)** *(DRY)*. Ogni transizione ripete `target = …`, la guardia `if target and target != current_user.id`, e `create_notification(commit=False)`. Un helper `notify_quote_transition(db, quote, actor, type, title, body)` che incapsula risoluzione target + guardia anti-auto + create eliminerebbe ~8 blocchi quasi-identici **e risolverebbe G4 alla radice** (una sola regola di target). Refactor → concordare (§2.D).
+- **G1 — transizioni non atomiche (last-write-wins)** *(noto, spec 21 Blocco B)*. A differenza di `mark_quote_read` (UPDATE guardato + rowcount), `confirm/reopen/unconfirm/await/revert/not-ordered/restore` fanno read-then-write senza guardia atomica né versione: due admin concorrenti (o admin + auto-complete da `orders.py`) possono doppio-applicare → notifiche duplicate (`quote_confirmed` NON è dedupata, solo `quote_completed` lo è) e scritture ridondanti. È l'esposizione last-write-wins già pianificata (spec 21). **Mitigazione a basso costo**: adottare sulle altre transizioni lo stesso pattern UPDATE-guardato di `mark_quote_read`, in attesa dell'If-Match completo di spec 21.
+- Minore: `notify_quote_completed` gira dopo un commit separato (dedupe `quote_completed`); un crash tra i due commit perde solo la notifica (stato `completo` già persistito). Accettabile.
+
+→ Voci proposte per `MECHQUOTE_LISTA_LAVORI.md`: **G4** (normalizzare target), **G3** (helper notifiche, risolve G4), **G1** (agganciare a spec 21 + mitigazione UPDATE-guardato). Nessuna eseguita (audit read-only; G3/G4 refactor → §2.D).
 
 ---
 

@@ -46,6 +46,23 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 - **Doc §4 stale** ✅ **FATTO 2026-07-22**: corretta la nota su "errore centesimi
   per qty alte" (già risolto da C4); mantenuta la parte prezzi negativi (→ F1).
 
+### §1 Ciclo di vita preventivo — audit 2026-07-22 (eccellente, nessun bug funzionale)
+
+- **G4 — priorità destinatario notifica incoerente** *(reale, sottile)*. Le
+  notifiche `read/confirm/reopen/completed` risolvono il target come
+  `submitted_by or created_by` (mittente prima); `unconfirm/await/revert/
+  not-ordered/restore` come `created_by or submitted_by` (creatore prima). Se
+  mittente ≠ creatore, metà notifiche vanno all'uno e metà all'altro.
+  Normalizzare su una regola unica. → Blocco B/C.
+- **G3 — helper notifiche transizione** *(DRY, risolve G4 alla radice)*. ~8 blocchi
+  quasi-identici (risoluzione target + guardia anti-auto + `create_notification`).
+  Estrarre `notify_quote_transition(...)`. Refactor → concordare (§2.D).
+- **G1 — transizioni non atomiche (last-write-wins)** *(noto, spec 21 Blocco B)*.
+  `confirm/reopen/unconfirm/await/revert/not-ordered/restore` fanno read-then-write
+  senza guardia atomica. Mitigazione a basso costo: replicare il pattern
+  UPDATE-guardato + rowcount di `mark_quote_read` (già race-safe), in attesa
+  dell'optimistic lock completo di spec 21.
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

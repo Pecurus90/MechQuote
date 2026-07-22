@@ -95,11 +95,15 @@ def list_archive(
             ['bozza', 'in_revisione', 'inviato', 'letto', 'in_attesa_cliente', 'confermato']))
     # Filtri "sintetici" per far coincidere i KPI dashboard con la lista:
     #  - da_confermare = inviato + letto (KPI "Preventivi da confermare")
-    #  - senza_prezzo  = completo senza prezzo di vendita (KPI "Senza prezzo")
+    #  - senza_prezzo  = completo col consuntivo incompleto: manca il venduto
+    #    O il costo reale (allineato al KPI "Senza prezzo" della dashboard).
     if status == 'da_confermare':
         query = query.filter(Quote.status.in_(['inviato', 'letto']))
     elif status == 'senza_prezzo':
-        query = query.filter(Quote.status == 'completo', Quote.sold_price.is_(None))
+        query = query.filter(
+            Quote.status == 'completo',
+            or_(Quote.sold_price.is_(None), Quote.actual_cost.is_(None)),
+        )
     elif status:
         query = query.filter(Quote.status == status)
     query = query.order_by(Quote.quote_date.desc(), Quote.id.desc())

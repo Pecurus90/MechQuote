@@ -131,11 +131,13 @@ def get_workflow_stats(
         db.query(func.count(Quote.id)).filter(Quote.status == 'in_attesa_cliente').scalar() or 0
     ) if has_archive else 0
 
-    # Ordini completi senza prezzo di vendita: buchi nei dati statistici
-    # (marginalità reale). Solo status='completo' con sold_price non compilato.
+    # Ordini completi col consuntivo INCOMPLETO: manca il prezzo venduto
+    # (sold_price) O il costo reale (actual_cost). Il KPI resta finché ENTRAMBI
+    # non sono compilati — altrimenti la marginalità reale ha un buco.
     missing_price = (
         db.query(func.count(Quote.id)).filter(
-            Quote.status == 'completo', Quote.sold_price.is_(None),
+            Quote.status == 'completo',
+            or_(Quote.sold_price.is_(None), Quote.actual_cost.is_(None)),
         ).scalar() or 0
     ) if has_archive else 0
 

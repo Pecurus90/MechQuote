@@ -177,7 +177,9 @@ export function calcPartTotals(
   const minimum = part.minimum_price ?? 0
   // C4: niente doppio arrotondamento. base a piena precisione, unit_price a 4
   // decimali per visualizzazione, total_price arrotondato a 2 dal valore esatto.
-  const base = Math.max(totalCost, minimum) * (1 + margin / 100)
+  // F1: floor difensivo a 0 (gemello di primitives.part_totals) — un margine
+  // < -100% via bypass della validazione non deve produrre prezzi negativi.
+  const base = Math.max(0, Math.max(totalCost, minimum) * (1 + margin / 100))
   const unitPrice = Math.round(base * 10000) / 10000
   const totalPrice = Math.round(base * (part.quantity || 1) * 100) / 100
   return { ...part, total_cost: totalCost, unit_price: unitPrice, total_price: totalPrice }
@@ -187,5 +189,6 @@ export function calcQuoteTotal(quote: Quote): number {
   const sub = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
   const afterExtras = sub + (quote.transport_cost || 0) + (quote.packaging_cost || 0)
   const discount = afterExtras * ((quote.global_discount_percent || 0) / 100)
-  return Math.round((afterExtras - discount) * 100) / 100
+  // F1: floor difensivo a 0 (gemello di primitives.quote_total).
+  return Math.round(Math.max(0, afterExtras - discount) * 100) / 100
 }

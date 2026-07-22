@@ -120,6 +120,16 @@
       },
       "expected_total_price": 0.63,
       "expected_unit_price": 0.625
+    },
+    {
+      "id": "F1-clamp-margin",
+      "name": "F1: margine -150% (via bypass validazione input) → prezzo clampato a 0, mai negativo",
+      "input": {
+        "material_cost": 10, "delivery_per_piece": 0, "cutting_per_piece": 0,
+        "phase_total": 0, "quantity": 3, "margin_percent": -150, "minimum_price": 0
+      },
+      "expected_total_price": 0.0,
+      "expected_unit_price": 0.0
     }
   ],
 
@@ -143,6 +153,16 @@
         "transport_cost": 0, "packaging_cost": 0, "global_discount_percent": 0
       },
       "expected_quote_total": 0.63
+    },
+    {
+      "id": "F1-clamp-discount",
+      "name": "F1: sconto 150% (via bypass validazione input) → totale clampato a 0, mai negativo",
+      "input": {
+        "quote_type": "single",
+        "parts_total_price_sum": 100.0,
+        "transport_cost": 0, "packaging_cost": 0, "global_discount_percent": 150
+      },
+      "expected_quote_total": 0.0
     }
   ],
 

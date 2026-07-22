@@ -452,14 +452,13 @@ total_price  = unit_price × quantity
 
 Margine: `part.margin_percent ?? quote.global_margin_percent`.
 
-> Nota dalle ricognizioni: oggi `margin_percent` e `global_discount_percent`
-> non hanno limiti **nella formula pura** — un margine fortemente negativo o
-> uno sconto > 100% produce prezzi negativi che arrivano al PDF (il floor
-> "margine 0%" vive a livello input, non nelle primitive). L'aggiunta del
-> clamp difensivo è in lista lavori, Blocco A (audit §5 F1).
-> Il doppio arrotondamento su qty alte è invece **risolto** (C4:
-> `total_price = round2(base × qty)` da base non arrotondata — niente più
-> `unit_price` arrotondato poi moltiplicato).
+> Nota: `margin_percent`/`global_discount_percent` non sono vincolati a livello
+> input, ma la **formula pura ha un floor difensivo a 0** (F1, audit §5): un
+> margine < -100% o uno sconto > 100% (che potrebbero arrivare da import backup
+> o scrittura diretta) **non** producono più prezzi negativi — `part_totals` e
+> `quote_total` clampano a 0, gemellato in `quoteCalc` e coperto dai golden.
+> Il doppio arrotondamento su qty alte è pure **risolto** (C4:
+> `total_price = round2(base × qty)` da base non arrotondata).
 
 **Default operativi** (popolati al `POST /quotes` da `CompanySettings`):
 - `default_margin_percent` → `Quote.global_margin_percent`

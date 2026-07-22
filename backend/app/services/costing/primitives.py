@@ -165,6 +165,11 @@ def part_totals(
         (material_cost or 0.0) + delivery_per_piece + cutting_per_piece + phase_total
     )
     base = max(total_cost, minimum_price or 0.0) * (1 + (margin_percent or 0.0) / 100)
+    # F1 (audit §5): floor difensivo a 0 — un margine < -100% (che può arrivare
+    # da un import backup o da una scrittura diretta che bypassa la validazione
+    # input) darebbe un prezzo negativo fino al PDF. I casi normali (anche in
+    # perdita, margine tra -100% e 0) restano invariati.
+    base = max(0.0, base)
     unit_price = round4(base)
     total_price = round2(base * qty)
     return total_cost, unit_price, total_price
@@ -216,4 +221,6 @@ def quote_total(
     """
     after = parts_total_price_sum + (transport_cost or 0.0) + (packaging_cost or 0.0)
     discount = after * ((global_discount_percent or 0.0) / 100)
-    return round2(after - discount)
+    # F1 (audit §5): floor difensivo a 0 — uno sconto > 100% (via import backup /
+    # scrittura diretta che bypassa la validazione) darebbe un totale negativo.
+    return round2(max(0.0, after - discount))

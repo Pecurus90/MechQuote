@@ -24,12 +24,12 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 
 ### §5 Cost engine — audit 2026-07-22 (motore solido, nessun bug di calcolo)
 
-- **F1 — clamp difensivo prezzi nelle primitive** *(Blocco A)*. `part_totals` e
-  `quote_total` non hanno floor nella formula pura: `margin < −100%` o sconto
-  `> 100%` (via import backup / scrittura diretta che bypassa la validazione
-  input) producono prezzi negativi fino al PDF. Aggiungere un clamp in
-  `costing/primitives.py`. ⚠️ Zona fragile + **decisione di prodotto**: definire
-  il floor (margine min? sconto max 100%?) con l'utente prima di implementare.
+- **F1 — clamp difensivo prezzi nelle primitive** ✅ **FATTO 2026-07-22**: floor a
+  0 in `part_totals` (`base = max(0, …)`) e `quote_total` (`max(0, after − sconto)`),
+  gemellato in `quoteCalc.ts` (calcPartTotals/calcQuoteTotal). Margine < −100% o
+  sconto > 100% non producono più prezzi negativi. 2 casi golden condivisi
+  (`F1-clamp-margin`, `F1-clamp-discount`); 154 backend + 38 vitest verdi. Decisione
+  utente: clamp (non solo warning). I casi normali (anche in perdita) invariati.
 - **F2 — parità rounding trattamento** ✅ **FATTO 2026-07-22**: `round4` aggiunto
   ai due return di `calcTreatmentCost` (gemello byte del backend); golden vitest
   36/36 verdi.
@@ -46,20 +46,15 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 
 ### §1 Ciclo di vita preventivo — audit 2026-07-22 (eccellente, nessun bug funzionale)
 
-- **G4 — destinatario notifica: split per transizione** *(DECISIONE DI PRODOTTO,
-  non un bug)*. `read/confirm/reopen/completed` → `submitted_by or created_by`
-  (mittente prima); `unconfirm/await/revert/not-ordered/restore` → `created_by or
-  submitted_by` (creatore prima). **NON è accidentale**: reopen→mittente è pinnato
-  di proposito dal test `test_notifica_reopen_va_a_chi_ha_inviato` ("chi ha
-  inviato, non il creatore"). Unificare richiede una **tua decisione**: (a) tutto
-  → creatore, (b) tutto → mittente, (c) tenere il nuance. ⚠️ Un tentativo di
-  unificazione a "creatore-prima" (2026-07-22) è stato **annullato** perché
-  rompeva quel test. Non toccare finché non deciso.
-- **G3 — helper notifiche transizione** *(DRY, indipendente da G4)*. ~8 blocchi
-  quasi-identici (guardia anti-auto + `create_notification`). Si può estrarre un
-  helper che prende `target` **come parametro** (preservando la regola
-  per-transizione), DRYando il boilerplate senza toccare G4. Refactor →
-  concordare (§2.D).
+- **G4 — destinatario notifica: split per transizione** ✅ **DECISO 2026-07-22
+  (tenere il nuance, by design)**. `read/confirm/reopen/completed` → mittente-prima;
+  `unconfirm/await/revert/not-ordered/restore` → creatore-prima. NON è un bug:
+  semantica voluta (chi ha *inviato* sa come è stata processata la sua sottomissione;
+  il *proprietario* sa dei cambi di stato). Pinnato da
+  `test_notifica_reopen_va_a_chi_ha_inviato`. Nessuna modifica al codice.
+- **G3 — helper notifiche transizione** *(DRY, opzionale, deferito)*. Il guadagno
+  (~8 blocchi) non vale il rischio di ri-toccare 8 transizioni critiche ora;
+  fattibile in futuro con `target` come parametro. Non prioritario.
 - **G1 — transizioni non atomiche (last-write-wins)** *(noto, spec 21 Blocco B)*.
   `confirm/reopen/unconfirm/await/revert/not-ordered/restore` fanno read-then-write
   senza guardia atomica. Mitigazione a basso costo: replicare il pattern

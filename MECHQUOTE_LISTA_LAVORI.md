@@ -79,6 +79,19 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
   la lista id copra tutte le fasi (lista parziale → gap `sequence_number`); non è
   un problema oggi (l'editor manda sempre la lista completa).
 
+### §10 Ordini materiali — audit 2026-07-22 (complesso ma molto solido, nessun bug)
+
+- **I1 + I2 — pulizie import** ✅ **FATTO 2026-07-22**: rimosso `__import__('app.models'…)`
+  inline (`Material` già importato) e i due `from sqlalchemy import or_` locali
+  ridondanti in `orders.py`.
+- **I3 — N+1 in `get_stats`** *(Blocco C, perf)*. `to_order` chiama
+  `material_is_resolved(db, q)` per ogni `confermato` → N query. Batchare lo stato
+  materiale come fa già `list_selectable_quotes` (`ordered_map` in una query).
+- **I4 — aggregazione parti replicata ~4×** *(Blocco C, DRY, bassa priorità)*.
+  `aggregate_materials` / `_supplier_order_data` / `_persist_order_snapshot` /
+  `_quote_material_rows`: generatore condiviso "parti ordinabili raggruppate"
+  (output diversi → priorità bassa).
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

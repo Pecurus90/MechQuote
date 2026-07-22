@@ -61,7 +61,7 @@ Per ogni modulo si compilano sempre questi punti:
 | 7 | [Import/analisi DXF](#7-importanalisi-dxf) | ⬜ | — |
 | 8 | [Wizard creazione preventivo](#8-wizard-creazione-preventivo) | ⬜ | — |
 | 9 | [Liste & archivio preventivi](#9-liste-e-archivio-preventivi) | ⬜ | — |
-| 10 | [Ordini materiali (pool + aggregazione)](#10-ordini-materiali) | ⬜ | — |
+| 10 | [Ordini materiali (pool + aggregazione)](#10-ordini-materiali) | ✅ | 2026-07-22 |
 | 11 | [Richieste materiale manuali / da file](#11-richieste-materiale) | ⬜ | — |
 | 12 | [Ordini normalizzati](#12-ordini-normalizzati) | ⬜ | — |
 | 13 | [Ordini utensili](#13-ordini-utensili) | ⬜ | — |
@@ -397,7 +397,7 @@ _—_
 
 ## 10. Ordini materiali
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/orders.py` · `frontend/src/pages/orders/OrdersMaterialsPage.tsx` (+ MaterialOrdersView, BarConsolidationModal, RequestEditModal)
 
@@ -413,14 +413,22 @@ _—_
 **Punti d'ingresso:** Sidebar → Ordini materiali; badge "materiali da ordinare".
 
 **Checklist audit:**
-- [ ] **Correttezza** — aggregazione esclude conto lavoro, marca magazzino? Auto-complete preventivo quando tutti i materiali evasi? Delete ordine ripristina il tracciamento?
-- [ ] **Vicoli ciechi** — fornitore senza materiali candidati; ordine parzialmente evaso.
-- [ ] **Bug noti/sospetti** — snapshot vs dato vivo (prezzo/dimensioni cambiati dopo); FK non enforced su SQLite.
-- [ ] **Riuso & DRY** — CSV per-fornitore riusa lo stesso generatore di normalizzati/utensili?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ aggregazione esclude conto lavoro, include+marca magazzino; `create_order` idempotente (check `QuoteSupplierOrder` + vincolo UNIQUE con fallback 409 su race, AUD-25), snapshot congelato (B6), reconcile → completo, solo `ORDERABLE_STATUSES`, notifica atomica (F7). `delete_order` reversibile: rimuove evasioni, riapre righe-richiesta (prima del delete, nota FK SQLite), lascia il m2m alla UoW (evita StaleDataError), reconcile → riapre completo con notifica (M-3). Consolidamento barre (TD-3) sullo snapshot.
+- [x] **Vicoli ciechi** — ✅ "nessun materiale da ordinare" → 400 con messaggio chiaro; ordine storico senza fornitore → 400 su CSV. Nessun flusso morto.
+- [x] **Bug noti/sospetti** — nessun bug funzionale. Snapshot B6 risolve la divergenza CSV vs dato vivo (i soli ordini pre-B6 ri-aggregano live, limite noto e documentato). FK-non-enforced gestite a mano (delete riapre le righe prima del delete).
+- [x] **Riuso & DRY** — **I4**: logica di aggregazione parti replicata ~4×.
+- [x] **Migliorie** — **I3** (N+1 in `get_stats`), **I1/I2** (pulizie import).
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Modulo **complesso ma molto solido** — denso di fix d'audit (idempotenza+UNIQUE, snapshot fedele, delete reversibile con riconciliazione e notifiche atomiche). Nessun bug funzionale. Rilievi (nessuno bloccante):
+
+- **I3 — N+1 in `get_stats`** *(perf)*. `to_order` carica TUTTI i `confermato` e chiama `material_is_resolved(db, q)` per ognuno (ogni chiamata interroga parti + fornitori evasi) → N query. `list_selectable_quotes` invece batcha già lo stato materiale con una sola query `ordered_map`. Applicare lo stesso batch a `get_stats`. → Blocco C.
+- **I4 — aggregazione parti replicata ~4×** *(DRY)*. `aggregate_materials`, `_supplier_order_data`, `_persist_order_snapshot`, `_quote_material_rows` iterano le parti "da ordinare" raggruppando per (materiale, dim) con output diversi (preview / righe CSV / snapshot item / CSV singolo). Un generatore condiviso ridurrebbe la duplicazione; priorità bassa (output genuinamente diversi). → Blocco C.
+- **I1 — `__import__` inline** *(pulizia, 1 riga)*. `orders.py:162` usa `joinedload(Part.material).joinedload(__import__('app.models', …).Material.material_supplier)` — `Material` è già importato in cima; sostituire con `joinedload(Material.material_supplier)`.
+- **I2 — import `or_` ridondanti** *(pulizia)*. `from sqlalchemy import or_` è già in cima (riga 26) ma ri-importato localmente in `list_selectable_quotes` (604) e `list_orders` (800). Rimuovere i locali.
+
+→ Voci proposte per `LISTA_LAVORI`: **I3** (perf), **I4** (DRY) Blocco C; **I1/I2** pulizie one-line (fattibili subito, §13). Nessuna eseguita (audit read-only).
 
 ---
 

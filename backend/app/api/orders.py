@@ -159,7 +159,7 @@ def aggregate_materials(quote_ids: List[int], db: Session,
     riferimento resta distinta.
     """
     parts = db.query(Part).options(
-        joinedload(Part.material).joinedload(__import__('app.models', fromlist=['Material']).Material.material_supplier),
+        joinedload(Part.material).joinedload(Material.material_supplier),
         joinedload(Part.quote),
     ).filter(Part.quote_id.in_(quote_ids)).all()
 
@@ -601,7 +601,6 @@ def list_selectable_quotes(
         query = query.filter(Quote.material_ordered_at.is_(None))
     if q:
         like = f"%{q.strip()}%"
-        from sqlalchemy import or_
         query = query.filter(or_(
             Quote.quote_number.ilike(like),
             Quote.customer_name.ilike(like),
@@ -797,7 +796,6 @@ def list_orders(
     )
 
     if q and q.strip():
-        from sqlalchemy import or_
         term = q.strip()
         like = f"%{term}%"
 

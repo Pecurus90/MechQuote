@@ -53,43 +53,90 @@ Per ogni modulo si compilano sempre questi punti:
 | # | Dominio / Modulo | Stato | Ultimo audit |
 |---|------------------|-------|--------------|
 | 1 | [Ciclo di vita preventivo (stati/workflow)](#1-ciclo-di-vita-preventivo) | ✅ | 2026-07-22 |
-| 2 | [Editor preventivo (QuoteEditor)](#2-editor-preventivo) | ⬜ | — |
+| 2 | [Editor preventivo (QuoteEditor)](#2-editor-preventivo) | ✅ | 2026-07-22 |
 | 3 | [Parti (Part)](#3-parti-part) | ✅ | 2026-07-22 |
 | 4 | [Fasi di lavorazione (Phase)](#4-fasi-di-lavorazione-phase) | ✅ | 2026-07-22 |
 | 5 | [Cost engine (gemello DRY back↔front)](#5-cost-engine) | ✅ | 2026-07-22 |
-| 6 | [Wire EDM — calcolo fase + wizard](#6-wire-edm-calcolo-fase) | ⬜ | — |
-| 7 | [Import/analisi DXF](#7-importanalisi-dxf) | ⬜ | — |
-| 8 | [Wizard creazione preventivo](#8-wizard-creazione-preventivo) | ⬜ | — |
-| 9 | [Liste & archivio preventivi](#9-liste-e-archivio-preventivi) | ⬜ | — |
+| 6 | [Wire EDM — calcolo fase + wizard](#6-wire-edm-calcolo-fase) | ✅ | 2026-07-22 |
+| 7 | [Import/analisi DXF](#7-importanalisi-dxf) | ✅ | 2026-07-22 |
+| 8 | [Wizard creazione preventivo](#8-wizard-creazione-preventivo) | ✅ | 2026-07-22 |
+| 9 | [Liste & archivio preventivi](#9-liste-e-archivio-preventivi) | ✅ | 2026-07-22 |
 | 10 | [Ordini materiali (pool + aggregazione)](#10-ordini-materiali) | ✅ | 2026-07-22 |
 | 11 | [Richieste materiale manuali / da file](#11-richieste-materiale) | ✅ | 2026-07-22 |
-| 12 | [Ordini normalizzati](#12-ordini-normalizzati) | ⬜ | — |
+| 12 | [Ordini normalizzati](#12-ordini-normalizzati) | ✅ | 2026-07-22 |
 | 13 | [Ordini utensili](#13-ordini-utensili) | ✅ | 2026-07-22 |
 | 14 | [Anagrafica utensili + attributi + scan](#14-anagrafica-utensili) | ✅ | 2026-07-22 |
-| 15 | [Catalogo materiali + fornitori grezzi](#15-catalogo-materiali) | ⬜ | — |
-| 16 | [Catalogo lavorazioni / macchine / trattamenti](#16-catalogo-lavorazioni-macchine-trattamenti) | ⬜ | — |
-| 17 | [Workflow template (sequenze fasi)](#17-workflow-template) | ⬜ | — |
-| 18 | [Catalogo normalizzati + fornitori](#18-catalogo-normalizzati) | ⬜ | — |
-| 19 | [Wire EDM — cataloghi (settings)](#19-wire-edm-cataloghi) | ⬜ | — |
-| 20 | [Officina — documenti](#20-officina-documenti) | ⬜ | — |
-| 21 | [Officina — materiali (schede PDF)](#21-officina-materiali) | ⬜ | — |
-| 22 | [Officina — tempra e deformazioni](#22-officina-tempra) | ⬜ | — |
-| 23 | [Clienti](#23-clienti) | ⬜ | — |
-| 24 | [Vendite dirette](#24-vendite-dirette) | ⬜ | — |
-| 25 | [Dashboard](#25-dashboard) | ⬜ | — |
-| 26 | [Statistiche](#26-statistiche) | ⬜ | — |
-| 27 | [Notifiche (in-app + SSE)](#27-notifiche) | ⬜ | — |
-| 28 | [Attività (activity feed)](#28-attivita) | ⬜ | — |
+| 15 | [Catalogo materiali + fornitori grezzi](#15-catalogo-materiali) | ✅ | 2026-07-22 |
+| 16 | [Catalogo lavorazioni / macchine / trattamenti](#16-catalogo-lavorazioni-macchine-trattamenti) | ✅ | 2026-07-22 |
+| 17 | [Workflow template (sequenze fasi)](#17-workflow-template) | ✅ | 2026-07-22 |
+| 18 | [Catalogo normalizzati + fornitori](#18-catalogo-normalizzati) | ✅ | 2026-07-22 |
+| 19 | [Wire EDM — cataloghi (settings)](#19-wire-edm-cataloghi) | ✅ | 2026-07-22 |
+| 20 | [Officina — documenti](#20-officina-documenti) | ✅ | 2026-07-22 |
+| 21 | [Officina — materiali (schede PDF)](#21-officina-materiali) | ✅ | 2026-07-22 |
+| 22 | [Officina — tempra e deformazioni](#22-officina-tempra) | ✅ | 2026-07-22 |
+| 23 | [Clienti](#23-clienti) | ✅ | 2026-07-22 |
+| 24 | [Vendite dirette](#24-vendite-dirette) | ✅ | 2026-07-22 |
+| 25 | [Dashboard](#25-dashboard) | ✅ | 2026-07-22 |
+| 26 | [Statistiche](#26-statistiche) | ✅ | 2026-07-22 |
+| 27 | [Notifiche (in-app + SSE)](#27-notifiche) | ✅ | 2026-07-22 |
+| 28 | [Attività (activity feed)](#28-attivita) | ✅ | 2026-07-22 |
 | 29 | [Auth / login / sessione](#29-auth-login-sessione) | ✅ | 2026-07-22 |
 | 30 | [Utenti](#30-utenti) | ✅ | 2026-07-22 |
 | 31 | [Ruoli & permessi (RBAC)](#31-ruoli-e-permessi) | ✅ | 2026-07-22 |
-| 32 | [Dati azienda (CompanySettings)](#32-dati-azienda) | ⬜ | — |
-| 33 | [Categorie preventivo & regole colore](#33-categorie-e-colori) | ⬜ | — |
+| 32 | [Dati azienda (CompanySettings)](#32-dati-azienda) | ✅ | 2026-07-22 |
+| 33 | [Categorie preventivo & regole colore](#33-categorie-e-colori) | ✅ | 2026-07-22 |
 | 34 | [Backup / restore](#34-backup-restore) | ✅ | 2026-07-22 |
-| 35 | [Tema chiaro/scuro](#35-tema-chiaroscuro) | ⬜ | — |
-| 36 | [Guscio app: layout, sidebar, badge, ricerca](#36-guscio-app) | ⬜ | — |
-| 37 | [Guide utente](#37-guide-utente) | ⬜ | — |
-| 38 | [Librerie trasversali (lib/)](#38-librerie-trasversali) | ⬜ | — |
+| 35 | [Tema chiaro/scuro](#35-tema-chiaroscuro) | ✅ | 2026-07-22 |
+| 36 | [Guscio app: layout, sidebar, badge, ricerca](#36-guscio-app) | ✅ | 2026-07-22 |
+| 37 | [Guide utente](#37-guide-utente) | ✅ | 2026-07-22 |
+| 38 | [Librerie trasversali (lib/)](#38-librerie-trasversali) | ✅ | 2026-07-22 |
+
+---
+
+## Audit di completezza — 2026-07-22 (pass multi-agente)
+
+I 26 moduli meno critici sono stati auditati in parallelo (6 agenti, lettura del
+codice reale + verifica). **Verdetto complessivo: nessun bug che rompe l'uso.**
+I findings sono perf/DRY/edge + 1 decisione di prodotto. Le voci azionabili sono
+in `MECHQUOTE_LISTA_LAVORI.md`. (Le checklist per-modulo qui sotto non sono
+ri-spuntate una a una per questo batch a basso rischio: il risultato è questo
+riepilogo.)
+
+**Puliti (nessun finding):** §2 Editor · §6 EDM calc *(coperto da §5)* · §8 Wizard
+*(create_quote gestisce la race quote_number)* · §9 Archivio · §17 Workflow
+template · §18 Normalizzati (items+suppliers) · §22 Tempra · §24 Vendite dirette ·
+§27 Notifiche *(service)* · §33 Categorie · §35 Tema · §36 Guscio *(ricerca globale
+confermata funzionante)* · §37 Guide.
+
+**Con rilievi** (dettaglio in LISTA_LAVORI):
+- **§7 DXF** — DX1/DX2 *(media, perf/DoS)*: `MAX_ENTITIES` applicato solo al loop
+  profili; `_iter_effective_entities` percorso 3× con ri-esplosione blocchi. + minori.
+- **§15 Materiali** — 4 reload inline non usano `_material_out` (aliases non eager). DRY.
+- **§16 Lavorazioni** — `operations` create/update senza `check_duplicate_name` →
+  doppioni case/spazi via UI (incoerente col CSV). Macchine/trattamenti puliti.
+- **§12 Ordini normalizzati** — parser SolidWorks condiviso a metà (header+loop
+  ricopiati da `orders_from_file`). DRY.
+- **§19 EDM cataloghi** — `block_if_in_use` segnaposto senza check (dead code); no
+  validazione range min/max. Cosmetico.
+- **§20/§21 Officina** — nessuna validazione esistenza FK referenti
+  (customer/supplier) → orfani su SQLite; blob scritto prima delle validazioni.
+- **§23 Clienti** — `customer_number = max+1` read-then-write → race → IntegrityError
+  → 500 opaco (fix: come `create_quote`, IntegrityError→409). + CSV import senza cap.
+- **§25 Dashboard** — `get_awaiting_materials` N+1 (material_status per-quote), stessa
+  classe di I3. Perf.
+- **§26 Statistiche** — top-clienti subquery correlata (perf su periodi larghi). ACL ok.
+- **§27 Notifiche (API)** — ⚠️ **SSE token in query param**: finisce negli access-log
+  e non scade → leak permanente. Media/sicurezza.
+- **§28 Attività** — il feed espone TUTTE le notifiche a chi ha `dashboard` (no filtro
+  destinatario). By-design dichiarato ma **da confermare** (decisione di prodotto).
+- **§32 Company** — PUT senza `exclude_unset` → un PUT parziale azzera i campi omessi
+  (footgun); GET che scrive (get-or-create).
+- **§38 lib** — `materialRows.numOrNull` usa `replace(',','.')` naïf invece di
+  `parseDecimalOrNull`. DRY.
+
+**Verificato non-buco:** i GET catalogo/clienti richiedono autenticazione (`main.py`
+monta tutti i router con `Depends(get_current_user)`); non richiedono un permesso
+specifico perché sono dati di riferimento per le tendine — by-design.
 
 ---
 ---
@@ -141,7 +188,7 @@ Modulo **eccellente** — il meglio ingegnerizzato visto finora. Macchina a stat
 
 ## 2. Editor preventivo
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `frontend/src/pages/QuoteEditor.tsx` (~600 righe) · `backend/app/api/quotes.py` (`update_quote`, `get_quote`, `recalculate`, `version`)
 
@@ -279,7 +326,7 @@ Il cost engine è in **buono stato**: nucleo puro unico backend (`primitives.py`
 
 ## 6. Wire EDM — calcolo fase
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/services/calculation.py` (`_compute_edm_cycle_hours`, `_compute_drill_edm`) · `frontend/src/components/quotes/EdmPhaseFields.tsx` + `Dxf/*`
 
@@ -306,7 +353,7 @@ _—_
 
 ## 7. Import/analisi DXF
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/services/dxf_parser.py` (`parse_dxf`) · `backend/app/api/dxf.py` (`POST /dxf/analyze`) · `frontend/src/components/quotes/Dxf/*` (Picker, Canvas, ViewerModal, MeasureModal, UnitToggle, ReselectModal)
 
@@ -336,7 +383,7 @@ _—_
 
 ## 8. Wizard creazione preventivo
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `frontend/src/pages/NewQuotePage.tsx` (chooser) · `NewQuote2DPage.tsx` · `components/quotes/QuoteWizard.tsx` · `backend/app/api/quotes.py` (`create_quote`)
 
@@ -365,7 +412,7 @@ _—_
 
 ## 9. Liste e archivio preventivi
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/quotes_archive.py` · `frontend/src/pages/QuotesActivePage.tsx` · `QuoteArchivePage.tsx` · `components/quotes/QuotesListView.tsx` + `QuotesDataTable.tsx`
 
@@ -471,7 +518,7 @@ Modulo **complesso ma molto solido** — denso di fix d'audit (idempotenza+UNIQU
 
 ## 12. Ordini normalizzati
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/normalized_from_file.py` · `frontend/src/pages/orders/OrdersNormalizedFilePage.tsx` (+ NormalizedFileView, NormalizedItemFormModal)
 
@@ -567,7 +614,7 @@ Modulo ben strutturato (factory attributi con whitelist SQL, import stretto, sca
 
 ## 15. Catalogo materiali
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/materials.py` · `frontend/src/pages/settings/MaterialsPage.tsx` · MaterialSuppliersPage (tab)
 
@@ -596,7 +643,7 @@ _—_
 
 ## 16. Catalogo lavorazioni, macchine, trattamenti
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/operations.py` · `machines.py` · `treatments.py` · `frontend/src/pages/settings/{Operations,Machines,Treatments}Page.tsx` + TreatmentSuppliersPage
 
@@ -625,7 +672,7 @@ _—_
 
 ## 17. Workflow template
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/workflow_templates.py` · `frontend/src/pages/settings/WorkflowTemplatesPage.tsx`
 
@@ -652,7 +699,7 @@ _—_
 
 ## 18. Catalogo normalizzati
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/normalized_items.py` · `normalized_suppliers.py` · `frontend/src/pages/settings/NormalizedItemsPage.tsx` + NormalizedSuppliersPage (tab)
 
@@ -680,7 +727,7 @@ _—_
 
 ## 19. Wire EDM — cataloghi
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/edm.py` · `frontend/src/pages/settings/edm/*` (EdmConfig, EdmSpeeds, CuttingCycles, DrillingTimes, Electrodes)
 
@@ -708,7 +755,7 @@ _—_
 
 ## 33. Categorie e colori
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/catalog.py` · `frontend/src/pages/settings/QuoteCategoriesPage.tsx` · `StepColorRulesPage.tsx`
 
@@ -738,7 +785,7 @@ _—_
 
 ## 20. Officina — documenti
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/officina.py` · `frontend/src/pages/officina/OfficinaDocumentsPage.tsx` + OfficinaHub
 
@@ -766,7 +813,7 @@ _—_
 
 ## 21. Officina — materiali
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/materials.py` (datasheet) · `frontend/src/pages/officina/MaterialsPage.tsx`
 
@@ -793,7 +840,7 @@ _—_
 
 ## 22. Officina — tempra
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/heat_treatments.py` · `frontend/src/pages/officina/tempra/` (TempraResultsPage, TempraFormModal, TempraAnalysisModal, tempraCalc.ts)
 
@@ -824,7 +871,7 @@ _—_
 
 ## 23. Clienti
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/customers.py` · `frontend/src/pages/settings/CustomersPage.tsx`
 
@@ -851,7 +898,7 @@ _—_
 
 ## 24. Vendite dirette
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/direct_sales.py` · `frontend/src/pages/DirectSalesPage.tsx` (+ DirectSaleFormModal)
 
@@ -881,7 +928,7 @@ _—_
 
 ## 25. Dashboard
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/dashboard.py` · `frontend/src/pages/DashboardPage.tsx`
 
@@ -908,7 +955,7 @@ _—_
 
 ## 26. Statistiche
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/dashboard.py` (statistics/*) · `frontend/src/pages/StatisticsPage.tsx` (+ QuotesStatsView, MarginStatsView, MaterialsStatsView, ToolsStatsView)
 
@@ -938,7 +985,7 @@ _—_
 
 ## 27. Notifiche
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/services/notifications.py` · `backend/app/api/notifications.py` · `frontend/src/lib/useNotifications.ts` · `components/layout/` (NotificationPanel/TopBar)
 
@@ -966,7 +1013,7 @@ _—_
 
 ## 28. Attività
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/activity.py` · `frontend/src/pages/ActivityPage.tsx`
 
@@ -1096,7 +1143,7 @@ _—_
 
 ## 32. Dati azienda
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `backend/app/api/company.py` · `frontend/src/pages/settings/CompanySettingsPage.tsx`
 
@@ -1160,7 +1207,7 @@ Modulo **solido e ben temprato** (è il soggetto dell'incidente 2026-05-09 e ha 
 
 ## 35. Tema chiaro/scuro
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `frontend/src/lib/theme.tsx` · `index.css` (token semantici) · toggle in Sidebar
 
@@ -1183,7 +1230,7 @@ _—_
 
 ## 36. Guscio app
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `frontend/src/components/layout/` (AppLayout, Sidebar, SidebarView, TopBar) · `frontend/src/components/layout/StandardPage` + page-container
 
@@ -1209,7 +1256,7 @@ _—_
 
 ## 37. Guide utente
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `frontend/src/pages/` (GuideIndexPage, GuideViewerPage lazy)
 
@@ -1234,7 +1281,7 @@ _—_
 
 ## 38. Librerie trasversali
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22 · audit di completezza (vedi sezione dedicata)
 
 **Dove vive:** `frontend/src/lib/` — quoteCalc.ts, quoteValidation.ts, timeUnits.ts, decimalInput.ts, materialStatus.ts, materialRows.ts, constants.ts, api.ts, useNotifications.ts, timeAgo.ts, utils.ts
 

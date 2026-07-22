@@ -150,6 +150,43 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 - **O2** (limite noto): restore con FK interne violate viene inserito (SQLite FK
   off); documentato in `backup.py`/§2.E, non azionabile senza `PRAGMA foreign_keys`.
 
+### Audit di completezza (26 moduli) — findings 2026-07-22
+
+Nessun bug che rompe l'uso. Voci azionabili, per priorità:
+
+**Sicurezza / decisioni**
+- **§27 SSE token in query param** *(media)*. `notifications.py` stream: il JWT in
+  query finisce negli access-log di uvicorn/proxy e **non scade** → leak permanente.
+  Fix: token effimero dedicato allo stream, o cookie, o filtrare il query param dai log.
+- **§28 feed Attività senza filtro destinatario** *(decisione di prodotto)*. `/activity`
+  e `/dashboard/activity` mostrano TUTTE le notifiche a chi ha `dashboard`. Confermare
+  che è voluto (feed di team) e che nessuna notifica 1-a-1 sensibile ci finisca.
+
+**Correttezza / robustezza**
+- **§23 race `customer_number`** *(media)*. `max+1` read-then-write → create concorrenti
+  → `IntegrityError` → 500 opaco. Fix: catch → 409 (come `create_quote` col quote_number).
+- **§32 Company PUT senza `exclude_unset`** *(media, footgun)*. Un PUT parziale azzera i
+  campi omessi ai default. Fix: `model_dump(exclude_unset=True)` nell'update.
+- **§20/§21 Officina — FK referenti non validati** *(media, integrità)*. `customer_id`/
+  `*_supplier_id` non verificati all'upload → orfani su SQLite; inoltre il blob è scritto
+  prima delle validazioni. Fix: validare esistenza FK + mutex prima di scrivere il file.
+- **§16 `operations` senza `check_duplicate_name`** *(bassa)*. Doppioni case/spazi via UI,
+  incoerenti col CSV. Fix: aggiungere `check_duplicate_name`.
+
+**Perf**
+- **§25 `get_awaiting_materials` N+1** *(bassa, = classe di I3)*. Batchare lo stato
+  materiale come `list_selectable_quotes`.
+- **§7 DXF DoS/perf** *(bassa)*. `MAX_ENTITIES` solo sul loop profili; `_iter_effective_entities`
+  percorso 3× con ri-esplosione blocchi. Fix: materializzare una lista capped riusata.
+- **§26 statistiche top-clienti** *(bassa)*. Subquery correlata su periodi larghi.
+
+**DRY / pulizia**
+- **§12 parser SolidWorks condiviso a metà**. Estrarre `parse_solidworks_bom` in
+  `csv_import.py` (usato da `orders_from_file` e `normalized_from_file`).
+- **§15 reload materiali** → usare `_material_out`. **§38 `numOrNull`** → `parseDecimalOrNull`.
+  **§19 EDM** `block_if_in_use` segnaposto → rimuovere il dead code.
+- **§23/§32 CSV/upload senza cap size** (customers import, backup import) → cap coerente.
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

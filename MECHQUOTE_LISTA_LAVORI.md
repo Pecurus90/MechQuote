@@ -140,6 +140,16 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 - **L2 — token non revocato al cambio password** *(design, basso)*. Mitigato dal
   check `is_active` per-request. Per esposizione pubblica: `exp` > 0 + token-version.
 
+### §34 Backup / restore — audit 2026-07-22 (solido, gating verificato)
+
+- Gating `require_permission('backup')` **verificato** su tutto il router
+  (`main.py:80`) — nessun buco. Transazione unica, guard anti-wipe, whitelist.
+- **O3 — avviso UI su restore parziale** *(Blocco C, frontend)*. Il restore
+  SOVRASCRIVE: un backup senza una tabella la svuota. Aggiungere un avviso
+  esplicito nella pagina Backup prima dell'import.
+- **O2** (limite noto): restore con FK interne violate viene inserito (SQLite FK
+  off); documentato in `backup.py`/§2.E, non azionabile senza `PRAGMA foreign_keys`.
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

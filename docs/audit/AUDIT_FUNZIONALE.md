@@ -85,7 +85,7 @@ Per ogni modulo si compilano sempre questi punti:
 | 31 | [Ruoli & permessi (RBAC)](#31-ruoli-e-permessi) | ✅ | 2026-07-22 |
 | 32 | [Dati azienda (CompanySettings)](#32-dati-azienda) | ⬜ | — |
 | 33 | [Categorie preventivo & regole colore](#33-categorie-e-colori) | ⬜ | — |
-| 34 | [Backup / restore](#34-backup-restore) | ⬜ | — |
+| 34 | [Backup / restore](#34-backup-restore) | ✅ | 2026-07-22 |
 | 35 | [Tema chiaro/scuro](#35-tema-chiaroscuro) | ⬜ | — |
 | 36 | [Guscio app: layout, sidebar, badge, ricerca](#36-guscio-app) | ⬜ | — |
 | 37 | [Guide utente](#37-guide-utente) | ⬜ | — |
@@ -1123,7 +1123,7 @@ _—_
 
 ## 34. Backup / restore
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —  ·  ⚠️ DISTRUTTIVO (§2.E)
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22  ·  ⚠️ DISTRUTTIVO (§2.E)
 
 **Dove vive:** `backend/app/api/backup.py` · `frontend/src/pages/settings/BackupSettingsPage.tsx`
 
@@ -1137,14 +1137,21 @@ _—_
 **Punti d'ingresso:** Impostazioni → Sistema → Backup.
 
 **Checklist audit:**
-- [ ] **Correttezza** — round-trip export→import fedele; ordine tabelle rispetta le FK.
-- [ ] **Vicoli ciechi** — import parziale/errore: rollback pulito?
-- [ ] **Bug noti/sospetti** — FK non enforced SQLite (episodio 2026-05-10): guard sufficiente? Notification/blob esclusi noti.
-- [ ] **Riuso & DRY** — EXPORT_ORDER unica fonte dell'ordine tabelle.
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ gating `require_permission('backup')` applicato a TUTTO il router in `main.py:80` (verificato: sia export sia import lo richiedono — non è un buco nonostante la firma "nuda"). Export con `yield_per(1000)` + cap `MAX_ROWS` (413). Import DELETE+INSERT in **transazione unica** (rollback → DB integro al pre-import), whitelist colonne (`_filter_to_columns`), preserva ID/FK, ordine parent→child.
+- [x] **Vicoli ciechi** — ✅ import parziale/errore → rollback pulito; payload vuoto o solo-chiavi-ignote → **400** (guard dell'incidente 2026-05-09, il DELETE non parte). Errore SQL → messaggio generico al client (no info-disclosure), traceback nei log.
+- [x] **Bug noti/sospetti** — nessun bug. FK non-enforced (SQLite): un payload con FK interne violate viene inserito (limite noto, **O2**), ma il guard evita il wipe totale e la transazione unica evita il DB "svuotato". Notification/blob esclusi (noto/documentato).
+- [x] **Riuso & DRY** — ✅ `EXPORT_ORDER` è la fonte unica (export forward, delete reverse, `TABLE_TO_MODEL` derivato).
+- [x] **Migliorie** — O3 (avviso UI su restore parziale).
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Modulo **solido e ben temprato** (è il soggetto dell'incidente 2026-05-09 e ha ricevuto le guardie giuste). Il punto "critico" sospettato — endpoint senza `require_permission` nella firma — è in realtà **gestito correttamente** (gating a livello router in `main.py`, verificato). Rilievi non bloccanti, per lo più by-design:
+
+- **O2 — restore con FK interne violate** *(limite noto, SQLite)*. Il whitelist non valida i target FK; un payload con, es., una Part che punta a un Quote inesistente verrebbe inserito (FK off su SQLite) → DB internamente incoerente. Mitigato: guard anti-wipe + transazione unica. Documentato in `backup.py`/§2.E. Non azionabile senza `PRAGMA foreign_keys=ON` globale (scelta storica).
+- **O3 — restore parziale cancella le tabelle assenti dal payload** *(by-design, UX)*. Un backup che non contiene una tabella con dati la lascia svuotata (semantica del full-restore). Il guard copre solo il caso "zero tabelle note". Utile un **avviso UI** esplicito ("il restore SOVRASCRIVE tutto") prima dell'import. → Blocco C (frontend).
+- Minore: import carica l'intero payload in RAM (no cap come l'export); admin-only, basso rischio.
+
+→ Voce proposta per `LISTA_LAVORI`: **O3** (avviso UI restore, Blocco C). O2 resta limite noto documentato. Nessuna eseguita (audit read-only).
 
 ---
 ---

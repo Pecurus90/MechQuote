@@ -18,6 +18,7 @@ from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.models import (
     Quote, Part, Material, QuoteSupplierOrder, User, Notification, NotificationRead,
+    MaterialOrder, MaterialOrderItem,
 )
 from app.schemas import (
     MonthlyData, WorkflowStats, DashboardQuoteRow,
@@ -703,19 +704,17 @@ def get_materials_stats(
     ), params).all()
     trend = [StatsCountPoint(month=r.m, count=int(r.n)) for r in rows_trend]
 
-    # 2. Top fornitori materiali: passa per MaterialOrderQuote → Quote → Parts → Material → supplier.
-    # Conta n. preventivi distinti (NON parts: l'ordine è "verso il fornitore X
-    # con N preventivi"). Aggregazione via supplier_id.
+    # 2. Top fornitori materiali: n° ORDINI per fornitore (include sia quelli da
+    # preventivo sia i manuali/da distinta — prima passava per Parts e i manuali
+    # sparivano). Nome dal catalogo, fallback allo snapshot dell'ordine.
     rows_sup = db.execute(text(
         f"""
-        SELECT ms.name AS name, COUNT(DISTINCT moq.quote_id) AS n
+        SELECT COALESCE(ms.name, mo.supplier_name, 'Senza fornitore') AS name,
+               COUNT(*) AS n
         FROM material_orders mo
-        JOIN material_order_quotes moq ON moq.material_order_id = mo.id
-        JOIN parts p ON p.quote_id = moq.quote_id
-        JOIN materials mat ON mat.id = p.material_id
-        JOIN material_suppliers ms ON ms.id = mat.supplier_id
+        LEFT JOIN material_suppliers ms ON ms.id = mo.material_supplier_id
         {mo_filter}
-        GROUP BY ms.id, ms.name
+        GROUP BY mo.material_supplier_id, COALESCE(ms.name, mo.supplier_name, 'Senza fornitore')
         ORDER BY n DESC
         LIMIT 10
         """
@@ -762,54 +761,62 @@ def get_materials_stats(
         for r in rows_lt
     ]
 
-    # 4. Costi/kg/spedizioni + breakdown per fornitore e per materiale (spec 19).
-    # Aggregazione in Python dalle coppie quote_supplier_orders del periodo,
-    # riusando _estimate_weight_kg. Filtri supplier_id/family applicati qui.
-    from app.api.orders import _estimate_weight_kg
-    from app.services.material_status import part_needs_ordering
+    # 4. Costi/kg + breakdown per fornitore e materiale (spec 19).
+    # Base UNIFORME: gli snapshot MaterialOrderItem di TUTTI gli ordini del
+    # periodo. La B6 li crea sia per gli ordini da preventivo sia per quelli
+    # manuali/da distinta → i manuali finalmente contano (prima passavamo da
+    # QuoteSupplierOrder→Parts, che i manuali non hanno: spedizione sì, kg/€ no).
+    # Kg e costo si ricavano dalle dimensioni grezzo × densità × €/kg del
+    # materiale abbinato (scrap incluso nel costo, come per le parti). Una riga
+    # SENZA materiale a catalogo resta senza kg/€ (nessuna densità/prezzo noti).
+    # Filtri supplier_id/family applicati qui.
+    from app.api.orders import _request_item_weight_kg
 
-    qso_q = db.query(QuoteSupplierOrder)
+    items_q = (
+        db.query(MaterialOrderItem, MaterialOrder.material_supplier_id,
+                 MaterialOrder.supplier_name)
+        .join(MaterialOrder, MaterialOrder.id == MaterialOrderItem.material_order_id)
+    )
     if date_from is not None:
-        qso_q = qso_q.filter(QuoteSupplierOrder.ordered_at >= date_from)
+        items_q = items_q.filter(MaterialOrder.created_at >= date_from)
     if date_to is not None:
-        qso_q = qso_q.filter(func.date(QuoteSupplierOrder.ordered_at) <= date_to)
+        items_q = items_q.filter(func.date(MaterialOrder.created_at) <= date_to)
     if supplier_id is not None:
-        qso_q = qso_q.filter(QuoteSupplierOrder.material_supplier_id == supplier_id)
-    qsos = qso_q.all()
+        items_q = items_q.filter(MaterialOrder.material_supplier_id == supplier_id)
+    item_rows = items_q.all()
 
-    quote_ids = {r.quote_id for r in qsos}
-    parts_by_quote: dict = defaultdict(list)
-    if quote_ids:
-        parts = db.query(Part).options(
-            joinedload(Part.material).joinedload(Material.material_supplier)
-        ).filter(Part.quote_id.in_(quote_ids)).all()
-        for p in parts:
-            parts_by_quote[p.quote_id].append(p)
+    mat_ids = {it.material_id for it, _sid, _sn in item_rows if it.material_id}
+    mats = {
+        m.id: m for m in db.query(Material).filter(Material.id.in_(mat_ids)).all()
+    } if mat_ids else {}
 
     sup_agg: dict = {}
     mat_agg: dict = {}
-    for qso in qsos:
-        for p in parts_by_quote.get(qso.quote_id, []):
-            if not part_needs_ordering(p) or not p.material:
-                continue
-            if p.material.supplier_id != qso.material_supplier_id:
-                continue
-            if family and (p.material.family or '') != family:
-                continue
-            cost = (p.material_cost or 0.0) * (p.quantity or 1)
-            kg = _estimate_weight_kg(p)
-            sup = p.material.material_supplier
-            s = sup_agg.setdefault(qso.material_supplier_id, {
-                'name': sup.name if sup else 'Senza fornitore', 'cost': 0.0, 'kg': 0.0,
-            })
-            s['cost'] += cost
-            s['kg'] += kg
-            m = mat_agg.setdefault(p.material_id, {
-                'name': p.material.name, 'cost': 0.0, 'kg': 0.0, 'lines': 0,
-            })
-            m['cost'] += cost
-            m['kg'] += kg
-            m['lines'] += 1
+    for it, order_sid, order_sname in item_rows:
+        mat = mats.get(it.material_id)
+        if family and (not mat or (mat.family or '') != family):
+            continue
+        kg = _request_item_weight_kg(it, mat)
+        if mat and mat.cost_per_kg and kg:
+            scrap = 1 + (mat.default_scrap_percent or 10) / 100
+            cost = kg * mat.cost_per_kg * scrap
+        else:
+            cost = 0.0
+        # Fornitore: quello dell'ordine (snapshot spec 18).
+        s = sup_agg.setdefault(order_sid, {
+            'name': order_sname or 'Senza fornitore', 'cost': 0.0, 'kg': 0.0,
+        })
+        s['cost'] += cost
+        s['kg'] += kg
+        # Materiale: per id se abbinato, altrimenti per nome snapshot.
+        mkey = it.material_id if it.material_id is not None else f"name:{it.material_name}"
+        m = mat_agg.setdefault(mkey, {
+            'name': (mat.name if mat else it.material_name) or '—',
+            'cost': 0.0, 'kg': 0.0, 'lines': 0,
+        })
+        m['cost'] += cost
+        m['kg'] += kg
+        m['lines'] += 1
 
     # Spedizioni + n° ordini per fornitore (una spedizione per MaterialOrder).
     ship_where = list(where_mo)

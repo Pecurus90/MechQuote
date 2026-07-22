@@ -181,6 +181,14 @@ sqlite3 mechquote.db ".backup 'mechquote.db.bak-$(date +%Y%m%d-%H%M%S)'"
 In alternativa, forzare il merge del WAL prima di copiare:
 `sqlite3 mechquote.db "PRAGMA wal_checkpoint(TRUNCATE);"` e poi copiare.
 
+> ⚠️ Il CLI `sqlite3` **non è sempre installato** (es. sul PC dev+server non
+> c'è). Metodo portabile equivalente (atomico e WAL-aware, lo stesso di
+> `update.ps1`), col Python del venv:
+> ```bash
+> cd backend && venv/Scripts/python -c "import sqlite3,datetime; ts=datetime.datetime.now().strftime('%Y%m%d-%H%M%S'); s=sqlite3.connect('mechquote.db'); x=sqlite3.connect(f'mechquote.db.bak-{ts}'); s.backup(x); x.close(); s.close(); print('backup OK')"
+> ```
+> Scorciatoia: la skill **`/backup-db`**.
+
 Workflow:
 1. **Snapshot DB** col comando `.backup` qui sopra — un secondo, costo zero.
 2. Esegui il test/smoke.

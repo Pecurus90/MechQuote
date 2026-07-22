@@ -103,9 +103,9 @@ export default function Sidebar() {
     // TD-12: replica il badge "materiali da ordinare" anche sulla voce
     // "Ordini materiali" (dov'è davvero il lavoro), oltre che sul genitore.
     if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials'), badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
-    // Officina vede "Nuovo ordine materiale" (= segnala fabbisogno) ma NON il
+    // Officina vede "Nuovo ordine materiale" (stessa pagina/richiesta) ma NON il
     // pool né lo storico: quelli restano di chi ordina davvero.
-    if (canRequestMaterials) children.push({ key: '/orders/materials-file', label: canOrdersMaterials ? 'Nuovo ordine materiale' : 'Segnala fabbisogno materiale', icon: FileUp, active: at('/orders/materials-file') })
+    if (canRequestMaterials) children.push({ key: '/orders/materials-file', label: 'Nuovo ordine materiale', icon: FileUp, active: at('/orders/materials-file') })
     if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da distinta', icon: Bolt, active: at('/orders/normalized-file') })
     if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: ShoppingCart, active: at('/orders/tools') })
     if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })

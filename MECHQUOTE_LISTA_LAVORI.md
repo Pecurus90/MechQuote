@@ -152,7 +152,11 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 
 ### Audit di completezza (26 moduli) — findings 2026-07-22
 
-Nessun bug che rompe l'uso. Voci azionabili, per priorità:
+✅ **Chiusi nel batch fix 2026-07-22**: §32 Company `exclude_unset`; §16 `operations`
+`check_duplicate_name`; §23 race `customer_number` → 409; §25 `get_awaiting_materials`
+N+1 (batch); §38 `numOrNull` → `parseDecimalOrNull`. (175 backend + tsc verdi.)
+
+Nessun bug che rompe l'uso. Voci ancora aperte, per priorità:
 
 **Sicurezza / decisioni**
 - **§27 SSE token in query param** *(media)*. `notifications.py` stream: il JWT in

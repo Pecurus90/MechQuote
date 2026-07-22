@@ -28,7 +28,9 @@ def get_company_settings(db: Session = Depends(get_db)):
 @router.put("/company-settings", response_model=CompanySettingsOut, dependencies=[require_permission('company')])
 def update_company_settings(data: CompanySettingsUpdate, db: Session = Depends(get_db)):
     cs = _get_or_create(db)
-    for key, value in data.model_dump().items():
+    # exclude_unset: un PUT parziale aggiorna SOLO i campi inviati; senza,
+    # i campi omessi verrebbero azzerati al default dello schema (footgun).
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(cs, key, value)
     db.commit()
     db.refresh(cs)

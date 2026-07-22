@@ -4,6 +4,7 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.catalog_protect import block_if_in_use
@@ -53,7 +54,16 @@ def create_customer(data: CustomerCreate, db: Session = Depends(get_db), _=_can_
         payload["customer_number"] = max_num + 1
     customer = Customer(**payload)
     db.add(customer)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Race: due create concorrenti leggono lo stesso max(customer_number) e
+        # collidono sul vincolo UNIQUE. Senza catch l'utente vedeva un 500 opaco.
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Numero cliente già assegnato (creazione concorrente) — riprova.",
+        )
     db.refresh(customer)
     return customer
 

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.catalog_protect import block_if_in_use
+from app.core.catalog_protect import block_if_in_use, check_duplicate_name
 from app.core.csv_import import (
     CsvImportConfig, CsvRowSkip,
     csv_template_response, import_catalog_csv,
@@ -41,6 +41,11 @@ def list_operations(
 
 @router.post("/operations", response_model=OperationOut, dependencies=[require_permission('settings')])
 def create_operation(data: OperationCreate, db: Session = Depends(get_db)):
+    # check_duplicate_name (case-insensitive + trim) come gli altri cataloghi:
+    # il solo UNIQUE DB è case-sensitive → "Tornitura"/"tornitura " passerebbero,
+    # incoerente con l'import CSV che dedup-pa normalizzato. IntegrityError resta
+    # come rete di sicurezza sotto (race).
+    check_duplicate_name(db, Operation, data.name, label="lavorazione")
     op = Operation(**data.model_dump())
     db.add(op)
     try:
@@ -57,6 +62,8 @@ def update_operation(oid: int, data: OperationUpdate, db: Session = Depends(get_
     op = db.query(Operation).filter(Operation.id == oid).first()
     if not op:
         raise HTTPException(404, "Lavorazione non trovata")
+    if data.name is not None:
+        check_duplicate_name(db, Operation, data.name, label="lavorazione", exclude_id=oid)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(op, k, v)
     try:

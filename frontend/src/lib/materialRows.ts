@@ -3,6 +3,7 @@
 // (FileOrderRow) ⇄ dims per-forma della tabella editabile. Single source of
 // truth per non divergere tra i due punti.
 import type { FileOrderRow, MaterialRequestItem } from '@/types'
+import { parseDecimalOrNull } from '@/lib/decimalInput'
 
 // Riga interna = shape backend + id client per key/patch.
 export type Row = FileOrderRow & { _id: string }
@@ -10,12 +11,9 @@ export type Row = FileOrderRow & { _id: string }
 let _seq = 0
 export const newRowId = (): string => `r${++_seq}`
 
-export const numOrNull = (v: string | undefined): number | null => {
-  const s = (v ?? '').trim().replace(',', '.')
-  if (s === '') return null
-  const n = parseFloat(s)
-  return Number.isFinite(n) ? n : null
-}
+// Fonte unica del parsing decimale IT (gestisce "1.300,50"): il vecchio
+// replace(',', '.') naïf corrompeva i separatori di migliaia.
+export const numOrNull = (v: string | undefined): number | null => parseDecimalOrNull(v ?? '')
 export const str = (v: number | null | undefined): string => (v == null ? '' : String(v))
 
 // backend row → dims Record della vista (per forma).

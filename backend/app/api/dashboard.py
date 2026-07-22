@@ -1099,8 +1099,9 @@ def get_awaiting_materials(
     perms = getattr(current_user, '_permissions', [])
     if 'quotes.archive' not in perms and 'orders.materials' not in perms:
         raise HTTPException(status_code=403, detail="Permesso negato")
+    from app.models import Part, QuoteSupplierOrder
     quotes = db.query(Quote).options(
-        joinedload(Quote.parts),
+        joinedload(Quote.parts).joinedload(Part.material),
         joinedload(Quote.submitted_by),
     ).filter(
         Quote.status == 'confermato',
@@ -1108,12 +1109,23 @@ def get_awaiting_materials(
     ).order_by(Quote.confirmed_at.desc().nullslast()).limit(limit).all()
     # Stato materiale reale per riga: `material_ordered_at` è NULL anche per i
     # PARZIALI (viene valorizzato solo a evasione totale), quindi il badge non
-    # è sempre "non ordinato" — può essere "parziale". Lo calcoliamo qui.
+    # è sempre "non ordinato" — può essere "parziale".
     from app.services import quote_workflow as wf
+    from app.services import material_status as ms
+    # Batch dei fornitori già ordinati per i preventivi di questa pagina (UNA
+    # query invece di 2/preventivo): niente N+1. Le parti sono già joinedloaded.
+    quote_ids = [q.id for q in quotes]
+    ordered_map: dict = {}
+    if quote_ids:
+        for qid, sid in db.query(
+            QuoteSupplierOrder.quote_id, QuoteSupplierOrder.material_supplier_id
+        ).filter(QuoteSupplierOrder.quote_id.in_(quote_ids)).all():
+            ordered_map.setdefault(qid, set()).add(sid)
     rows = []
     for q in quotes:
         row = _quote_to_row(q)
-        row.material_status = wf.quote_material_status(db, q)
+        ordered = ordered_map.get(q.id, set()) if q.status in wf.ORDERABLE_STATUSES else set()
+        row.material_status = ms.quote_material_status(q.parts, ordered)
         rows.append(row)
 
     # TD-11: richieste materiale manuali (RM) inviate con almeno una riga aperta

@@ -111,10 +111,13 @@ class UserLogin(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    password: str
+    password: str = Field(min_length=8)   # M4: coerente con ChangePasswordIn
     full_name: Optional[str] = None
     email: Optional[str] = None
-    role: Optional[str] = 'admin'
+    # M6: default least-privilege. Era 'admin' → creare un utente senza role
+    # esplicito lo rendeva admin. Il fallback a 'ufficio_tecnico' vive in
+    # create_user/register (`data.role or 'ufficio_tecnico'`).
+    role: Optional[str] = None
 
 
 class UserUpdate(BaseModel):

@@ -43,6 +43,35 @@ def _guard_modify_admin(current_user: User, target_user: User) -> None:
         )
 
 
+def _ensure_not_last_active_admin(
+    db: Session, target: User, *,
+    new_role: Optional[str] = None, new_active: Optional[bool] = None,
+) -> None:
+    """M1 — impedisce di lasciare l'organizzazione senza NESSUN admin attivo.
+
+    Copre demote (role diverso da 'admin'), disattivazione ed eliminazione
+    dell'ultimo admin attivo. Senza, un admin può declassarsi/disattivarsi e
+    bloccare tutti fuori dalle funzioni admin (users/backup/company): il
+    recupero passerebbe solo dallo script di bootstrap. Il self-delete era già
+    bloccato, il self-demote/deactivate no.
+    """
+    if not (target.role == 'admin' and target.is_active):
+        return
+    still_admin = (new_role if new_role is not None else target.role) == 'admin'
+    still_active = new_active if new_active is not None else target.is_active
+    if still_admin and still_active:
+        return
+    others = db.query(User).filter(
+        User.role == 'admin', User.is_active == True, User.id != target.id,  # noqa: E712
+    ).count()
+    if others == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Operazione bloccata: è l'ultimo amministratore attivo. "
+                   "Promuovi o attiva un altro admin prima.",
+        )
+
+
 @router.post("/register", response_model=Token)
 def register(
     user: UserCreate,
@@ -166,6 +195,7 @@ def update_user(
         raise HTTPException(status_code=404, detail="Utente non trovato")
     _guard_modify_admin(current_user, user)
     _guard_admin_role(current_user, data.role)
+    _ensure_not_last_active_admin(db, user, new_role=data.role, new_active=data.is_active)
     if data.full_name is not None:
         user.full_name = data.full_name
     if data.email is not None:
@@ -192,6 +222,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     if not user:
         raise HTTPException(status_code=404, detail="Utente non trovato")
     _guard_modify_admin(current_user, user)
+    _ensure_not_last_active_admin(db, user, new_active=False)  # M1
     db.delete(user)
     db.commit()
     return {"ok": True}

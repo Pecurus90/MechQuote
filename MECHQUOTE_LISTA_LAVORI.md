@@ -123,18 +123,20 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 
 ### §29–31 Sistema & Sicurezza — audit 2026-07-22 (solido; tema lockout)
 
-- **M1 + N1 — footgun di lockout admin** *(Blocco A/B, medio)*. (M1) Un admin può
-  auto-declassarsi/disattivarsi o declassare l'ultimo admin (`update_user`); il
-  self-*delete* è bloccato ma non il self-*demote*/*deactivate*. (N1) Dalla UI ruoli
-  si può togliere `users` al ruolo admin. In entrambi i casi si resta senza chi
-  amministra → recupero solo via script bootstrap. L'anti-lockout di `security.py`
-  copre solo "ruolo admin assente", non "zero admin/zero ruoli con users". Fix:
-  guardia che rifiuta l'operazione se lascerebbe 0 admin attivi / 0 ruoli con `users`.
-- **M4 — password create senza min-length** *(sicurezza, fix 1 riga)*.
-  `UserCreate.password` è `str` nudo mentre `ChangePasswordIn.new_password` ha
-  `min_length=8`. Aggiungere `Field(min_length=8)` a `UserCreate.password`.
-- **M3 — `/api/auth/register` legacy** *(pulizia)*. Duplica `create_user` e ritorna
-  un token per l'utente creato (residuo self-registration). Valutare la rimozione.
+- **M1 + N1 — footgun di lockout admin** ✅ **FATTO 2026-07-22**: guardia
+  `_ensure_not_last_active_admin` (auth.py, su update/delete) rifiuta
+  demote/deactivate/delete dell'**ultimo admin attivo**; guardia
+  `_ensure_users_perm_survives` (roles.py, su toggle singolo + bulk) rifiuta di
+  togliere `users` all'ultimo ruolo che ce l'ha. 9 test nuovi.
+- **M4 — password create senza min-length** ✅ **FATTO 2026-07-22**:
+  `Field(min_length=8)` su `UserCreate.password` (coerente con ChangePasswordIn).
+- **M6 — default `UserCreate.role='admin'`** ✅ **FATTO 2026-07-22** *(scoperto nel
+  fix)*: era un default pericoloso (creare un utente senza role esplicito lo rendeva
+  admin; il fallback `or 'ufficio_tecnico'` era codice morto). Portato a `None`
+  (least-privilege; il fallback vive in create_user/register).
+- **M3 — `/api/auth/register` legacy** *(pulizia, aperto)*. Duplica `create_user` e
+  ritorna un token per l'utente creato (residuo self-registration). Valutare la
+  rimozione.
 - **L2 — token non revocato al cambio password** *(design, basso)*. Mitigato dal
   check `is_active` per-request. Per esposizione pubblica: `exp` > 0 + token-version.
 

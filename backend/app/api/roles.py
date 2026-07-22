@@ -24,6 +24,23 @@ def _role_to_out(role: Role) -> dict:
     }
 
 
+def _ensure_users_perm_survives(db: Session, role: Role) -> None:
+    """N1 — impedisce di lasciare 0 ruoli con 'users' (la chiave che gestisce
+    utenti E ruoli): senza, si perde la capacità di rimediare dalla UI
+    (lockout, recupero solo via DB/script). Chiamata quando si sta per TOGLIERE
+    'users' da `role`: verifica che almeno un ALTRO ruolo la mantenga."""
+    others = db.query(RolePermission).filter(
+        RolePermission.permission_key == 'users',
+        RolePermission.role_id != role.id,
+    ).count()
+    if others == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Operazione bloccata: 'Gestione utenti' resterebbe senza "
+                   "alcun ruolo. Assegnala a un altro ruolo prima di toglierla.",
+        )
+
+
 @permissions_router.get("")
 def list_permission_keys():
     """Return all known permission keys with their labels."""
@@ -106,6 +123,10 @@ def set_permissions_bulk(role_id: int, data: RolePermissionsBulk, db: Session = 
     if not role:
         raise HTTPException(status_code=404, detail="Ruolo non trovato")
     existing = {p.permission_key: p for p in role.permissions}
+    # N1: se questo bulk sta TOGLIENDO 'users' a un ruolo che ce l'ha, verifica
+    # che non sia l'ultimo a possederla (anti-lockout RBAC).
+    if not data.value and 'users' in data.keys and 'users' in existing:
+        _ensure_users_perm_survives(db, role)
     for k in data.keys:
         if data.value and k not in existing:
             db.add(RolePermission(role_id=role_id, permission_key=k))
@@ -125,6 +146,8 @@ def toggle_permission(role_id: int, key: str, db: Session = Depends(get_db), _=_
         raise HTTPException(status_code=404, detail="Ruolo non trovato")
     existing = next((p for p in role.permissions if p.permission_key == key), None)
     if existing:
+        if key == 'users':
+            _ensure_users_perm_survives(db, role)  # N1: anti-lockout RBAC
         db.delete(existing)
     else:
         db.add(RolePermission(role_id=role_id, permission_key=key))

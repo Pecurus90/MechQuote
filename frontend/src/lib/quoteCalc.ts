@@ -76,7 +76,8 @@ export function calcTreatmentCost(
       ? (t.minimum_cost || 0)
       : (t.cost_per_dm3 || 0) * batchV
     const partShare = batchV > 0 ? totalBatchCost * myVol / batchV : 0
-    return partShare / Math.max(qty, 1)
+    // F2: round4 come il backend `treatment_cost_per_part` (gemello byte).
+    return Math.round((partShare / Math.max(qty, 1)) * 10000) / 10000
   }
 
   // Ramo €/kg (default): invariato.
@@ -90,7 +91,8 @@ export function calcTreatmentCost(
   const myShare = totalBatchWeight > 0
     ? totalBatchCost * myWeight / totalBatchWeight
     : 0
-  return myShare / Math.max(qty, 1)
+  // F2: round4 come il backend `treatment_cost_per_part` (gemello byte).
+  return Math.round((myShare / Math.max(qty, 1)) * 10000) / 10000
 }
 
 export function calcMaterialCost(part: Part, material: Material | undefined): number {

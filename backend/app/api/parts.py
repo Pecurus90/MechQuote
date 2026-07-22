@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 import logging
 import mimetypes
 import os
@@ -29,6 +29,27 @@ def _quote_for_part(part_id: int, db: Session) -> Quote:
     return quote
 
 router = APIRouter(prefix="/api", tags=["parts"])
+
+
+def _load_part_full(part_id: int, db: Session) -> Optional[Part]:
+    """Carica una Part con tutte le relazioni per `PartOut` (fasi + catalogo
+    machine/operation/treatment/supplier, materiale, file) — fonte unica del
+    blocco `joinedload`, prima ripetuto in add/get/update/duplicate.
+
+    CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/supplier per
+    costruire l'option "ritirato" nelle dropdown del preventivatore; joinedload
+    mirato per evitare N+1 (stesso pattern in `quotes._load_quote`).
+    """
+    return db.query(Part).options(
+        joinedload(Part.phases).options(
+            joinedload(ManufacturingPhase.machine),
+            joinedload(ManufacturingPhase.operation),
+            joinedload(ManufacturingPhase.treatment),
+            joinedload(ManufacturingPhase.supplier),
+        ),
+        joinedload(Part.material),
+        joinedload(Part.files),
+    ).filter(Part.id == part_id).first()
 
 
 def _assert_material_supplier_ok(db: Session, quote: Quote) -> None:
@@ -112,20 +133,7 @@ def add_part(
     db.refresh(part)
     recalculate_part(part.id, db)
     _reconcile_after_write(db, quote, current_user)   # #2: riconcilia stato
-    return db.query(Part).options(
-        joinedload(Part.phases).options(
-            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
-            # supplier per costruire l'option "ritirato" nelle dropdown
-            # del preventivatore. Joinedload mirato per evitare N+1 nella
-            # serializzazione (stesso pattern in `quotes._load_quote`).
-            joinedload(ManufacturingPhase.machine),
-            joinedload(ManufacturingPhase.operation),
-            joinedload(ManufacturingPhase.treatment),
-            joinedload(ManufacturingPhase.supplier),
-        ),
-        joinedload(Part.material),
-        joinedload(Part.files),
-    ).filter(Part.id == part.id).first()
+    return _load_part_full(part.id, db)
 
 
 @router.get("/parts/{part_id}", response_model=PartOut)
@@ -134,20 +142,7 @@ def get_part(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    part = db.query(Part).options(
-        joinedload(Part.phases).options(
-            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
-            # supplier per costruire l'option "ritirato" nelle dropdown
-            # del preventivatore. Joinedload mirato per evitare N+1 nella
-            # serializzazione (stesso pattern in `quotes._load_quote`).
-            joinedload(ManufacturingPhase.machine),
-            joinedload(ManufacturingPhase.operation),
-            joinedload(ManufacturingPhase.treatment),
-            joinedload(ManufacturingPhase.supplier),
-        ),
-        joinedload(Part.material),
-        joinedload(Part.files),
-    ).filter(Part.id == part_id).first()
+    part = _load_part_full(part_id, db)
     if not part:
         raise HTTPException(status_code=404, detail="Parte non trovata")
     # AUD-23: ACL di proprietà, come le scritture di questo file. Senza,
@@ -176,21 +171,7 @@ def update_part(
     db.commit()
     recalculate_part(part_id, db)
     _reconcile_after_write(db, quote, current_user)   # #2: riconcilia stato
-    part = db.query(Part).options(
-        joinedload(Part.phases).options(
-            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
-            # supplier per costruire l'option "ritirato" nelle dropdown
-            # del preventivatore. Joinedload mirato per evitare N+1 nella
-            # serializzazione (stesso pattern in `quotes._load_quote`).
-            joinedload(ManufacturingPhase.machine),
-            joinedload(ManufacturingPhase.operation),
-            joinedload(ManufacturingPhase.treatment),
-            joinedload(ManufacturingPhase.supplier),
-        ),
-        joinedload(Part.material),
-        joinedload(Part.files),
-    ).filter(Part.id == part_id).first()
-    return part
+    return _load_part_full(part_id, db)
 
 
 @router.delete("/parts/{part_id}")
@@ -262,34 +243,13 @@ def duplicate_part(
     db.add(new_part)
     db.flush()   # id senza commit: serve per copiare le fasi e per il guard #6
 
-    # Copy phases
+    # Copy phases via _clone_phase (stessa "ricetta" di clone-onto). H1/H3:
+    # `dxf_profile_ids` NON si copia — i profili vivono sul file DXF della
+    # sorgente, che il duplicate non trasferisce → copiarli lascerebbe un
+    # riferimento dangling sul nuovo articolo. Il costo resta invariato:
+    # `cut_length_mm`/`cut_height_mm` (trigger autocalc EDM) vengono copiati.
     for ph in part.phases:
-        new_ph = ManufacturingPhase(
-            part_id=new_part.id,
-            sequence_number=ph.sequence_number,
-            phase_type=ph.phase_type,           # legacy DB col, NOT NULL
-            operation_id=ph.operation_id,        # FK Lavorazione (catalogo utente)
-            description=ph.description,
-            machine_id=ph.machine_id,
-            supplier_id=ph.supplier_id,
-            treatment_id=ph.treatment_id,
-            setup_hours=ph.setup_hours,
-            cycle_hours_per_part=ph.cycle_hours_per_part,
-            fixed_cost=ph.fixed_cost,
-            variable_cost_per_part=ph.variable_cost_per_part,
-            hourly_rate_override=ph.hourly_rate_override,
-            # is_shared rimosso dal modello
-            internal_notes=ph.internal_notes,
-            customer_notes=ph.customer_notes,
-            # Wire EDM: parametri trigger autocalc. Senza questi il duplicate
-            # perde l'autocalc e i tempi tornano a 0.
-            cut_length_mm=ph.cut_length_mm,
-            cut_height_mm=ph.cut_height_mm,
-            cutting_cycle_id=ph.cutting_cycle_id,
-            n_pierce=ph.n_pierce,
-            dxf_profile_ids=ph.dxf_profile_ids,
-        )
-        db.add(new_ph)
+        db.add(_clone_phase(ph, new_part.id))
 
     db.flush()
     # NB: nessun _assert_material_supplier_ok qui (a differenza degli altri
@@ -305,20 +265,7 @@ def duplicate_part(
     recalculate_part(new_part.id, db)
     _reconcile_after_write(db, quote, current_user)   # #2: riconcilia stato
 
-    return db.query(Part).options(
-        joinedload(Part.phases).options(
-            # CAT-1 Fase 2: PhaseOut espone machine/operation/treatment/
-            # supplier per costruire l'option "ritirato" nelle dropdown
-            # del preventivatore. Joinedload mirato per evitare N+1 nella
-            # serializzazione (stesso pattern in `quotes._load_quote`).
-            joinedload(ManufacturingPhase.machine),
-            joinedload(ManufacturingPhase.operation),
-            joinedload(ManufacturingPhase.treatment),
-            joinedload(ManufacturingPhase.supplier),
-        ),
-        joinedload(Part.material),
-        joinedload(Part.files),
-    ).filter(Part.id == new_part.id).first()
+    return _load_part_full(new_part.id, db)
 
 
 # Campi "ricetta" copiati dalla sorgente sul target. NON include l'identità del

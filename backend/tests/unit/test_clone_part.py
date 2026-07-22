@@ -183,3 +183,18 @@ def test_duplicate_copia_flag_provenienza_materiale(db_session):
     dup2 = duplicate_part(src.id, db_session, _user(), None)
     assert dup2.material_from_stock is True
     assert dup2.customer_supplied_material is False
+
+
+def test_duplicate_droppa_i_profili_dxf(db_session):
+    # H1/H3: come clone-onto, il duplicate NON trasferisce dxf_profile_ids
+    # (il file DXF resta sulla sorgente, non copiato → sarebbe un riferimento
+    # dangling), ma preserva cut_length_mm (il costo EDM non cambia).
+    q, src, targets, m, mat = _setup(db_session)
+    src_ph = _phases(db_session, src.id)[0]
+    src_ph.dxf_profile_ids = [1, 2, 3]
+    src_ph.cut_length_mm = 320.0
+    db_session.commit()
+    dup = duplicate_part(src.id, db_session, _user(), None)
+    ph = _phases(db_session, dup.id)[0]
+    assert ph.dxf_profile_ids is None
+    assert ph.cut_length_mm == 320.0

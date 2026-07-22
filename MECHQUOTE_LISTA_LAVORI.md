@@ -30,11 +30,9 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
   input) producono prezzi negativi fino al PDF. Aggiungere un clamp in
   `costing/primitives.py`. ⚠️ Zona fragile + **decisione di prodotto**: definire
   il floor (margine min? sconto max 100%?) con l'utente prima di implementare.
-- **F2 — parità rounding trattamento** *(Blocco C, cosmetico)*.
-  `quoteCalc.calcTreatmentCost` ritorna il valore **non arrotondato**; il backend
-  `treatment_cost_per_part` fa `round4`. Divergenza ≤ 0,0001 € (assorbita dalla
-  tolleranza golden) ma i gemelli non sono byte-identici. Fix: `round4` anche nel
-  frontend, stesso commit, rigirare i golden.
+- **F2 — parità rounding trattamento** ✅ **FATTO 2026-07-22**: `round4` aggiunto
+  ai due return di `calcTreatmentCost` (gemello byte del backend); golden vitest
+  36/36 verdi.
 - **F4 — terza copia rate/setup in PartCard** *(Blocco C, riduzione debito)*.
   `PartCard.tsx:116-121` ri-risolve a mano `workRate`/`setupRate` per il breakdown
   setup↔ciclo (display-only, §0-quater). Esporre da `quoteCalc` `resolveRates()` +
@@ -65,16 +63,12 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 
 ### §3 Parti — audit 2026-07-22 (molto solido; sicurezza upload completa)
 
-- **H1 — `duplicate_part` copia `dxf_profile_ids` senza il file DXF** *(Blocco C)*.
-  Dangling reference: i profili puntano al DXF della sorgente, assente sul
-  duplicato (`clone_part_onto` lo evita di proposito con `None`). Costo preservato
-  (`cut_length_mm`), solo il riferimento profili resta stale. Fix → azzerare in
-  duplicate (risolto da H3).
-- **H3 — unificare i due percorsi clone-fase** *(Blocco C, DRY, risolve H1)*.
-  `duplicate_part` copia le fasi inline; `clone_part_onto` usa `_clone_phase`.
-  Far usare `_clone_phase` anche a duplicate chiude H1. Refactor → concordare.
-- **H2 — helper `_load_part_full`** *(Blocco C, DRY)*. Blocco `joinedload` PartOut
-  ripetuto 4× (add/get/update/duplicate) — estrarre come `quotes._load_quote`.
+- **H1 + H3 — clone-fase unificato** ✅ **FATTO 2026-07-22**: `duplicate_part` ora
+  usa `_clone_phase` (come `clone_part_onto`), che azzera `dxf_profile_ids` →
+  niente più dangling reference sul duplicato; `cut_length_mm` (costo EDM)
+  preservato. Nuovo test `test_duplicate_droppa_i_profili_dxf`. 152/152 verdi.
+- **H2 — helper `_load_part_full`** ✅ **FATTO 2026-07-22**: estratto in `parts.py`,
+  blocco `joinedload` PartOut deduplicato (add/get/update/duplicate).
 - Minore: verificare in `models.py` che il cascade delete di `Part` faccia
   scattare il listener `before_delete` di `PartFile` (cleanup blob), altrimenti
   orfani su `delete_part`.

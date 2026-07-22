@@ -346,6 +346,25 @@ def sanitize_filename_part(name: Optional[str]) -> str:
     return cleaned or 'fornitore'
 
 
+# CSV formula injection (audit §11 J2): una cella che inizia con questi caratteri
+# viene interpretata come formula da Excel/LibreOffice (=cmd, @SUM, +1, -1+2, e i
+# controlli TAB/CR). Un nome materiale/codice/fornitore ostile (anche incollato da
+# una distinta) finirebbe eseguito da chi apre l'ordine. Neutralizziamo nel punto
+# UNICO di export prefissando con un apostrofo (mitigazione OWASP): Excel lo tratta
+# come testo e non lo mostra in cella.
+_FORMULA_TRIGGERS = ('=', '+', '-', '@', '\t', '\r')
+
+
+def _csv_safe_cell(value: Any) -> str:
+    """Rende una cella sicura contro la formula injection. `None` → vuoto."""
+    if value is None:
+        return ''
+    s = value if isinstance(value, str) else str(value)
+    if s and s[0] in _FORMULA_TRIGGERS:
+        return "'" + s
+    return s
+
+
 def _csv_streaming_response(
     *,
     filename: str,
@@ -357,7 +376,9 @@ def _csv_streaming_response(
     `StreamingResponse` `text/csv; charset=utf-8` con
     `Content-Disposition: attachment`. Encoding UTF-8 **con BOM** così Excel
     italiano apre senza rompere gli accenti; delimiter `';'` come l'import.
-    Valori `None` resi come cella vuota.
+    Valori `None` resi come cella vuota. Le celle dati sono neutralizzate contro
+    la CSV formula injection (`_csv_safe_cell`, J2). Gli header sono costanti di
+    codice → non neutralizzati.
     """
     buf = io.StringIO()
     writer = csv.writer(
@@ -366,7 +387,7 @@ def _csv_streaming_response(
     )
     writer.writerow(list(columns))
     for row in rows:
-        writer.writerow(['' if c is None else c for c in row])
+        writer.writerow([_csv_safe_cell(c) for c in row])
 
     payload = '﻿' + buf.getvalue()  # BOM per Excel
     return StreamingResponse(

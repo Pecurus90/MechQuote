@@ -222,3 +222,40 @@ def test_template_response_header_only_when_no_examples():
     )
     body = _consume_body(resp).decode('utf-8-sig')
     assert body.strip() == 'A;B'
+
+
+# ---------------------------------------------------------------------------
+# CSV formula injection (audit §11 J2)
+# ---------------------------------------------------------------------------
+
+from app.core.csv_import import _csv_safe_cell, csv_export_response
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ('=HYPERLINK("http://evil","x")', '\'=HYPERLINK("http://evil","x")'),
+    ('+1+1', "'+1+1"),
+    ('-2+3', "'-2+3"),
+    ('@SUM(A1)', "'@SUM(A1)"),
+    ('\tTAB', "'\tTAB"),
+    ('C45', 'C45'),                    # nome normale: intatto
+    ('240-26A_010', '240-26A_010'),    # inizia con cifra: intatto
+    ('Ø50 × 100 mm', 'Ø50 × 100 mm'),
+    ('—', '—'),                        # em dash (non hyphen-minus): intatto
+    (None, ''),
+    (5, '5'),
+])
+def test_csv_safe_cell_neutralizes_formula_triggers(raw, expected):
+    assert _csv_safe_cell(raw) == expected
+
+
+def test_csv_export_neutralizes_injection_in_body():
+    resp = csv_export_response(
+        filename='ordine.csv',
+        columns=['Materiale', 'Quantità'],
+        rows=[['=cmd|calc', 3], ['C45', 1]],
+    )
+    body = _consume_body(resp).decode('utf-8-sig')
+    lines = body.strip().splitlines()
+    assert lines[0] == 'Materiale;Quantità'          # header intatto
+    assert lines[1].startswith("'=cmd")               # cella ostile → testo
+    assert lines[2] == 'C45;1'                         # cella normale invariata

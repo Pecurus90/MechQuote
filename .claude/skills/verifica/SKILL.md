@@ -30,7 +30,10 @@ Ricorda all'utente di provare a mano il flusso concreto toccato dal cambio
 ## Note
 - venv su questa macchina: `backend/venv/Scripts/python.exe` (Git Bash accetta
   `venv/Scripts/python`).
-- Se il cambio tocca il **cost engine**, esegui anche i golden test (parità
-  backend↔frontend) oltre a `tests/unit`.
+- Se il cambio tocca il **cost engine** (`calculation.py` / `primitives.py` /
+  `quoteCalc.ts`), esegui anche il **golden frontend** oltre a `tests/unit`:
+  `cd frontend && npm test` (vitest, `cost-golden.test.ts`). Il pytest testa
+  solo il backend: senza questo, una rottura di parità nel gemello TS passa
+  inosservata.
 - Esito: elenca ✅/❌ per ogni passo. Verde su 1-2 (e 3 se pertinente) =
   requisito minimo per committare.

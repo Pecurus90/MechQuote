@@ -56,7 +56,7 @@ Per ogni modulo si compilano sempre questi punti:
 | 2 | [Editor preventivo (QuoteEditor)](#2-editor-preventivo) | ⬜ | — |
 | 3 | [Parti (Part)](#3-parti-part) | ⬜ | — |
 | 4 | [Fasi di lavorazione (Phase)](#4-fasi-di-lavorazione-phase) | ⬜ | — |
-| 5 | [Cost engine (gemello DRY back↔front)](#5-cost-engine) | ⬜ | — |
+| 5 | [Cost engine (gemello DRY back↔front)](#5-cost-engine) | ✅ | 2026-07-22 |
 | 6 | [Wire EDM — calcolo fase + wizard](#6-wire-edm-calcolo-fase) | ⬜ | — |
 | 7 | [Import/analisi DXF](#7-importanalisi-dxf) | ⬜ | — |
 | 8 | [Wizard creazione preventivo](#8-wizard-creazione-preventivo) | ⬜ | — |
@@ -225,7 +225,7 @@ _—_
 
 ## 5. Cost engine
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —  ·  ⚠️ ZONA FRAGILE (§0-quater)
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22  ·  ⚠️ ZONA FRAGILE (§0-quater)
 
 **Dove vive:** `backend/app/services/calculation.py` (`recalculate_quote/part`) · `backend/app/services/costing/primitives.py` (formule pure) · `frontend/src/lib/quoteCalc.ts` (gemello) · golden test `tests/fixtures/cost_golden_cases.json`
 
@@ -240,14 +240,23 @@ _—_
 **Punti d'ingresso:** ogni endpoint che scrive Part/Phase/Quote; preview live nel frontend.
 
 **Checklist audit:**
-- [ ] **Correttezza** — parità golden back↔front verde? Arrotondamenti half-up (F11) coerenti? Nessun doppio arrotondamento (C4)?
-- [ ] **Vicoli ciechi** — batch trattamento = 0 (stato transitorio): il warning arriva e il valore non "si incrosta"?
-- [ ] **Bug noti/sospetti** — margine/sconto negativi → prezzi negativi al PDF (Blocco A, verificare floor); errore centesimi qty alte (Blocco C).
-- [ ] **Riuso & DRY** — `primitives.py` è l'unica fonte; ogni modifica replicata nel gemello frontend nello STESSO commit? Cercare formule reimplementate a mano fuori dai due punti.
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ parità gemelli solida. `primitives.py` ↔ `quoteCalc.ts` allineati su material/phase/part/quote/treatment; rete golden a **due gambe** (`test_cost_golden.py` pytest + `cost-golden.test.ts` vitest, stesso `tests/fixtures/cost_golden_cases.json`). Half-up (F11) coerente anche sui negativi; C4 rispettato (`total_price = round2(base×qty)` da base non arrotondata). Margine: backend `if margin is None` == frontend `??` (0% parte NON ricade su global) → nessuna divergenza `or`/`??`. Aggregazioni commessa (batch trattamento per `(treatment,material)`, spedizioni per supplier, override magazzino) coerenti su entrambi i lati.
+- [x] **Vicoli ciechi** — ✅ batch/peso = 0 → costo 0 con warning rosso lato frontend (gemello documentato `calculation.py:425-432` ↔ `quoteCalc.ts:86-93`). Nessuno stato che "si incrosta".
+- [x] **Bug noti/sospetti** — vedi **F1/F2** sotto (floor mancante nella formula pura; rounding trattamento asimmetrico).
+- [x] **Riuso & DRY** — backend fonte unica OK; **F4**: terza copia rate/setup in PartCard (breakdown display).
+- [x] **Migliorie** — vedi **F3** (golden frontend fuori dal loop §7) e nota doc §4.
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Il cost engine è in **buono stato**: nucleo puro unico backend (`primitives.py`), `calculation.py` compone senza reimplementare, e la parità col frontend è protetta da golden test su entrambi i lati. Nessun bug di calcolo trovato. Rilievi (nessuno bloccante):
+
+- **F1 — floor prezzi solo a input, non nella formula pura.** `part_totals`: `base = max(total_cost, minimum) × (1 + margin/100)` — `margin < −100` → prezzo negativo; `quote_total` con sconto > 100% → totale negativo. Il floor "margine 0%" vive a livello UI/schema, non nella primitiva: un percorso che bypassa la validazione (import backup, scrittura diretta) arriva a prezzi negativi fino al PDF. → proposta Blocco A (clamp difensivo nelle primitive).
+- **F2 — rounding trattamento asimmetrico.** Backend `treatment_cost_per_part` → `round4(share/qty)`; frontend `calcTreatmentCost` ritorna `partShare/qty` **non arrotondato**. Divergenza ≤ 0.0001 €, assorbita dalla tolleranza golden, ma i gemelli non sono byte-identici come dichiarato. Fix: `round4` anche nel frontend. → Blocco C (cosmetico).
+- **F3 — golden frontend fuori dalla verifica §7.** `frontend/tests/unit/cost-golden.test.ts` (vitest) esiste ma §7/`/verifica` girano solo `pytest` + `tsc`: una rottura di parità in `quoteCalc.ts` passerebbe inosservata. → aggiungere `cd frontend && npm test` alla §7 quando si tocca il cost engine (+ skill `/verifica`).
+- **F4 — terza copia rate/setup in PartCard (§0-quater confermato).** `PartCard.tsx:116-121` ri-risolve a mano `workRate`/`setupRate` e ricalcola `setup_hours×setupRate/qty` per il breakdown setup↔ciclo. È **display-only** (il totale autoritativo è `p.calculated_cost`) e oggi consistente, ma è il terzo punto da tenere allineato. Nota positiva: **PhaseEditor NON reimplementa** (delega a `calcPhaseCost`). Mitigazione: esporre da `quoteCalc` una `resolveRates()` + `phaseSetupCost()` riusate dal breakdown → la copia diventa riuso. → Blocco C (riduzione debito).
+- **Doc — nota stale in CLAUDE.md §4.** Afferma "unit_price arrotondato poi × quantity → errore centesimi per qty alte (Blocco C)": il codice fa `round2(base×qty)` da base non arrotondata, l'errore **non esiste più** (C4 risolto). Aggiornare la nota §4.
+
+→ Voci proposte per `MECHQUOTE_LISTA_LAVORI.md`: **F1** (Blocco A), **F2/F3/F4** (Blocco C), fix nota doc §4. Nessuna eseguita (audit read-only).
 
 ---
 

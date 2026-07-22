@@ -453,11 +453,13 @@ total_price  = unit_price × quantity
 Margine: `part.margin_percent ?? quote.global_margin_percent`.
 
 > Nota dalle ricognizioni: oggi `margin_percent` e `global_discount_percent`
-> non hanno limiti — un margine fortemente negativo o uno sconto > 100%
-> produce prezzi negativi che arrivano al PDF. L'aggiunta dei vincoli è in
-> lista lavori, Blocco A. Inoltre `unit_price` viene arrotondato e poi
-> moltiplicato per `quantity`: per qty alte si accumula un errore di
-> centesimi (vedi lista lavori, Blocco C).
+> non hanno limiti **nella formula pura** — un margine fortemente negativo o
+> uno sconto > 100% produce prezzi negativi che arrivano al PDF (il floor
+> "margine 0%" vive a livello input, non nelle primitive). L'aggiunta del
+> clamp difensivo è in lista lavori, Blocco A (audit §5 F1).
+> Il doppio arrotondamento su qty alte è invece **risolto** (C4:
+> `total_price = round2(base × qty)` da base non arrotondata — niente più
+> `unit_price` arrotondato poi moltiplicato).
 
 **Default operativi** (popolati al `POST /quotes` da `CompanySettings`):
 - `default_margin_percent` → `Quote.global_margin_percent`
@@ -546,6 +548,11 @@ cd backend && venv/bin/python -c "from app.main import app; print('OK')"
 
 # 3. Test automatici (se il cambio tocca calcoli, modelli o API)
 cd backend && venv/bin/python -m pytest tests/unit -x
+
+# 3-bis. Se il cambio tocca il COST ENGINE (calculation.py / primitives.py /
+# quoteCalc.ts): gira ANCHE il golden frontend, o una rottura di parità
+# backend↔frontend passa inosservata (pytest testa solo il backend).
+cd frontend && npm test
 
 # 4. (sempre) prova manuale del flusso toccato dal cambio
 ```

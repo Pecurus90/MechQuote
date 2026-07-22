@@ -17,6 +17,37 @@
 
 ---
 
+## 🔍 AUDIT FUNZIONALE — findings (registro `docs/audit/AUDIT_FUNZIONALE.md`)
+
+Voci emerse eseguendo gli audit per-modulo. Ogni fix si affronta uno alla
+volta, con verifica. Il registro è la fonte dello stato di copertura.
+
+### §5 Cost engine — audit 2026-07-22 (motore solido, nessun bug di calcolo)
+
+- **F1 — clamp difensivo prezzi nelle primitive** *(Blocco A)*. `part_totals` e
+  `quote_total` non hanno floor nella formula pura: `margin < −100%` o sconto
+  `> 100%` (via import backup / scrittura diretta che bypassa la validazione
+  input) producono prezzi negativi fino al PDF. Aggiungere un clamp in
+  `costing/primitives.py`. ⚠️ Zona fragile + **decisione di prodotto**: definire
+  il floor (margine min? sconto max 100%?) con l'utente prima di implementare.
+- **F2 — parità rounding trattamento** *(Blocco C, cosmetico)*.
+  `quoteCalc.calcTreatmentCost` ritorna il valore **non arrotondato**; il backend
+  `treatment_cost_per_part` fa `round4`. Divergenza ≤ 0,0001 € (assorbita dalla
+  tolleranza golden) ma i gemelli non sono byte-identici. Fix: `round4` anche nel
+  frontend, stesso commit, rigirare i golden.
+- **F4 — terza copia rate/setup in PartCard** *(Blocco C, riduzione debito)*.
+  `PartCard.tsx:116-121` ri-risolve a mano `workRate`/`setupRate` per il breakdown
+  setup↔ciclo (display-only, §0-quater). Esporre da `quoteCalc` `resolveRates()` +
+  `phaseSetupCost()` e riusarle così la copia diventa riuso. Refactor → concordare
+  prima (§2.D).
+- **F3 — golden frontend nella verifica** ✅ **FATTO 2026-07-22**: aggiunto
+  `cd frontend && npm test` alla §7 e alla skill `/verifica` (il pytest testa solo
+  il backend; senza, una rottura di parità in `quoteCalc.ts` passava inosservata).
+- **Doc §4 stale** ✅ **FATTO 2026-07-22**: corretta la nota su "errore centesimi
+  per qty alte" (già risolto da C4); mantenuta la parte prezzi negativi (→ F1).
+
+---
+
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)
 
 Ordine di esecuzione approvato dall'utente il 2026-07-02, che accorpa una

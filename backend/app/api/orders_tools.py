@@ -293,3 +293,25 @@ def get_tool_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orde
     ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"UO{order.id:04d}"
     filename = f"{ts}_{sanitize_filename_part(order.supplier_name)}.csv"
     return csv_export_response(filename=filename, columns=_CSV_COLUMNS, rows=rows)
+
+
+@router.get("/{order_id}/items")
+def get_tool_order_items(order_id: int, db: Session = Depends(get_db), _=_can_orders_tools):
+    """Righe (utensili) di un ordine per il dettaglio espandibile dello storico.
+    Tutto da snapshot (codice/tipo/marca/modello/Ø + quantità al momento)."""
+    order = db.query(ToolOrder).options(
+        joinedload(ToolOrder.items)
+    ).filter(ToolOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+    items = [{
+        "code": it.code_snapshot,
+        "tool_type": it.tool_type_snapshot or "",
+        "brand": it.brand_snapshot or "",
+        "model": it.model_snapshot or "",
+        "diameter_mm": it.diameter_snapshot,
+        "quantity_at_time": it.quantity_at_time,
+        "minimum_at_time": it.minimum_at_time,
+        "quantity_to_order": it.quantity_to_order,
+    } for it in order.items]
+    return {"order_id": order.id, "supplier_name": order.supplier_name, "items": items}

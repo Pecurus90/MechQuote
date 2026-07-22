@@ -143,6 +143,24 @@ def _request_item_weight_kg(it: MaterialRequestItem, mat: Optional[Material]) ->
     return (vol / 1_000_000) * mat.density_kg_dm3 * qty
 
 
+def material_item_weight_cost(it, mat: Optional[Material]) -> Tuple[float, float]:
+    """(kg, €) di una riga ordine/richiesta materiale — FONTE UNICA riusata da
+    statistiche materiali e dallo storico ordini.
+
+    Peso = volume grezzo × densità × qty; costo = kg × €/kg × scrap del materiale
+    abbinato (coerente con `material_cost` delle parti). (0.0, 0.0) se manca il
+    materiale a catalogo / densità / prezzo (→ "—" in UI). Duck-typed sulla riga:
+    funziona su MaterialRequestItem e MaterialOrderItem (stessi campi dimensione).
+    """
+    kg = _request_item_weight_kg(it, mat)
+    if mat and mat.cost_per_kg and kg:
+        scrap = 1 + (mat.default_scrap_percent or 10) / 100
+        cost = kg * mat.cost_per_kg * scrap
+    else:
+        cost = 0.0
+    return kg, cost
+
+
 def aggregate_materials(quote_ids: List[int], db: Session,
                         request_ids: Optional[List[int]] = None) -> MaterialAggregateOut:
     """Aggrega i materiali grezzi da preventivi + richieste materiale manuali.
@@ -873,6 +891,34 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     ts = order.created_at.strftime('%Y%m%d_%H%M') if order.created_at else f"MO{order.id:04d}"
     filename = f"{ts}_{sanitize_filename_part(order.supplier_name)}.csv"
     return csv_export_response(filename=filename, columns=_MAT_CSV_COLUMNS, rows=rows)
+
+
+@router.get("/{order_id}/items")
+def get_order_items(order_id: int, db: Session = Depends(get_db), _=_can_orders):
+    """Righe (item) di un ordine materiale per il dettaglio espandibile dello
+    storico. Riferimento, materiale, forma, misure grezzo dallo snapshot; peso e
+    costo calcolati dal materiale abbinato (helper unico material_item_weight_cost).
+    Item senza materiale a catalogo → peso/costo None ("—" in UI)."""
+    order = db.query(MaterialOrder).options(
+        joinedload(MaterialOrder.items)
+    ).filter(MaterialOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+    mat_ids = {it.material_id for it in order.items if it.material_id}
+    mats = {m.id: m for m in db.query(Material).filter(Material.id.in_(mat_ids)).all()} if mat_ids else {}
+    items = []
+    for it in order.items:
+        kg, cost = material_item_weight_cost(it, mats.get(it.material_id))
+        items.append({
+            "reference": it.part_code or "",
+            "material_name": it.material_name or "",
+            "shape": it.shape or "prismatico",
+            "dimensions": _file_item_dim(it),
+            "quantity": it.quantity or 1,
+            "weight_kg": round(kg, 2) if kg else None,
+            "material_cost": round(cost, 2) if cost else None,
+        })
+    return {"order_id": order.id, "supplier_name": order.supplier_name, "items": items}
 
 
 def _shape_label_it(shape: Optional[str]) -> str:

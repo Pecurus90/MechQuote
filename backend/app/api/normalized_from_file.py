@@ -277,6 +277,34 @@ def get_order_csv(order_id: int, db: Session = Depends(get_db), _=_can_orders):
     return csv_export_response(filename=fname, columns=_CSV_COLUMNS, rows=rows)
 
 
+@router.get("/{order_id}/items")
+def get_normalized_order_items(order_id: int, db: Session = Depends(get_db), _=_can_orders):
+    """Righe di un ordine normalizzati per il dettaglio espandibile dello storico.
+    Riferimento/articolo/descrizione/quantità dallo snapshot; costo = prezzo
+    unitario a catalogo (se abbinato) × quantità."""
+    order = db.query(NormalizedOrder).options(
+        joinedload(NormalizedOrder.items)
+    ).filter(NormalizedOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Ordine non trovato")
+    item_ids = {it.normalized_item_id for it in order.items if it.normalized_item_id}
+    prices = {n.id: n.unit_price for n in db.query(NormalizedItem).filter(
+        NormalizedItem.id.in_(item_ids)).all()} if item_ids else {}
+    items = []
+    for it in order.items:
+        unit = prices.get(it.normalized_item_id)
+        qty = it.quantity or 1
+        items.append({
+            "reference": it.reference or "",
+            "article": it.article or "",
+            "description": it.description or "",
+            "quantity": qty,
+            "unit_price": round(unit, 4) if unit else None,
+            "cost": round(unit * qty, 2) if unit else None,
+        })
+    return {"order_id": order.id, "supplier_name": order.supplier_name, "items": items}
+
+
 @router.delete("/{order_id}")
 def delete_order(order_id: int, db: Session = Depends(get_db),
                  current_user: User = Depends(get_current_user), _=_can_orders):

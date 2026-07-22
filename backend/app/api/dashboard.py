@@ -770,7 +770,7 @@ def get_materials_stats(
     # materiale abbinato (scrap incluso nel costo, come per le parti). Una riga
     # SENZA materiale a catalogo resta senza kg/€ (nessuna densità/prezzo noti).
     # Filtri supplier_id/family applicati qui.
-    from app.api.orders import _request_item_weight_kg
+    from app.api.orders import material_item_weight_cost
 
     items_q = (
         db.query(MaterialOrderItem, MaterialOrder.material_supplier_id,
@@ -796,12 +796,7 @@ def get_materials_stats(
         mat = mats.get(it.material_id)
         if family and (not mat or (mat.family or '') != family):
             continue
-        kg = _request_item_weight_kg(it, mat)
-        if mat and mat.cost_per_kg and kg:
-            scrap = 1 + (mat.default_scrap_percent or 10) / 100
-            cost = kg * mat.cost_per_kg * scrap
-        else:
-            cost = 0.0
+        kg, cost = material_item_weight_cost(it, mat)
         # Fornitore: quello dell'ordine (snapshot spec 18).
         s = sup_agg.setdefault(order_sid, {
             'name': order_sname or 'Senza fornitore', 'cost': 0.0, 'kg': 0.0,

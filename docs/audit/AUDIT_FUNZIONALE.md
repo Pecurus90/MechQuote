@@ -64,8 +64,8 @@ Per ogni modulo si compilano sempre questi punti:
 | 10 | [Ordini materiali (pool + aggregazione)](#10-ordini-materiali) | ✅ | 2026-07-22 |
 | 11 | [Richieste materiale manuali / da file](#11-richieste-materiale) | ✅ | 2026-07-22 |
 | 12 | [Ordini normalizzati](#12-ordini-normalizzati) | ⬜ | — |
-| 13 | [Ordini utensili](#13-ordini-utensili) | ⬜ | — |
-| 14 | [Anagrafica utensili + attributi + scan](#14-anagrafica-utensili) | ⬜ | — |
+| 13 | [Ordini utensili](#13-ordini-utensili) | ✅ | 2026-07-22 |
+| 14 | [Anagrafica utensili + attributi + scan](#14-anagrafica-utensili) | ✅ | 2026-07-22 |
 | 15 | [Catalogo materiali + fornitori grezzi](#15-catalogo-materiali) | ⬜ | — |
 | 16 | [Catalogo lavorazioni / macchine / trattamenti](#16-catalogo-lavorazioni-macchine-trattamenti) | ⬜ | — |
 | 17 | [Workflow template (sequenze fasi)](#17-workflow-template) | ⬜ | — |
@@ -499,7 +499,7 @@ _—_
 
 ## 13. Ordini utensili
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/orders_tools.py` · `frontend/src/pages/orders/OrdersToolsPage.tsx` (+ ToolOrdersView) · `OrdersHistoryPage.tsx`
 
@@ -514,20 +514,21 @@ _—_
 **Punti d'ingresso:** Sidebar → Ordini utensili; Storico ordini.
 
 **Checklist audit:**
-- [ ] **Correttezza** — preview senza persistenza; snapshot al momento ordine; soglia low-stock corretta.
-- [ ] **Vicoli ciechi** — utensili sotto scorta senza fornitore: avviso e via d'uscita?
-- [ ] **Bug noti/sospetti** — KPI vs realtà; delete ordine.
-- [ ] **Riuso & DRY** — OrdersHistoryView unifica i 3 tipi di ordine o triplica la logica?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ `preview` pura (no side-effect), snapshot completo al momento ordine (code/brand/qty/min), CSV dallo snapshot (storico stabile), notifica atomica (F7). `quantity_to_order = max(min − qty, 1)`. Soglia low-stock coerente ovunque (`qty < min AND min > 0`).
+- [x] **Vicoli ciechi** — ✅ utensili senza fornitore → gruppo "Senza fornitore" non ordinabile (preview lo mostra); nessun materiale sotto minimo → 400 chiaro.
+- [x] **Bug noti/sospetti** — nessuno. L'ordine utensili è uno **snapshot puro**: non tocca lo stock (lo stock cambia solo via scan), quindi il delete è un cascade netto senza riconciliazione — corretto.
+- [x] **Riuso & DRY** — CSV via `csv_export_response` (ora J2-protetto). Ricerca coerente con orders materiali.
+- [x] **Migliorie** — nessuna.
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Modulo **pulito, nessun bug**. Design corretto: ordine = documento "da ordinare" snapshottato, indipendente dallo stock (che si muove solo con lo scan). KPI a conteggi semplici (nessun N+1, a differenza di §10). Nessuna voce di lavoro.
 
 ---
 
 ## 14. Anagrafica utensili
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/tools.py` · `frontend/src/pages/ToolsPage.tsx` (+ ToolFormModal, ToolScanBar, ToolImportButtons) · `frontend/src/pages/settings/ToolAttributesPage.tsx`
 
@@ -543,14 +544,21 @@ _—_
 **Punti d'ingresso:** Sidebar → Utensili; Impostazioni → Attributi utensili; badge sotto scorta.
 
 **Checklist audit:**
-- [ ] **Correttezza** — cascade rename attributi aggiorna tutte le child (stringa libera)? Scan non porta quantità negativa?
-- [ ] **Vicoli ciechi** — scan di codice inesistente; delete attributo in uso.
-- [ ] **Bug noti/sospetti** — `block_if_in_use` su delete attributo/fornitore; codice duplicato.
-- [ ] **Riuso & DRY** — factory `_mount_tool_attribute_crud` copre tutti e 3 gli attributi? ToolScanBar riusabile altrove?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ factory `_mount_tool_attribute_crud` monta i 3 CRUD con **whitelist** su `tool_column` prima dell'interpolazione in `text()` (no SQL injection). Scan: `max(qty + delta, 0)` (mai negativo). Delete fornitore/attributo bloccato se in uso. Import a validazione stretta (tipo/marca/loc devono esistere; no auto-create). **MA** vedi K1/K3 (case).
+- [x] **Vicoli ciechi** — ✅ scan codice inesistente → 404 chiaro; delete attributo in uso → 400 con conteggio.
+- [x] **Bug noti/sospetti** — **K1** (cascade/delete case-sensitive vs valori Tool con case diverso), **K3** (scan `.upper()` vs create non normalizzato).
+- [x] **Riuso & DRY** — ✅ factory copre i 3 attributi (ottimo pattern). `list/create/update_tool` ricaricano con `joinedload(tool_supplier)` (piccola ripetizione ×3, trascurabile).
+- [x] **Migliorie** — normalizzare il case (K1/K3).
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Modulo ben strutturato (factory attributi con whitelist SQL, import stretto, scan con floor). Due problemi reali di **normalizzazione case** (edge ma concreti):
+
+- **K1 — cascade rename e delete-in-use case-sensitive** *(integrità dati)*. Il cascade rename (`UPDATE tools SET {col} = :new WHERE {col} = :old`) e il count delete-in-use (`WHERE {col} = :name`) usano match **esatto**, mentre i valori su `Tool` possono avere case diverso dal nome canonico dell'attributo (l'import salva il case del CSV: `v.lower() in allowed` valida, ma memorizza `v`; il create non normalizza). Es.: catalogo "Fresa", tool con `tool_type="fresa"` → rinominando "Fresa" il tool resta "fresa" (valore orfano); e "Fresa" risulterebbe eliminabile pur essendo in uso. Fix: normalizzare `Tool.tool_type/brand/location` al nome canonico su create/import, **oppure** confrontare case-insensitive nel cascade/count. → Blocco C.
+- **K3 — scan normalizza il case, create no** *(UX)*. `scan_tool` fa `code.strip().upper()` ma `create_tool` salva il codice così com'è: un utensile con codice minuscolo/misto (`ut-5`) non è scansionabile (lo scan cerca `UT-5` → 404). Se esiste una convenzione "codici maiuscoli" va imposta anche al create; altrimenti fare il match scan case-insensitive. → verificare convenzione con l'utente.
+- Minore: K2 (valori attributo su Tool come stringa libera non validati al create via API) è **by-design** (§5 "cataloghi via stringa libera"); il cascade è il meccanismo di sync — reso però fragile da K1.
+
+→ Voci proposte per `LISTA_LAVORI`: **K1** (integrità, Blocco C), **K3** (UX + decisione convenzione codice). Nessuna eseguita (audit read-only).
 
 ---
 ---

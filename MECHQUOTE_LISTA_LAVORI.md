@@ -103,6 +103,24 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
   `await file.read()` carica l'intero CSV in memoria senza limite (gli altri upload
   cappano a 50 MB). Aggiungere un cap coerente.
 
+### §13 Ordini utensili — audit 2026-07-22 (pulito, nessun bug)
+
+- Nessuna voce. Design corretto (snapshot puro, delete cascade netto, nessuna
+  riconciliazione perché l'ordine non tocca lo stock).
+
+### §14 Anagrafica utensili — audit 2026-07-22 (2 problemi di case)
+
+- **K1 — cascade rename / delete-in-use case-sensitive** *(Blocco C, integrità)*.
+  `UPDATE tools SET {col}=:new WHERE {col}=:old` e il count in-use usano match
+  esatto, ma i valori su `Tool` possono avere case diverso dal nome canonico
+  (l'import salva il case del CSV). → valore orfano su rename, o delete di un
+  attributo "in uso" non rilevato. Fix: normalizzare `Tool.tool_type/brand/location`
+  al canonico su create/import, oppure confronto case-insensitive.
+- **K3 — scan `.upper()` vs create non normalizzato** *(UX + decisione)*. `scan_tool`
+  fa `code.upper()` ma `create_tool` salva il codice grezzo: un utensile con codice
+  minuscolo non è scansionabile. Imporre codici maiuscoli al create o match scan
+  case-insensitive. Verificare la convenzione codice con l'utente.
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

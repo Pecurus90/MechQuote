@@ -63,6 +63,28 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
   UPDATE-guardato + rowcount di `mark_quote_read` (già race-safe), in attesa
   dell'optimistic lock completo di spec 21.
 
+### §3 Parti — audit 2026-07-22 (molto solido; sicurezza upload completa)
+
+- **H1 — `duplicate_part` copia `dxf_profile_ids` senza il file DXF** *(Blocco C)*.
+  Dangling reference: i profili puntano al DXF della sorgente, assente sul
+  duplicato (`clone_part_onto` lo evita di proposito con `None`). Costo preservato
+  (`cut_length_mm`), solo il riferimento profili resta stale. Fix → azzerare in
+  duplicate (risolto da H3).
+- **H3 — unificare i due percorsi clone-fase** *(Blocco C, DRY, risolve H1)*.
+  `duplicate_part` copia le fasi inline; `clone_part_onto` usa `_clone_phase`.
+  Far usare `_clone_phase` anche a duplicate chiude H1. Refactor → concordare.
+- **H2 — helper `_load_part_full`** *(Blocco C, DRY)*. Blocco `joinedload` PartOut
+  ripetuto 4× (add/get/update/duplicate) — estrarre come `quotes._load_quote`.
+- Minore: verificare in `models.py` che il cascade delete di `Part` faccia
+  scattare il listener `before_delete` di `PartFile` (cleanup blob), altrimenti
+  orfani su `delete_part`.
+
+### §4 Fasi — audit 2026-07-22 (pulito, nessun bug)
+
+- Nessuna voce di lavoro. Solo nota di robustezza: `reorder_phases` non valida che
+  la lista id copra tutte le fasi (lista parziale → gap `sequence_number`); non è
+  un problema oggi (l'editor manda sempre la lista completa).
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

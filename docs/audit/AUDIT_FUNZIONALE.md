@@ -54,8 +54,8 @@ Per ogni modulo si compilano sempre questi punti:
 |---|------------------|-------|--------------|
 | 1 | [Ciclo di vita preventivo (stati/workflow)](#1-ciclo-di-vita-preventivo) | ✅ | 2026-07-22 |
 | 2 | [Editor preventivo (QuoteEditor)](#2-editor-preventivo) | ⬜ | — |
-| 3 | [Parti (Part)](#3-parti-part) | ⬜ | — |
-| 4 | [Fasi di lavorazione (Phase)](#4-fasi-di-lavorazione-phase) | ⬜ | — |
+| 3 | [Parti (Part)](#3-parti-part) | ✅ | 2026-07-22 |
+| 4 | [Fasi di lavorazione (Phase)](#4-fasi-di-lavorazione-phase) | ✅ | 2026-07-22 |
 | 5 | [Cost engine (gemello DRY back↔front)](#5-cost-engine) | ✅ | 2026-07-22 |
 | 6 | [Wire EDM — calcolo fase + wizard](#6-wire-edm-calcolo-fase) | ⬜ | — |
 | 7 | [Import/analisi DXF](#7-importanalisi-dxf) | ⬜ | — |
@@ -172,7 +172,7 @@ _—_
 
 ## 3. Parti (Part)
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/parts.py` · `frontend/src/components/quotes/PartCard.tsx` (+ PartCardView, PartCostSummary, PartAttachments, ClonePartModal)
 
@@ -190,20 +190,28 @@ _—_
 **Punti d'ingresso:** PartCard nell'editor.
 
 **Checklist audit:**
-- [ ] **Correttezza** — `recalculate_part` chiamato dopo OGNI write (§5)? Riconciliazione stato materiale sempre coerente (delete/modifica su quote bloccato)?
-- [ ] **Vicoli ciechi** — clona verso altro preventivo: sempre raggiungibile e reversibile? Upload fallito lascia blob orfano?
-- [ ] **Bug noti/sospetti** — validazione file oggi per estensione vs magic-byte (verificare stato post sprint sicurezza); guardia edit su quote bloccato.
-- [ ] **Riuso & DRY** — `calcMaterialCost` gemello unico usato ovunque? PartCard vs PartCardView: duplicazione presentazione?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ ogni write (add/update/delete/duplicate/clone-onto) ha `ensure_editable` + `recalculate` + `_reconcile_after_write`. Guard spec-18 `_assert_material_supplier_ok` (con rollback) su add/update. `delete_part` salva `quote_id` prima del delete e ricalcola l'intero quote (siblings). `get_part`/`get_part_file` con ACL `ensure_quote_visible` (AUD-23).
+- [x] **Vicoli ciechi** — ✅ `clone-onto` valida target (esistono, stesso preventivo, source≠target) con messaggi chiari. Upload oversize → cleanup blob + 413.
+- [x] **Bug noti/sospetti** — ✅ validazione file **risolta**: whitelist estensioni (AUD-24, no .svg/.html → stored XSS) **+ magic-byte** (`content_matches_ext`) + cap 50MB streaming + uuid prefix + servito da endpoint autenticato (non dal mount statico). **H1** (clone dxf_profile_ids dangling) sotto.
+- [x] **Riuso & DRY** — **H2** (blocco joinedload PartOut ripetuto 4×) e **H3** (due percorsi clone-fase).
+- [x] **Migliorie** — vedi H2/H3.
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Modulo **molto solido**, denso di fix d'audit già applicati (ACL per-id, XSS upload, provenienza A1, guardie spec-18). Sicurezza upload completa. Rilievi:
+
+- **H1 — `duplicate_part` copia `dxf_profile_ids` senza il file DXF** *(incoerenza reale)*. `duplicate_part` (riga ~290) copia `dxf_profile_ids=ph.dxf_profile_ids` ma **non** copia i `PartFile` → i profili puntano al DXF della parte sorgente, assente sul duplicato (dangling reference). È esattamente ciò che `clone_part_onto`/`_clone_phase` evita di proposito (`dxf_profile_ids=None`, con commento). Il costo è preservato (`cut_length_mm` copiato), è solo il riferimento profili a restare stale. Fix: azzerare `dxf_profile_ids` anche in duplicate (→ risolto da H3). → Blocco C.
+- **H3 — due percorsi di clone-fase divergenti** *(DRY, risolve H1)*. `duplicate_part` copia le fasi **inline** (righe 266-292); `clone_part_onto` usa l'helper `_clone_phase`. Divergono proprio su `dxf_profile_ids` (H1). Far usare `_clone_phase` anche a `duplicate_part` unifica e chiude H1. Refactor → concordare (§2.D).
+- **H2 — blocco joinedload PartOut ripetuto 4×** *(DRY)*. Lo stesso `options(joinedload(phases→machine/operation/treatment/supplier), material, files)` è copiato in add/get/update/duplicate. Il commento cita "stesso pattern in `quotes._load_quote`" ma l'helper non è applicato qui. Estrarre `_load_part_full(part_id, db)`. → Blocco C.
+- Minore: cleanup blob su `delete_part` (cascade PartFile) dipende dal listener `before_delete` ORM — ok sul path `delete_file`; verificare che il cascade su `delete_part` faccia scattare l'evento (altrimenti blob orfani). Da confermare in `models.py`.
+
+→ Voci proposte per `LISTA_LAVORI`: **H1/H2/H3** (Blocco C). Nessuna eseguita.
 
 ---
 
 ## 4. Fasi di lavorazione (Phase)
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/phases.py` · `frontend/src/components/quotes/PhaseEditor.tsx` (`calcPhase()`) + EdmPhaseFields
 
@@ -220,14 +228,15 @@ _—_
 **Punti d'ingresso:** PhaseEditor dentro PartCard.
 
 **Checklist audit:**
-- [ ] **Correttezza** — `calcPhase()` (front) == `phase_cost` (back) byte-per-byte? setup_rate fallback a work_rate quando NULL?
-- [ ] **Vicoli ciechi** — fase EDM che torna a 0 ore (manca velocità in tabella): l'avviso è chiaro e recuperabile?
-- [ ] **Bug noti/sospetti** — reorder concorrente; ricalcolo mancante su qualche path.
-- [ ] **Riuso & DRY** — la formula fase vive in 3 copie (calculation.py, PhaseEditor, PartCard setup): sono identiche? (§0-quater)
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ ogni write (add/update/delete) ha `ensure_editable` + `recalculate_part`; `_load_phase_with_catalog` con joinedload (no N+1). `reorder` NON ricalcola (corretto: l'ordine `sequence_number` non entra nel costo, che è una somma). Formula fase = §5 (già auditata: gemelli allineati).
+- [x] **Vicoli ciechi** — ✅ nessuno nel router (EDM warning è lato frontend, vedi §6).
+- [x] **Bug noti/sospetti** — nessuno. **Minore**: `reorder_phases` non valida che `phase_ids` copra tutte le fasi e salta gli id sconosciuti in silenzio → una lista parziale può lasciare gap/collisioni di `sequence_number`. Robustezza, non correttezza (l'editor manda sempre la lista completa).
+- [x] **Riuso & DRY** — ✅ la "terza copia" è già tracciata in §5 **F4** (PartCard breakdown); qui `phases.py` non reimplementa nulla.
+- [x] **Migliorie** — hardening `reorder` (validare set completo) se mai esposto ad altri client.
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+Router **pulito e corretto**, nessun bug. Piccolo file, disciplina §5 rispettata ovunque (ensure_editable + recalculate). L'unico rilievo è la robustezza di `reorder_phases` (lista parziale → gap sequence_number), oggi non un problema perché il solo client (l'editor) manda sempre la lista completa. Nessuna voce di lavoro necessaria; il debito DRY della formula fase è già coperto da §5/F4.
 
 ---
 

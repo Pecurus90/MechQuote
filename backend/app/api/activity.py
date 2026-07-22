@@ -57,7 +57,14 @@ def list_activity(
     """
     if page_size > 100:
         page_size = 100
-    query = db.query(Notification).options(joinedload(Notification.created_by))
+    # §28: il feed team mostra solo i broadcast per ruolo (target_user_id NULL).
+    # Le notifiche personali 1-a-1 (rimando in revisione, confermato/letto
+    # diretti a una persona) restano private nell'inbox del destinatario.
+    query = (
+        db.query(Notification)
+        .options(joinedload(Notification.created_by))
+        .filter(Notification.target_user_id.is_(None))
+    )
     if type:
         query = query.filter(Notification.type == type)
     if q and q.strip():

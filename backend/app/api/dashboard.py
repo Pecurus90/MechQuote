@@ -58,6 +58,11 @@ def get_activity(
     """
     notifications = (
         db.query(Notification)
+        # §28: solo eventi "di squadra" (broadcast per ruolo, target_user_id
+        # NULL). Le notifiche personali 1-a-1 (es. rimando in revisione,
+        # confermato/letto diretti a una persona) NON entrano nel feed comune;
+        # restano nell'inbox del destinatario.
+        .filter(Notification.target_user_id.is_(None))
         .order_by(Notification.created_at.desc())
         .limit(limit)
         .all()

@@ -790,6 +790,12 @@ Anche per una rete aziendale, alcuni accorgimenti minimi:
 - **SECRET_KEY** in `.env` (§3.2) deve essere una stringa casuale lunga. Se ti sei dimenticato di cambiarla, MechQuote si rifiuta di avviarsi con un dominio diverso da `localhost`.
 - **Password di `admin`** va cambiata al primo login. Non lasciare `admin`/`admin` in produzione. Crea un utente per ogni dipendente, niente login condivisi.
 - **Rate limit sui login**: MechQuote blocca dopo 5 tentativi falliti al minuto per IP. Protegge da chi prova a indovinare le password.
+- **Notifiche in tempo reale (SSE) — token negli access-log**: la rotta `/api/notifications/stream` riceve il token di sessione come parametro `?token=...` (il browser non può inviarlo come header su quella tecnologia). Il token finisce così negli access-log di Apache e uvicorn; siccome il token non scade, un log rubato = accesso. **Mitigazione consigliata**: escludere quella rotta dal log di Apache. In `httpd-vhosts.conf`, prima della direttiva `CustomLog`, aggiungi:
+  ```apache
+  SetEnvIf Request_URI "^/api/notifications/stream" mq_nolog=1
+  CustomLog "logs/access.log" combined env=!mq_nolog
+  ```
+  (Il log di uvicorn è nel file locale `logs/uvicorn.log`, protetto dagli accessi al server; se vuoi azzerarlo del tutto, aggiungi `--no-access-log` agli argomenti del servizio, ma perdi l'access-log di tutte le rotte.)
 - **Backup periodici** non solo automatici sul server: copia la cartella `C:\MechQuote\backups\` su NAS o disco esterno almeno settimanalmente.
 - **Aggiornamenti**: applica gli aggiornamenti di MechQuote (§10) periodicamente. Vengono inclusi fix di sicurezza.
 

@@ -159,12 +159,15 @@ N+1 (batch); §38 `numOrNull` → `parseDecimalOrNull`. (175 backend + tsc verdi
 Nessun bug che rompe l'uso. Voci ancora aperte, per priorità:
 
 **Sicurezza / decisioni**
-- **§27 SSE token in query param** *(media)*. `notifications.py` stream: il JWT in
-  query finisce negli access-log di uvicorn/proxy e **non scade** → leak permanente.
-  Fix: token effimero dedicato allo stream, o cookie, o filtrare il query param dai log.
-- **§28 feed Attività senza filtro destinatario** *(decisione di prodotto)*. `/activity`
-  e `/dashboard/activity` mostrano TUTTE le notifiche a chi ha `dashboard`. Confermare
-  che è voluto (feed di team) e che nessuna notifica 1-a-1 sensibile ci finisca.
+- **§27 SSE token in query param** ✅ **FATTO 2026-07-22** *(mitigazione a deploy,
+  scelta utente)*: documentato in `INSTALLAZIONE.md` §12 come escludere la rotta
+  `/api/notifications/stream` dagli access-log di Apache (`SetEnvIf` + `CustomLog
+  env=!`). Nessuna modifica al codice. (Resta la nota Blocco A: `exp` > 0 per un
+  eventuale deploy pubblico.)
+- **§28 feed Attività — personali filtrate** ✅ **FATTO 2026-07-22** *(scelta utente)*:
+  `activity.list_activity` e `dashboard.get_activity` filtrano `target_user_id IS NULL`
+  → il feed team mostra solo i broadcast per ruolo; le notifiche 1-a-1 (rimando in
+  revisione, confermato/letto) restano private nell'inbox. 2 test nuovi.
 
 **Correttezza / robustezza**
 - **§23 race `customer_number`** *(media)*. `max+1` read-then-write → create concorrenti

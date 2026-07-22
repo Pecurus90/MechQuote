@@ -80,9 +80,9 @@ Per ogni modulo si compilano sempre questi punti:
 | 26 | [Statistiche](#26-statistiche) | ⬜ | — |
 | 27 | [Notifiche (in-app + SSE)](#27-notifiche) | ⬜ | — |
 | 28 | [Attività (activity feed)](#28-attivita) | ⬜ | — |
-| 29 | [Auth / login / sessione](#29-auth-login-sessione) | ⬜ | — |
-| 30 | [Utenti](#30-utenti) | ⬜ | — |
-| 31 | [Ruoli & permessi (RBAC)](#31-ruoli-e-permessi) | ⬜ | — |
+| 29 | [Auth / login / sessione](#29-auth-login-sessione) | ✅ | 2026-07-22 |
+| 30 | [Utenti](#30-utenti) | ✅ | 2026-07-22 |
+| 31 | [Ruoli & permessi (RBAC)](#31-ruoli-e-permessi) | ✅ | 2026-07-22 |
 | 32 | [Dati azienda (CompanySettings)](#32-dati-azienda) | ⬜ | — |
 | 33 | [Categorie preventivo & regole colore](#33-categorie-e-colori) | ⬜ | — |
 | 34 | [Backup / restore](#34-backup-restore) | ⬜ | — |
@@ -996,7 +996,7 @@ _—_
 
 ## 29. Auth / login / sessione
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/auth.py` · `backend/app/core/security.py` · `frontend/src/lib/auth.tsx` · `frontend/src/pages/LoginPage.tsx`
 
@@ -1009,20 +1009,26 @@ _—_
 **Punti d'ingresso:** LoginPage; interceptor 401 → logout.
 
 **Checklist audit:**
-- [ ] **Correttezza** — rate limit efficace; token/permessi caricati bene; cambio password verifica la vecchia.
-- [ ] **Vicoli ciechi** — utente disattivato con token valido; ruolo cancellato (anti-lockout).
-- [ ] **Bug noti/sospetti** — token non scade (per server pubblico va >0); SECRET_KEY default.
-- [ ] **Riuso & DRY** — `hasPermission` unico gate lato client (niente `role=='admin'` sparso, §3)?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ login rate-limited (5/min), `verify_password` bcrypt, `is_active` bloccato al login; JWT decodificato con `algorithms=[algorithm]` (no alg-confusion); `get_user_from_token` ricontrolla `is_active` E ricarica i permessi **a ogni richiesta** → disattivazione utente e cambio permessi sono immediati anche senza scadenza token. `change_password` verifica la vecchia e impone `new != old`.
+- [x] **Vicoli ciechi** — ✅ utente disattivato → 401 immediato (check per-request); ruolo inesistente → anti-lockout admin (security.py) copre il caso "ruolo admin assente".
+- [x] **Bug noti/sospetti** — token non scade (design interno, per server pubblico va >0 — CLAUDE §3). **L2**: cambio password NON invalida i token già emessi (no versioning). **L1**: bcrypt tronca a 72 byte (minore).
+- [x] **Riuso & DRY** — ✅ `get_user_from_token` è il nucleo unico (header + SSE); `require_permission`/`require_any_permission` gate unico.
+- [x] **Migliorie** — vedi §30 (M4 password) e L2.
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+`security.py`/`auth.py` **solidi**. Difese giuste: rate-limit, algorithm ristretto, `is_active` e permessi ricaricati per-request (mitiga la non-scadenza del token). Rilievi minori/design:
+
+- **L2 — nessuna revoca token al cambio password** *(design, basso)*. Un token rubato resta valido dopo il cambio password (non c'è token-version). Mitigato dal check `is_active` per-request (disattivare l'utente invalida subito). Per un tool interno accettabile; per esposizione pubblica aggiungere `exp` > 0 + eventuale token-version.
+- **L1 — bcrypt tronca a 72 byte** *(minore)*. Password > 72 byte: la coda è ignorata (comportamento bcrypt). Nessun impatto pratico.
+
+→ Nessuna voce urgente qui; le azioni sono in §30 (M4) e la nota server (token `exp`) è già in `MECHQUOTE_LISTA_LAVORI.md` Blocco A.
 
 ---
 
 ## 30. Utenti
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/auth.py` (users) · `frontend/src/pages/settings/UsersPage.tsx`
 
@@ -1036,20 +1042,28 @@ _—_
 **Punti d'ingresso:** Impostazioni → Sistema → Utenti.
 
 **Checklist audit:**
-- [ ] **Correttezza** — anti-escalation (eccezione strutturale §3) rispettata; self-delete bloccato.
-- [ ] **Vicoli ciechi** — ultimo admin cancellabile? (lockout)
-- [ ] **Bug noti/sospetti** — username duplicato; ruolo inesistente.
-- [ ] **Riuso & DRY** — —
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ anti-escalation (`_guard_admin_role`: non-admin non assegna 'admin') e `_guard_modify_admin` (non-admin non tocca account admin) su create/update/delete. Self-delete bloccato. Username dup check. Lista cappata a 1000 (M5).
+- [x] **Vicoli ciechi** — **M1**: l'**ultimo admin** può auto-declassarsi/disattivarsi → lockout.
+- [x] **Bug noti/sospetti** — **M4** (password create senza min-length), **M3** (`/register` legacy).
+- [x] **Riuso & DRY** — ✅ guardie condivise; `/register` duplica `create_user` (M3).
+- [x] **Migliorie** — M4/M1.
 
-**Note audit (da compilare):**
+**Note audit (2026-07-22):**
+
+Gestione utenti **ben protetta** contro l'escalation (eccezioni strutturali §3 rispettate). Rilievi:
+
+- **M1 — nessuna protezione "ultimo admin"** *(lockout, medio)*. Il self-**delete** è bloccato, ma un admin può **auto-declassarsi** (`update_user` su sé stesso con `role != admin`) o **auto-disattivarsi** (`is_active=False`), oppure declassare/disattivare l'altro (unico) admin. Restare senza admin attivo blocca users/backup/company (recupero solo via script bootstrap). L'anti-lockout di `security.py` copre solo il caso "ruolo admin assente", non "nessun utente admin". Aggiungere una guardia: rifiutare l'operazione se lascerebbe 0 admin attivi.
+- **M4 — password create senza vincolo di lunghezza** *(sicurezza, basso-medio)*. `ChangePasswordIn.new_password` ha `min_length=8` ma `UserCreate.password` è `str` nudo → un admin può creare un utente con password di 1 carattere. Incoerente. Fix: `Field(min_length=8)` anche su `UserCreate.password` (1 riga).
+- **M3 — `/api/auth/register` legacy** *(pulizia)*. Duplica `create_user` ma ritorna un **token per l'utente creato** al chiamante (residuo da quando esisteva la self-registration). Gated `users`, ma è un artefatto: valutare la rimozione (la UI usa `POST /api/users`).
+
+→ Voci proposte per `LISTA_LAVORI`: **M1** (guardia ultimo-admin, Blocco A/B), **M4** (min-length, fix 1 riga), **M3** (cleanup). Nessuna eseguita (audit read-only).
 _—_
 
 ---
 
 ## 31. Ruoli e permessi
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/roles.py` · `backend/app/core/permissions.py` · `frontend/src/pages/settings/RolesPage.tsx`
 
@@ -1063,13 +1077,19 @@ _—_
 **Punti d'ingresso:** Impostazioni → Sistema → Ruoli e Permessi.
 
 **Checklist audit:**
-- [ ] **Correttezza** — ogni capacità = una chiave (niente hardcoded, §3); nuova chiave assegnata all'admin via migration.
-- [ ] **Vicoli ciechi** — ruolo senza permessi; delete ruolo assegnato.
-- [ ] **Bug noti/sospetti** — PERMISSION_GROUPS allineato a PERMISSION_KEYS (nessuna chiave orfana/mancante).
-- [ ] **Riuso & DRY** — `hasPermission`/`require_permission` unico meccanismo su ogni endpoint e componente protetto.
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ toggle singolo/bulk valida le chiavi contro `PERMISSION_KEYS` (rifiuta ignote); create_role slug + dup; delete_role bloccato se in uso; update_role NON permette il rename del `name` (giusto: è lo slug usato da `User.role`).
+- [x] **Vicoli ciechi** — **N1**: si può togliere `users` al ruolo admin → lockout dalla UI.
+- [x] **Bug noti/sospetti** — ✅ `PERMISSION_GROUPS` allineato a `PERMISSION_KEYS` (nessuna chiave orfana; le eventuali finiscono in "Altro"). Nessun `role=='admin'` hardcoded nella logica.
+- [x] **Riuso & DRY** — ✅ `require_permission` è il meccanismo unico; `PERMISSION_KEYS` fonte unica.
+- [x] **Migliorie** — N1 (guardia anti-lockout sui permessi critici).
 
-**Note audit (da compilare):**
+**Note audit (2026-07-22):**
+
+Sistema permessi **pulito e coerente** (chiavi validate, nessun gating hardcoded). Un rilievo di lockout, gemello di M1:
+
+- **N1 — permessi critici rimovibili dal ruolo admin via UI** *(lockout, medio)*. `toggle_permission`/`set_permissions_bulk` permettono di **togliere `users`** (o tutti i permessi) al ruolo admin: da lì nessuno può più gestire ruoli/utenti → lockout, recuperabile solo via script/DB. L'anti-lockout di `security.py` interviene solo se il ruolo admin **non esiste**, non se esiste con permessi ridotti. Aggiungere una guardia: impedire di rimuovere `users` se lascerebbe **zero ruoli** con quella chiave (o proteggere esplicitamente il ruolo `admin`). Coerente con M1 (stesso tema: non lasciare l'org senza chi amministra).
+
+→ Voce proposta per `LISTA_LAVORI`: **N1** (guardia anti-lockout permessi, insieme a M1). Nessuna eseguita (audit read-only).
 _—_
 
 ---

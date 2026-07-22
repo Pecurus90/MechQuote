@@ -121,6 +121,23 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
   minuscolo non è scansionabile. Imporre codici maiuscoli al create o match scan
   case-insensitive. Verificare la convenzione codice con l'utente.
 
+### §29–31 Sistema & Sicurezza — audit 2026-07-22 (solido; tema lockout)
+
+- **M1 + N1 — footgun di lockout admin** *(Blocco A/B, medio)*. (M1) Un admin può
+  auto-declassarsi/disattivarsi o declassare l'ultimo admin (`update_user`); il
+  self-*delete* è bloccato ma non il self-*demote*/*deactivate*. (N1) Dalla UI ruoli
+  si può togliere `users` al ruolo admin. In entrambi i casi si resta senza chi
+  amministra → recupero solo via script bootstrap. L'anti-lockout di `security.py`
+  copre solo "ruolo admin assente", non "zero admin/zero ruoli con users". Fix:
+  guardia che rifiuta l'operazione se lascerebbe 0 admin attivi / 0 ruoli con `users`.
+- **M4 — password create senza min-length** *(sicurezza, fix 1 riga)*.
+  `UserCreate.password` è `str` nudo mentre `ChangePasswordIn.new_password` ha
+  `min_length=8`. Aggiungere `Field(min_length=8)` a `UserCreate.password`.
+- **M3 — `/api/auth/register` legacy** *(pulizia)*. Duplica `create_user` e ritorna
+  un token per l'utente creato (residuo self-registration). Valutare la rimozione.
+- **L2 — token non revocato al cambio password** *(design, basso)*. Mitigato dal
+  check `is_active` per-request. Per esposizione pubblica: `exp` > 0 + token-version.
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

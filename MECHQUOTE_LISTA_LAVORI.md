@@ -92,6 +92,18 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
   `_quote_material_rows`: generatore condiviso "parti ordinabili raggruppate"
   (output diversi → priorità bassa).
 
+### §11 Richieste materiale — audit 2026-07-22 (pulito; 1 finding di sicurezza)
+
+- **J2 — CSV formula injection** ⚠️ *(SICUREZZA, cross-cutting, fix consigliato)*.
+  `csv_import._csv_streaming_response` (punto unico di TUTTI gli export CSV) non
+  neutralizza le celle che iniziano con `= + - @ \t \r`: un nome materiale/codice/
+  fornitore tipo `=HYPERLINK(...)` viene eseguito come formula in Excel da chi
+  apre l'ordine. Interno (autenticato) ma reale. Fix centrale a basso rischio:
+  prefissare con `'` quelle celle nel writer. Un punto copre tutti gli export.
+- **J1 — `parse_distinta` senza cap dimensione** *(Blocco C, robustezza)*.
+  `await file.read()` carica l'intero CSV in memoria senza limite (gli altri upload
+  cappano a 50 MB). Aggiungere un cap coerente.
+
 ---
 
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)

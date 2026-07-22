@@ -62,7 +62,7 @@ Per ogni modulo si compilano sempre questi punti:
 | 8 | [Wizard creazione preventivo](#8-wizard-creazione-preventivo) | ⬜ | — |
 | 9 | [Liste & archivio preventivi](#9-liste-e-archivio-preventivi) | ⬜ | — |
 | 10 | [Ordini materiali (pool + aggregazione)](#10-ordini-materiali) | ✅ | 2026-07-22 |
-| 11 | [Richieste materiale manuali / da file](#11-richieste-materiale) | ⬜ | — |
+| 11 | [Richieste materiale manuali / da file](#11-richieste-materiale) | ✅ | 2026-07-22 |
 | 12 | [Ordini normalizzati](#12-ordini-normalizzati) | ⬜ | — |
 | 13 | [Ordini utensili](#13-ordini-utensili) | ⬜ | — |
 | 14 | [Anagrafica utensili + attributi + scan](#14-anagrafica-utensili) | ⬜ | — |
@@ -434,7 +434,7 @@ Modulo **complesso ma molto solido** — denso di fix d'audit (idempotenza+UNIQU
 
 ## 11. Richieste materiale
 
-**Stato audit:** ⬜ DA FARE — Ultimo audit: —
+**Stato audit:** ✅ FATTO — Ultimo audit: 2026-07-22
 
 **Dove vive:** `backend/app/api/material_requests.py` · `backend/app/api/orders_from_file.py` · `frontend/src/pages/orders/OrdersMaterialFilePage.tsx` (+ MaterialsFileView, MaterialFormModal) · `frontend/src/lib/materialRows.ts`
 
@@ -451,14 +451,21 @@ Modulo **complesso ma molto solido** — denso di fix d'audit (idempotenza+UNIQU
 **Punti d'ingresso:** Sidebar → Nuovo ordine materiale.
 
 **Checklist audit:**
-- [ ] **Correttezza** — calcolo grezzo e abbinamento alias corretti? Righe evase in più ordini tracciate bene?
-- [ ] **Vicoli ciechi** — CSV non riconosciuto; materiale senza match e senza nuovo alias.
-- [ ] **Bug noti/sospetti** — parse header fragile su varianti SolidWorks; conto lavoro escluso.
-- [ ] **Riuso & DRY** — `materialRows.ts` usato sia da OrdersMaterialFilePage sia da RequestEditModal? `normalize_alias` unico tra materiali e normalizzati?
-- [ ] **Migliorie** —
+- [x] **Correttezza** — ✅ `material_requests.py`: validazione id catalogo (AUD-26) prima di scrivere, snapshot nome fornitore, `_assert_sendable` (fornitore + misure), update sostituisce solo le righe aperte (evase intoccate), delete bloccato se righe evase. `orders_from_file.py`: parse read-only (nessun write), decode utf-8/cp1252, header fuzzy, guardia delimitatore errato, calcolo grezzo (+5 / ceil×5), abbinamento alias→nome via `_norm` condiviso.
+- [x] **Vicoli ciechi** — ✅ header non riconosciuto / delimitatore errato → 400 chiari; materiale senza match → riga con `needs_material=True` (l'utente abbina/impara alias). Nessun flusso morto.
+- [x] **Bug noti/sospetti** — **J1** (parse senza cap dimensione) sotto; **J2** (CSV injection, cross-cutting). Header parse robusto (tollera markup SolidWorks). Minore: `qty = int(qty_raw)` tronca una qty frazionaria di distinta (raro; BOM sono interi).
+- [x] **Riuso & DRY** — ✅ `_norm`/`normalize_alias` fonte unica; `_REQUIRED_DIMS`/`_row_missing_dims` riusati da material_requests. (La condivisione parser con normalized-from-file → verificare in §12/§18.)
+- [x] **Migliorie** — J1 (cap), J2 (neutralizzare injection).
 
-**Note audit (da compilare):**
-_—_
+**Note audit (2026-07-22):**
+
+`material_requests.py` **pulito, nessun bug**. `orders_from_file.py` ben fatto (parse difensivo). Due rilievi, uno di sicurezza:
+
+- **J2 — CSV formula injection (SICUREZZA, cross-cutting)** ⚠️. `csv_import._csv_streaming_response` (il **punto unico** di TUTTI gli export CSV: ordini materiali/utensili/normalizzati, template, cataloghi) scrive le celle con `csv.writer` **senza neutralizzare** i valori che iniziano con `= + - @ \t \r`. Un nome materiale/codice/fornitore (o un `material_name` dalla distinta) tipo `=HYPERLINK("http://evil","x")` finisce nel CSV ed è **eseguito come formula** all'apertura in Excel/LibreOffice da chi processa gli ordini. MechQuote è interno (utenti autenticati) → rischio limitato ma reale (insider / dato incollato). **Fix centrale e a basso rischio**: nel writer, prefissare con `'` le celle che iniziano con quei caratteri. Un solo punto copre tutti gli export. → **consigliato fix ora**.
+- **J1 — `parse_distinta` senza cap dimensione** *(robustezza)*. `content = await file.read()` carica l'intero CSV in memoria senza limite, a differenza degli altri upload (parts/officina/dxf cappano a 50 MB). Gated auth + `orders.materials`, ma incoerente. Aggiungere un cap (es. 20 MB) coerente con gli altri. → Blocco C.
+- Minore: `qty = int(qty_raw)` tronca (2,9 → 2); le qty di distinta sono interi → impatto trascurabile.
+
+→ Voci proposte per `LISTA_LAVORI`: **J2** (sicurezza, fix centrale consigliato subito), **J1** (cap, Blocco C). Nessuna eseguita (audit read-only).
 
 ---
 

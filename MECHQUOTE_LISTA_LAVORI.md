@@ -46,15 +46,20 @@ volta, con verifica. Il registro è la fonte dello stato di copertura.
 
 ### §1 Ciclo di vita preventivo — audit 2026-07-22 (eccellente, nessun bug funzionale)
 
-- **G4 — priorità destinatario notifica incoerente** *(reale, sottile)*. Le
-  notifiche `read/confirm/reopen/completed` risolvono il target come
-  `submitted_by or created_by` (mittente prima); `unconfirm/await/revert/
-  not-ordered/restore` come `created_by or submitted_by` (creatore prima). Se
-  mittente ≠ creatore, metà notifiche vanno all'uno e metà all'altro.
-  Normalizzare su una regola unica. → Blocco B/C.
-- **G3 — helper notifiche transizione** *(DRY, risolve G4 alla radice)*. ~8 blocchi
-  quasi-identici (risoluzione target + guardia anti-auto + `create_notification`).
-  Estrarre `notify_quote_transition(...)`. Refactor → concordare (§2.D).
+- **G4 — destinatario notifica: split per transizione** *(DECISIONE DI PRODOTTO,
+  non un bug)*. `read/confirm/reopen/completed` → `submitted_by or created_by`
+  (mittente prima); `unconfirm/await/revert/not-ordered/restore` → `created_by or
+  submitted_by` (creatore prima). **NON è accidentale**: reopen→mittente è pinnato
+  di proposito dal test `test_notifica_reopen_va_a_chi_ha_inviato` ("chi ha
+  inviato, non il creatore"). Unificare richiede una **tua decisione**: (a) tutto
+  → creatore, (b) tutto → mittente, (c) tenere il nuance. ⚠️ Un tentativo di
+  unificazione a "creatore-prima" (2026-07-22) è stato **annullato** perché
+  rompeva quel test. Non toccare finché non deciso.
+- **G3 — helper notifiche transizione** *(DRY, indipendente da G4)*. ~8 blocchi
+  quasi-identici (guardia anti-auto + `create_notification`). Si può estrarre un
+  helper che prende `target` **come parametro** (preservando la regola
+  per-transizione), DRYando il boilerplate senza toccare G4. Refactor →
+  concordare (§2.D).
 - **G1 — transizioni non atomiche (last-write-wins)** *(noto, spec 21 Blocco B)*.
   `confirm/reopen/unconfirm/await/revert/not-ordered/restore` fanno read-then-write
   senza guardia atomica. Mitigazione a basso costo: replicare il pattern

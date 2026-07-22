@@ -55,9 +55,13 @@ def test_admin_default_has_all_keys():
 
 
 def test_officina_role_is_restricted():
-    """Officina: solo la sua area + catalogo utensili (decisione 2026-07-02)."""
-    assert set(DEFAULT_ROLE_PERMISSIONS["officina"]) == {"officina", "officina.write", "tools"}
+    """Officina: la sua area + catalogo utensili + può SOLO segnalare fabbisogni
+    materiale (orders.materials.request), NON ordinare (ponte 2026-07-22)."""
+    assert set(DEFAULT_ROLE_PERMISSIONS["officina"]) == {
+        "officina", "officina.write", "tools", "orders.materials.request",
+    }
     off = DEFAULT_ROLE_PERMISSIONS["officina"]
+    # Può segnalare, ma NON emettere ordini né vedere il pool/preventivi/dashboard.
     for forbidden in ("orders.materials", "orders.tools", "dashboard", "notifications",
                       "quotes.archive", "quotes.pdf"):
         assert forbidden not in off
@@ -103,6 +107,17 @@ def test_require_any_permission_needs_at_least_one():
     assert _run(dep, ["quotes.confirm"]) is not None    # una basta
     with pytest.raises(HTTPException) as ei:
         _run(dep, ["dashboard"])                         # nessuna → 403
+    assert ei.value.status_code == 403
+
+
+def test_officina_can_request_materials_but_not_order():
+    """Ponte officina→acquisti: `orders.materials.request` passa il gate delle
+    RICHIESTE ma NON quello del pool/emissione ordine (`orders.materials`)."""
+    req_gate = require_any_permission('orders.materials', 'orders.materials.request')
+    assert _run(req_gate, ['orders.materials.request']) is not None   # segnala: ok
+    pool_gate = require_permission('orders.materials')
+    with pytest.raises(HTTPException) as ei:
+        _run(pool_gate, ['orders.materials.request'])                 # ordina: no
     assert ei.value.status_code == 403
 
 

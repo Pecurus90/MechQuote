@@ -216,7 +216,10 @@ Chiavi (`PERMISSION_KEYS`):
 - `quotes.delete` (elimina preventivi di chiunque; il creatore può sempre i propri; default **solo admin**)
 - `customers` · `settings` (catalogo) · `company` (dati azienda)
 - `users` · `backup` · `notifications`
-- `orders.materials` (Ordini materiali — lista + CSV + storico + sblocco flag)
+- `orders.materials` (Ordini materiali — pool + CSV + storico + emissione ordine)
+- `orders.materials.request` (Ponte officina→acquisti: SEGNALA fabbisogni materiale
+  — crea/invia richieste che finiscono nella coda di `orders.materials` — ma NON
+  emette ordini né vede il pool. Default: ruolo officina)
 - `orders.tools` (Ordini utensili — crea + CSV + elimina)
 - `tools` (Anagrafica/catalogo utensili — **NON** gli ordini utensili)
 - `officina` (Officina — lettura documenti / reference / calcolatori)

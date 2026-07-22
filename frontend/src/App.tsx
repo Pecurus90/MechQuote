@@ -77,7 +77,7 @@ function AppRoutes() {
         <Route path="quotes/archive" element={<ProtectedRoute permission="quotes.archive"><QuoteArchivePage /></ProtectedRoute>} />
         <Route path="sales/direct" element={<ProtectedRoute permission="sales.direct"><DirectSalesPage /></ProtectedRoute>} />
         <Route path="orders/materials" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialsPage /></ProtectedRoute>} />
-        <Route path="orders/materials-file" element={<ProtectedRoute permission="orders.materials"><OrdersMaterialFilePage /></ProtectedRoute>} />
+        <Route path="orders/materials-file" element={<ProtectedRoute anyPermission={['orders.materials', 'orders.materials.request']}><OrdersMaterialFilePage /></ProtectedRoute>} />
         <Route path="orders/normalized-file" element={<ProtectedRoute permission="orders.normalized"><OrdersNormalizedFilePage /></ProtectedRoute>} />
         <Route path="orders/tools" element={<ProtectedRoute permission="orders.tools"><OrdersToolsPage /></ProtectedRoute>} />
         <Route path="orders/history" element={<ProtectedRoute anyPermission={["orders.materials", "orders.normalized", "orders.tools"]}><OrdersHistoryPage /></ProtectedRoute>} />

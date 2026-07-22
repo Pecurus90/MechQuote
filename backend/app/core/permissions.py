@@ -16,6 +16,7 @@ PERMISSION_KEYS: dict[str, str] = {
     "backup":        "Backup e ripristino",
     "notifications": "Riceve notifiche",
     "orders.materials": "Ordini materiali (lista + CSV)",
+    "orders.materials.request": "Richieste materiale (segnala fabbisogno all'ufficio acquisti, senza emettere ordini)",
     "orders.normalized": "Ordini normalizzati (lista + CSV + storico)",
     "orders.tools": "Ordini utensili (crea + CSV + elimina)",
     "tools": "Anagrafica/catalogo utensili",
@@ -36,7 +37,7 @@ PERMISSION_GROUPS: list[tuple[str, list[str]]] = [
         "quotes.archive", "quotes.edit_locked", "quotes.delete",
     ]),
     ("Vendite", ["sales.direct"]),
-    ("Ordini", ["orders.materials", "orders.normalized", "orders.tools"]),
+    ("Ordini", ["orders.materials", "orders.materials.request", "orders.normalized", "orders.tools"]),
     ("Officina & Utensili", ["officina", "officina.write", "tools"]),
     ("Impostazioni & Sistema", ["settings", "customers", "company", "users", "backup", "notifications"]),
 ]
@@ -48,10 +49,11 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "quotes.send", "sales.direct", "customers", "notifications", "orders.materials",
         "orders.normalized", "tools", "orders.tools", "officina", "officina.write",
     ],
-    # Officina: solo la sua area + catalogo utensili. Nessun preventivo,
-    # nessun ordine (materiali/utensili), niente dashboard né notifiche.
+    # Officina: la sua area + catalogo utensili + può SEGNALARE fabbisogni di
+    # materiale (richieste che finiscono nella coda di acquisti/amministrazione),
+    # ma NON emette ordini né vede il pool. Nessun preventivo, niente dashboard.
     "officina": [
-        "officina", "officina.write", "tools",
+        "officina", "officina.write", "tools", "orders.materials.request",
     ],
     "amministrazione": [
         "dashboard", "statistics", "quotes.archive", "quotes.view_all",

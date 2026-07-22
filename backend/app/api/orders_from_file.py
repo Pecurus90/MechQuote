@@ -24,14 +24,16 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.csv_import import _decode_csv_bytes, normalize_alias
 from app.core.database import get_db
-from app.core.security import require_permission
+from app.core.security import require_any_permission
 from app.models import Material, MaterialAlias
 from app.schemas import (
     FileOrderParseOut, FileOrderRow, MaterialAliasCreate, MaterialAliasOut,
 )
 
 router = APIRouter(prefix="/api/orders/materials", tags=["orders"])
-_can_orders = require_permission('orders.materials')
+# Parse distinta + alias servono alla creazione della richiesta materiale:
+# aperti anche all'officina (orders.materials.request), non solo a chi ordina.
+_can_orders = require_any_permission('orders.materials', 'orders.materials.request')
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────

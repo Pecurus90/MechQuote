@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.orders_from_file import _row_missing_dims
 from app.core.database import get_db, utc_now
-from app.core.security import get_current_user, require_permission
+from app.core.security import get_current_user, require_any_permission
 from app.models import (
     Material, MaterialRequest, MaterialRequestItem, MaterialSupplier, User,
 )
@@ -37,7 +37,10 @@ from app.services.notifications import create_notification
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orders/material-requests", tags=["orders"])
-_can_orders = require_permission('orders.materials')
+# Richieste materiale = "segnala fabbisogno": accessibili sia a chi ordina
+# (orders.materials) sia all'officina (orders.materials.request). L'emissione
+# dell'ordine al fornitore e il pool restano solo su orders.materials (orders.py).
+_can_orders = require_any_permission('orders.materials', 'orders.materials.request')
 
 
 # ─── Serializzazione ────────────────────────────────────────────────────────

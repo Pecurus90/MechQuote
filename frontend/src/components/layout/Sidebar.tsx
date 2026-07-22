@@ -54,6 +54,8 @@ export default function Sidebar() {
   const canBackup = hasPermission('backup')
   const canSalesDirect = hasPermission('sales.direct')
   const canOrdersMaterials = hasPermission('orders.materials')
+  // Officina: può SEGNALARE fabbisogni materiale (richieste), non ordinare.
+  const canRequestMaterials = canOrdersMaterials || hasPermission('orders.materials.request')
   const canOrdersNormalized = hasPermission('orders.normalized')
   const canOrdersTools = hasPermission('orders.tools')
   const canTools = hasPermission('tools')
@@ -96,15 +98,17 @@ export default function Sidebar() {
     if (children.length) operativita.push({ key: 'preventivi', label: 'Preventivi', icon: FileText, children, defaultCollapsed: true, badge: reviewBadge > 0 ? { n: reviewBadge, tone: 'info' } : undefined })
   }
   if (canSalesDirect) operativita.push({ key: '/sales/direct', label: 'Vendite dirette', icon: Receipt, active: at('/sales/direct') })
-  if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) {
+  if (canRequestMaterials || canOrdersNormalized || canOrdersTools) {
     const children: Leaf[] = []
     // TD-12: replica il badge "materiali da ordinare" anche sulla voce
     // "Ordini materiali" (dov'è davvero il lavoro), oltre che sul genitore.
     if (canOrdersMaterials) children.push({ key: '/orders/materials', label: 'Ordini materiali', icon: Package, active: at('/orders/materials'), badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
-    if (canOrdersMaterials) children.push({ key: '/orders/materials-file', label: 'Nuovo ordine materiale', icon: FileUp, active: at('/orders/materials-file') })
+    // Officina vede "Nuovo ordine materiale" (= segnala fabbisogno) ma NON il
+    // pool né lo storico: quelli restano di chi ordina davvero.
+    if (canRequestMaterials) children.push({ key: '/orders/materials-file', label: canOrdersMaterials ? 'Nuovo ordine materiale' : 'Segnala fabbisogno materiale', icon: FileUp, active: at('/orders/materials-file') })
     if (canOrdersNormalized) children.push({ key: '/orders/normalized-file', label: 'Normalizzati da distinta', icon: Bolt, active: at('/orders/normalized-file') })
     if (canOrdersTools) children.push({ key: '/orders/tools', label: 'Ordini utensili', icon: ShoppingCart, active: at('/orders/tools') })
-    children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })
+    if (canOrdersMaterials || canOrdersNormalized || canOrdersTools) children.push({ key: '/orders/history', label: 'Storico ordini', icon: History, active: at('/orders/history') })
     operativita.push({ key: 'ordini', label: 'Ordini', icon: Truck, children, defaultCollapsed: true, badge: ordersBadge > 0 ? { n: ordersBadge, tone: 'danger' } : undefined })
   }
   if (canTools) operativita.push({ key: '/tools', label: 'Utensili', icon: Drill, active: at('/tools'), badge: toolsBadge > 0 ? { n: toolsBadge, tone: 'warning' } : undefined })

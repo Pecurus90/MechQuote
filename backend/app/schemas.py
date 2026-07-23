@@ -353,6 +353,12 @@ class PartCloneRequest(BaseModel):
     target_ids: List[int]
 
 
+class ApplyMarginRequest(BaseModel):
+    """Imposta lo stesso margine su TUTTE le parti del preventivo (bulk esplicito,
+    non ereditarietà). Vedi POST /quotes/{quote_id}/apply-margin."""
+    margin_percent: float
+
+
 class PartBase(BaseModel):
     part_code: str
     revision: Optional[str] = "A"

@@ -175,8 +175,10 @@ def create_quote(
         )
     db.refresh(quote)
 
-    # Auto-create parts based on quote type
+    # Auto-create parts based on quote type. Margine materializzato (Blocco A):
+    # la parte nasce col margine esplicito del preventivo, non NULL-che-eredita.
     default_min_price = cs.default_minimum_part_price if cs else 0.0
+    default_margin = quote.global_margin_percent
     if quote.quote_type == "commessa" and num_components and num_components > 0:
         for i in range(1, num_components + 1):
             part = Part(
@@ -185,6 +187,7 @@ def create_quote(
                 quantity=default_quantity,
                 quote_mode="manual",
                 minimum_price=default_min_price,
+                margin_percent=default_margin,
             )
             db.add(part)
     else:
@@ -195,6 +198,7 @@ def create_quote(
             quantity=default_quantity,
             quote_mode="manual",
             minimum_price=default_min_price,
+            margin_percent=default_margin,
         )
         db.add(part)
 

@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.security import require_permission, get_current_user
 from app.core.upload_validation import content_matches_ext
 from app.models import Part, ManufacturingPhase, PartFile, Quote, User, CompanySettings
-from app.schemas import PartCreate, PartUpdate, PartOut, PartCloneRequest
+from app.schemas import PartCreate, PartUpdate, PartOut, PartCloneRequest, ApplyMarginRequest
 from app.services.calculation import recalculate_part, recalculate_quote
 from app.services.material_status import unassigned_supplier_parts
 from app.services import quote_workflow as wf
@@ -125,6 +125,10 @@ def add_part(
         cs = db.query(CompanySettings).filter(CompanySettings.id == 1).first()
         if cs:
             part_data["minimum_price"] = cs.default_minimum_part_price
+    # Margine materializzato (Blocco A): la parte nasce col margine esplicito del
+    # preventivo, non NULL-che-eredita. Override per-parte poi via PUT /parts.
+    if "margin_percent" not in part_data:
+        part_data["margin_percent"] = quote.global_margin_percent
     part = Part(quote_id=quote_id, **part_data)
     db.add(part)
     db.flush()
@@ -355,6 +359,30 @@ def clone_part_onto(
     _reconcile_after_write(db, quote, current_user)
 
     return {"ok": True, "cloned": len(targets)}
+
+
+@router.post("/quotes/{quote_id}/apply-margin")
+def apply_margin_to_all(
+    quote_id: int,
+    req: ApplyMarginRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_write,
+):
+    """Imposta lo stesso margine su TUTTE le parti del preventivo (bulk esplicito
+    — Blocco A). Aggiorna anche il default del preventivo, così le parti aggiunte
+    dopo partono dallo stesso valore. Ogni parte resta poi sovrascrivibile."""
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Preventivo non trovato")
+    ensure_editable(quote, current_user)
+    quote.global_margin_percent = req.margin_percent
+    parts = db.query(Part).filter(Part.quote_id == quote_id).all()
+    for p in parts:
+        p.margin_percent = req.margin_percent
+    db.commit()
+    recalculate_quote(quote_id, db)
+    return {"ok": True, "updated": len(parts), "margin_percent": req.margin_percent}
 
 
 @router.post("/parts/{part_id}/files")

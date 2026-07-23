@@ -54,6 +54,9 @@ export default function QuoteEditor() {
   // Conferma prima di applicare uno sconto globale (>0): lo sconto tocca il
   // prezzo dell'intero preventivo, è un'azione deliberata.
   const [pendingDiscount, setPendingDiscount] = useState<number | null>(null)
+  // Conferma prima di stampare lo stesso margine su tutte le parti (Blocco A):
+  // sovrascrive i margini singoli.
+  const [pendingApplyMargin, setPendingApplyMargin] = useState<number | null>(null)
   const [cloneSourceId, setCloneSourceId] = useState<number | null>(null)
   const [cloning, setCloning] = useState(false)
   // Rilevamento concorrenza: versione dell'aggregato vista dal server all'ultimo
@@ -314,15 +317,6 @@ export default function QuoteEditor() {
     finally { setSaving(false) }
   }
 
-  const saveQuoteAndRecalculate = async (override?: Partial<Quote>) => {
-    if (!quote?.id) return
-    await saveQuote(override)
-    try {
-      const res = await api.post(`/quotes/${quote.id}/recalculate`)
-      applyQuoteData(res.data)
-    } catch { toast.error('Errore nel ricalcolo') }
-  }
-
   const submitForReview = () => { if (quote?.id) setConfirmSubmit(true) }
   const doSubmitForReview = async () => {
     setConfirmSubmit(false)
@@ -461,7 +455,6 @@ export default function QuoteEditor() {
 
   const quoteData: QuoteDataValue = {
     customerReference: quote.customer_reference || '',
-    globalMarginPercent: String(quote.global_margin_percent ?? ''),
     validityDays: String(quote.validity_days ?? ''),
     deliveryText: quote.delivery_text || '',
     notesCustomer: quote.notes_customer || '',
@@ -478,17 +471,22 @@ export default function QuoteEditor() {
     }
   })
   const onQuoteDataBlur = () => saveQuote()
-  // Campi numerici (margine, validità): commit atomico al blur.
-  const onQuoteDataCommit = (field: 'globalMarginPercent' | 'validityDays', raw: string) => {
-    if (field === 'globalMarginPercent') {
-      const n = parseDecimal(raw) || 0
-      setQuote(q => q ? { ...q, global_margin_percent: n } : q)
-      saveQuoteAndRecalculate({ global_margin_percent: n })
-    } else {
-      const n = parseInt(raw, 10) || 30
-      setQuote(q => q ? { ...q, validity_days: n } : q)
-      saveQuote({ validity_days: n })
-    }
+  // Validità: commit atomico al blur.
+  const onQuoteDataCommit = (_field: 'validityDays', raw: string) => {
+    const n = parseInt(raw, 10) || 30
+    setQuote(q => q ? { ...q, validity_days: n } : q)
+    saveQuote({ validity_days: n })
+  }
+  // Margine su tutte le parti (Blocco A): conferma → endpoint bulk → reload.
+  const onApplyMarginToAll = (raw: string) => setPendingApplyMargin(parseDecimal(raw) || 0)
+  const doApplyMargin = async (n: number) => {
+    setPendingApplyMargin(null)
+    if (!quote?.id) return
+    try {
+      await api.post(`/quotes/${quote.id}/apply-margin`, { margin_percent: n })
+      await reloadQuote()
+      toast.success(`Margine ${String(n).replace('.', ',')}% applicato a tutte le parti`)
+    } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'applicazione del margine')) }
   }
 
   const commessaRows: CommessaRow[] = quote.parts.map((p, idx) => ({
@@ -629,7 +627,16 @@ export default function QuoteEditor() {
           )}
 
           {selectedPartIdx === -1 && (
-            <QuoteDataPanel value={quoteData} locked={effectiveLocked} onChange={onQuoteDataChange} onCommit={onQuoteDataCommit} onBlur={onQuoteDataBlur} />
+            <QuoteDataPanel
+              value={quoteData}
+              locked={effectiveLocked}
+              onChange={onQuoteDataChange}
+              onCommit={onQuoteDataCommit}
+              onBlur={onQuoteDataBlur}
+              marginDefault={String(quote.global_margin_percent ?? '')}
+              partCount={quote.parts.length}
+              onApplyMarginToAll={onApplyMarginToAll}
+            />
           )}
 
           {selectedPartIdx === -1 && quote.status === 'completo' && (
@@ -724,6 +731,18 @@ export default function QuoteEditor() {
         confirmLabel="Applica sconto"
         onConfirm={() => { if (pendingDiscount !== null) applyDiscount(pendingDiscount) }}
         onCancel={() => setPendingDiscount(null)}
+      />
+      <ConfirmDialog
+        open={pendingApplyMargin !== null}
+        title="Applicare il margine a tutte le parti?"
+        description={
+          pendingApplyMargin !== null
+            ? `Tutte le ${quote.parts.length} parti prenderanno il margine del ${String(pendingApplyMargin).replace('.', ',')}%. Gli eventuali margini impostati sulle singole parti verranno sovrascritti.`
+            : undefined
+        }
+        confirmLabel="Applica a tutte"
+        onConfirm={() => { if (pendingApplyMargin !== null) doApplyMargin(pendingApplyMargin) }}
+        onCancel={() => setPendingApplyMargin(null)}
       />
       <ConfirmDialog
         open={confirmDeletePartIdx !== null}

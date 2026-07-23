@@ -30,7 +30,6 @@ interface FormState {
   category_code: string
   progressive: string
   default_quantity: number
-  global_margin_percent: number
   quote_date: string
   description: string
   material_id: string
@@ -49,7 +48,7 @@ const initialForm = (categories: Category[]): FormState => ({
   customer_id: '', customer_name: '', customer_code: '',
   year: new Date().getFullYear().toString().slice(-2),
   category_code: categories[0]?.code || 'A',
-  progressive: '', default_quantity: 1, global_margin_percent: 20,
+  progressive: '', default_quantity: 1,
   quote_date: new Date().toISOString().split('T')[0],
   description: '', material_id: '', cut_height_mm: 0,
   raw_x_mm: 0, raw_y_mm: 0, offset_x_mm: 0, offset_y_mm: 0,
@@ -254,7 +253,6 @@ export default function NewQuote2DPage() {
         default_quantity: form.default_quantity,
         customer_id: customerId ? Number(customerId) : undefined,
         customer_name: form.customer_name || undefined,
-        global_margin_percent: form.global_margin_percent,
         quote_date: form.quote_date,
       })
       const quoteId = quoteRes.data?.id
@@ -328,7 +326,6 @@ export default function NewQuote2DPage() {
       case 'categoryCode': set('category_code', val.toUpperCase().slice(0, 2)); break
       case 'progressive': set('progressive', val.replace(/\D/g, '').slice(0, 3)); break
       case 'quantity': set('default_quantity', Math.max(1, parseInt(val, 10) || 1)); break
-      case 'marginPercent': set('global_margin_percent', parseDecimal(val) || 0); break
       case 'date': set('quote_date', val); break
       case 'description': set('description', val); break
       case 'materialId': set('material_id', val); break
@@ -359,7 +356,7 @@ export default function NewQuote2DPage() {
   const value: Dxf2dValue = {
     customerName: form.customer_name, customerCode: form.customer_code, year: form.year,
     categoryCode: form.category_code, progressive: form.progressive,
-    quantity: String(form.default_quantity), marginPercent: String(form.global_margin_percent),
+    quantity: String(form.default_quantity),
     date: form.quote_date, description: form.description, materialId: form.material_id,
     pieceHeight: form.cut_height_mm ? String(form.cut_height_mm) : '',
     cuttingCycleId: form.cutting_cycle_id, foriMode: form.drilling_mode,

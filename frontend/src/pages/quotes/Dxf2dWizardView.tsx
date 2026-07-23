@@ -48,7 +48,6 @@ export interface Dxf2dValue {
   categoryCode: string
   progressive: string
   quantity: string
-  marginPercent: string
   date: string
   description: string
   materialId: string
@@ -380,20 +379,12 @@ export function Dxf2dWizardView(props: Props) {
                 {previewNumber}
               </span>
             </div>
-            <div className="grid grid-cols-[1fr_1fr_1.3fr] gap-2.5">
+            <div className="grid grid-cols-[1fr_1.3fr] gap-2.5">
               <div>
                 <Label className={fieldLabel}>Quantità</Label>
                 <Input
                   value={value.quantity}
                   onChange={(e) => onChange('quantity', e.target.value)}
-                  className={monoInput}
-                />
-              </div>
-              <div>
-                <Label className={fieldLabel}>Margine %</Label>
-                <Input
-                  value={value.marginPercent}
-                  onChange={(e) => onChange('marginPercent', e.target.value)}
                   className={monoInput}
                 />
               </div>

@@ -853,6 +853,15 @@ def _run_migrations():
         # prezzo salvata al "manda in revisione" per il confronto nell'editor.
         "ALTER TABLE quotes ADD COLUMN revision_baseline_total FLOAT",
         "ALTER TABLE quotes ADD COLUMN revision_baseline_at DATETIME",
+
+        # ═══ Margine materializzato per parte (Blocco A) ═══
+        # Fine dell'ereditarietà nascosta: ogni parte porta il PROPRIO margine
+        # esplicito. Backfill delle parti a NULL col margine globale del loro
+        # preventivo — cioè il valore che GIÀ usavano via fallback → prezzi
+        # invariati. Idempotente: dopo il primo giro non restano NULL.
+        "UPDATE parts SET margin_percent = "
+        "(SELECT global_margin_percent FROM quotes WHERE quotes.id = parts.quote_id) "
+        "WHERE margin_percent IS NULL",
     ]
     with engine.connect() as conn:
         for sql in migrations:

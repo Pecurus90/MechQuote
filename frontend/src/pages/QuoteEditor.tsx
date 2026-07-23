@@ -51,6 +51,9 @@ export default function QuoteEditor() {
     variant?: 'default' | 'destructive'
   } | null>(null)
   const [confirmDeletePartIdx, setConfirmDeletePartIdx] = useState<number | null>(null)
+  // Conferma prima di applicare uno sconto globale (>0): lo sconto tocca il
+  // prezzo dell'intero preventivo, è un'azione deliberata.
+  const [pendingDiscount, setPendingDiscount] = useState<number | null>(null)
   const [cloneSourceId, setCloneSourceId] = useState<number | null>(null)
   const [cloning, setCloning] = useState(false)
   // Rilevamento concorrenza: versione dell'aggregato vista dal server all'ultimo
@@ -497,11 +500,22 @@ export default function QuoteEditor() {
 
   const onBottomCommit = (field: 'transport' | 'packaging' | 'discountPercent', raw: string) => {
     const n = parseDecimal(raw) || 0
+    // Sconto positivo e diverso dall'attuale → conferma prima di applicare.
+    // Rimozione (→0) o valore invariato: applica diretto, senza popup.
+    if (field === 'discountPercent' && n > 0 && n !== (quote.global_discount_percent ?? 0)) {
+      setPendingDiscount(n)
+      return
+    }
     const patch: Partial<Quote> = field === 'transport' ? { transport_cost: n }
       : field === 'packaging' ? { packaging_cost: n }
       : { global_discount_percent: n }
     setQuote(q => q ? { ...q, ...patch } : q)
     saveQuote(patch)
+  }
+  const applyDiscount = (n: number) => {
+    setPendingDiscount(null)
+    setQuote(q => q ? { ...q, global_discount_percent: n } : q)
+    saveQuote({ global_discount_percent: n })
   }
 
   const soldMargin = (quote.sold_price ?? 0) - (quote.actual_cost ?? 0)
@@ -598,7 +612,7 @@ export default function QuoteEditor() {
           onDelete={(pid) => setConfirmDeletePartIdx(idxOf(pid))}
         />
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 pb-24">
           <div className="mx-auto max-w-[1200px] space-y-5">
           {selectedPartIdx === -1 && quote.parts.length > 1 && (
             <CommessaSummaryTable
@@ -666,6 +680,8 @@ export default function QuoteEditor() {
         packaging={String(quote.packaging_cost ?? '')}
         discountPercent={String(quote.global_discount_percent ?? '')}
         subtotal={hasExtras ? partsSubtotal : undefined}
+        taxable={partsSubtotal + quote.transport_cost + quote.packaging_cost}
+        discountAmount={discountAmount}
         total={total}
         locked={effectiveLocked}
         onCommit={onBottomCommit}
@@ -696,6 +712,18 @@ export default function QuoteEditor() {
         confirmLabel="Annulla conferma"
         onConfirm={() => { setConfirmUnconfirm(false); doStatus('unconfirm', 'Conferma annullata') }}
         onCancel={() => setConfirmUnconfirm(false)}
+      />
+      <ConfirmDialog
+        open={pendingDiscount !== null}
+        title="Applicare lo sconto?"
+        description={
+          pendingDiscount !== null
+            ? `Stai applicando uno sconto del ${String(pendingDiscount).replace('.', ',')}% sull'intero preventivo (− ${eur0((partsSubtotal + quote.transport_cost + quote.packaging_cost) * pendingDiscount / 100)}). Confermi?`
+            : undefined
+        }
+        confirmLabel="Applica sconto"
+        onConfirm={() => { if (pendingDiscount !== null) applyDiscount(pendingDiscount) }}
+        onCancel={() => setPendingDiscount(null)}
       />
       <ConfirmDialog
         open={confirmDeletePartIdx !== null}

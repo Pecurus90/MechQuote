@@ -113,10 +113,12 @@ export function CommessaSummaryTable(props: Props) {
               <span className="text-muted-foreground">Imballaggio</span>
               <span className="font-mono text-foreground">{eur2(packaging)}</span>
             </div>
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">Sconto {discountPercent}%</span>
-              <span className="font-mono text-danger">− {eur2(discountAmount)}</span>
-            </div>
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-muted-foreground">Sconto {discountPercent}%</span>
+                <span className="font-mono text-danger">− {eur2(discountAmount)}</span>
+              </div>
+            )}
             <div className="mt-[3px] flex items-center justify-between border-t border-border pt-[9px]">
               <span className="text-sm font-bold text-foreground">Totale commessa</span>
               <span className="font-mono text-xl font-bold text-foreground">{eur2(total)}</span>

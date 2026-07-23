@@ -6,6 +6,9 @@ interface Props {
   /** Valori editabili (stringhe controllate; commit on-blur nel container). */
   transport: string
   packaging: string
+  /** Margine "tutte le parti": il commit applica il valore a ogni parte
+   *  (bulk esplicito, con conferma nel container). */
+  marginPercent: string
   discountPercent: string
   /** Derivati, già calcolati dal container. */
   subtotal?: number
@@ -15,7 +18,7 @@ interface Props {
   discountAmount?: number
   total: number
   locked: boolean
-  onCommit: (field: 'transport' | 'packaging' | 'discountPercent', raw: string) => void
+  onCommit: (field: 'transport' | 'packaging' | 'marginPercent' | 'discountPercent', raw: string) => void
 }
 
 const eur0 = (v: number): string =>
@@ -23,9 +26,11 @@ const eur0 = (v: number): string =>
 
 const eurField =
   'h-[34px] w-[88px] rounded-[8px] border-input bg-background pl-6 pr-2.5 font-mono text-[13px]'
+const pctField =
+  'h-[34px] w-[72px] rounded-[8px] border-input bg-background pl-2.5 pr-6 font-mono text-[13px]'
 
 export function QuoteBottomBar(props: Props) {
-  const { nParts, transport, packaging, discountPercent, subtotal, taxable, discountAmount, total, locked, onCommit } = props
+  const { nParts, transport, packaging, marginPercent, discountPercent, subtotal, taxable, discountAmount, total, locked, onCommit } = props
   const hasDiscount = (discountAmount ?? 0) > 0
 
   return (
@@ -67,12 +72,25 @@ export function QuoteBottomBar(props: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">Margine</label>
+          <div className="relative">
+            <DecimalField
+              value={marginPercent}
+              onCommit={(raw) => onCommit('marginPercent', raw)}
+              className={pctField}
+            />
+            <span className="absolute right-2.5 top-2 font-mono text-[13px] text-muted-foreground">
+              %
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground">Sconto</label>
           <div className="relative">
             <DecimalField
               value={discountPercent}
               onCommit={(raw) => onCommit('discountPercent', raw)}
-              className="h-[34px] w-[72px] rounded-[8px] border-input bg-background pl-2.5 pr-6 font-mono text-[13px]"
+              className={pctField}
             />
             <span className="absolute right-2.5 top-2 font-mono text-[13px] text-muted-foreground">
               %

@@ -478,7 +478,6 @@ export default function QuoteEditor() {
     saveQuote({ validity_days: n })
   }
   // Margine su tutte le parti (Blocco A): conferma → endpoint bulk → reload.
-  const onApplyMarginToAll = (raw: string) => setPendingApplyMargin(parseDecimal(raw) || 0)
   const doApplyMargin = async (n: number) => {
     setPendingApplyMargin(null)
     if (!quote?.id) return
@@ -496,8 +495,15 @@ export default function QuoteEditor() {
   }))
   const discountAmount = (partsSubtotal + quote.transport_cost + quote.packaging_cost) * (quote.global_discount_percent || 0) / 100
 
-  const onBottomCommit = (field: 'transport' | 'packaging' | 'discountPercent', raw: string) => {
+  const onBottomCommit = (field: 'transport' | 'packaging' | 'marginPercent' | 'discountPercent', raw: string) => {
     const n = parseDecimal(raw) || 0
+    // Margine: il commit applica a TUTTE le parti → sempre conferma (sovrascrive
+    // gli eventuali margini singoli). Il DecimalField chiama onCommit solo se il
+    // valore è cambiato davvero.
+    if (field === 'marginPercent') {
+      setPendingApplyMargin(n)
+      return
+    }
     // Sconto positivo e diverso dall'attuale → conferma prima di applicare.
     // Rimozione (→0) o valore invariato: applica diretto, senza popup.
     if (field === 'discountPercent' && n > 0 && n !== (quote.global_discount_percent ?? 0)) {
@@ -633,9 +639,6 @@ export default function QuoteEditor() {
               onChange={onQuoteDataChange}
               onCommit={onQuoteDataCommit}
               onBlur={onQuoteDataBlur}
-              marginDefault={String(quote.global_margin_percent ?? '')}
-              partCount={quote.parts.length}
-              onApplyMarginToAll={onApplyMarginToAll}
             />
           )}
 
@@ -685,6 +688,7 @@ export default function QuoteEditor() {
         nParts={quote.parts.length}
         transport={String(quote.transport_cost ?? '')}
         packaging={String(quote.packaging_cost ?? '')}
+        marginPercent={String(quote.global_margin_percent ?? '')}
         discountPercent={String(quote.global_discount_percent ?? '')}
         subtotal={hasExtras ? partsSubtotal : undefined}
         taxable={partsSubtotal + quote.transport_cost + quote.packaging_cost}

@@ -1,5 +1,7 @@
 // src/components/quotes/QuoteDataPanel.tsx
-import { useEffect, useState } from 'react'
+// Solo informazioni scritte del preventivo (riferimento, validità, consegna,
+// note). Le leve di calcolo (margine, trasporto, imballaggio, sconto) stanno
+// nella barra in fondo (QuoteBottomBar).
 import { Settings2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { DecimalField } from '@/components/ui/decimal-field'
@@ -21,12 +23,6 @@ interface Props {
   onCommit: (field: 'validityDays', raw: string) => void
   /** Autosave on-blur dei campi testo (il container salva). */
   onBlur?: (field: keyof QuoteDataValue) => void
-  /** Margine corrente del preventivo — prefill del campo "applica a tutte". */
-  marginDefault: string
-  /** Numero di parti (per il testo di conferma). */
-  partCount: number
-  /** Applica il margine a TUTTE le parti; il container conferma + salva. */
-  onApplyMarginToAll: (raw: string) => void
 }
 
 const labelCls = 'mb-1.5 block text-xs font-medium text-muted-foreground'
@@ -34,12 +30,7 @@ const inputCls = 'h-[38px] rounded-[9px] border-input bg-background text-sm'
 const textareaCls =
   'w-full resize-none rounded-[9px] border border-input bg-background px-3 py-[9px] text-[13.5px] text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/[0.18] disabled:cursor-not-allowed disabled:opacity-60'
 
-export function QuoteDataPanel({ value, locked, onChange, onCommit, onBlur, marginDefault, partCount, onApplyMarginToAll }: Props) {
-  // Campo-azione: il valore digitato si applica solo col pulsante (+ conferma nel
-  // container), non on-blur. Si ri-allinea al default quando il preventivo cambia.
-  const [marginInput, setMarginInput] = useState(marginDefault)
-  useEffect(() => setMarginInput(marginDefault), [marginDefault])
-
+export function QuoteDataPanel({ value, locked, onChange, onCommit, onBlur }: Props) {
   return (
     <div className="max-w-[720px]">
       <div className="mb-[18px] flex items-center gap-2.5">
@@ -51,37 +42,15 @@ export function QuoteDataPanel({ value, locked, onChange, onCommit, onBlur, marg
         disabled={locked}
         className="rounded-[14px] border border-border bg-card px-6 py-[22px] disabled:opacity-70"
       >
-        <div className="mb-4">
-          <Label className={labelCls}>Riferimento cliente</Label>
-          <Input
-            value={value.customerReference}
-            onChange={(e) => onChange('customerReference', e.target.value)}
-            onBlur={() => onBlur?.('customerReference')}
-            className={`${inputCls} font-mono`}
-          />
-        </div>
-
         <div className="mb-4 grid grid-cols-2 gap-3.5">
           <div>
-            <Label className={labelCls}>Margine — tutte le parti %</Label>
-            <div className="flex gap-2">
-              <Input
-                value={marginInput}
-                onChange={(e) => setMarginInput(e.target.value)}
-                inputMode="decimal"
-                className={`${inputCls} font-mono`}
-              />
-              <button
-                type="button"
-                onClick={() => onApplyMarginToAll(marginInput)}
-                className="h-[38px] flex-none rounded-[9px] bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground transition-[filter] hover:brightness-105"
-              >
-                Applica
-              </button>
-            </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Imposta questo margine su tutte le {partCount} parti (poi override sulla singola).
-            </p>
+            <Label className={labelCls}>Riferimento cliente</Label>
+            <Input
+              value={value.customerReference}
+              onChange={(e) => onChange('customerReference', e.target.value)}
+              onBlur={() => onBlur?.('customerReference')}
+              className={`${inputCls} font-mono`}
+            />
           </div>
           <div>
             <Label className={labelCls}>Validità (giorni)</Label>

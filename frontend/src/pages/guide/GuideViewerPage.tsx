@@ -4,6 +4,17 @@ import { ArrowLeft, Printer, ExternalLink } from 'lucide-react'
 import { guideBySlug } from './guides'
 import amministrazioneHtml from './amministrazione.html?raw'
 import ufficioTecnicoHtml from './ufficio-tecnico.html?raw'
+import adminHtml from './admin.html?raw'
+import crearePreventivoHtml from './creare-preventivo.html?raw'
+import ordiniMaterialeHtml from './ordini-materiale.html?raw'
+import ordiniUtensiliHtml from './ordini-utensili.html?raw'
+import anagraficaUtensiliHtml from './anagrafica-utensili.html?raw'
+import officinaHtml from './officina.html?raw'
+import statisticheHtml from './statistiche.html?raw'
+import archivioConsuntivoHtml from './archivio-consuntivo.html?raw'
+import venditeDiretteHtml from './vendite-dirette.html?raw'
+import normalizzatiHtml from './normalizzati.html?raw'
+import richiesteMaterialeHtml from './richieste-materiale.html?raw'
 
 // Visore guida: il documento HTML completo (con screenshot inline) è renderizzato
 // in un <iframe srcDoc> così il suo CSS resta isolato da quello dell'app.
@@ -13,6 +24,17 @@ import ufficioTecnicoHtml from './ufficio-tecnico.html?raw'
 const HTML: Record<string, string> = {
   amministrazione: amministrazioneHtml,
   'ufficio-tecnico': ufficioTecnicoHtml,
+  admin: adminHtml,
+  'creare-preventivo': crearePreventivoHtml,
+  'ordini-materiale': ordiniMaterialeHtml,
+  'ordini-utensili': ordiniUtensiliHtml,
+  'anagrafica-utensili': anagraficaUtensiliHtml,
+  officina: officinaHtml,
+  statistiche: statisticheHtml,
+  'archivio-consuntivo': archivioConsuntivoHtml,
+  'vendite-dirette': venditeDiretteHtml,
+  normalizzati: normalizzatiHtml,
+  'richieste-materiale': richiesteMaterialeHtml,
 }
 
 export default function GuideViewerPage() {

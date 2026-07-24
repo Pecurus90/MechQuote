@@ -87,10 +87,15 @@ interface Props {
   pagination?: ReactNode
 }
 
+// Le colonne flessibili hanno un MINIMO (minmax(px,…)) così non collassano a 0
+// quando lo spazio è poco (es. lista a 80% finestra su schermi ~1440): senza il
+// minimo, Numero/Cliente si schiacciavano e il contenuto si sovrapponeva. La
+// `min-w` tiene la griglia alla sua larghezza naturale e il wrapper la scrolla
+// orizzontalmente su schermi stretti (vedi `overflow-x-auto` sotto).
 const GRID_ACTIVE =
-  'grid grid-cols-[30px_minmax(0,1.5fr)_minmax(0,1.1fr)_90px_122px_138px_108px_132px] items-center gap-3'
+  'grid grid-cols-[28px_minmax(150px,1.5fr)_minmax(100px,1.1fr)_88px_112px_130px_100px_120px] items-center gap-3 min-w-[920px]'
 const GRID_ARCHIVE =
-  'grid grid-cols-[30px_minmax(0,1.4fr)_minmax(0,1fr)_112px_104px_112px_112px_104px_116px] items-center gap-3'
+  'grid grid-cols-[28px_minmax(150px,1.5fr)_minmax(100px,1.1fr)_100px_88px_100px_100px_104px_112px] items-center gap-3 min-w-[990px]'
 
 const TYPE_FILTERS: { key: QuoteTypeFilter; label: string }[] = [
   { key: 'all', label: 'Tutti' },
@@ -250,8 +255,9 @@ export function QuotesListView(props: Props) {
         </div>
       </div>
 
-      {/* Tabella */}
-      <div className="overflow-hidden rounded-[14px] border border-border">
+      {/* Tabella — overflow-x-auto: su schermi stretti la griglia (min-w) scorre
+          orizzontalmente invece di far collassare/accavallare le colonne. */}
+      <div className="overflow-x-auto rounded-[14px] border border-border">
         <div className={cn(GRID, 'border-b border-border bg-card-muted px-[18px] py-[11px] text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground')}>
           <div />
           <div>Numero</div>

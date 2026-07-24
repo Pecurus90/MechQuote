@@ -233,6 +233,9 @@ export default function QuotesListView({ phase, title, subtitle, icon, showQuick
         statusLabel: PART_STATE_LABELS[a.state] ?? a.state,
         statusClass: PART_STATE_COLORS[a.state] ?? 'bg-muted text-muted-foreground',
         supplierName: a.supplier_name,
+        materialCost: a.material_cost,
+        treatmentCost: a.treatment_cost,
+        pieceCost: a.piece_cost,
       }))
     : []
 

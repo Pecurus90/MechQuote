@@ -166,6 +166,9 @@ def quote_material_detail(
         mat = p.material
         sup = mat.material_supplier if mat else None
         treatments = [ph.treatment.name for ph in p.phases if ph.treatment_id and ph.treatment]
+        # Costo trattamento al pezzo = somma delle fasi-trattamento (calculated_cost
+        # è già per pezzo). Costo pezzo = total_cost (totale al pezzo).
+        treatment_cost = sum((ph.calculated_cost or 0.0) for ph in p.phases if ph.treatment_id)
         articles.append(ArticleMaterialRow(
             part_id=p.id,
             part_code=p.part_code,
@@ -176,6 +179,9 @@ def quote_material_detail(
             treatments=treatments,
             supplier_name=sup.name if sup else None,
             state=part_material_state(p, ordered),
+            material_cost=p.material_cost,
+            treatment_cost=treatment_cost or None,
+            piece_cost=p.total_cost,
         ))
     return QuoteMaterialDetailOut(
         quote_id=quote.id,

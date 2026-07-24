@@ -505,6 +505,11 @@ export interface ArticleMaterialRow {
   treatments: string[]
   supplier_name?: string | null
   state: string
+  /** Costi al pezzo (sola vista). material_cost + treatment_cost NON sommano a
+   *  piece_cost: manca la lavorazione. */
+  material_cost?: number | null
+  treatment_cost?: number | null
+  piece_cost?: number | null
 }
 
 export interface QuoteMaterialDetail {

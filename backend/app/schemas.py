@@ -546,6 +546,11 @@ class ArticleMaterialRow(BaseModel):
     treatments: List[str] = []            # nomi trattamenti termici (fasi treatment)
     supplier_name: Optional[str] = None
     state: str                            # ordinato / da_ordinare / da_magazzino / conto_lavoro / senza_fornitore / nessun_materiale
+    # Costi AL PEZZO per la vista espandibile (sola lettura). material_cost e
+    # treatment_cost NON sommano a piece_cost: manca la lavorazione (per scelta).
+    material_cost: Optional[float] = None
+    treatment_cost: Optional[float] = None
+    piece_cost: Optional[float] = None
 
 
 class QuoteMaterialDetailOut(BaseModel):

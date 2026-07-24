@@ -18,6 +18,10 @@ export interface ArticleMaterialRow {
   statusLabel: string
   statusClass: string
   supplierName?: string | null
+  /** Costi al pezzo (sola vista). */
+  materialCost?: number | null
+  treatmentCost?: number | null
+  pieceCost?: number | null
 }
 
 interface Props {
@@ -25,7 +29,10 @@ interface Props {
   emptyText?: string
 }
 
-const GRID = 'grid grid-cols-[110px_minmax(0,1.1fr)_minmax(0,1.55fr)_minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3'
+const eur2 = (v: number): string =>
+  '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const GRID = 'grid grid-cols-[104px_minmax(0,1.1fr)_minmax(0,1.35fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_96px] gap-3'
 
 export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo preventivo.' }: Props) {
   return (
@@ -41,6 +48,7 @@ export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo 
         <div>Dimensioni</div>
         <div>Trattamenti</div>
         <div>Stato materiale · fornitore</div>
+        <div className="text-right">Costo pezzo</div>
       </div>
 
       {rows.length === 0 ? (
@@ -62,22 +70,32 @@ export function QuoteArticleRows({ rows, emptyText = 'Nessun articolo in questo 
                 <div className="font-mono text-[11px] text-muted-foreground">rev {r.revision}</div>
               )}
             </div>
-            {/* Materiale: codice a piena leggibilità (no troncamento) + famiglia sotto */}
+            {/* Materiale: codice a piena leggibilità (no troncamento) + famiglia +
+                costo/pz sotto */}
             <div className="min-w-0">
               <div className="break-words font-mono font-medium text-foreground">{r.materialCode}</div>
               {r.materialFamily && (
                 <div className="text-[11.5px] text-muted-foreground">{r.materialFamily}</div>
               )}
+              {r.materialCost != null && (
+                <div className="font-mono text-[11.5px] text-muted-foreground">{eur2(r.materialCost)}/pz</div>
+              )}
             </div>
             <div className="whitespace-nowrap font-mono text-foreground">{r.dimensions}</div>
             <div className="text-foreground/80">
               {r.treatments && r.treatments.length ? r.treatments.join(', ') : <span className="text-muted-foreground">—</span>}
+              {r.treatmentCost != null && r.treatmentCost > 0 && (
+                <div className="font-mono text-[11.5px] text-muted-foreground">{eur2(r.treatmentCost)}/pz</div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-medium', r.statusClass)}>
                 {r.statusLabel}
               </span>
               <span className="text-[11.5px] text-muted-foreground">{r.supplierName ?? '—'}</span>
+            </div>
+            <div className="text-right font-mono font-semibold text-foreground">
+              {r.pieceCost != null ? eur2(r.pieceCost) : '—'}
             </div>
           </div>
         ))

@@ -7,6 +7,7 @@ import { useChartTheme } from '@/components/charts/chartTheme'
 import GroupedBarsCard from '@/components/charts/GroupedBarsCard'
 import SignedBarsCard from '@/components/charts/SignedBarsCard'
 import TrendAreaCard from '@/components/charts/TrendAreaCard'
+import RankBarsCard from '@/components/charts/RankBarsCard'
 import ChartEmpty from '@/components/charts/ChartEmpty'
 import type { StatKpi } from '@/pages/statistics/StatisticsView'
 import type { MarginMonthlyPoint, MarginBandRow, MarginWorstRow } from '@/types'
@@ -27,6 +28,8 @@ interface Props {
   /** { band, count } — istogramma scostamento prezzo */
   distribution: MarginBandRow[]
   worst: MarginWorstRow[]
+  /** { name, value } — top clienti per venduto realizzato (incassato) */
+  topCustomersSold: Array<Record<string, string | number>>
   /** nome serie di confronto (MoM/YoY); presente = degrada Guadagno ad Area+cmp */
   cmpName?: string
 }
@@ -37,7 +40,7 @@ const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const eurSigned = (v: number): string =>
   (v < 0 ? '−€ ' : '€ ') + Math.abs(Math.round(v || 0)).toLocaleString('it-IT')
 
-export function MarginStatsView({ kpis, coverage, monthly, profit, distribution, worst, cmpName }: Props) {
+export function MarginStatsView({ kpis, coverage, monthly, profit, distribution, worst, topCustomersSold, cmpName }: Props) {
   const c = useChartTheme()
   // Degradazione graziosa: se il costo reale è raramente compilato, mostriamo
   // la sola parte prezzo e avvisiamo. Soglia: nessun costo, o < 60% di copertura.
@@ -50,9 +53,9 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
       <div className="mb-4 flex items-start gap-2 rounded-[11px] border border-stats/[0.22] bg-stats/[0.08] px-3.5 py-[11px] text-[12.5px] text-foreground">
         <Info className="mt-[1px] h-4 w-4 flex-none text-stats" />
         <span>
-          Preventivi in stato <strong>completo</strong> più le vendite dirette con un preventivo al volo.
-          Guadagno reale = venduto − costo reale. Taratura prezzo = venduto ÷ preventivato ·
-          Taratura costo = costo reale ÷ costo stimato.
+          Preventivi <strong>completi</strong> + vendite dirette. Incassato = venduto realizzato.
+          Guadagno reale = venduto − costo reale (incl. vendite dirette). Taratura prezzo =
+          venduto ÷ preventivato (solo vendite con preventivo al volo) · Taratura costo = costo reale ÷ stimato.
         </span>
       </div>
 
@@ -68,7 +71,7 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
       )}
 
       {/* KPI row */}
-      <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-3 lg:grid-cols-5">
         {kpis.map((k) => (
           <KpiCard
             key={k.key}
@@ -97,6 +100,16 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
           ]}
           yFmt={eurK}
           tipFmt={(v, n) => [eur(v), n]}
+        />
+        <RankBarsCard
+          title="Top clienti (venduto)"
+          subtitle="Incassato realizzato · preventivi + vendite dirette"
+          data={topCustomersSold}
+          labelKey="name"
+          valueKey="value"
+          height={330}
+          barSize={12}
+          valueFmt={eurK}
         />
         {cmpName ? (
           <TrendAreaCard

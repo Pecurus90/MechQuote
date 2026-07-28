@@ -1026,12 +1026,15 @@ class MarginStatsOut(BaseModel):
     guadagno_reale: Optional[float] = None          # € venduto − costo reale
     taratura_prezzo: Optional[float] = None         # ratio venduto ÷ preventivato
     taratura_costo: Optional[float] = None          # ratio costo reale ÷ costo stimato
+    # Incassato (venduto realizzato) = Σ sold_price preventivi + Σ venduto vendite dirette
+    incassato: float = 0
     # Copertura dato (affidabilità delle medie)
     completed_count: int = 0                         # preventivi completi nel periodo
     with_sold_count: int = 0                         # con prezzo venduto compilato
     with_cost_count: int = 0                         # con costo reale compilato
     monthly: List[MarginMonthlyPoint] = []
     profit_monthly: List[MarginProfitPoint] = []
+    top_customers_sold: List[StatsCustomerRow] = []  # top clienti per venduto realizzato
     distribution: List[MarginBandRow] = []
     worst: List[MarginWorstRow] = []
     comparison: Optional[MarginComparison] = None  # popolato se compare attivo

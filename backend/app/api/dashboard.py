@@ -571,6 +571,21 @@ def _ds_priced_where(date_from, date_to):
     return ' AND '.join(parts), params
 
 
+def _ds_window_where(date_from, date_to):
+    """(where, params) di TUTTE le vendite dirette nella finestra (ricavo/
+    profitto realizzato). Diverso da `_ds_priced_where`, che filtra solo quelle
+    con preventivo al volo."""
+    parts = ["1=1"]
+    params: dict = {}
+    if date_from is not None:
+        parts.append("ds.sale_date >= :date_from")
+        params['date_from'] = date_from
+    if date_to is not None:
+        parts.append("ds.sale_date <= :date_to")
+        params['date_to'] = date_to
+    return ' AND '.join(parts), params
+
+
 def _margin_core(db: Session, date_from, date_to):
     """KPI marginalità + guadagno mensile per una finestra temporale.
     Ritorna (guadagno_reale, taratura_prezzo, taratura_costo,
@@ -618,8 +633,21 @@ def _margin_core(db: Session, date_from, date_to):
 
     taratura_prezzo = round(sold_sum / quoted_for_sold, 4) if quoted_for_sold > 0 else None
     taratura_costo = round(cost_sum / est_for_cost, 4) if (with_cost and est_for_cost > 0) else None
-    guadagno_reale = round(profit_sum, 2) if with_cost else None
 
+    # Guadagno reale: le vendite dirette sono ricavi realizzati (hanno sia
+    # venduto sia costo reale), quindi TUTTE entrano nel guadagno (venduto −
+    # costo) e nel profitto mensile — a differenza della taratura prezzo, dove
+    # servono solo quelle con preventivo al volo.
+    dsw_all, dsp_all = _ds_window_where(date_from, date_to)
+    ds_g = db.execute(text(
+        f"SELECT COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS profit, "
+        f"COUNT(*) AS n FROM direct_sales ds WHERE {dsw_all}"
+    ), dsp_all).first()
+    ds_profit = float(ds_g.profit or 0) if ds_g else 0.0
+    ds_count = int(ds_g.n or 0) if ds_g else 0
+    guadagno_reale = round(profit_sum + ds_profit, 2) if (with_cost or ds_count) else None
+
+    prof_agg: dict = {}
     rows_p = db.execute(text(
         f"""
         SELECT strftime('%Y-%m', q.quote_date) AS m,
@@ -629,7 +657,14 @@ def _margin_core(db: Session, date_from, date_to):
         GROUP BY m ORDER BY m
         """
     ), params).all()
-    profit_monthly = [MarginProfitPoint(month=r.m, profit=round(float(r.profit or 0), 2)) for r in rows_p]
+    rows_ds_p = db.execute(text(
+        f"SELECT strftime('%Y-%m', ds.sale_date) AS m, "
+        f"COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS profit "
+        f"FROM direct_sales ds WHERE {dsw_all} GROUP BY m"
+    ), dsp_all).all()
+    for r in list(rows_p) + list(rows_ds_p):
+        prof_agg[r.m] = prof_agg.get(r.m, 0.0) + float(r.profit or 0)
+    profit_monthly = [MarginProfitPoint(month=m, profit=round(v, 2)) for m, v in sorted(prof_agg.items())]
 
     return guadagno_reale, taratura_prezzo, taratura_costo, (completed, with_sold, with_cost), profit_monthly
 
@@ -758,6 +793,44 @@ def get_margin_stats(
         ) for r in rows_w
     ]
 
+    # ─── Incassato (venduto realizzato) + top clienti per venduto ─────
+    # = Σ sold_price dei preventivi completi + Σ venduto di TUTTE le vendite
+    # dirette. È l'incassato reale, distinto dal preventivato della tab Preventivi.
+    dsw_all, dsp_all = _ds_window_where(date_from, date_to)
+    inc_q = db.execute(text(
+        f"SELECT COALESCE(SUM(q.sold_price), 0) FROM quotes q WHERE {where} AND q.sold_price IS NOT NULL"
+    ), params).scalar()
+    inc_ds = db.execute(text(
+        f"SELECT COALESCE(SUM(ds.unit_price * ds.quantity), 0) FROM direct_sales ds WHERE {dsw_all}"
+    ), dsp_all).scalar()
+    incassato = round(float(inc_q or 0) + float(inc_ds or 0), 2)
+
+    rows_qsold = db.execute(text(
+        f"""
+        SELECT q.customer_id, q.customer_name, COALESCE(SUM(q.sold_price), 0) AS total
+        FROM quotes q
+        WHERE {where} AND q.sold_price IS NOT NULL
+          AND q.customer_name IS NOT NULL AND q.customer_name != ''
+        GROUP BY q.customer_id, q.customer_name
+        """
+    ), params).all()
+    rows_dsold = db.execute(text(
+        f"""
+        SELECT ds.customer_id, ds.customer_name, COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS total
+        FROM direct_sales ds
+        WHERE {dsw_all} AND ds.customer_name IS NOT NULL AND ds.customer_name != ''
+        GROUP BY ds.customer_id, ds.customer_name
+        """
+    ), dsp_all).all()
+    sold_agg: dict[tuple, float] = {}
+    for r in list(rows_qsold) + list(rows_dsold):
+        key = (r.customer_id, r.customer_name)
+        sold_agg[key] = sold_agg.get(key, 0.0) + float(r.total or 0)
+    top_customers_sold = [
+        StatsCustomerRow(customer_id=cid, customer_name=name, total=round(v, 2))
+        for (cid, name), v in sorted(sold_agg.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+
     comparison = None
     if compare in ('prev', 'yoy'):
         cmp_from, cmp_to = _comparison_range(compare, date_from, date_to)
@@ -773,11 +846,13 @@ def get_margin_stats(
         guadagno_reale=guadagno_reale,
         taratura_prezzo=taratura_prezzo,
         taratura_costo=taratura_costo,
+        incassato=incassato,
         completed_count=completed,
         with_sold_count=with_sold,
         with_cost_count=with_cost,
         monthly=monthly,
         profit_monthly=profit_monthly,
+        top_customers_sold=top_customers_sold,
         distribution=distribution,
         worst=worst,
         comparison=comparison,

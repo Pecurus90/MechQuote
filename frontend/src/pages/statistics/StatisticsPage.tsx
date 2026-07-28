@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import {
   FileText, Target, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
-  Wallet, Tag, Crosshair, Database,
+  Wallet, Tag, Crosshair, Database, Banknote,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -171,6 +171,7 @@ export default function StatisticsPage() {
               }))}
               distribution={gData.distribution}
               worst={gData.worst}
+              topCustomersSold={gData.top_customers_sold.map(c => ({ name: c.customer_name, value: c.total }))}
               cmpName={gData.comparison ? cmpSeriesName : undefined}
             />
           )
@@ -249,6 +250,7 @@ function buildMarginKpis(d: MarginStats, vs: string): StatKpi[] {
     v == null ? '—' : v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const c = d.comparison
   return [
+    { key: 'incassato', label: 'Incassato', value: eur(d.incassato), hint: 'venduto realizzato · preventivi + vendite dirette', icon: Banknote, tone: 'success', valueToned: true },
     { key: 'profit', label: 'Guadagno reale', value: d.guadagno_reale == null ? '—' : eur(d.guadagno_reale), hint: 'venduto − costo reale', icon: Wallet, tone: 'success', valueToned: true, delta: buildDelta(d.guadagno_reale, c?.guadagno_reale, 'eur', 'higher', vs) },
     { key: 'price', label: 'Scostamento prezzo', value: ratio(d.taratura_prezzo), hint: 'venduto ÷ preventivato', icon: Tag, tone: 'warning', delta: buildDelta(d.taratura_prezzo, c?.taratura_prezzo, 'ratio_point', 'higher', vs) },
     { key: 'cost', label: 'Precisione costo', value: ratio(d.taratura_costo), hint: 'costo reale ÷ stimato', icon: Crosshair, tone: 'danger', delta: buildDelta(d.taratura_costo, c?.taratura_costo, 'ratio_point', 'closer_to_1', vs) },

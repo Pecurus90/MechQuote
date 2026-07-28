@@ -918,11 +918,13 @@ export interface MarginStats {
   guadagno_reale: number | null
   taratura_prezzo: number | null
   taratura_costo: number | null
+  incassato: number
   completed_count: number
   with_sold_count: number
   with_cost_count: number
   monthly: MarginMonthlyPoint[]
   profit_monthly: MarginProfitPoint[]
+  top_customers_sold: StatsCustomerRow[]
   distribution: MarginBandRow[]
   worst: MarginWorstRow[]
   comparison?: MarginComparison | null

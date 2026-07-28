@@ -761,6 +761,14 @@ def _run_migrations():
          "created_by_user_id INTEGER REFERENCES users(id), "
          "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"),
         "CREATE INDEX IF NOT EXISTS ix_direct_sales_sale_date ON direct_sales(sale_date)",
+        # Valore preventivato (preventivo al volo) — opzionale, NULL = vendita secca
+        "ALTER TABLE direct_sales ADD COLUMN quoted_value FLOAT",
+        # Testata "come preventivo manuale": cliente + categoria + rif. cliente
+        "ALTER TABLE direct_sales ADD COLUMN customer_id INTEGER REFERENCES customers(id)",
+        "ALTER TABLE direct_sales ADD COLUMN customer_name VARCHAR(200)",
+        "ALTER TABLE direct_sales ADD COLUMN category_code VARCHAR(1)",
+        "ALTER TABLE direct_sales ADD COLUMN customer_order VARCHAR(100)",
+        "ALTER TABLE direct_sales ADD COLUMN customer_article VARCHAR(100)",
         "INSERT INTO role_permissions (role_id, permission_key) "
         "SELECT r.id, 'sales.direct' FROM roles r "
         "WHERE r.name IN ('admin','amministrazione') "

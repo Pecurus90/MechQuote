@@ -660,10 +660,17 @@ export interface MonthlyData {
 export interface DirectSale {
   id: number
   code: string
+  customer_id?: number | null
+  customer_name?: string | null
+  category_code?: string | null
+  customer_order?: string | null
+  customer_article?: string | null
   description?: string | null
   sale_date: string
   unit_price: number
   unit_cost: number
+  /** Valore preventivato unitario (preventivo al volo). null = vendita secca. */
+  quoted_value?: number | null
   quantity: number
   notes?: string | null
   created_by?: { id: number; full_name?: string | null; username?: string } | null

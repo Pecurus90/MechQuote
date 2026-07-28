@@ -135,7 +135,7 @@ export function QuotesStatsView({
         />
         <RankBarsCard
           title="Top 10 clienti (€)"
-          subtitle="Valore preventivato nel periodo"
+          subtitle="Valore preventivato · incl. vendite dirette con preventivo"
           data={topCustomers}
           labelKey="name"
           valueKey="value"

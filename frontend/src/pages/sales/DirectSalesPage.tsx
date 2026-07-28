@@ -6,7 +6,7 @@ import StandardPage from '@/components/layout/StandardPage'
 import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import DirectSaleFormModal from './DirectSaleFormModal'
-import type { DirectSale } from '@/types'
+import type { DirectSale, Customer, Category } from '@/types'
 
 const eur = (v: number) => '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const dateShort = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -14,6 +14,8 @@ const dateShort = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { d
 export default function DirectSalesPage() {
   const nowYear = new Date().getFullYear()
   const [sales, setSales] = useState<DirectSale[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [year, setYear] = useState<number>(nowYear)
   const [showForm, setShowForm] = useState(false)
   const [editSale, setEditSale] = useState<DirectSale | null>(null)
@@ -21,6 +23,10 @@ export default function DirectSalesPage() {
 
   const load = () => api.get(`/direct-sales?year=${year}`).then(r => setSales(r.data)).catch(() => toast.error('Errore nel caricamento delle vendite'))
   useEffect(() => { load() /* eslint-disable-next-line */ }, [year])
+  useEffect(() => {
+    api.get('/customers?active_only=true').then(r => setCustomers(r.data)).catch(() => undefined)
+    api.get('/quote-categories').then(r => setCategories(r.data)).catch(() => undefined)
+  }, [])
 
   const confirmDelete = async () => {
     if (pendingDel == null) return
@@ -61,19 +67,21 @@ export default function DirectSalesPage() {
     >
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[1040px] text-sm">
             <colgroup>
-              <col style={{ width: 120 }} /><col /><col style={{ width: 92 }} />
-              <col style={{ width: 112 }} /><col style={{ width: 104 }} /><col style={{ width: 64 }} />
+              <col style={{ width: 130 }} /><col style={{ width: 150 }} /><col /><col style={{ width: 92 }} />
+              <col style={{ width: 112 }} /><col style={{ width: 104 }} /><col style={{ width: 104 }} /><col style={{ width: 64 }} />
               <col style={{ width: 132 }} /><col style={{ width: 84 }} />
             </colgroup>
             <thead>
               <tr className="border-b border-border bg-card-muted text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="p-2.5 text-left font-medium">Codice</th>
+                <th className="p-2.5 text-left font-medium">Cliente</th>
                 <th className="p-2.5 text-left font-medium">Descrizione</th>
                 <th className="p-2.5 text-left font-medium">Data</th>
                 <th className="p-2.5 text-right font-medium">Prezzo/pz</th>
                 <th className="p-2.5 text-right font-medium">Costo/pz</th>
+                <th className="p-2.5 text-right font-medium">Prev./pz</th>
                 <th className="p-2.5 text-right font-medium">Q.tà</th>
                 <th className="p-2.5 text-right font-medium">Venduto</th>
                 <th className="p-2.5 text-center font-medium">Azioni</th>
@@ -82,7 +90,7 @@ export default function DirectSalesPage() {
             <tbody>
               {sales.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-10">
+                  <td colSpan={10} className="p-10">
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-2 rounded-xl border border-dashed border-border py-8 text-center">
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sales/[0.14] text-sales">
                         <Receipt className="h-5 w-5" />
@@ -98,10 +106,12 @@ export default function DirectSalesPage() {
               ) : sales.map(s => (
                 <tr key={s.id} className="border-b border-border transition-colors hover:bg-muted/[0.45]">
                   <td className="truncate p-2.5 font-mono font-semibold text-foreground">{s.code}</td>
+                  <td className="truncate p-2.5 text-foreground">{s.customer_name || <span className="text-muted-foreground">—</span>}</td>
                   <td className="truncate p-2.5 text-foreground">{s.description || <span className="text-muted-foreground">—</span>}</td>
                   <td className="p-2.5 font-mono text-xs text-muted-foreground">{dateShort(s.sale_date)}</td>
                   <td className="p-2.5 text-right font-mono">{eur(s.unit_price)}</td>
                   <td className="p-2.5 text-right font-mono text-muted-foreground">{eur(s.unit_cost)}</td>
+                  <td className="p-2.5 text-right font-mono text-muted-foreground">{s.quoted_value != null ? eur(s.quoted_value) : <span className="text-muted-foreground/60">—</span>}</td>
                   <td className="p-2.5 text-right font-mono">{s.quantity}</td>
                   <td className="p-2.5 text-right font-mono font-semibold text-foreground">{eur(s.unit_price * s.quantity)}</td>
                   <td className="p-2.5">
@@ -120,7 +130,7 @@ export default function DirectSalesPage() {
             {sales.length > 0 && (
               <tfoot>
                 <tr className="border-t border-sales/[0.30] bg-sales/[0.08]">
-                  <td colSpan={5} className="p-3 text-left font-bold text-foreground">Totale {year}</td>
+                  <td colSpan={7} className="p-3 text-left font-bold text-foreground">Totale {year}</td>
                   <td colSpan={1} className="p-3 text-right text-[12px] text-muted-foreground">costo</td>
                   <td className="whitespace-nowrap p-3 text-right">
                     <div className="text-[11px] font-normal text-muted-foreground">{eur(totalCost)}</div>
@@ -134,7 +144,7 @@ export default function DirectSalesPage() {
         </div>
       </div>
 
-      {showForm && <DirectSaleFormModal sale={editSale} onClose={() => setShowForm(false)} onSaved={load} />}
+      {showForm && <DirectSaleFormModal sale={editSale} customers={customers} categories={categories} onClose={() => setShowForm(false)} onSaved={load} />}
       <ConfirmDialog
         open={pendingDel != null}
         title="Eliminare questa vendita?"

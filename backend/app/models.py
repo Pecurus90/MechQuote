@@ -942,15 +942,30 @@ class DirectSale(Base):
     """Vendita di componenti NON passata da un preventivo (ricambi, vendite
     dirette). Il totale venduto/costo confluisce nel 'venduto' annuo della
     dashboard insieme ai preventivi completati. Prezzo/costo sono UNITARI;
-    il totale riga = unit × quantity."""
+    il totale riga = unit × quantity.
+
+    `code` è generato come un preventivo manuale ({cli3}-{aa}{cat}_{prog3}) e
+    deve essere univoco anche rispetto ai quote_number (vedi api/direct_sales)."""
     __tablename__ = "direct_sales"
 
     id = Column(Integer, primary_key=True)
     code = Column(String(100), nullable=False)
+    # Testata come il preventivo manuale: cliente (FK anagrafica) + snapshot nome
+    # + lettera categoria. year/progressivo vivono solo dentro `code`.
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    customer_name = Column(String(200), nullable=True)   # snapshot al momento
+    category_code = Column(String(1), nullable=True)
+    customer_order = Column(String(100), nullable=True)   # ordine cliente
+    customer_article = Column(String(100), nullable=True) # articolo cliente
     description = Column(String(200), nullable=True)
     sale_date = Column(DateTime, nullable=False, server_default=func.now())
     unit_price = Column(Float, default=0.0)   # prezzo di vendita unitario
     unit_cost = Column(Float, default=0.0)    # costo unitario (consuntivo)
+    # Valore preventivato unitario, SE è stato fatto un "preventivo al volo"
+    # prima della vendita. NULL = nessun preventivo (vendita secca). Quando
+    # valorizzato, la vendita entra nella taratura prezzo/scostamento della
+    # sezione Statistiche insieme ai preventivi (api/dashboard.get_margin_stats).
+    quoted_value = Column(Float, nullable=True)
     quantity = Column(Integer, default=1)
     notes = Column(Text, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)

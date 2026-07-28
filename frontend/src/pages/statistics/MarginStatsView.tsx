@@ -50,8 +50,9 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
       <div className="mb-4 flex items-start gap-2 rounded-[11px] border border-stats/[0.22] bg-stats/[0.08] px-3.5 py-[11px] text-[12.5px] text-foreground">
         <Info className="mt-[1px] h-4 w-4 flex-none text-stats" />
         <span>
-          Solo preventivi in stato <strong>completo</strong>. Guadagno reale = venduto − costo reale.
-          Taratura prezzo = venduto ÷ preventivato · Taratura costo = costo reale ÷ costo stimato.
+          Preventivi in stato <strong>completo</strong> più le vendite dirette con un preventivo al volo.
+          Guadagno reale = venduto − costo reale. Taratura prezzo = venduto ÷ preventivato ·
+          Taratura costo = costo reale ÷ costo stimato.
         </span>
       </div>
 
@@ -123,12 +124,12 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
         )}
         <GroupedBarsCard
           title="Distribuzione scostamento prezzo"
-          subtitle="Venduto ÷ preventivato · n. preventivi per fascia"
+          subtitle="Venduto ÷ preventivato · n. voci per fascia"
           data={distribution as unknown as Array<Record<string, string | number>>}
           xKey="band"
-          series={[{ key: 'count', name: 'Preventivi', color: c.blu }]}
+          series={[{ key: 'count', name: 'Voci', color: c.blu }]}
           yWidth={30}
-          tipFmt={(v) => [`${v} preventivi`, 'Preventivi']}
+          tipFmt={(v) => [`${v} voci`, 'Voci']}
         />
 
         {/* Peggiori scostamenti (tabella) */}
@@ -153,8 +154,8 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
                   </tr>
                 </thead>
                 <tbody>
-                  {worst.map((r) => (
-                    <tr key={r.quote_number} className="border-t border-border">
+                  {worst.map((r, i) => (
+                    <tr key={i} className="border-t border-border">
                       <td className="px-2 py-[9px] font-mono text-foreground">{r.quote_number}</td>
                       <td className="px-2 py-[9px] text-foreground">{r.customer_name}</td>
                       <td className="px-2 py-[9px] text-right font-mono text-muted-foreground">{eur(r.preventivato)}</td>

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.catalog_protect import block_if_in_use
 from app.core.database import get_db
 from app.core.security import require_permission
-from app.models import Customer, Quote
+from app.models import Customer, DirectSale, Quote
 from app.schemas import CustomerCreate, CustomerUpdate, CustomerOut, normalize_phone_number
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db), _=_can_writ
     block_if_in_use(
         db, f"Cliente '{customer.name}'",
         (Quote, Quote.customer_id == customer.id, "preventivo", "preventivi"),
+        (DirectSale, DirectSale.customer_id == customer.id, "vendita diretta", "vendite dirette"),
     )
     db.delete(customer)
     db.commit()

@@ -13,11 +13,23 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
-from app.models import DirectSale, User
+from app.models import DirectSale, Quote, User
 from app.schemas import DirectSaleCreate, DirectSaleOut, DirectSaleUpdate
 
 router = APIRouter(prefix="/api/direct-sales", tags=["direct-sales"])
 _can = require_permission('sales.direct')
+
+
+def _ensure_code_free(code: str, db: Session, exclude_id: Optional[int] = None) -> None:
+    """Il codice generato deve essere univoco anche rispetto ai preventivi:
+    non deve collidere né con un'altra vendita diretta né con un quote_number."""
+    q = db.query(DirectSale).filter(DirectSale.code == code)
+    if exclude_id is not None:
+        q = q.filter(DirectSale.id != exclude_id)
+    if q.first():
+        raise HTTPException(status_code=400, detail=f"Codice '{code}' già usato da un'altra vendita diretta")
+    if db.query(Quote).filter(Quote.quote_number == code).first():
+        raise HTTPException(status_code=400, detail=f"Codice '{code}' già usato da un preventivo")
 
 
 def _reload(sale_id: int, db: Session) -> DirectSale:
@@ -42,6 +54,7 @@ def create_sale(
     current_user: User = Depends(get_current_user),
     _=_can,
 ):
+    _ensure_code_free(data.code, db)
     sale = DirectSale(**data.model_dump(), created_by_user_id=current_user.id)
     db.add(sale)
     db.commit()
@@ -53,6 +66,8 @@ def update_sale(sale_id: int, data: DirectSaleUpdate, db: Session = Depends(get_
     sale = db.query(DirectSale).filter(DirectSale.id == sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Vendita non trovata")
+    if data.code is not None and data.code != sale.code:
+        _ensure_code_free(data.code, db, exclude_id=sale_id)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(sale, k, v)
     db.commit()

@@ -773,6 +773,41 @@ def _run_migrations():
         "ALTER TABLE direct_sales ADD COLUMN category_code VARCHAR(1)",
         "ALTER TABLE direct_sales ADD COLUMN customer_order VARCHAR(100)",
         "ALTER TABLE direct_sales ADD COLUMN customer_article VARCHAR(100)",
+        # ── Backfill feed Attività: eventi ciclo vita PASSATI ricostruiti dai
+        #    timestamp del preventivo (created_at = data storica reale). Broadcast
+        #    sentinella __activity__ = solo feed, non inbox. Idempotente via NOT
+        #    EXISTS (type, target_quote_id, target_user_id NULL). char(34) = '"'
+        #    per costruire il JSON senza escaping. Retroattivo dello storico.
+        ("INSERT INTO notifications (type, title, body, data_json, created_by_user_id, target_roles, target_user_id, target_quote_id, created_at) "
+         "SELECT 'quote_read', 'Preventivo ' || q.quote_number || ' letto', 'Preso in carico da ' || COALESCE(u.full_name, u.username, '-'), "
+         "'{' || char(34) || 'quote_id' || char(34) || ':' || q.id || ',' || char(34) || 'quote_number' || char(34) || ':' || char(34) || REPLACE(q.quote_number,char(34),'') || char(34) || '}', "
+         "q.read_by_user_id, '[' || char(34) || '__activity__' || char(34) || ']', NULL, q.id, q.read_at "
+         "FROM quotes q LEFT JOIN users u ON u.id = q.read_by_user_id "
+         "WHERE q.read_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.type='quote_read' AND n.target_quote_id=q.id AND n.target_user_id IS NULL)"),
+        ("INSERT INTO notifications (type, title, body, data_json, created_by_user_id, target_roles, target_user_id, target_quote_id, created_at) "
+         "SELECT 'quote_confirmed', 'Preventivo ' || q.quote_number || ' confermato', 'Confermato da ' || COALESCE(u.full_name, u.username, '-'), "
+         "'{' || char(34) || 'quote_id' || char(34) || ':' || q.id || ',' || char(34) || 'quote_number' || char(34) || ':' || char(34) || REPLACE(q.quote_number,char(34),'') || char(34) || '}', "
+         "q.confirmed_by_user_id, '[' || char(34) || '__activity__' || char(34) || ']', NULL, q.id, q.confirmed_at "
+         "FROM quotes q LEFT JOIN users u ON u.id = q.confirmed_by_user_id "
+         "WHERE q.confirmed_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.type='quote_confirmed' AND n.target_quote_id=q.id AND n.target_user_id IS NULL)"),
+        ("INSERT INTO notifications (type, title, body, data_json, created_by_user_id, target_roles, target_user_id, target_quote_id, created_at) "
+         "SELECT 'quote_completed', 'Preventivo ' || q.quote_number || ' completato', 'Completato da ' || COALESCE(u.full_name, u.username, '-'), "
+         "'{' || char(34) || 'quote_id' || char(34) || ':' || q.id || ',' || char(34) || 'quote_number' || char(34) || ':' || char(34) || REPLACE(q.quote_number,char(34),'') || char(34) || '}', "
+         "q.completed_by_user_id, '[' || char(34) || '__activity__' || char(34) || ']', NULL, q.id, q.completed_at "
+         "FROM quotes q LEFT JOIN users u ON u.id = q.completed_by_user_id "
+         "WHERE q.completed_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.type='quote_completed' AND n.target_quote_id=q.id AND n.target_user_id IS NULL)"),
+        ("INSERT INTO notifications (type, title, body, data_json, created_by_user_id, target_roles, target_user_id, target_quote_id, created_at) "
+         "SELECT 'quote_not_ordered', 'Preventivo ' || q.quote_number || ' non ordinato', 'Cliente non ha ordinato (' || COALESCE(u.full_name, u.username, '-') || ')', "
+         "'{' || char(34) || 'quote_id' || char(34) || ':' || q.id || ',' || char(34) || 'quote_number' || char(34) || ':' || char(34) || REPLACE(q.quote_number,char(34),'') || char(34) || '}', "
+         "q.not_ordered_by_user_id, '[' || char(34) || '__activity__' || char(34) || ']', NULL, q.id, q.not_ordered_at "
+         "FROM quotes q LEFT JOIN users u ON u.id = q.not_ordered_by_user_id "
+         "WHERE q.not_ordered_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.type='quote_not_ordered' AND n.target_quote_id=q.id AND n.target_user_id IS NULL)"),
+        ("INSERT INTO notifications (type, title, body, data_json, created_by_user_id, target_roles, target_user_id, target_quote_id, created_at) "
+         "SELECT 'quote_awaiting_client', 'Preventivo ' || q.quote_number || ' in attesa cliente', 'Offerta mandata al cliente', "
+         "'{' || char(34) || 'quote_id' || char(34) || ':' || q.id || ',' || char(34) || 'quote_number' || char(34) || ':' || char(34) || REPLACE(q.quote_number,char(34),'') || char(34) || '}', "
+         "NULL, '[' || char(34) || '__activity__' || char(34) || ']', NULL, q.id, q.awaiting_client_at "
+         "FROM quotes q "
+         "WHERE q.awaiting_client_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.type='quote_awaiting_client' AND n.target_quote_id=q.id AND n.target_user_id IS NULL)"),
         "INSERT INTO role_permissions (role_id, permission_key) "
         "SELECT r.id, 'sales.direct' FROM roles r "
         "WHERE r.name IN ('admin','amministrazione') "

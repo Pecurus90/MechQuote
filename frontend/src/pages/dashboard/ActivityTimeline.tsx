@@ -1,20 +1,7 @@
 // src/pages/dashboard/ActivityTimeline.tsx
-import type { LucideIcon } from 'lucide-react'
-import {
-  Send,
-  CheckCheck,
-  PackageCheck,
-  RotateCcw,
-  Truck,
-  AlertTriangle,
-  Clock,
-  Hourglass,
-  XCircle,
-  Eye,
-  HandCoins,
-} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/timeAgo'
+import { ACTIVITY_KINDS, ACTIVITY_FALLBACK } from '@/lib/activity'
 
 interface ActivityItem {
   id: number
@@ -29,24 +16,6 @@ interface Props {
   items: ActivityItem[]
   onOpen: (quoteId: number) => void
 }
-
-// Classi statiche (niente interpolazione: Tailwind JIT deve poterle vedere).
-const TYPE_META: Record<string, { icon: LucideIcon; cls: string }> = {
-  quote_submitted: { icon: Send, cls: 'bg-state-inviato/15 text-state-inviato' },
-  quote_read: { icon: Eye, cls: 'bg-state-letto/15 text-state-letto' },
-  quote_confirmed: { icon: CheckCheck, cls: 'bg-confirmed/15 text-confirmed' },
-  quote_completed: { icon: PackageCheck, cls: 'bg-success/15 text-success' },
-  quote_reopened: { icon: RotateCcw, cls: 'bg-state-letto/15 text-state-letto' },
-  quote_awaiting_client: { icon: Hourglass, cls: 'bg-state-attesa/15 text-state-attesa' },
-  quote_not_ordered: { icon: XCircle, cls: 'bg-state-perso/15 text-state-perso' },
-  quote_restored: { icon: RotateCcw, cls: 'bg-state-letto/15 text-state-letto' },
-  materials_ordered: { icon: Truck, cls: 'bg-info/15 text-info' },
-  tools_ordered: { icon: Truck, cls: 'bg-info/15 text-info' },
-  tools_low_stock_alert: { icon: AlertTriangle, cls: 'bg-warning/15 text-warning' },
-  direct_sale_created: { icon: HandCoins, cls: 'bg-sales/15 text-sales' },
-}
-
-const FALLBACK = { icon: Clock, cls: 'bg-muted text-muted-foreground' }
 
 // Il numero preventivo dentro il titolo (es. 240-26A_001) va reso in mono.
 // Formato reale (vedi generatore in NewQuote*Page): CUST-YY<CAT>_PROG con CUST
@@ -73,8 +42,8 @@ export function ActivityTimeline({ items, onOpen }: Props) {
       <div className="mb-4 text-[15px] font-semibold text-foreground">Attività recente</div>
       <div className="flex flex-col">
         {items.map((item, idx) => {
-          const meta = TYPE_META[item.type] ?? FALLBACK
-          const Icon = meta.icon
+          const meta = ACTIVITY_KINDS[item.type] ?? ACTIVITY_FALLBACK
+          const Icon = meta.Icon
           const last = idx === items.length - 1
           const clickable = item.quoteId != null
           return (

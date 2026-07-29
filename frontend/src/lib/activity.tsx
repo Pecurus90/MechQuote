@@ -1,31 +1,30 @@
-import { Send, CheckCircle2, Package, AlertTriangle } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { Send, Truck, ClipboardList, TriangleAlert, HandCoins, Clock } from 'lucide-react'
 
-/** Mappa tipo evento → label/colore/icona, condivisa fra Dashboard e ActivityPage. */
-export type ActivityKind = {
+/** Mappa tipo evento → etichetta/icona/colore, UNICA fonte condivisa fra la
+ *  dashboard (ActivityTimeline) e la pagina Attività del team (ActivityPage).
+ *
+ *  Contiene SOLO i tipi che compaiono nel feed team, cioè i broadcast per ruolo
+ *  (notifiche con target_user_id NULL, vedi api/activity + api/dashboard.activity).
+ *  Gli eventi del ciclo di vita preventivo (quote_confirmed/completed/read/…)
+ *  sono notifiche PERSONALI (target_user_id valorizzato): restano nell'inbox del
+ *  destinatario e non nel feed, quindi non vanno qui. */
+export interface ActivityKind {
   label: string
-  pillClass: string
-  icon: React.ReactNode
+  Icon: LucideIcon
+  cls: string
+  /** true = evento di sistema (l'attore mostrato è "Sistema", non un utente). */
+  system?: boolean
 }
 
-export const ACTIVITY_KIND: Record<string, ActivityKind> = {
-  quote_submitted: {
-    label: 'Inviato',
-    pillClass: 'bg-amber-100 text-amber-700',
-    icon: <Send className="w-3 h-3" />,
-  },
-  quote_completed: {
-    label: 'Completato',
-    pillClass: 'bg-green-100 text-green-700',
-    icon: <CheckCircle2 className="w-3 h-3" />,
-  },
-  materials_ordered: {
-    label: 'Ordine materiale',
-    pillClass: 'bg-rose-100 text-rose-700',
-    icon: <Package className="w-3 h-3" />,
-  },
-  tools_low_stock_alert: {
-    label: 'Utensili sotto minimo',
-    pillClass: 'bg-orange-100 text-orange-700',
-    icon: <AlertTriangle className="w-3 h-3" />,
-  },
+export const ACTIVITY_KINDS: Record<string, ActivityKind> = {
+  quote_submitted:       { label: 'Inviato',               Icon: Send,          cls: 'bg-info/15 text-info' },
+  materials_ordered:     { label: 'Ordine materiale',      Icon: Truck,         cls: 'bg-info/15 text-info' },
+  tools_ordered:         { label: 'Ordine utensili',       Icon: Truck,         cls: 'bg-info/15 text-info' },
+  material_to_order:     { label: 'Fabbisogno materiale',  Icon: ClipboardList, cls: 'bg-warning/15 text-warning' },
+  tools_low_stock_alert: { label: 'Utensili sotto minimo', Icon: TriangleAlert, cls: 'bg-warning/15 text-warning', system: true },
+  direct_sale_created:   { label: 'Vendita diretta',       Icon: HandCoins,     cls: 'bg-sales/15 text-sales' },
 }
+
+/** Fallback per tipi non ancora mappati: icona neutra, nessuna etichetta. */
+export const ACTIVITY_FALLBACK: ActivityKind = { label: '', Icon: Clock, cls: 'bg-muted text-muted-foreground' }

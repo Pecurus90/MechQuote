@@ -5,21 +5,13 @@ import { Input } from '@/components/ui/input'
 import api from '@/lib/api'
 import { timeAgo } from '@/lib/timeAgo'
 import type { ActivityRow } from '@/types'
-import { Activity as ActivityIcon, Search, Send, PackageCheck, Truck, TriangleAlert, HandCoins } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Activity as ActivityIcon, Search } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
+import { ACTIVITY_KINDS } from '@/lib/activity'
 
-type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert' | 'direct_sale_created'
-
-// Tipo evento → etichetta + icona + classi token (dark-aware), allineate all'handoff.
-const KIND: Record<string, { label: string; Icon: LucideIcon; cls: string; system?: boolean }> = {
-  quote_submitted:      { label: 'Inviato',                Icon: Send,         cls: 'bg-info/[0.13] text-info' },
-  quote_completed:      { label: 'Completato',             Icon: PackageCheck, cls: 'bg-success/[0.13] text-success' },
-  materials_ordered:    { label: 'Ordine materiale',       Icon: Truck,        cls: 'bg-info/[0.13] text-info' },
-  tools_low_stock_alert:{ label: 'Utensili sotto minimo',  Icon: TriangleAlert, cls: 'bg-warning/[0.14] text-warning', system: true },
-  direct_sale_created:  { label: 'Vendita diretta',        Icon: HandCoins,    cls: 'bg-sales/[0.13] text-sales' },
-}
+type TypeFilter = 'all' | 'quote_submitted' | 'materials_ordered' | 'tools_ordered'
+  | 'material_to_order' | 'tools_low_stock_alert' | 'direct_sale_created'
 
 export default function ActivityPage() {
   const navigate = useNavigate()
@@ -58,7 +50,7 @@ export default function ActivityPage() {
       color="gray"
       width="xl"
       title="Attività del team"
-      subtitle="Log delle modifiche ai preventivi (chi, quando, cosa)"
+      subtitle="Log del team: invii preventivi, ordini, materiali, utensili e vendite dirette"
       actions={
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative w-72">
@@ -69,9 +61,10 @@ export default function ActivityPage() {
           <select className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}>
             <option value="all">Tutti i tipi</option>
-            <option value="quote_submitted">Inviati</option>
-            <option value="quote_completed">Completati</option>
+            <option value="quote_submitted">Preventivi inviati</option>
             <option value="materials_ordered">Ordini materiali</option>
+            <option value="tools_ordered">Ordini utensili</option>
+            <option value="material_to_order">Fabbisogno materiale</option>
             <option value="tools_low_stock_alert">Utensili sotto minimo</option>
             <option value="direct_sale_created">Vendite dirette</option>
           </select>
@@ -94,7 +87,7 @@ export default function ActivityPage() {
         ) : (
           <ul className="px-4 py-1.5">
             {items.map((a, i) => {
-              const kind = KIND[a.type]
+              const kind = ACTIVITY_KINDS[a.type]
               const Icon = kind?.Icon ?? ActivityIcon
               const quoteId = typeof a.data?.quote_id === 'number' ? a.data.quote_id : null
               const actorName = kind?.system ? 'Sistema' : (a.created_by?.full_name || a.created_by?.username || '—')

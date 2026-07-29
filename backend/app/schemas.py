@@ -895,6 +895,8 @@ class StatisticsOut(BaseModel):
     margin_monthly: List[StatsMarginPoint]
     hours_by_machine: List[StatsHoursRow] = []
     hours_by_operation: List[StatsHoursRow] = []
+    lost_by_customer: List[StatsCustomerRow] = []   # preventivi persi per cliente (€ prev.)
+    lost_monthly: List[StatsTrendPoint] = []         # andamento € perso per mese
     comparison: Optional[StatsQuotesComparison] = None  # popolato se compare attivo
 
 

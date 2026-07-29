@@ -195,8 +195,12 @@ def _comparison_range(compare: str, date_from, date_to):
 
 def _quotes_where(date_from, date_to, customer_id):
     """Costruisce (date_filter, params) per le query della tab Preventivi.
-    Riusato da periodo corrente e finestra di confronto."""
-    parts: list = []
+    Riusato da periodo corrente e finestra di confronto.
+
+    Esclude le BOZZE: le statistiche contano i preventivi effettivamente
+    offerti (da 'inviato' in poi). Una bozza mai inviata non è attività
+    commerciale e gonfierebbe conteggi e € preventivato."""
+    parts: list = ["q.status != 'bozza'"]
     params: dict = {}
     if date_from is not None:
         parts.append("q.quote_date >= :date_from")
@@ -220,25 +224,6 @@ _QUOTE_VALUE_SQL = (
     "(SELECT COALESCE(SUM(p.total_price), 0) FROM parts p WHERE p.quote_id = q.id))"
 )
 
-# Valore € di una vendita diretta nelle aggregazioni "€ preventivato" della tab
-# Preventivi: solo quelle con preventivo al volo (quoted_value>0), valutate al
-# preventivato (quoted_value×quantity) — omogeneo col preventivato dei preventivi.
-_DS_VALUE_SQL = "ds.quoted_value * ds.quantity"
-
-
-def _ds_prev_where(date_from, date_to, customer_id) -> str:
-    """Where-clause delle vendite dirette con preventivo al volo per la tab
-    Preventivi. Riusa gli STESSI placeholder di `_quotes_where` (:date_from,
-    :date_to, :customer_id) così condivide il medesimo dict `params`."""
-    parts = ["ds.quoted_value IS NOT NULL", "ds.quoted_value > 0"]
-    if date_from is not None:
-        parts.append("ds.sale_date >= :date_from")
-    if date_to is not None:
-        parts.append("ds.sale_date <= :date_to")
-    if customer_id is not None:
-        parts.append("ds.customer_id = :customer_id")
-    return " AND ".join(parts)
-
 
 def _quotes_comparison(db: Session, date_from, date_to, customer_id) -> StatsQuotesComparison:
     """Aggregati della finestra di confronto (tab Preventivi): € totale e
@@ -255,18 +240,8 @@ def _quotes_comparison(db: Session, date_from, date_to, customer_id) -> StatsQuo
         GROUP BY m ORDER BY m
         """
     ), params).all()
-    # Vendite dirette con preventivo al volo nella finestra di confronto (coerente
-    # col periodo corrente): entrano nel € preventivato per delta consistenti.
-    ds_where = _ds_prev_where(date_from, date_to, customer_id)
-    rows_ds = db.execute(text(
-        f"SELECT strftime('%Y-%m', ds.sale_date) AS m, COALESCE(SUM({_DS_VALUE_SQL}), 0) AS total "
-        f"FROM direct_sales ds WHERE {ds_where} GROUP BY m"
-    ), params).all()
-    cmp_agg: dict = {}
-    for r in list(rows) + list(rows_ds):
-        cmp_agg[r.m] = cmp_agg.get(r.m, 0.0) + float(r.total or 0)
-    trend_total = [StatsCmpPoint(month=m, value=round(v, 2)) for m, v in sorted(cmp_agg.items())]
-    total_value = round(sum(cmp_agg.values()), 2)
+    trend_total = [StatsCmpPoint(month=r.m, value=round(float(r.total or 0), 2)) for r in rows]
+    total_value = round(sum(float(r.total or 0) for r in rows), 2)
 
     count = db.execute(text(f"SELECT COUNT(*) FROM quotes q WHERE 1=1 {df}"), params).scalar() or 0
 
@@ -340,16 +315,7 @@ def get_statistics(
         GROUP BY m ORDER BY m
         """
     ), params).all()
-    # Vendite dirette con preventivo al volo: entrano nel € preventivato mensile.
-    ds_where = _ds_prev_where(date_from, date_to, customer_id)
-    rows_ds_trend = db.execute(text(
-        f"SELECT strftime('%Y-%m', ds.sale_date) AS m, COALESCE(SUM({_DS_VALUE_SQL}), 0) AS v "
-        f"FROM direct_sales ds WHERE {ds_where} GROUP BY m"
-    ), params).all()
-    trend_agg: dict = {}
-    for r in list(rows_std) + list(rows_ds_trend):
-        trend_agg[r.m] = trend_agg.get(r.m, 0.0) + float(r.v or 0)
-    trend = [StatsTrendPoint(month=m, standard=v) for m, v in sorted(trend_agg.items())]
+    trend = [StatsTrendPoint(month=r.m, standard=float(r.v or 0)) for r in rows_std]
 
     # ─── 2. Top 10 clienti ─────────────────────────────────────────────
     rows_cust = db.execute(text(
@@ -363,16 +329,8 @@ def get_statistics(
           {date_filter}
         """
     ), params).all()
-    rows_ds_cust = db.execute(text(
-        f"""
-        SELECT ds.customer_id, ds.customer_name, COALESCE(SUM({_DS_VALUE_SQL}), 0) AS total
-        FROM direct_sales ds
-        WHERE {ds_where} AND ds.customer_name IS NOT NULL AND ds.customer_name != ''
-        GROUP BY ds.customer_id, ds.customer_name
-        """
-    ), params).all()
     cust_agg: dict[tuple, float] = {}
-    for r in list(rows_cust) + list(rows_ds_cust):
+    for r in rows_cust:
         key = (r.customer_id, r.customer_name)
         cust_agg[key] = cust_agg.get(key, 0.0) + float(r.total or 0)
     top_customers = [
@@ -405,14 +363,6 @@ def get_statistics(
         GROUP BY cat ORDER BY total DESC
         """
     ), params).all()
-    # Vendite dirette con preventivo al volo: hanno category_code diretto.
-    rows_ds_cat = db.execute(text(
-        f"""
-        SELECT ds.category_code AS cat, COUNT(*) AS cnt, COALESCE(SUM({_DS_VALUE_SQL}), 0) AS total
-        FROM direct_sales ds WHERE {ds_where}
-        GROUP BY ds.category_code
-        """
-    ), params).all()
     # C4 — la lettera estratta dal quote_number viene validata contro il catalogo
     # QuoteCategory (unica fonte dei codici ammessi). Tutto ciò che non matcha
     # (numerazioni legacy/manuali, quote_number malformati) confluisce in 'Altro'
@@ -423,7 +373,7 @@ def get_statistics(
         for (code,) in db.execute(text("SELECT code FROM quote_categories")).all()
     }
     cat_agg: dict[str, list] = {}
-    for r in list(rows_cat) + list(rows_ds_cat):
+    for r in rows_cat:
         raw = (r.cat or '').strip().upper()
         code = raw if raw and raw in valid_codes else 'Altro'
         agg = cat_agg.setdefault(code, [0, 0.0])
@@ -522,6 +472,35 @@ def get_statistics(
         conversion_rate_value=round(won_v / decided_v * 100.0, 1) if decided_v > 0 else 0.0,
     )
 
+    # ─── 8. Persi (non ordinati): per cliente + andamento mensile ─────
+    # Sezione dedicata all'esito negativo: quanto valore preventivato è andato
+    # perso, con chi e quando. Sempre a valore preventivato (final_total).
+    rows_lost_cust = db.execute(text(
+        f"""
+        SELECT q.customer_id, q.customer_name, COALESCE(SUM({_QUOTE_VALUE_SQL}), 0) AS total
+        FROM quotes q
+        WHERE q.status = 'non_ordinato'
+          AND q.customer_name IS NOT NULL AND q.customer_name != ''
+          {date_filter}
+        GROUP BY q.customer_id, q.customer_name
+        ORDER BY total DESC LIMIT 10
+        """
+    ), params).all()
+    lost_by_customer = [
+        StatsCustomerRow(customer_id=r.customer_id, customer_name=r.customer_name,
+                         total=round(float(r.total or 0), 2))
+        for r in rows_lost_cust
+    ]
+    rows_lost_m = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM({_QUOTE_VALUE_SQL}), 0) AS v
+        FROM quotes q
+        WHERE q.status = 'non_ordinato' {date_filter}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    lost_monthly = [StatsTrendPoint(month=r.m, standard=round(float(r.v or 0), 2)) for r in rows_lost_m]
+
     comparison = None
     if compare in ('prev', 'yoy'):
         cmp_from, cmp_to = _comparison_range(compare, date_from, date_to)
@@ -538,6 +517,8 @@ def get_statistics(
         margin_monthly=margin_monthly,
         hours_by_machine=hours_by_machine,
         hours_by_operation=hours_by_operation,
+        lost_by_customer=lost_by_customer,
+        lost_monthly=lost_monthly,
         comparison=comparison,
     )
 

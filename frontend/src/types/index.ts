@@ -802,6 +802,8 @@ export interface Statistics {
   margin_monthly: StatsMarginPoint[]
   hours_by_machine: StatsHoursRow[]
   hours_by_operation: StatsHoursRow[]
+  lost_by_customer: StatsCustomerRow[]
+  lost_monthly: StatsTrendPoint[]
   comparison?: StatsQuotesComparison | null
 }
 

@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import {
   FileText, Target, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
-  Wallet, Tag, Crosshair, Database, Banknote,
+  Wallet, Tag, Crosshair, Database, Banknote, Trophy, XCircle,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
@@ -155,6 +155,8 @@ export default function StatisticsPage() {
               byCategory={qData.by_category.map(c => ({ name: c.category_code, value: c.count }))}
               hoursByMachine={qData.hours_by_machine.map(h => ({ name: h.label, value: h.hours }))}
               hoursByProcess={qData.hours_by_operation.map(h => ({ name: h.label, value: h.hours }))}
+              lostByCustomer={qData.lost_by_customer.map(c => ({ name: c.customer_name ?? '—', value: c.total }))}
+              lostMonthly={qData.lost_monthly.map(p => ({ month: monthLabel(p.month), value: p.standard }))}
             />
           )
         )}
@@ -238,10 +240,12 @@ function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {
   const o = data.outcome ?? EMPTY_OUTCOME
   const c = data.comparison
   return [
-    { key: 'count', label: 'Preventivi', value: count, hint: 'nel periodo', icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
-    { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: `${o.won_count} vinti · ${o.lost_count} persi`, icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
-    { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'valore nel periodo', icon: Euro, tone: 'success', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
-    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },
+    { key: 'count', label: 'Preventivi', value: count, hint: 'offerti nel periodo', icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
+    { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'offerto nel periodo', icon: Euro, tone: 'info', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
+    { key: 'won', label: '€ vinto', value: eur(o.won_value), hint: `${o.won_count} vinti · preventivato`, icon: Trophy, tone: 'success', valueToned: true },
+    { key: 'lost', label: '€ perso', value: eur(o.lost_value), hint: `${o.lost_count} non ordinati`, icon: XCircle, tone: 'danger', valueToned: true },
+    { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
+    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi offerti', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },
   ]
 }
 

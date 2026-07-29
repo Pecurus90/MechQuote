@@ -1,5 +1,5 @@
 // src/pages/statistics/QuotesStatsView.tsx
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/theme'
 import { KpiCard } from '@/components/dashboard/KpiCard'
@@ -34,6 +34,10 @@ interface Props {
   hoursByMachine: Array<Record<string, string | number>>
   /** ore per lavorazione — { name, value } */
   hoursByProcess: Array<Record<string, string | number>>
+  /** persi per cliente — { name, value } (valore preventivato dei non ordinati) */
+  lostByCustomer: Array<Record<string, string | number>>
+  /** andamento persi mensile — { month, value } */
+  lostMonthly: Array<Record<string, string | number>>
   /** chiave asse X delle serie temporali (default "month") */
   xKey?: string
   /** nome serie di confronto (MoM/YoY); assente = nessun confronto */
@@ -57,6 +61,8 @@ export function QuotesStatsView({
   byCategory,
   hoursByMachine,
   hoursByProcess,
+  lostByCustomer,
+  lostMonthly,
   xKey = 'month',
   cmpName,
 }: Props) {
@@ -87,7 +93,7 @@ export function QuotesStatsView({
       </div>
 
       {/* KPI row */}
-      <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-3 lg:grid-cols-6">
         {kpis.map((k) => (
           <KpiCard
             key={k.key}
@@ -119,7 +125,7 @@ export function QuotesStatsView({
         />
         <TrendAreaCard
           title="Margine medio mensile"
-          subtitle="% sui preventivi confermati"
+          subtitle="% sui preventivi offerti nel periodo"
           data={monthlyMargin}
           xKey={xKey}
           series={[{ key: 'margine', name: 'Margine %', color: col.margine }]}
@@ -135,7 +141,7 @@ export function QuotesStatsView({
         />
         <RankBarsCard
           title="Top 10 clienti (€)"
-          subtitle="Valore preventivato · incl. vendite dirette con preventivo"
+          subtitle="Valore preventivato offerto nel periodo"
           data={topCustomers}
           labelKey="name"
           valueKey="value"
@@ -166,6 +172,36 @@ export function QuotesStatsView({
           labelWidth={96}
           valueFmt={hours}
         />
+      </div>
+
+      {/* Sezione Persi (non ordinati): valore preventivato andato perso */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <XCircle className="h-[18px] w-[18px] text-danger" />
+          <h3 className="text-[15px] font-semibold text-foreground">Preventivi persi</h3>
+          <span className="text-[12.5px] text-muted-foreground">non ordinati · valore preventivato</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RankBarsCard
+            title="Persi per cliente (€)"
+            subtitle="Valore preventivato dei non ordinati"
+            data={lostByCustomer}
+            labelKey="name"
+            valueKey="value"
+            height={330}
+            barSize={12}
+            valueFmt={eurK}
+          />
+          <TrendAreaCard
+            title="Andamento persi (€)"
+            subtitle="€ perso · mensile"
+            data={lostMonthly}
+            xKey={xKey}
+            series={[{ key: 'value', name: 'Perso', color: 'hsl(349 75% 52%)' }]}
+            yFmt={eurK}
+            tipFmt={(v, n) => [eur(v), n]}
+          />
+        </div>
       </div>
     </div>
   )

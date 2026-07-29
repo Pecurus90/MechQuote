@@ -17,9 +17,9 @@ interface Props {
   quoteNumber: string
   rows: CommessaRow[]
   // Tutti derivati, già calcolati dal container.
+  // subtotal: prezzi parte GIÀ comprensivi delle spese di gestione (trasporto +
+  // imballaggio camuffati nel prezzo/pz) → nessuna riga accessoria separata.
   subtotal: number
-  transport: number
-  packaging: number
   discountPercent: number
   discountAmount: number
   total: number
@@ -37,8 +37,6 @@ export function CommessaSummaryTable(props: Props) {
     quoteNumber,
     rows,
     subtotal,
-    transport,
-    packaging,
     discountPercent,
     discountAmount,
     total,
@@ -101,23 +99,19 @@ export function CommessaSummaryTable(props: Props) {
         {/* footer totals */}
         <div className="border-t-2 border-border bg-card-muted/60 px-[18px] py-3.5">
           <div className="ml-auto flex max-w-[420px] flex-col gap-[7px]">
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">Subtotale parti</span>
-              <span className="font-mono font-semibold text-foreground">{eur2(subtotal)}</span>
-            </div>
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">Trasporto</span>
-              <span className="font-mono text-foreground">{eur2(transport)}</span>
-            </div>
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">Imballaggio</span>
-              <span className="font-mono text-foreground">{eur2(packaging)}</span>
-            </div>
+            {/* Subtotale mostrato solo come base sconto: senza sconto coincide col
+                totale (spese già dentro i prezzi/pz) e sarebbe ridondante. */}
             {discountAmount > 0 && (
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-muted-foreground">Sconto {discountPercent}%</span>
-                <span className="font-mono text-danger">− {eur2(discountAmount)}</span>
-              </div>
+              <>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-muted-foreground">Subtotale parti</span>
+                  <span className="font-mono font-semibold text-foreground">{eur2(subtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-[13px]">
+                  <span className="text-muted-foreground">Sconto {discountPercent}%</span>
+                  <span className="font-mono text-danger">− {eur2(discountAmount)}</span>
+                </div>
+              </>
             )}
             <div className="mt-[3px] flex items-center justify-between border-t border-border pt-[9px]">
               <span className="text-sm font-bold text-foreground">Totale commessa</span>

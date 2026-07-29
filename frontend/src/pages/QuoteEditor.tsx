@@ -379,6 +379,14 @@ export default function QuoteEditor() {
   const selectedPart = quote.parts[selectedPartIdx] ?? null
   const total = calcQuoteTotal(quote)
   const partsSubtotal = quote.parts.reduce((s, p) => s + (p.total_price || 0), 0)
+  // "Spese di gestione" = trasporto + imballaggio ripartiti equamente su tutti i
+  // pezzi del preventivo (tutte le parti). Valore SOLO di presentazione: si
+  // aggiunge al prezzo/pz mostrato per "camuffare" le spese accessorie dentro il
+  // prezzo, senza toccare i totali salvati né la formula del totale (invariato).
+  const totalPieces = quote.parts.reduce((s, p) => s + (p.quantity || 0), 0)
+  const managementPerPiece = totalPieces > 0
+    ? ((quote.transport_cost || 0) + (quote.packaging_cost || 0)) / totalPieces
+    : 0
   const hasExtras = quote.transport_cost > 0 || quote.packaging_cost > 0 || quote.global_discount_percent > 0
   // Conferma morbida: totale a zero/negativo o margine negativo sono quasi
   // sempre errori di battitura (sconto 100%, margine sbagliato). Non blocco,
@@ -488,9 +496,13 @@ export default function QuoteEditor() {
     } catch (e) { toast.error(getApiErrorDetail(e, 'Errore nell\'applicazione del margine')) }
   }
 
+  // Prezzo/pz e Totale comprensivi della quota spese di gestione: coerente col
+  // pannello parte (spese camuffate nel prezzo, niente righe accessorie separate).
   const commessaRows: CommessaRow[] = quote.parts.map((p, idx) => ({
     id: p.id ?? idx, partCode: p.part_code, description: p.description || '—', quantity: p.quantity,
-    costPerPart: p.total_cost ?? 0, unitPrice: p.unit_price ?? 0, totalPrice: p.total_price ?? 0,
+    costPerPart: p.total_cost ?? 0,
+    unitPrice: (p.unit_price ?? 0) + managementPerPiece,
+    totalPrice: (p.total_price ?? 0) + managementPerPiece * p.quantity,
     hasIssues: partsWithIssues.has(idx),
   }))
   const discountAmount = (partsSubtotal + quote.transport_cost + quote.packaging_cost) * (quote.global_discount_percent || 0) / 100
@@ -622,9 +634,7 @@ export default function QuoteEditor() {
             <CommessaSummaryTable
               quoteNumber={quote.quote_number}
               rows={commessaRows}
-              subtotal={partsSubtotal}
-              transport={quote.transport_cost}
-              packaging={quote.packaging_cost}
+              subtotal={partsSubtotal + quote.transport_cost + quote.packaging_cost}
               discountPercent={quote.global_discount_percent || 0}
               discountAmount={discountAmount}
               total={total}
@@ -669,6 +679,7 @@ export default function QuoteEditor() {
               suppliers={suppliers}
               treatments={treatments}
               nParts={quote.parts.length || 1}
+              managementPerPiece={managementPerPiece}
               globalMarginPercent={quote.global_margin_percent}
               siblings={quote.parts.filter((_, i) => i !== selectedPartIdx)}
               companySettings={companySettings}

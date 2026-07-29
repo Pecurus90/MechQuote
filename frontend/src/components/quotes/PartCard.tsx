@@ -26,6 +26,9 @@ interface Props {
   suppliers?: Supplier[]
   treatments?: Treatment[]
   nParts?: number
+  /** Quota per pezzo di trasporto+imballaggio (spese di gestione), calcolata a
+   *  livello preventivo e ripartita su tutti i pezzi. Solo presentazione. */
+  managementPerPiece?: number
   globalMarginPercent: number
   siblings?: Part[]
   companySettings?: CompanySettings | null
@@ -41,6 +44,7 @@ interface Props {
 
 export default function PartCard({
   part, machines, materials, suppliers = [], treatments = [], nParts = 1,
+  managementPerPiece = 0,
   globalMarginPercent, siblings = [], companySettings, readOnly = false,
   onUpdate, onSave, onPhasesChange, onReload, onSaved,
 }: Props) {
@@ -282,6 +286,7 @@ export default function PartCard({
           treatmentShipping={treatmentShippingPerPiece}
           costPerPart={part.total_cost ?? 0}
           unitPrice={part.unit_price ?? 0}
+          managementPerPiece={managementPerPiece}
           quantity={part.quantity}
           totalPrice={part.total_price ?? 0}
           minimumActive={!!part.minimum_price && (part.total_cost ?? 0) < part.minimum_price}

@@ -16,6 +16,10 @@ interface Props {
   treatmentShipping: number
   costPerPart: number
   unitPrice: number
+  /** Quota per pezzo di trasporto+imballaggio ripartita sul preventivo. Sommata
+   *  (senza margine) al prezzo/pz mostrato: le spese accessorie vengono
+   *  "camuffate" dentro il prezzo, il totale del preventivo resta invariato. */
+  managementPerPiece?: number
   quantity: number
   totalPrice: number
   minimumActive?: boolean
@@ -63,6 +67,7 @@ export function PartCostSummary(props: Props) {
     treatmentShipping,
     costPerPart,
     unitPrice,
+    managementPerPiece = 0,
     quantity,
     totalPrice,
     minimumActive,
@@ -140,9 +145,14 @@ export function PartCostSummary(props: Props) {
       <div className="mb-1.5 flex items-center justify-between gap-2.5">
         <span className="min-w-0 text-[13px] text-muted-foreground">Prezzo/pz</span>
         <span className="flex-none whitespace-nowrap font-mono text-sm font-semibold text-foreground">
-          {eur2(unitPrice)}
+          {eur2(unitPrice + managementPerPiece)}
         </span>
       </div>
+      {managementPerPiece > 0 && (
+        <div className="mb-1.5 flex flex-col gap-1">
+          <SubRow label="di cui spese di gestione" value={managementPerPiece} />
+        </div>
+      )}
       <div
         className={cn(
           'flex items-center justify-between gap-2.5 rounded-[11px] bg-primary/10 px-3.5 py-3',
@@ -152,7 +162,7 @@ export function PartCostSummary(props: Props) {
           × {quantity} = Totale/pz
         </span>
         <span className="flex-none whitespace-nowrap font-mono text-[17px] font-bold text-primary">
-          {eur2(totalPrice)}
+          {eur2(totalPrice + managementPerPiece * quantity)}
         </span>
       </div>
     </div>

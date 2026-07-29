@@ -11,7 +11,8 @@ import { toast } from 'sonner'
 import { ACTIVITY_KINDS } from '@/lib/activity'
 
 type TypeFilter = 'all' | 'quote_submitted' | 'quote_confirmed' | 'quote_completed' | 'quote_not_ordered'
-  | 'materials_ordered' | 'tools_ordered' | 'material_to_order' | 'tools_low_stock_alert' | 'direct_sale_created'
+  | 'materials_ordered' | 'tools_ordered' | 'material_to_order' | 'tools_low_stock_alert'
+  | 'direct_sale_created' | 'direct_sale_deleted'
 
 export default function ActivityPage() {
   const navigate = useNavigate()
@@ -70,6 +71,7 @@ export default function ActivityPage() {
             <option value="material_to_order">Fabbisogno materiale</option>
             <option value="tools_low_stock_alert">Utensili sotto minimo</option>
             <option value="direct_sale_created">Vendite dirette</option>
+            <option value="direct_sale_deleted">Vendite eliminate</option>
           </select>
         </div>
       }

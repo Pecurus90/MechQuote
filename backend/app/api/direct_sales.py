@@ -86,10 +86,24 @@ def update_sale(sale_id: int, data: DirectSaleUpdate, db: Session = Depends(get_
 
 
 @router.delete("/{sale_id}")
-def delete_sale(sale_id: int, db: Session = Depends(get_db), _=_can):
+def delete_sale(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can,
+):
     sale = db.query(DirectSale).filter(DirectSale.id == sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Vendita non trovata")
+    code, cliente = sale.code, sale.customer_name or "—"
     db.delete(sale)
     db.commit()
+    # Feed team: tracciamo le sparizioni (una vendita eliminata è un evento).
+    emit_activity(
+        db,
+        type="direct_sale_deleted",
+        title=f"Vendita diretta {code} eliminata",
+        body=cliente,
+        created_by_user_id=current_user.id,
+    )
     return {"ok": True}

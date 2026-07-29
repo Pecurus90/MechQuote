@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Send, CheckCheck, PackageCheck, XCircle, Truck, ClipboardList, TriangleAlert, HandCoins, Clock } from 'lucide-react'
+import { Send, CheckCheck, PackageCheck, XCircle, Truck, ClipboardList, TriangleAlert, HandCoins, Trash2, Clock } from 'lucide-react'
 
 /** Mappa tipo evento → etichetta/icona/colore, UNICA fonte condivisa fra la
  *  dashboard (ActivityTimeline) e la pagina Attività del team (ActivityPage).
@@ -28,6 +28,7 @@ export const ACTIVITY_KINDS: Record<string, ActivityKind> = {
   material_to_order:     { label: 'Fabbisogno materiale',  Icon: ClipboardList, cls: 'bg-warning/15 text-warning' },
   tools_low_stock_alert: { label: 'Utensili sotto minimo', Icon: TriangleAlert, cls: 'bg-warning/15 text-warning', system: true },
   direct_sale_created:   { label: 'Vendita diretta',       Icon: HandCoins,     cls: 'bg-sales/15 text-sales' },
+  direct_sale_deleted:   { label: 'Vendita eliminata',     Icon: Trash2,        cls: 'bg-danger/15 text-danger' },
 }
 
 /** Fallback per tipi non ancora mappati: icona neutra, nessuna etichetta. */

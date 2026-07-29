@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
 from app.models import DirectSale, Quote, User
 from app.schemas import DirectSaleCreate, DirectSaleOut, DirectSaleUpdate
-from app.services.notifications import ACTIVITY_FEED_ROLE, create_notification
+from app.services.notifications import emit_activity
 
 router = APIRouter(prefix="/api/direct-sales", tags=["direct-sales"])
 _can = require_permission('sales.direct')
@@ -62,13 +62,12 @@ def create_sale(
     # Traccia nel feed Attività del team (solo feed, non nell'inbox: sentinella).
     total = (sale.unit_price or 0) * (sale.quantity or 1)
     importo = f"{total:.2f}".replace(".", ",")
-    create_notification(
+    emit_activity(
         db,
         type="direct_sale_created",
         title=f"Vendita diretta {sale.code} registrata",
         body=f"{sale.customer_name or '—'} · € {importo}",
         created_by_user_id=current_user.id,
-        target_roles=[ACTIVITY_FEED_ROLE],
     )
     return _reload(sale.id, db)
 

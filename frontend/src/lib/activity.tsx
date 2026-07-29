@@ -1,14 +1,15 @@
 import type { LucideIcon } from 'lucide-react'
-import { Send, Truck, ClipboardList, TriangleAlert, HandCoins, Clock } from 'lucide-react'
+import { Send, CheckCheck, PackageCheck, XCircle, Truck, ClipboardList, TriangleAlert, HandCoins, Clock } from 'lucide-react'
 
 /** Mappa tipo evento → etichetta/icona/colore, UNICA fonte condivisa fra la
  *  dashboard (ActivityTimeline) e la pagina Attività del team (ActivityPage).
  *
  *  Contiene SOLO i tipi che compaiono nel feed team, cioè i broadcast per ruolo
  *  (notifiche con target_user_id NULL, vedi api/activity + api/dashboard.activity).
- *  Gli eventi del ciclo di vita preventivo (quote_confirmed/completed/read/…)
- *  sono notifiche PERSONALI (target_user_id valorizzato): restano nell'inbox del
- *  destinatario e non nel feed, quindi non vanno qui. */
+ *  Conferma/completato/non-ordinato emettono un evento feed dedicato (backend
+ *  emit_activity) OLTRE alla notifica personale al creatore. Gli altri eventi
+ *  del ciclo di vita (read/awaiting/reopened/restored) restano solo personali
+ *  nell'inbox e non vanno qui. */
 export interface ActivityKind {
   label: string
   Icon: LucideIcon
@@ -19,6 +20,9 @@ export interface ActivityKind {
 
 export const ACTIVITY_KINDS: Record<string, ActivityKind> = {
   quote_submitted:       { label: 'Inviato',               Icon: Send,          cls: 'bg-info/15 text-info' },
+  quote_confirmed:       { label: 'Confermato',            Icon: CheckCheck,    cls: 'bg-confirmed/15 text-confirmed' },
+  quote_completed:       { label: 'Completato',            Icon: PackageCheck,  cls: 'bg-success/15 text-success' },
+  quote_not_ordered:     { label: 'Non ordinato',          Icon: XCircle,       cls: 'bg-state-perso/15 text-state-perso' },
   materials_ordered:     { label: 'Ordine materiale',      Icon: Truck,         cls: 'bg-info/15 text-info' },
   tools_ordered:         { label: 'Ordine utensili',       Icon: Truck,         cls: 'bg-info/15 text-info' },
   material_to_order:     { label: 'Fabbisogno materiale',  Icon: ClipboardList, cls: 'bg-warning/15 text-warning' },

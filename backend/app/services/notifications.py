@@ -81,3 +81,32 @@ def create_notification(
         return None
     db.refresh(notification)
     return notification
+
+
+def emit_activity(
+    db: Session,
+    *,
+    type: str,
+    title: str,
+    body: Optional[str] = None,
+    created_by_user_id: Optional[int] = None,
+    data: Optional[dict] = None,
+    commit: bool = True,
+) -> Optional[Notification]:
+    """Emette un evento SOLO nel feed Attività del team (broadcast sentinella
+    `ACTIVITY_FEED_ROLE`: compare nel feed ma non nell'inbox di nessuno).
+
+    Da AFFIANCARE, non sostituire, alle eventuali notifiche personali dello
+    stesso evento (es. quote_confirmed va anche nell'inbox del creatore). Il
+    feed scatta sempre; la notifica personale resta condizionale nel chiamante.
+    """
+    return create_notification(
+        db,
+        type=type,
+        title=title,
+        body=body,
+        created_by_user_id=created_by_user_id,
+        target_roles=[ACTIVITY_FEED_ROLE],
+        data=data,
+        commit=commit,
+    )

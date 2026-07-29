@@ -20,7 +20,7 @@ from app.services.calculation import (
     recalculate_quote as svc_recalculate_quote,
     recompute_final_total,
 )
-from app.services.notifications import create_notification
+from app.services.notifications import create_notification, emit_activity
 
 logger = logging.getLogger(__name__)
 _can_write = require_permission('quotes.create')
@@ -290,12 +290,21 @@ def notify_quote_completed(db: Session, quote: Quote, actor_user: User) -> None:
     porta il preventivo a completo). Dedupata via UNIQUE INDEX su DB
     (type='quote_completed', target_user_id, target_quote_id).
     """
+    actor = actor_user.full_name or actor_user.username
+    # Feed team: il completamento è sempre visibile (a prescindere dall'auto-notifica).
+    emit_activity(
+        db,
+        type='quote_completed',
+        title=f"Preventivo {quote.quote_number} completato",
+        body=f"Completato da {actor}",
+        created_by_user_id=actor_user.id,
+        data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+    )
     target = quote.submitted_by_user_id or quote.created_by_user_id
     if not target:
         return
     if target == actor_user.id:
         return  # niente auto-notifica: chi completa è lo stesso destinatario
-    actor = actor_user.full_name or actor_user.username
     create_notification(
         db,
         type='quote_completed',
@@ -416,6 +425,17 @@ def confirm_quote(
     # insieme. quote_completed resta su commit proprio (UNIQUE dedupe + doppia
     # sorgente: qui e ultimo ordine materiale in orders.py).
     db.commit()
+    # Feed team: la conferma è sempre visibile (l'inbox personale sopra è invece
+    # condizionale). Se l'evento completa anche il preventivo, notify_quote_completed
+    # emette il proprio evento di completamento.
+    emit_activity(
+        db,
+        type='quote_confirmed',
+        title=f"Preventivo {quote.quote_number} confermato",
+        body=f"Confermato da {actor}",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+    )
     if completed:
         notify_quote_completed(db, quote, current_user)
     return _load_quote(quote_id, db)
@@ -688,6 +708,15 @@ def mark_not_ordered_quote(
             commit=False,
         )
     db.commit()
+    # Feed team: l'esito "perso" è sempre visibile al team.
+    emit_activity(
+        db,
+        type='quote_not_ordered',
+        title=f"Preventivo {qnum} non ordinato",
+        body=f"Cliente non ha ordinato ({current_user.full_name or current_user.username})",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote_id, 'quote_number': qnum},
+    )
     logger.info("Non ordinato: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 

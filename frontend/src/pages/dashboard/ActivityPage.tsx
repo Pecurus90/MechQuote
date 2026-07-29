@@ -10,8 +10,8 @@ import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 import { ACTIVITY_KINDS } from '@/lib/activity'
 
-type TypeFilter = 'all' | 'quote_submitted' | 'materials_ordered' | 'tools_ordered'
-  | 'material_to_order' | 'tools_low_stock_alert' | 'direct_sale_created'
+type TypeFilter = 'all' | 'quote_submitted' | 'quote_confirmed' | 'quote_completed' | 'quote_not_ordered'
+  | 'materials_ordered' | 'tools_ordered' | 'material_to_order' | 'tools_low_stock_alert' | 'direct_sale_created'
 
 export default function ActivityPage() {
   const navigate = useNavigate()
@@ -50,7 +50,7 @@ export default function ActivityPage() {
       color="gray"
       width="xl"
       title="Attività del team"
-      subtitle="Log del team: invii preventivi, ordini, materiali, utensili e vendite dirette"
+      subtitle="Log del team: preventivi (invio, conferma, completo, perso), ordini, materiali, utensili e vendite"
       actions={
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative w-72">
@@ -62,6 +62,9 @@ export default function ActivityPage() {
             value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}>
             <option value="all">Tutti i tipi</option>
             <option value="quote_submitted">Preventivi inviati</option>
+            <option value="quote_confirmed">Preventivi confermati</option>
+            <option value="quote_completed">Preventivi completati</option>
+            <option value="quote_not_ordered">Preventivi non ordinati</option>
             <option value="materials_ordered">Ordini materiali</option>
             <option value="tools_ordered">Ordini utensili</option>
             <option value="material_to_order">Fabbisogno materiale</option>

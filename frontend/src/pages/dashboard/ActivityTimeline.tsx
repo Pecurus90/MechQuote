@@ -11,6 +11,7 @@ import {
   Hourglass,
   XCircle,
   Eye,
+  HandCoins,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/timeAgo'
@@ -42,6 +43,7 @@ const TYPE_META: Record<string, { icon: LucideIcon; cls: string }> = {
   materials_ordered: { icon: Truck, cls: 'bg-info/15 text-info' },
   tools_ordered: { icon: Truck, cls: 'bg-info/15 text-info' },
   tools_low_stock_alert: { icon: AlertTriangle, cls: 'bg-warning/15 text-warning' },
+  direct_sale_created: { icon: HandCoins, cls: 'bg-sales/15 text-sales' },
 }
 
 const FALLBACK = { icon: Clock, cls: 'bg-muted text-muted-foreground' }

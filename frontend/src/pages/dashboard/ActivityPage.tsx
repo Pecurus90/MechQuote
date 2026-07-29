@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input'
 import api from '@/lib/api'
 import { timeAgo } from '@/lib/timeAgo'
 import type { ActivityRow } from '@/types'
-import { Activity as ActivityIcon, Search, Send, PackageCheck, Truck, TriangleAlert } from 'lucide-react'
+import { Activity as ActivityIcon, Search, Send, PackageCheck, Truck, TriangleAlert, HandCoins } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 
-type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert'
+type TypeFilter = 'all' | 'quote_submitted' | 'quote_completed' | 'materials_ordered' | 'tools_low_stock_alert' | 'direct_sale_created'
 
 // Tipo evento → etichetta + icona + classi token (dark-aware), allineate all'handoff.
 const KIND: Record<string, { label: string; Icon: LucideIcon; cls: string; system?: boolean }> = {
@@ -18,6 +18,7 @@ const KIND: Record<string, { label: string; Icon: LucideIcon; cls: string; syste
   quote_completed:      { label: 'Completato',             Icon: PackageCheck, cls: 'bg-success/[0.13] text-success' },
   materials_ordered:    { label: 'Ordine materiale',       Icon: Truck,        cls: 'bg-info/[0.13] text-info' },
   tools_low_stock_alert:{ label: 'Utensili sotto minimo',  Icon: TriangleAlert, cls: 'bg-warning/[0.14] text-warning', system: true },
+  direct_sale_created:  { label: 'Vendita diretta',        Icon: HandCoins,    cls: 'bg-sales/[0.13] text-sales' },
 }
 
 export default function ActivityPage() {
@@ -72,6 +73,7 @@ export default function ActivityPage() {
             <option value="quote_completed">Completati</option>
             <option value="materials_ordered">Ordini materiali</option>
             <option value="tools_low_stock_alert">Utensili sotto minimo</option>
+            <option value="direct_sale_created">Vendite dirette</option>
           </select>
         </div>
       }

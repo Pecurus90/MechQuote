@@ -11,6 +11,13 @@ from sqlalchemy.orm import Session
 from app.models import Notification
 from app.services.notification_stream import queue_publish
 
+# Ruolo sentinella per eventi "solo feed Attività": un broadcast (target_user_id
+# NULL) con questo target_roles compare nel feed team (/api/activity + dashboard
+# activity, che filtrano solo target_user_id) ma NON nell'inbox personale di
+# nessuno (l'inbox filtra `user.role in target_roles`, e nessun ruolo reale ha
+# questo slug). Usato per tracciare eventi informativi senza pingare la campanella.
+ACTIVITY_FEED_ROLE = "__activity__"
+
 
 def create_notification(
     db: Session,

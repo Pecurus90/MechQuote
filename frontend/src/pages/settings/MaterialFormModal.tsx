@@ -13,6 +13,7 @@ import type { Material, MaterialAlias, MaterialSupplier } from '@/types'
 
 interface MatForm {
   name: string; family: string; density: string; cost: string
+  costRound: string; uniformCost: boolean
   edm: string; cnc: string; scrap: string; supplier_id: string; active: boolean
 }
 
@@ -21,6 +22,8 @@ const fromMaterial = (m: Material | null, defaultName = ''): MatForm => ({
   family: m?.family ?? '',
   density: m != null ? String(m.density_kg_dm3) : '',
   cost: m != null ? String(m.cost_per_kg) : '',
+  costRound: m?.cost_per_kg_round != null ? String(m.cost_per_kg_round) : '',
+  uniformCost: m?.uniform_cost_per_kg ?? true,
   edm: m != null ? String(m.edm_coefficient) : '1.0',
   cnc: m != null ? String(m.cnc_machinability_coefficient) : '1.0',
   scrap: m != null ? String(m.default_scrap_percent) : '10',
@@ -78,6 +81,8 @@ export default function MaterialFormModal({ material, suppliers, defaultName, on
     const payload = {
       name: form.name, family: form.family,
       density_kg_dm3: parseDecimal(form.density), cost_per_kg: parseDecimal(form.cost),
+      cost_per_kg_round: form.uniformCost ? null : parseDecimal(form.costRound),
+      uniform_cost_per_kg: form.uniformCost,
       edm_coefficient: parseDecimal(form.edm), cnc_machinability_coefficient: parseDecimal(form.cnc),
       default_scrap_percent: parseDecimal(form.scrap),
       supplier_id: form.supplier_id ? Number(form.supplier_id) : null,
@@ -126,7 +131,7 @@ export default function MaterialFormModal({ material, suppliers, defaultName, on
               <Input type="text" inputMode="decimal" value={form.density} onChange={e => set('density', e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium">Costo €/kg</label>
+              <label className="text-sm font-medium">{form.uniformCost ? 'Costo €/kg' : 'Costo €/kg prismatico'}</label>
               <Input type="text" inputMode="decimal" value={form.cost} onChange={e => set('cost', e.target.value)} />
             </div>
             <div>
@@ -157,6 +162,21 @@ export default function MaterialFormModal({ material, suppliers, defaultName, on
               </select>
             </div>
           </div>
+
+          {/* Costo €/kg per forma: il tondo (e tubo) può avere un costo diverso */}
+          <label className="flex items-center gap-2 text-sm cursor-pointer mt-3">
+            <input type="checkbox" checked={form.uniformCost} onChange={e => set('uniformCost', e.target.checked)} className="w-4 h-4" />
+            Stesso costo €/kg per tondo e prismatico
+          </label>
+          {!form.uniformCost && (
+            <div className="mt-2 grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Costo €/kg tondo (e tubo)</label>
+                <Input type="text" inputMode="decimal" value={form.costRound} onChange={e => set('costRound', e.target.value)} />
+              </div>
+            </div>
+          )}
+
           <label className="flex items-center gap-2 text-sm cursor-pointer mt-3">
             <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4" />
             Attivo

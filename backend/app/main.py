@@ -763,6 +763,10 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_direct_sales_sale_date ON direct_sales(sale_date)",
         # Valore preventivato (preventivo al volo) — opzionale, NULL = vendita secca
         "ALTER TABLE direct_sales ADD COLUMN quoted_value FLOAT",
+        # Costo materiale per forma: tondo (e tubo) separato dal prismatico.
+        # uniform=1 di default → materiali esistenti col costo unico (cost_per_kg).
+        "ALTER TABLE materials ADD COLUMN cost_per_kg_round FLOAT",
+        "ALTER TABLE materials ADD COLUMN uniform_cost_per_kg BOOLEAN DEFAULT 1",
         # Testata "come preventivo manuale": cliente + categoria + rif. cliente
         "ALTER TABLE direct_sales ADD COLUMN customer_id INTEGER REFERENCES customers(id)",
         "ALTER TABLE direct_sales ADD COLUMN customer_name VARCHAR(200)",

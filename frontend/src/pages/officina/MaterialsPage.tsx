@@ -146,6 +146,7 @@ export default function OfficinaMaterialsPage() {
                     <div className="font-mono font-semibold text-foreground">{m.name}</div>
                     <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                       {m.density_kg_dm3?.toFixed(2) ?? '—'} kg/dm³ · {m.cost_per_kg?.toFixed(2) ?? '—'} €/kg
+                      {m.uniform_cost_per_kg === false && m.cost_per_kg_round != null && <> (prism.) · {m.cost_per_kg_round.toFixed(2)} €/kg (tondo)</>}
                       {m.default_scrap_percent != null && <> · scrap {m.default_scrap_percent}%</>}
                     </div>
                   </td>

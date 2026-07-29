@@ -88,19 +88,32 @@ def raw_volume_dm3(part) -> float:
     return (x * y * z) / 1_000_000
 
 
+def material_rate_per_kg(material, is_round: bool) -> float:
+    """€/kg da applicare secondo la forma del grezzo.
+
+    Tondo E tubo (`is_round=True`) usano `cost_per_kg_round` SOLO quando il
+    materiale non ha costo uniforme; prismatico (o materiale uniforme) usa
+    `cost_per_kg`. Gemello DRY di `quoteCalc.materialRatePerKg`.
+    """
+    uniform = True if material.uniform_cost_per_kg is None else bool(material.uniform_cost_per_kg)
+    if is_round and not uniform:
+        return material.cost_per_kg_round or 0.0
+    return material.cost_per_kg or 0.0
+
+
 def material_cost(part, material) -> Optional[float]:
     """Costo materiale grezzo per pezzo (€) = volume × densità × €/kg × scrap.
 
     Gemello DRY di `quoteCalc.calcMaterialCost` — devono restare identici.
     Tondo: raw_diameter_mm + raw_z_mm; prismatico: raw_x × raw_y × raw_z.
-    Ritorna None quando i dati sono insufficienti (il chiamante mantiene il
-    valore già salvato).
+    Il €/kg dipende dalla forma (vedi `material_rate_per_kg`). Ritorna None
+    quando i dati sono insufficienti (il chiamante mantiene il valore salvato).
     """
     if not material:
         return None
     scrap = 1 + (material.default_scrap_percent or 10) / 100
     density = material.density_kg_dm3 or 0
-    cost_per_kg = material.cost_per_kg or 0
+    cost_per_kg = material_rate_per_kg(material, bool(part.raw_diameter_mm))
 
     if part.raw_diameter_mm:
         r = part.raw_diameter_mm / 2

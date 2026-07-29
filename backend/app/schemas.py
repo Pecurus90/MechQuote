@@ -306,7 +306,9 @@ class MaterialBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     family: Optional[str] = None
     density_kg_dm3: Optional[float] = Field(default=0.0, ge=0)
-    cost_per_kg: Optional[float] = Field(default=0.0, ge=0)
+    cost_per_kg: Optional[float] = Field(default=0.0, ge=0)          # €/kg prismatico (base)
+    cost_per_kg_round: Optional[float] = Field(default=None, ge=0)   # €/kg tondo/tubo (se non uniforme)
+    uniform_cost_per_kg: Optional[bool] = True                       # spunta "stesso costo tutte le forme"
     edm_coefficient: Optional[float] = Field(default=1.0, ge=0)
     cnc_machinability_coefficient: Optional[float] = Field(default=1.0, ge=0)
     default_scrap_percent: Optional[float] = Field(default=10.0, ge=0)

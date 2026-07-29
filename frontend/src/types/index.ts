@@ -86,7 +86,9 @@ export interface Material {
   name: string
   family: string
   density_kg_dm3: number
-  cost_per_kg: number
+  cost_per_kg: number                  // €/kg prismatico (base)
+  cost_per_kg_round?: number | null    // €/kg tondo/tubo (usato se non uniforme)
+  uniform_cost_per_kg?: boolean        // spunta "stesso costo tutte le forme"
   edm_coefficient?: number
   cnc_machinability_coefficient?: number
   default_scrap_percent: number

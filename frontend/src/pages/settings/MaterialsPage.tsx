@@ -150,7 +150,14 @@ export default function MaterialsPage() {
                     <td className="truncate p-2.5 font-mono font-semibold text-foreground">{m.name}</td>
                     <td className="p-2.5">{m.family && <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${famClass(m.family)}`}>{familyLabel(m.family)}</span>}</td>
                     <td className="p-2.5 text-right font-mono">{m.density_kg_dm3}</td>
-                    <td className="p-2.5 text-right font-mono">{m.cost_per_kg}</td>
+                    <td className="p-2.5 text-right font-mono">
+                      {m.uniform_cost_per_kg === false && m.cost_per_kg_round != null ? (
+                        <div className="leading-tight text-[12px]">
+                          <div><span className="text-[10px] text-muted-foreground">pris</span> {m.cost_per_kg}</div>
+                          <div><span className="text-[10px] text-muted-foreground">tond</span> {m.cost_per_kg_round}</div>
+                        </div>
+                      ) : m.cost_per_kg}
+                    </td>
                     <td className="truncate p-2.5 text-xs text-muted-foreground">{m.material_supplier?.name || '—'}</td>
                     <td className="p-2.5 text-center text-xs">{m.has_datasheet ? <span className="inline-flex items-center gap-1 text-success"><FileText className="h-3.5 w-3.5" /> Allegata</span> : <span className="italic text-muted-foreground">—</span>}</td>
                     <td className="p-2.5 text-center"><ActiveDot active={m.active !== false} /></td>

@@ -40,6 +40,7 @@ from app.schemas import (
     MaterialOrderCreate, MaterialOrderOut, ArchiveQuoteOut, BarSpec,
 )
 from app.services import quote_workflow as wf
+from app.services.costing.primitives import material_rate_per_kg
 from app.services.material_status import (
     part_needs_ordering, quote_material_status,
 )
@@ -153,9 +154,13 @@ def material_item_weight_cost(it, mat: Optional[Material]) -> Tuple[float, float
     funziona su MaterialRequestItem e MaterialOrderItem (stessi campi dimensione).
     """
     kg = _request_item_weight_kg(it, mat)
-    if mat and mat.cost_per_kg and kg:
+    # €/kg per forma: tondo e tubo usano il costo tondo (se il materiale non è
+    # uniforme); prismatico il costo base. Coerente con material_cost delle parti.
+    is_round = (it.shape or 'prismatico') in ('tondo', 'tubo')
+    rate = material_rate_per_kg(mat, is_round) if mat else 0.0
+    if mat and rate and kg:
         scrap = 1 + (mat.default_scrap_percent or 10) / 100
-        cost = kg * mat.cost_per_kg * scrap
+        cost = kg * rate * scrap
     else:
         cost = 0.0
     return kg, cost

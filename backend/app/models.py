@@ -279,7 +279,15 @@ class Material(Base):
     name = Column(String(100), nullable=False)
     family = Column(String(50))
     density_kg_dm3 = Column(Float, default=0.0)
+    # €/kg per forma: cost_per_kg = prismatico (base); cost_per_kg_round = tondo
+    # (e tubo). Se uniform_cost_per_kg=True (default) il tondo usa cost_per_kg →
+    # costo unico per tutte le forme (retro-compatibile). La forma è dedotta dal
+    # grezzo: tondo = Ø presente (part.raw_diameter_mm / order it.shape tondo|tubo).
+    # Selezione centralizzata in costing.primitives.material_rate_per_kg (gemello
+    # DRY di quoteCalc.materialRatePerKg).
     cost_per_kg = Column(Float, default=0.0)
+    cost_per_kg_round = Column(Float, nullable=True)
+    uniform_cost_per_kg = Column(Boolean, default=True)
     edm_coefficient = Column(Float, default=1.0)
     cnc_machinability_coefficient = Column(Float, default=1.0)
     default_scrap_percent = Column(Float, default=10.0)

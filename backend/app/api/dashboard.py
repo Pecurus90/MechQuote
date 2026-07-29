@@ -441,7 +441,11 @@ def get_statistics(
     )
 
     # ─── 7. Esito commerciale: vinto/perso/aperto (conteggio + valore €) ──
-    # Valore per preventivo = Σ parts.total_price. Bucket per stato.
+    # Definizione "vinto" ALLINEATA a Marginalità: i vinti sono valutati al
+    # VENDUTO realizzato (sold_price), con fallback al preventivato per i
+    # 'confermato' non ancora completati (sold_price ancora NULL). Persi e aperti
+    # restano al preventivato (non hanno un venduto). Così "€ vinto" qui e
+    # "Incassato" in Marginalità misurano la stessa cosa (venduto reale).
     rows_outcome = db.execute(text(
         f"""
         SELECT
@@ -452,7 +456,9 @@ def get_statistics(
           END AS outcome,
           COUNT(*) AS n,
           COALESCE(SUM(
-            {_QUOTE_VALUE_SQL}
+            CASE WHEN q.status IN ('confermato', 'completo')
+                 THEN COALESCE(q.sold_price, {_QUOTE_VALUE_SQL})
+                 ELSE {_QUOTE_VALUE_SQL} END
           ), 0) AS value
         FROM quotes q
         WHERE 1=1 {date_filter}

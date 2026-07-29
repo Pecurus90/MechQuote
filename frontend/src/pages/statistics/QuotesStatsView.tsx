@@ -136,7 +136,7 @@ export function QuotesStatsView({
         />
         <DonutCard
           title="Esito preventivi (€)"
-          subtitle="Vinti · Persi · Aperti (valore preventivato)"
+          subtitle="Vinti a venduto · Persi/Aperti a preventivato"
           data={outcome}
         />
         <RankBarsCard

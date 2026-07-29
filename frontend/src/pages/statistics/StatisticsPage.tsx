@@ -242,7 +242,7 @@ function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {
   return [
     { key: 'count', label: 'Preventivi', value: count, hint: 'offerti nel periodo', icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
     { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'offerto nel periodo', icon: Euro, tone: 'info', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
-    { key: 'won', label: '€ vinto', value: eur(o.won_value), hint: `${o.won_count} vinti · preventivato`, icon: Trophy, tone: 'success', valueToned: true },
+    { key: 'won', label: '€ vinto', value: eur(o.won_value), hint: `${o.won_count} vinti · venduto realizzato`, icon: Trophy, tone: 'success', valueToned: true },
     { key: 'lost', label: '€ perso', value: eur(o.lost_value), hint: `${o.lost_count} non ordinati`, icon: XCircle, tone: 'danger', valueToned: true },
     { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
     { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi offerti', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },

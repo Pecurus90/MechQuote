@@ -44,7 +44,7 @@ from app.services.costing.primitives import material_rate_per_kg
 from app.services.material_status import (
     part_needs_ordering, quote_material_status,
 )
-from app.services.notifications import create_notification
+from app.services.notifications import create_notification, emit_activity
 
 # Colonne CSV ordine materiali. Il "codice articolo" per il gestionale è il
 # materiale stesso; forma e dimensioni sono colonne separate; il riferimento è
@@ -1024,12 +1024,14 @@ def delete_order(
     # 'confermato' resta tale, col materiale di nuovo da ordinare.
     reverted: List[str] = []
     reopened: List[str] = []
+    reopened_q: List = []
     actor = current_user.full_name or current_user.username
     for q in quotes:
         was_completo = q.status == wf.STATUS_COMPLETO
         wf.reconcile_material_state(db, q, current_user.id)
         if was_completo and q.status != wf.STATUS_COMPLETO:
             reopened.append(q.quote_number)
+            reopened_q.append(q)
             # M-3: la riapertura da eliminazione ordine era silenziosa. Avvisa il
             # creatore, come già fa _reconcile_after_write in parts.py. commit=False
             # → notifica atomica col cambio stato (unico db.commit() qui sotto).
@@ -1048,6 +1050,16 @@ def delete_order(
             reverted.append(q.quote_number)
 
     db.commit()
+    # Feed team: la riapertura da eliminazione ordine è un evento del ciclo vita.
+    for q in reopened_q:
+        emit_activity(
+            db,
+            type='quote_reopened',
+            title=f"Preventivo {q.quote_number} riaperto",
+            body=f"L'eliminazione di un ordine ha reso il materiale di nuovo da ordinare ({actor})",
+            created_by_user_id=current_user.id,
+            data={'quote_id': q.id, 'quote_number': q.quote_number},
+        )
     logger.info("Ordine materiali eliminato: id=%s by=%s reverted=%d reopened=%d",
                 order_id, current_user.username, len(reverted), len(reopened))
     return {"ok": True, "reverted": reverted, "reopened": reopened}

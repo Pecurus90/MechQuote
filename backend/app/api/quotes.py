@@ -362,6 +362,15 @@ def mark_quote_read(
                 commit=False,
             )
         db.commit()
+        if changed:
+            emit_activity(
+                db,
+                type='quote_read',
+                title=f"Preventivo {quote.quote_number} letto",
+                body=f"Preso in carico da {current_user.full_name or current_user.username}",
+                created_by_user_id=current_user.id,
+                data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+            )
     return _load_quote(quote_id, db)
 
 
@@ -494,6 +503,14 @@ def reopen_quote(
             commit=False,
         )
     db.commit()   # F7: cambio stato + notifica in un solo commit atomico
+    emit_activity(
+        db,
+        type='quote_reopened',
+        title=f"Preventivo {quote.quote_number} rimandato in revisione",
+        body=f"Rimandato da {current_user.full_name or current_user.username} — serve una revisione",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+    )
     return _load_quote(quote_id, db)
 
 
@@ -567,6 +584,14 @@ def unconfirm_quote(
             commit=False,
         )
     db.commit()   # F7: annullo conferma + notifica in un solo commit atomico
+    emit_activity(
+        db,
+        type='quote_reopened',
+        title=f"Preventivo {quote.quote_number} riaperto",
+        body=f"Conferma annullata da {current_user.full_name or current_user.username} — torna modificabile",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+    )
     logger.info("Conferma annullata: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -613,6 +638,14 @@ def await_client_quote(
             commit=False,
         )
     db.commit()
+    emit_activity(
+        db,
+        type='quote_awaiting_client',
+        title=f"Preventivo {qnum} in attesa cliente",
+        body=f"Offerta mandata al cliente da {current_user.full_name or current_user.username}",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote_id, 'quote_number': qnum},
+    )
     logger.info("In attesa cliente: quote_id=%s by=%s", quote_id, current_user.username)
     return _load_quote(quote_id, db)
 
@@ -661,6 +694,14 @@ def revert_await_client_quote(
             commit=False,
         )
     db.commit()
+    emit_activity(
+        db,
+        type='quote_await_reverted',
+        title=f"Preventivo {qnum}: attesa cliente annullata",
+        body=f"Rientrato in lavorazione da {current_user.full_name or current_user.username}",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote_id, 'quote_number': qnum},
+    )
     logger.info("Attesa cliente annullata: quote_id=%s by=%s -> %s",
                 quote_id, current_user.username, quote.status)
     return _load_quote(quote_id, db)
@@ -770,6 +811,14 @@ def restore_quote(
             commit=False,
         )
     db.commit()
+    emit_activity(
+        db,
+        type='quote_restored',
+        title=f"Preventivo {qnum} ripristinato",
+        body=f"Ripristinato da {current_user.full_name or current_user.username} — di nuovo in lavorazione",
+        created_by_user_id=current_user.id,
+        data={'quote_id': quote_id, 'quote_number': qnum},
+    )
     logger.info("Ripristino non-ordinato→%s: quote_id=%s by=%s",
                 quote.status, quote_id, current_user.username)
     return _load_quote(quote_id, db)

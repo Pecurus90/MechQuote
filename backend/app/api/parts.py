@@ -15,7 +15,7 @@ from app.schemas import PartCreate, PartUpdate, PartOut, PartCloneRequest, Apply
 from app.services.calculation import recalculate_part, recalculate_quote
 from app.services.material_status import unassigned_supplier_parts
 from app.services import quote_workflow as wf
-from app.services.notifications import create_notification
+from app.services.notifications import create_notification, emit_activity
 from app.api.quotes import ensure_editable, ensure_quote_visible
 
 logger = logging.getLogger(__name__)
@@ -105,6 +105,15 @@ def _reconcile_after_write(db: Session, quote: Quote, user: User) -> None:
             commit=False,
         )
     db.commit()
+    if was_completo and quote.status == wf.STATUS_CONFERMATO:
+        emit_activity(
+            db,
+            type='quote_reopened',
+            title=f"Preventivo {quote.quote_number} riaperto",
+            body=f"Una modifica ha reso il materiale di nuovo da ordinare ({user.full_name or user.username})",
+            created_by_user_id=user.id,
+            data={'quote_id': quote.id, 'quote_number': quote.quote_number},
+        )
 
 
 @router.post("/quotes/{quote_id}/parts", response_model=PartOut)

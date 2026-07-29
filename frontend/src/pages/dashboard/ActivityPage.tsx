@@ -10,7 +10,8 @@ import StandardPage from '@/components/layout/StandardPage'
 import { toast } from 'sonner'
 import { ACTIVITY_KINDS } from '@/lib/activity'
 
-type TypeFilter = 'all' | 'quote_submitted' | 'quote_confirmed' | 'quote_completed' | 'quote_not_ordered'
+type TypeFilter = 'all' | 'quote_submitted' | 'quote_read' | 'quote_awaiting_client' | 'quote_await_reverted'
+  | 'quote_confirmed' | 'quote_completed' | 'quote_not_ordered' | 'quote_reopened' | 'quote_restored'
   | 'materials_ordered' | 'tools_ordered' | 'material_to_order' | 'tools_low_stock_alert'
   | 'direct_sale_created' | 'direct_sale_deleted'
 
@@ -63,9 +64,14 @@ export default function ActivityPage() {
             value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value as TypeFilter) }}>
             <option value="all">Tutti i tipi</option>
             <option value="quote_submitted">Preventivi inviati</option>
+            <option value="quote_read">Preventivi letti</option>
+            <option value="quote_awaiting_client">In attesa cliente</option>
+            <option value="quote_await_reverted">Attesa annullata</option>
             <option value="quote_confirmed">Preventivi confermati</option>
             <option value="quote_completed">Preventivi completati</option>
             <option value="quote_not_ordered">Preventivi non ordinati</option>
+            <option value="quote_reopened">Preventivi riaperti</option>
+            <option value="quote_restored">Preventivi ripristinati</option>
             <option value="materials_ordered">Ordini materiali</option>
             <option value="tools_ordered">Ordini utensili</option>
             <option value="material_to_order">Fabbisogno materiale</option>

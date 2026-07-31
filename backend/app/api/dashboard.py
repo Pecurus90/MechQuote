@@ -206,7 +206,7 @@ def _quotes_where(date_from, date_to, customer_id):
         parts.append("q.quote_date >= :date_from")
         params['date_from'] = date_from
     if date_to is not None:
-        parts.append("q.quote_date <= :date_to")
+        parts.append("q.quote_date < date(:date_to, '+1 day')")
         params['date_to'] = date_to
     if customer_id is not None:
         parts.append("q.customer_id = :customer_id")
@@ -538,7 +538,7 @@ def _margin_where(date_from, date_to):
         parts.append("q.quote_date >= :date_from")
         params['date_from'] = date_from
     if date_to is not None:
-        parts.append("q.quote_date <= :date_to")
+        parts.append("q.quote_date < date(:date_to, '+1 day')")
         params['date_to'] = date_to
     return ' AND '.join(parts), params
 
@@ -553,7 +553,7 @@ def _ds_priced_where(date_from, date_to):
         parts.append("ds.sale_date >= :date_from")
         params['date_from'] = date_from
     if date_to is not None:
-        parts.append("ds.sale_date <= :date_to")
+        parts.append("ds.sale_date < date(:date_to, '+1 day')")
         params['date_to'] = date_to
     return ' AND '.join(parts), params
 
@@ -568,7 +568,7 @@ def _ds_window_where(date_from, date_to):
         parts.append("ds.sale_date >= :date_from")
         params['date_from'] = date_from
     if date_to is not None:
-        parts.append("ds.sale_date <= :date_to")
+        parts.append("ds.sale_date < date(:date_to, '+1 day')")
         params['date_to'] = date_to
     return ' AND '.join(parts), params
 

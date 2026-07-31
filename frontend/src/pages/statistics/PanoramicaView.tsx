@@ -5,12 +5,16 @@
 // confronto incassato + andamento realizzato + top clienti.
 // Presentazionale: dati via props da StatisticsPage.
 import { FileText, HandCoins, Sigma } from 'lucide-react'
+import { KpiCard } from '@/components/dashboard/KpiCard'
 import { useChartTheme } from '@/components/charts/chartTheme'
 import GroupedBarsCard from '@/components/charts/GroupedBarsCard'
 import RankBarsCard from '@/components/charts/RankBarsCard'
 import { cn } from '@/lib/utils'
+import type { StatKpi } from '@/pages/statistics/StatisticsView'
 
 interface Props {
+  /** KPI headline in cima (colpo d'occhio), come negli altri tab */
+  kpis: StatKpi[]
   /** riepilogo preventivi (completi) */
   preventivi: { offerto: number; vinto: number; incassato: number; guadagno: number | null; costo: number }
   /** riepilogo vendite dirette */
@@ -72,12 +76,28 @@ function CompareBar({ label, value, max, color }: { label: string; value: number
   )
 }
 
-export function PanoramicaView({ preventivi, dirette, totale, trend, topCustomers }: Props) {
+export function PanoramicaView({ kpis, preventivi, dirette, totale, trend, topCustomers }: Props) {
   const c = useChartTheme()
   const maxInc = Math.max(1, preventivi.incassato, dirette.venduto)
 
   return (
     <div>
+      {/* KPI headline (colpo d'occhio) */}
+      <div className="mb-4 grid grid-cols-2 gap-[13px] sm:grid-cols-3 lg:grid-cols-5">
+        {kpis.map((k) => (
+          <KpiCard
+            key={k.key}
+            label={k.label}
+            value={k.value}
+            hint={k.hint}
+            icon={k.icon}
+            tone={k.tone}
+            valueToned={k.valueToned}
+            delta={k.delta}
+          />
+        ))}
+      </div>
+
       {/* Tre riepiloghi affiancati: Preventivi · Vendite dirette · Totale */}
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
         <RiepilogoCard

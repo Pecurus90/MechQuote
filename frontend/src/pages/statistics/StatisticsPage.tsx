@@ -153,6 +153,7 @@ export default function StatisticsPage() {
         {tab === 'overview' && (
           (loading || !ov) ? <Loading /> : (
             <PanoramicaView
+              kpis={buildOverviewKpis(ov.q, ov.all)}
               preventivi={{
                 offerto: ov.q.trend_monthly.reduce((s, p) => s + p.standard, 0),
                 vinto: (ov.q.outcome ?? EMPTY_OUTCOME).won_value,
@@ -286,6 +287,22 @@ export default function StatisticsPage() {
       </StatisticsView>
     </div>
   )
+}
+
+// Panoramica: 5 KPI headline (colpo d'occhio) da quotes (offerto/conversione)
+// + margin totale (incassato/guadagno/margine reale).
+function buildOverviewKpis(q: Statistics, all: MarginStats): StatKpi[] {
+  const offerto = q.trend_monthly.reduce((s, p) => s + p.standard, 0)
+  const o = q.outcome ?? EMPTY_OUTCOME
+  const guadagno = all.guadagno_reale ?? 0
+  const margine = all.incassato > 0 ? (guadagno / all.incassato) * 100 : null
+  return [
+    { key: 'offerto', label: '€ offerto', value: eur(offerto), hint: 'preventivi offerti nel periodo', icon: Euro, tone: 'info' },
+    { key: 'conv', label: 'Tasso conversione', value: pct(o.conversion_rate), hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed' },
+    { key: 'incassato', label: 'Incassato', value: eur(all.incassato), hint: 'venduto realizzato · preventivi + vendite dirette', icon: Banknote, tone: 'success', valueToned: true },
+    { key: 'guadagno', label: 'Guadagno reale', value: all.guadagno_reale == null ? '—' : eur(guadagno), hint: 'incassato − costo reale', icon: Wallet, tone: 'success', valueToned: true },
+    { key: 'margine', label: 'Margine reale', value: margine == null ? '—' : pct(margine), hint: 'guadagno ÷ incassato', icon: Percent, tone: 'info' },
+  ]
 }
 
 function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {

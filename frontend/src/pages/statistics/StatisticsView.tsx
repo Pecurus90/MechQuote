@@ -1,11 +1,11 @@
 // src/pages/statistics/StatisticsView.tsx
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { LineChart, FileText, TrendingUp, Package, Drill, HandCoins, ChevronDown } from 'lucide-react'
+import { LineChart, Gauge, FileText, TrendingUp, ShoppingCart, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { KpiTone, KpiDelta } from '@/components/dashboard/KpiCard'
 
-export type StatTab = 'quotes' | 'margin' | 'direct' | 'materials' | 'tools'
+export type StatTab = 'overview' | 'commerciale' | 'redditivita' | 'acquisti'
 export type StatPeriod = 'current_year' | 'last_12m' | 'last_year' | 'all'
 export type StatCompare = 'none' | 'prev' | 'yoy'
 
@@ -24,12 +24,15 @@ export interface StatKpi {
 }
 
 const TABS: { key: StatTab; label: string; icon: LucideIcon }[] = [
-  { key: 'quotes', label: 'Preventivi', icon: FileText },
-  { key: 'margin', label: 'Marginalità', icon: TrendingUp },
-  { key: 'direct', label: 'Vendite dirette', icon: HandCoins },
-  { key: 'materials', label: 'Materiali', icon: Package },
-  { key: 'tools', label: 'Utensili', icon: Drill },
+  { key: 'overview', label: 'Panoramica', icon: Gauge },
+  { key: 'commerciale', label: 'Commerciale', icon: FileText },
+  { key: 'redditivita', label: 'Redditività', icon: TrendingUp },
+  { key: 'acquisti', label: 'Acquisti', icon: ShoppingCart },
 ]
+
+// Il confronto MoM/YoY ha senso solo dove c'è un andamento temporale
+// confrontabile: Commerciale e Redditività. Su Panoramica/Acquisti si nasconde.
+const COMPARE_TABS: StatTab[] = ['commerciale', 'redditivita']
 
 const PERIODS: { value: StatPeriod; label: string }[] = [
   { value: 'current_year', label: 'Anno corrente' },
@@ -61,7 +64,7 @@ interface Props {
  * `children` (presentational — no data here).
  */
 export function StatisticsView({
-  subtitle = 'Andamento, marginalità e taratura preventivi · dati aggregati',
+  subtitle = 'Andamento commerciale, redditività e acquisti · dati aggregati',
   activeTab,
   onTabChange,
   period,
@@ -99,7 +102,7 @@ export function StatisticsView({
             <ChevronDown className="pointer-events-none absolute right-3 top-[11px] h-[15px] w-[15px] text-muted-foreground" />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className={cn('flex items-center gap-2', !COMPARE_TABS.includes(activeTab) && 'hidden')}>
             <span className="text-[12.5px] text-muted-foreground">Confronta:</span>
             <div className="flex h-[38px] gap-[3px] rounded-[9px] bg-muted p-[3px]">
               {COMPARE.map((c) => (

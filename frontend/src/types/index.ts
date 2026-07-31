@@ -941,31 +941,6 @@ export interface MarginStats {
   comparison?: MarginComparison | null
 }
 
-// Tab "Vendite dirette" — statistiche delle sole vendite extra-preventivo
-export interface DirectSalesMonthlyPoint {
-  month: string
-  venduto: number
-  costo: number
-  guadagno: number
-}
-
-export interface DirectSalesCategoryRow {
-  category_code: string
-  venduto: number
-}
-
-export interface DirectSalesStats {
-  period: string
-  venduto: number
-  costo: number
-  guadagno: number
-  margine_percent: number | null
-  count: number
-  with_quote_count: number
-  monthly: DirectSalesMonthlyPoint[]
-  top_customers: StatsCustomerRow[]
-  by_category: DirectSalesCategoryRow[]
-}
 
 
 export interface OfficinaCategory {

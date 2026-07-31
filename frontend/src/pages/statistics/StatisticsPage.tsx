@@ -1,21 +1,23 @@
-// Sezione Statistiche & Grafici — container (design handoff).
-// Shell StatisticsView (header + periodo + tab bar) + 3 tab presentazionali.
-// - Preventivi: dati reali /dashboard/statistics (mappa 1:1)
-// - Materiali: adattato ai dati esistenti (no spesa €/mese né per famiglia)
-// - Utensili: sola quantità (scelta utente) + sotto scorta per marca
+// Sezione Statistiche & Grafici — container.
+// Shell StatisticsView (header + periodo + confronto + tab bar) + 4 tab:
+// - Panoramica:  quadro d'insieme (compone commerciale + redditività)
+// - Commerciale: imbuto offerto/vinto/perso sui preventivi (/dashboard/statistics)
+// - Redditività: incassato/guadagno/taratura, filtro Fonte (/…/margin?source=)
+// - Acquisti:    Materiali + Utensili sotto un selettore interno
 import { useEffect, useState } from 'react'
 import {
   FileText, Target, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
-  Wallet, Tag, Crosshair, Database, Banknote, Trophy, XCircle, Receipt,
+  Wallet, Tag, Crosshair, Database, Banknote, Trophy, XCircle,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import type { Statistics, MaterialsStats, ToolsStats, MarginStats, DirectSalesStats } from '@/types'
+import type { Statistics, MaterialsStats, ToolsStats, MarginStats } from '@/types'
 import { StatisticsView } from '@/pages/statistics/StatisticsView'
 import type { StatTab, StatPeriod, StatCompare, StatKpi } from '@/pages/statistics/StatisticsView'
+import { PanoramicaView } from '@/pages/statistics/PanoramicaView'
 import { QuotesStatsView } from '@/pages/statistics/QuotesStatsView'
 import { MarginStatsView } from '@/pages/statistics/MarginStatsView'
-import { DirectSalesStatsView } from '@/pages/statistics/DirectSalesStatsView'
+import { AcquistiView, type AcquistiInner } from '@/pages/statistics/AcquistiView'
 import { MaterialsStatsView } from '@/pages/statistics/MaterialsStatsView'
 import { ToolsStatsView } from '@/pages/statistics/ToolsStatsView'
 import { type Period, Loading } from '@/pages/statistics/statsShared'
@@ -42,6 +44,7 @@ const eur = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 const kg = (v: number): string =>
   Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' kg'
+const pct = (v: number): string => `${v.toFixed(1).replace('.', ',')}%`
 
 // Fallback difensivo: se la risposta non porta `outcome` (es. backend non
 // aggiornato) la pagina non deve andare in bianco.
@@ -54,15 +57,19 @@ const EMPTY_OUTCOME = {
 interface NamedOpt { id: number; name: string }
 
 export default function StatisticsPage() {
-  const [tab, setTab] = useState<StatTab>('quotes')
+  const [tab, setTab] = useState<StatTab>('overview')
   const [period, setPeriod] = useState<StatPeriod>('current_year')
   const [compare, setCompare] = useState<StatCompare>('none')
 
-  // Filtri locali tab Preventivi.
+  // Filtri locali tab Commerciale.
   const [customer, setCustomer] = useState<string>('all')
   const [customers, setCustomers] = useState<NamedOpt[]>([])
 
-  // Filtri locali tab Materiali (supplier_id, family slug) e Utensili (nomi).
+  // Filtro Fonte tab Redditività.
+  const [source, setSource] = useState<string>('all')
+
+  // Tab Acquisti: selettore interno + filtri Materiali / Utensili.
+  const [acqInner, setAcqInner] = useState<AcquistiInner>('materials')
   const [matSupplier, setMatSupplier] = useState<string>('all')
   const [matFamily, setMatFamily] = useState<string>('all')
   const [matSuppliers, setMatSuppliers] = useState<NamedOpt[]>([])
@@ -73,7 +80,6 @@ export default function StatisticsPage() {
 
   const [qData, setQData] = useState<Statistics | null>(null)
   const [gData, setGData] = useState<MarginStats | null>(null)
-  const [dData, setDData] = useState<DirectSalesStats | null>(null)
   const [mData, setMData] = useState<MaterialsStats | null>(null)
   const [tData, setTData] = useState<ToolsStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -89,21 +95,26 @@ export default function StatisticsPage() {
     const p = PERIOD_MAP[period]
     setLoading(true)
     const done = () => setLoading(false)
-    if (tab === 'quotes') {
+    if (tab === 'overview') {
+      // Panoramica: compone i due endpoint (commerciale + realizzato), sempre
+      // periodo pieno, niente confronto né filtro fonte.
+      Promise.all([
+        api.get(`/dashboard/statistics?period=${p}`).then(r => setQData(r.data)),
+        api.get(`/dashboard/statistics/margin?period=${p}`).then(r => setGData(r.data)),
+      ]).catch(() => toast.error('Errore caricamento panoramica')).finally(done)
+    } else if (tab === 'commerciale') {
       const params = new URLSearchParams({ period: p })
       if (customer !== 'all') params.set('customer_id', customer)
       if (compare !== 'none') params.set('compare', compare)
       api.get(`/dashboard/statistics?${params}`).then(r => setQData(r.data))
-        .catch(() => toast.error('Errore caricamento statistiche preventivi')).finally(done)
-    } else if (tab === 'margin') {
+        .catch(() => toast.error('Errore caricamento statistiche commerciali')).finally(done)
+    } else if (tab === 'redditivita') {
       const params = new URLSearchParams({ period: p })
       if (compare !== 'none') params.set('compare', compare)
+      if (source !== 'all') params.set('source', source)
       api.get(`/dashboard/statistics/margin?${params}`).then(r => setGData(r.data))
-        .catch(() => toast.error('Errore caricamento marginalità')).finally(done)
-    } else if (tab === 'direct') {
-      api.get(`/dashboard/statistics/direct-sales?period=${p}`).then(r => setDData(r.data))
-        .catch(() => toast.error('Errore caricamento vendite dirette')).finally(done)
-    } else if (tab === 'materials') {
+        .catch(() => toast.error('Errore caricamento redditività')).finally(done)
+    } else if (acqInner === 'materials') {
       const params = new URLSearchParams({ period: p })
       if (matSupplier !== 'all') params.set('supplier_id', matSupplier)
       if (matFamily !== 'all') params.set('family', matFamily)
@@ -116,7 +127,7 @@ export default function StatisticsPage() {
       api.get(`/dashboard/statistics/tools?${params}`).then(r => setTData(r.data))
         .catch(() => toast.error('Errore caricamento statistiche utensili')).finally(done)
     }
-  }, [tab, period, compare, customer, matSupplier, matFamily, toolType, toolSupplier])
+  }, [tab, period, compare, customer, source, matSupplier, matFamily, toolType, toolSupplier, acqInner])
 
   // Etichette del confronto (MoM/YoY) — usate su pill KPI e serie cmp.
   const vs = compare === 'prev' ? 'vs periodo prec.' : compare === 'yoy' ? 'vs anno scorso' : ''
@@ -132,7 +143,27 @@ export default function StatisticsPage() {
         compare={compare}
         onCompareChange={setCompare}
       >
-        {tab === 'quotes' && (
+        {tab === 'overview' && (
+          (loading || !qData || !gData) ? <Loading /> : (
+            <PanoramicaView
+              kpis={buildOverviewKpis(qData, gData)}
+              commerciale={{
+                offerto: qData.trend_monthly.reduce((s, p) => s + p.standard, 0),
+                vinto: (qData.outcome ?? EMPTY_OUTCOME).won_value,
+                perso: (qData.outcome ?? EMPTY_OUTCOME).lost_value,
+              }}
+              realizzato={{
+                incassato: gData.incassato,
+                costo: gData.monthly.reduce((s, m) => s + m.costo, 0),
+                guadagno: gData.guadagno_reale ?? 0,
+              }}
+              trend={gData.monthly.map(m => ({ month: monthLabel(m.month), incassato: m.venduto, costo: m.costo }))}
+              topCustomers={gData.top_customers_sold.map(c => ({ name: c.customer_name, value: c.total }))}
+            />
+          )
+        )}
+
+        {tab === 'commerciale' && (
           (loading || !qData) ? <Loading /> : (
             <QuotesStatsView
               customer={customer}
@@ -166,10 +197,12 @@ export default function StatisticsPage() {
           )
         )}
 
-        {tab === 'margin' && (
+        {tab === 'redditivita' && (
           (loading || !gData) ? <Loading /> : (
             <MarginStatsView
               kpis={buildMarginKpis(gData, vs)}
+              source={source}
+              onSourceChange={setSource}
               coverage={{ completed: gData.completed_count, withSold: gData.with_sold_count, withCost: gData.with_cost_count }}
               monthly={gData.monthly.map(m => ({ ...m, month: monthLabel(m.month) }))}
               profit={gData.profit_monthly.map((p, i) => ({
@@ -187,68 +220,74 @@ export default function StatisticsPage() {
           )
         )}
 
-        {tab === 'direct' && (
-          (loading || !dData) ? <Loading /> : (
-            <DirectSalesStatsView
-              kpis={buildDirectKpis(dData)}
-              monthly={dData.monthly.map(p => ({ month: monthLabel(p.month), venduto: p.venduto, costo: p.costo }))}
-              guadagno={dData.monthly.map(p => ({ month: monthLabel(p.month), guadagno: p.guadagno }))}
-              topCustomers={dData.top_customers.map(c => ({ name: c.customer_name ?? '—', value: c.total }))}
-              byCategory={dData.by_category.map(c => ({ name: c.category_code, value: c.venduto }))}
-            />
-          )
-        )}
-
-        {tab === 'materials' && (
-          (loading || !mData) ? <Loading /> : (
-            <MaterialsStatsView
-              kpis={buildMaterialKpis(mData)}
-              supplier={matSupplier}
-              suppliers={[
-                { value: 'all', label: 'Fornitore · tutti' },
-                ...matSuppliers.map(s => ({ value: String(s.id), label: s.name })),
-              ]}
-              onSupplierChange={setMatSupplier}
-              family={matFamily}
-              families={[
-                { value: 'all', label: 'Tipo materiale · tutti' },
-                ...MATERIAL_FAMILIES.map(f => ({ value: f.slug, label: f.label })),
-              ]}
-              onFamilyChange={setMatFamily}
-              monthlyOrders={mData.trend_monthly.map(p => ({ month: monthLabel(p.month), count: p.count }))}
-              topMaterials={mData.by_material.map(m => ({ name: m.material_name, value: m.material_cost }))}
-              bySupplier={mData.by_supplier.map(s => ({ name: s.supplier_name, value: s.material_cost }))}
-              leadTime={mData.lead_time_monthly.map(p => ({ month: monthLabel(p.month), days: p.avg_days }))}
-            />
-          )
-        )}
-
-        {tab === 'tools' && (
-          (loading || !tData) ? <Loading /> : (
-            <ToolsStatsView
-              kpis={buildToolKpis(tData)}
-              toolType={toolType}
-              toolTypes={[
-                { value: 'all', label: 'Tipo utensile · tutti' },
-                ...toolTypes.map(t => ({ value: t.name, label: t.name })),
-              ]}
-              onToolTypeChange={setToolType}
-              supplier={toolSupplier}
-              suppliers={[
-                { value: 'all', label: 'Fornitore · tutti' },
-                ...toolSuppliers.map(s => ({ value: s.name, label: s.name })),
-              ]}
-              onSupplierChange={setToolSupplier}
-              monthlyOrders={tData.trend_monthly.map(p => ({ month: monthLabel(p.month), count: p.count }))}
-              topTools={tData.top_tools.map(t => ({ name: t.code, value: t.total_quantity }))}
-              byType={tData.by_type.map(t => ({ name: t.label, value: t.quantity }))}
-              lowStockByBrand={tData.low_stock_by_brand.map(b => ({ name: b.name, value: b.value }))}
-            />
-          )
+        {tab === 'acquisti' && (
+          <AcquistiView inner={acqInner} onInnerChange={setAcqInner}>
+            {acqInner === 'materials' ? (
+              (loading || !mData) ? <Loading /> : (
+                <MaterialsStatsView
+                  kpis={buildMaterialKpis(mData)}
+                  supplier={matSupplier}
+                  suppliers={[
+                    { value: 'all', label: 'Fornitore · tutti' },
+                    ...matSuppliers.map(s => ({ value: String(s.id), label: s.name })),
+                  ]}
+                  onSupplierChange={setMatSupplier}
+                  family={matFamily}
+                  families={[
+                    { value: 'all', label: 'Tipo materiale · tutti' },
+                    ...MATERIAL_FAMILIES.map(f => ({ value: f.slug, label: f.label })),
+                  ]}
+                  onFamilyChange={setMatFamily}
+                  monthlyOrders={mData.trend_monthly.map(p => ({ month: monthLabel(p.month), count: p.count }))}
+                  topMaterials={mData.by_material.map(m => ({ name: m.material_name, value: m.material_cost }))}
+                  bySupplier={mData.by_supplier.map(s => ({ name: s.supplier_name, value: s.material_cost }))}
+                  leadTime={mData.lead_time_monthly.map(p => ({ month: monthLabel(p.month), days: p.avg_days }))}
+                />
+              )
+            ) : (
+              (loading || !tData) ? <Loading /> : (
+                <ToolsStatsView
+                  kpis={buildToolKpis(tData)}
+                  toolType={toolType}
+                  toolTypes={[
+                    { value: 'all', label: 'Tipo utensile · tutti' },
+                    ...toolTypes.map(t => ({ value: t.name, label: t.name })),
+                  ]}
+                  onToolTypeChange={setToolType}
+                  supplier={toolSupplier}
+                  suppliers={[
+                    { value: 'all', label: 'Fornitore · tutti' },
+                    ...toolSuppliers.map(s => ({ value: s.name, label: s.name })),
+                  ]}
+                  onSupplierChange={setToolSupplier}
+                  monthlyOrders={tData.trend_monthly.map(p => ({ month: monthLabel(p.month), count: p.count }))}
+                  topTools={tData.top_tools.map(t => ({ name: t.code, value: t.total_quantity }))}
+                  byType={tData.by_type.map(t => ({ name: t.label, value: t.quantity }))}
+                  lowStockByBrand={tData.low_stock_by_brand.map(b => ({ name: b.name, value: b.value }))}
+                />
+              )
+            )}
+          </AcquistiView>
         )}
       </StatisticsView>
     </div>
   )
+}
+
+// Panoramica: 5 KPI che riassumono commerciale (offerto/conversione) e
+// realizzato (incassato/guadagno/margine reale).
+function buildOverviewKpis(q: Statistics, g: MarginStats): StatKpi[] {
+  const offerto = q.trend_monthly.reduce((s, p) => s + p.standard, 0)
+  const o = q.outcome ?? EMPTY_OUTCOME
+  const guadagno = g.guadagno_reale ?? 0
+  const margineReale = g.incassato > 0 ? (guadagno / g.incassato) * 100 : null
+  return [
+    { key: 'offerto', label: '€ offerto', value: eur(offerto), hint: 'preventivi offerti nel periodo', icon: Euro, tone: 'info' },
+    { key: 'conv', label: 'Tasso conversione', value: pct(o.conversion_rate), hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed' },
+    { key: 'incassato', label: 'Incassato', value: eur(g.incassato), hint: 'venduto realizzato · tutto', icon: Banknote, tone: 'success', valueToned: true },
+    { key: 'guadagno', label: 'Guadagno reale', value: g.guadagno_reale == null ? '—' : eur(guadagno), hint: 'incassato − costo reale', icon: Wallet, tone: 'success', valueToned: true },
+    { key: 'margine', label: 'Margine reale', value: margineReale == null ? '—' : pct(margineReale), hint: 'guadagno ÷ incassato', icon: Percent, tone: 'info' },
+  ]
 }
 
 function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {
@@ -261,11 +300,11 @@ function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {
   const c = data.comparison
   return [
     { key: 'count', label: 'Preventivi', value: count, hint: 'offerti nel periodo', icon: FileText, tone: 'primary', delta: buildDelta(count, c?.count, 'pct_rel', 'higher', vs) },
-    { key: 'value', label: '€ preventivato', value: eur(totalValue), hint: 'offerto nel periodo', icon: Euro, tone: 'info', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
+    { key: 'value', label: '€ offerto', value: eur(totalValue), hint: 'offerto nel periodo', icon: Euro, tone: 'info', delta: buildDelta(totalValue, c?.total_value, 'eur', 'higher', vs) },
     { key: 'won', label: '€ vinto', value: eur(o.won_value), hint: `${o.won_count} vinti · venduto realizzato`, icon: Trophy, tone: 'success', valueToned: true },
     { key: 'lost', label: '€ perso', value: eur(o.lost_value), hint: `${o.lost_count} non ordinati`, icon: XCircle, tone: 'danger', valueToned: true },
-    { key: 'conversion', label: 'Tasso conversione', value: `${o.conversion_rate.toFixed(1).replace('.', ',')}%`, hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
-    { key: 'margin', label: 'Margine medio', value: `${avgMargin.toFixed(1).replace('.', ',')}%`, hint: 'sui preventivi offerti', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },
+    { key: 'conversion', label: 'Tasso conversione', value: pct(o.conversion_rate), hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed', delta: buildDelta(o.conversion_rate, c?.conversion_rate, 'point', 'higher', vs) },
+    { key: 'margin', label: 'Margine medio', value: pct(avgMargin), hint: 'sui preventivi offerti', icon: Percent, tone: 'info', delta: buildDelta(avgMargin, c?.avg_margin, 'point', 'higher', vs) },
   ]
 }
 
@@ -274,21 +313,11 @@ function buildMarginKpis(d: MarginStats, vs: string): StatKpi[] {
     v == null ? '—' : v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const c = d.comparison
   return [
-    { key: 'incassato', label: 'Incassato', value: eur(d.incassato), hint: 'venduto realizzato · preventivi + vendite dirette', icon: Banknote, tone: 'success', valueToned: true },
+    { key: 'incassato', label: 'Incassato', value: eur(d.incassato), hint: 'venduto realizzato', icon: Banknote, tone: 'success', valueToned: true },
     { key: 'profit', label: 'Guadagno reale', value: d.guadagno_reale == null ? '—' : eur(d.guadagno_reale), hint: 'venduto − costo reale', icon: Wallet, tone: 'success', valueToned: true, delta: buildDelta(d.guadagno_reale, c?.guadagno_reale, 'eur', 'higher', vs) },
     { key: 'price', label: 'Scostamento prezzo', value: ratio(d.taratura_prezzo), hint: 'venduto ÷ preventivato', icon: Tag, tone: 'warning', delta: buildDelta(d.taratura_prezzo, c?.taratura_prezzo, 'ratio_point', 'higher', vs) },
     { key: 'cost', label: 'Precisione costo', value: ratio(d.taratura_costo), hint: 'costo reale ÷ stimato', icon: Crosshair, tone: 'danger', delta: buildDelta(d.taratura_costo, c?.taratura_costo, 'ratio_point', 'closer_to_1', vs) },
     { key: 'coverage', label: 'Copertura dato', value: `${d.with_sold_count}/${d.completed_count}`, hint: `${d.with_sold_count} col venduto · ${d.with_cost_count} col costo reale`, icon: Database, tone: 'info' },
-  ]
-}
-
-function buildDirectKpis(d: DirectSalesStats): StatKpi[] {
-  return [
-    { key: 'count', label: 'Vendite', value: d.count, hint: 'registrate nel periodo', icon: Receipt, tone: 'primary' },
-    { key: 'sold', label: '€ venduto', value: eur(d.venduto), hint: 'ricavo realizzato', icon: Banknote, tone: 'success', valueToned: true },
-    { key: 'cost', label: '€ costo', value: eur(d.costo), hint: 'costo realizzato', icon: Euro, tone: 'warning' },
-    { key: 'profit', label: 'Guadagno', value: eur(d.guadagno), hint: 'venduto − costo', icon: Wallet, tone: 'success', valueToned: true },
-    { key: 'margin', label: 'Margine medio', value: d.margine_percent == null ? '—' : `${d.margine_percent.toFixed(1).replace('.', ',')}%`, hint: `${d.with_quote_count}/${d.count} con preventivo`, icon: Percent, tone: 'info' },
   ]
 }
 

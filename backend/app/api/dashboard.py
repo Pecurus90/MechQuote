@@ -28,7 +28,6 @@ from app.schemas import (
     StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow, StatsOutcome,
     MarginStatsOut, MarginMonthlyPoint, MarginProfitPoint, MarginBandRow, MarginWorstRow,
     StatsCmpPoint, StatsQuotesComparison, MarginComparison, IncassatoMonthlyPoint,
-    DirectSalesStatsOut, DirectSalesMonthlyPoint, DirectSalesCategoryRow,
 )
 from app.api.notifications import serialize_notification
 from app.services.costing.primitives import quote_total
@@ -574,50 +573,59 @@ def _ds_window_where(date_from, date_to):
     return ' AND '.join(parts), params
 
 
-def _margin_core(db: Session, date_from, date_to):
+def _margin_core(db: Session, date_from, date_to, source: str = 'all'):
     """KPI marginalità + guadagno mensile per una finestra temporale.
+    `source` filtra la fonte: 'all' (preventivi + vendite dirette), 'quotes'
+    (solo preventivi), 'direct' (solo vendite dirette).
     Ritorna (guadagno_reale, taratura_prezzo, taratura_costo,
     (completed, with_sold, with_cost), profit_monthly)."""
+    inc_q = source != 'direct'
+    inc_d = source != 'quotes'
     where, params = _margin_where(date_from, date_to)
-    est_cost = "(SELECT COALESCE(SUM(p.total_cost * p.quantity), 0) FROM parts p WHERE p.quote_id = q.id)"
-    agg = db.execute(text(
-        f"""
-        SELECT
-          COUNT(*) AS completed,
-          SUM(CASE WHEN q.sold_price IS NOT NULL THEN 1 ELSE 0 END) AS with_sold,
-          SUM(CASE WHEN q.actual_cost IS NOT NULL THEN 1 ELSE 0 END) AS with_cost,
-          COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL THEN q.sold_price END), 0) AS sold_sum,
-          COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL THEN q.final_total END), 0) AS quoted_for_sold,
-          COALESCE(SUM(CASE WHEN q.actual_cost IS NOT NULL THEN q.actual_cost END), 0) AS cost_sum,
-          COALESCE(SUM(CASE WHEN q.actual_cost IS NOT NULL THEN {est_cost} END), 0) AS est_for_cost,
-          COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
-                           THEN (q.sold_price - q.actual_cost) END), 0) AS profit_sum
-        FROM quotes q
-        WHERE {where}
-        """
-    ), params).first()
-    completed = int(agg.completed or 0) if agg else 0
-    with_sold = int(agg.with_sold or 0) if agg else 0
-    with_cost = int(agg.with_cost or 0) if agg else 0
-    quoted_for_sold = float(agg.quoted_for_sold or 0) if agg else 0.0
-    sold_sum = float(agg.sold_sum or 0) if agg else 0.0
-    cost_sum = float(agg.cost_sum or 0) if agg else 0.0
-    est_for_cost = float(agg.est_for_cost or 0) if agg else 0.0
-    profit_sum = float(agg.profit_sum or 0) if agg else 0.0
+
+    completed = with_sold = with_cost = 0
+    quoted_for_sold = sold_sum = cost_sum = est_for_cost = profit_sum = 0.0
+    if inc_q:
+        est_cost = "(SELECT COALESCE(SUM(p.total_cost * p.quantity), 0) FROM parts p WHERE p.quote_id = q.id)"
+        agg = db.execute(text(
+            f"""
+            SELECT
+              COUNT(*) AS completed,
+              SUM(CASE WHEN q.sold_price IS NOT NULL THEN 1 ELSE 0 END) AS with_sold,
+              SUM(CASE WHEN q.actual_cost IS NOT NULL THEN 1 ELSE 0 END) AS with_cost,
+              COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL THEN q.sold_price END), 0) AS sold_sum,
+              COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL THEN q.final_total END), 0) AS quoted_for_sold,
+              COALESCE(SUM(CASE WHEN q.actual_cost IS NOT NULL THEN q.actual_cost END), 0) AS cost_sum,
+              COALESCE(SUM(CASE WHEN q.actual_cost IS NOT NULL THEN {est_cost} END), 0) AS est_for_cost,
+              COALESCE(SUM(CASE WHEN q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
+                               THEN (q.sold_price - q.actual_cost) END), 0) AS profit_sum
+            FROM quotes q
+            WHERE {where}
+            """
+        ), params).first()
+        completed = int(agg.completed or 0) if agg else 0
+        with_sold = int(agg.with_sold or 0) if agg else 0
+        with_cost = int(agg.with_cost or 0) if agg else 0
+        quoted_for_sold = float(agg.quoted_for_sold or 0) if agg else 0.0
+        sold_sum = float(agg.sold_sum or 0) if agg else 0.0
+        cost_sum = float(agg.cost_sum or 0) if agg else 0.0
+        est_for_cost = float(agg.est_for_cost or 0) if agg else 0.0
+        profit_sum = float(agg.profit_sum or 0) if agg else 0.0
 
     # Vendite dirette con preventivo al volo: la loro coppia venduto/preventivato
     # entra nella taratura prezzo insieme ai preventivi (solo la gamba prezzo:
     # non hanno costo stimato, quindi restano fuori da taratura costo/guadagno).
-    ds_where, ds_params = _ds_priced_where(date_from, date_to)
-    ds = db.execute(text(
-        f"""
-        SELECT COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS sold,
-               COALESCE(SUM(ds.quoted_value * ds.quantity), 0) AS quoted
-        FROM direct_sales ds WHERE {ds_where}
-        """
-    ), ds_params).first()
-    sold_sum += float(ds.sold or 0) if ds else 0.0
-    quoted_for_sold += float(ds.quoted or 0) if ds else 0.0
+    if inc_d:
+        ds_where, ds_params = _ds_priced_where(date_from, date_to)
+        ds = db.execute(text(
+            f"""
+            SELECT COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS sold,
+                   COALESCE(SUM(ds.quoted_value * ds.quantity), 0) AS quoted
+            FROM direct_sales ds WHERE {ds_where}
+            """
+        ), ds_params).first()
+        sold_sum += float(ds.sold or 0) if ds else 0.0
+        quoted_for_sold += float(ds.quoted or 0) if ds else 0.0
 
     taratura_prezzo = round(sold_sum / quoted_for_sold, 4) if quoted_for_sold > 0 else None
     taratura_costo = round(cost_sum / est_for_cost, 4) if (with_cost and est_for_cost > 0) else None
@@ -626,32 +634,40 @@ def _margin_core(db: Session, date_from, date_to):
     # venduto sia costo reale), quindi TUTTE entrano nel guadagno (venduto −
     # costo) e nel profitto mensile — a differenza della taratura prezzo, dove
     # servono solo quelle con preventivo al volo.
-    dsw_all, dsp_all = _ds_window_where(date_from, date_to)
-    ds_g = db.execute(text(
-        f"SELECT COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS profit, "
-        f"COUNT(*) AS n FROM direct_sales ds WHERE {dsw_all}"
-    ), dsp_all).first()
-    ds_profit = float(ds_g.profit or 0) if ds_g else 0.0
-    ds_count = int(ds_g.n or 0) if ds_g else 0
+    ds_profit = 0.0
+    ds_count = 0
+    if inc_d:
+        dsw_all, dsp_all = _ds_window_where(date_from, date_to)
+        ds_g = db.execute(text(
+            f"SELECT COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS profit, "
+            f"COUNT(*) AS n FROM direct_sales ds WHERE {dsw_all}"
+        ), dsp_all).first()
+        ds_profit = float(ds_g.profit or 0) if ds_g else 0.0
+        ds_count = int(ds_g.n or 0) if ds_g else 0
     guadagno_reale = round(profit_sum + ds_profit, 2) if (with_cost or ds_count) else None
 
     prof_agg: dict = {}
-    rows_p = db.execute(text(
-        f"""
-        SELECT strftime('%Y-%m', q.quote_date) AS m,
-          COALESCE(SUM(q.sold_price - q.actual_cost), 0) AS profit
-        FROM quotes q
-        WHERE {where} AND q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
-        GROUP BY m ORDER BY m
-        """
-    ), params).all()
-    rows_ds_p = db.execute(text(
-        f"SELECT strftime('%Y-%m', ds.sale_date) AS m, "
-        f"COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS profit "
-        f"FROM direct_sales ds WHERE {dsw_all} GROUP BY m"
-    ), dsp_all).all()
-    for r in list(rows_p) + list(rows_ds_p):
-        prof_agg[r.m] = prof_agg.get(r.m, 0.0) + float(r.profit or 0)
+    if inc_q:
+        rows_p = db.execute(text(
+            f"""
+            SELECT strftime('%Y-%m', q.quote_date) AS m,
+              COALESCE(SUM(q.sold_price - q.actual_cost), 0) AS profit
+            FROM quotes q
+            WHERE {where} AND q.sold_price IS NOT NULL AND q.actual_cost IS NOT NULL
+            GROUP BY m ORDER BY m
+            """
+        ), params).all()
+        for r in rows_p:
+            prof_agg[r.m] = prof_agg.get(r.m, 0.0) + float(r.profit or 0)
+    if inc_d:
+        dsw_all, dsp_all = _ds_window_where(date_from, date_to)
+        rows_ds_p = db.execute(text(
+            f"SELECT strftime('%Y-%m', ds.sale_date) AS m, "
+            f"COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS profit "
+            f"FROM direct_sales ds WHERE {dsw_all} GROUP BY m"
+        ), dsp_all).all()
+        for r in rows_ds_p:
+            prof_agg[r.m] = prof_agg.get(r.m, 0.0) + float(r.profit or 0)
     profit_monthly = [MarginProfitPoint(month=m, profit=round(v, 2)) for m, v in sorted(prof_agg.items())]
 
     return guadagno_reale, taratura_prezzo, taratura_costo, (completed, with_sold, with_cost), profit_monthly
@@ -661,62 +677,69 @@ def _margin_core(db: Session, date_from, date_to):
 def get_margin_stats(
     period: str = 'year',
     compare: Optional[str] = None,      # 'prev' | 'yoy' | None
+    source: str = 'all',                # 'all' | 'quotes' | 'direct' (filtro Fonte)
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     _=_can_stats,
 ):
-    """Tab Marginalità & taratura: guadagno reale e taratura prezzo/costo sui
-    preventivi in stato 'completo'.
+    """Tab Redditività & taratura: guadagno reale e taratura prezzo/costo sul
+    business realizzato (preventivi completi + vendite dirette).
 
     - Guadagno reale  = venduto (sold_price) − costo reale (actual_cost)
     - Taratura prezzo = venduto ÷ preventivato (final_total)
     - Taratura costo  = costo reale ÷ costo stimato (Σ parti total_cost×qty)
 
-    I KPI degradano a None quando manca il dato (nessun costo reale compilato):
-    il frontend mostra la sola parte prezzo + avviso. `with_*_count` danno la
-    copertura per valutare l'affidabilità delle medie. `compare` (prev|yoy)
-    aggiunge gli aggregati della finestra di confronto.
+    `source` filtra la fonte: 'all' (tutto), 'quotes' (solo preventivi),
+    'direct' (solo vendite dirette). I KPI degradano a None quando manca il
+    dato (nessun costo reale compilato). `compare` (prev|yoy) aggiunge gli
+    aggregati della finestra di confronto (stessa fonte).
     """
     date_from, date_to = _period_range(period)
     where, params = _margin_where(date_from, date_to)
+    ds_where, ds_params = _ds_priced_where(date_from, date_to)
+    dsw_all, dsp_all = _ds_window_where(date_from, date_to)
+    inc_q = source != 'direct'      # includere i preventivi
+    inc_d = source != 'quotes'      # includere le vendite dirette
 
     # ─── KPI + guadagno mensile (via core riusabile) ──────────────────
-    guadagno_reale, taratura_prezzo, taratura_costo, counts, profit_monthly = _margin_core(db, date_from, date_to)
+    guadagno_reale, taratura_prezzo, taratura_costo, counts, profit_monthly = _margin_core(db, date_from, date_to, source)
     completed, with_sold, with_cost = counts
 
     # ─── Andamento preventivato / venduto / costo reale (mensile) ─────
-    rows_m = db.execute(text(
-        f"""
-        SELECT strftime('%Y-%m', q.quote_date) AS m,
-          COALESCE(SUM(q.final_total), 0) AS preventivato,
-          COALESCE(SUM(q.sold_price), 0) AS venduto,
-          COALESCE(SUM(q.actual_cost), 0) AS costo
-        FROM quotes q
-        WHERE {where}
-        GROUP BY m ORDER BY m
-        """
-    ), params).all()
-    # month -> [preventivato, venduto, costo]; preventivi + vendite dirette con
-    # preventivo al volo, per mese (sale_date per le vendite).
     month_agg: dict = {}
-    for r in rows_m:
-        month_agg[r.m] = [float(r.preventivato or 0), float(r.venduto or 0), float(r.costo or 0)]
-    ds_where, ds_params = _ds_priced_where(date_from, date_to)
-    rows_ds_m = db.execute(text(
-        f"""
-        SELECT strftime('%Y-%m', ds.sale_date) AS m,
-          COALESCE(SUM(ds.quoted_value * ds.quantity), 0) AS preventivato,
-          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto,
-          COALESCE(SUM(ds.unit_cost * ds.quantity), 0) AS costo
-        FROM direct_sales ds WHERE {ds_where}
-        GROUP BY m
-        """
-    ), ds_params).all()
-    for r in rows_ds_m:
-        cur = month_agg.setdefault(r.m, [0.0, 0.0, 0.0])
-        cur[0] += float(r.preventivato or 0)
-        cur[1] += float(r.venduto or 0)
-        cur[2] += float(r.costo or 0)
+    if inc_q:
+        rows_m = db.execute(text(
+            f"""
+            SELECT strftime('%Y-%m', q.quote_date) AS m,
+              COALESCE(SUM(q.final_total), 0) AS preventivato,
+              COALESCE(SUM(q.sold_price), 0) AS venduto,
+              COALESCE(SUM(q.actual_cost), 0) AS costo
+            FROM quotes q
+            WHERE {where}
+            GROUP BY m ORDER BY m
+            """
+        ), params).all()
+        for r in rows_m:
+            month_agg[r.m] = [float(r.preventivato or 0), float(r.venduto or 0), float(r.costo or 0)]
+    if inc_d:
+        # ST-1: venduto/costo da TUTTE le vendite dirette (window), non solo
+        # quelle con preventivo — così una vendita secca (senza quoted_value)
+        # resta visibile; preventivato somma quoted_value (NULL→0 per le secche).
+        rows_ds_m = db.execute(text(
+            f"""
+            SELECT strftime('%Y-%m', ds.sale_date) AS m,
+              COALESCE(SUM(ds.quoted_value * ds.quantity), 0) AS preventivato,
+              COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto,
+              COALESCE(SUM(ds.unit_cost * ds.quantity), 0) AS costo
+            FROM direct_sales ds WHERE {dsw_all}
+            GROUP BY m
+            """
+        ), dsp_all).all()
+        for r in rows_ds_m:
+            cur = month_agg.setdefault(r.m, [0.0, 0.0, 0.0])
+            cur[0] += float(r.preventivato or 0)
+            cur[1] += float(r.venduto or 0)
+            cur[2] += float(r.costo or 0)
     monthly = [
         MarginMonthlyPoint(month=m, preventivato=round(v[0], 2),
                            venduto=round(v[1], 2), costo=round(v[2], 2))
@@ -724,16 +747,21 @@ def get_margin_stats(
     ]
 
     # ─── Distribuzione scostamento prezzo (venduto ÷ preventivato) ────
-    rows_r = db.execute(text(
-        f"""
-        SELECT q.sold_price * 1.0 / q.final_total AS ratio
-        FROM quotes q
-        WHERE {where} AND q.sold_price IS NOT NULL AND q.final_total > 0
-        UNION ALL
-        SELECT ds.unit_price * 1.0 / ds.quoted_value AS ratio
-        FROM direct_sales ds WHERE {ds_where}
-        """
-    ), {**params, **ds_params}).all()
+    # Solo voci con un preventivato di riferimento (preventivi completi + vendite
+    # con preventivo al volo). Union costruita in base alla fonte selezionata.
+    ratio_selects, ratio_params = [], {}
+    if inc_q:
+        ratio_selects.append(
+            f"SELECT q.sold_price * 1.0 / q.final_total AS ratio FROM quotes q "
+            f"WHERE {where} AND q.sold_price IS NOT NULL AND q.final_total > 0"
+        )
+        ratio_params.update(params)
+    if inc_d:
+        ratio_selects.append(
+            f"SELECT ds.unit_price * 1.0 / ds.quoted_value AS ratio FROM direct_sales ds WHERE {ds_where}"
+        )
+        ratio_params.update(ds_params)
+    rows_r = db.execute(text(" UNION ALL ".join(ratio_selects)), ratio_params).all() if ratio_selects else []
     bands = [
         ('<0,80', lambda x: x < 0.80),
         ('0,80–0,85', lambda x: 0.80 <= x < 0.85),
@@ -752,24 +780,32 @@ def get_margin_stats(
     distribution = [MarginBandRow(band=label, count=band_counts[label]) for label, _ in bands]
 
     # ─── Peggiori scostamenti (venduto molto sotto il preventivato) ───
-    rows_w = db.execute(text(
-        f"""
-        SELECT quote_number, customer_name, final_total, sold_price, actual_cost, delta_pct FROM (
-          SELECT q.quote_number AS quote_number, q.customer_name AS customer_name,
-            q.final_total AS final_total, q.sold_price AS sold_price, q.actual_cost AS actual_cost,
-            (q.sold_price - q.final_total) * 100.0 / q.final_total AS delta_pct
-          FROM quotes q
-          WHERE {where} AND q.sold_price IS NOT NULL AND q.final_total > 0
-          UNION ALL
-          SELECT ds.code, COALESCE(ds.description, ds.code),
-            ds.quoted_value * ds.quantity, ds.unit_price * ds.quantity, ds.unit_cost * ds.quantity,
-            (ds.unit_price - ds.quoted_value) * 100.0 / ds.quoted_value
-          FROM direct_sales ds WHERE {ds_where}
+    worst_selects, worst_params = [], {}
+    if inc_q:
+        worst_selects.append(
+            f"""SELECT q.quote_number AS quote_number, q.customer_name AS customer_name,
+              q.final_total AS final_total, q.sold_price AS sold_price, q.actual_cost AS actual_cost,
+              (q.sold_price - q.final_total) * 100.0 / q.final_total AS delta_pct
+            FROM quotes q
+            WHERE {where} AND q.sold_price IS NOT NULL AND q.final_total > 0"""
         )
-        ORDER BY delta_pct ASC
-        LIMIT 10
-        """
-    ), {**params, **ds_params}).all()
+        worst_params.update(params)
+    if inc_d:
+        worst_selects.append(
+            f"""SELECT ds.code AS quote_number, COALESCE(ds.description, ds.code) AS customer_name,
+              ds.quoted_value * ds.quantity AS final_total, ds.unit_price * ds.quantity AS sold_price,
+              ds.unit_cost * ds.quantity AS actual_cost,
+              (ds.unit_price - ds.quoted_value) * 100.0 / ds.quoted_value AS delta_pct
+            FROM direct_sales ds WHERE {ds_where}"""
+        )
+        worst_params.update(ds_params)
+    rows_w = []
+    if worst_selects:
+        inner = " UNION ALL ".join(worst_selects)
+        rows_w = db.execute(text(
+            f"""SELECT quote_number, customer_name, final_total, sold_price, actual_cost, delta_pct
+            FROM ({inner}) ORDER BY delta_pct ASC LIMIT 10"""
+        ), worst_params).all()
     worst = [
         MarginWorstRow(
             quote_number=r.quote_number or '—',
@@ -781,60 +817,57 @@ def get_margin_stats(
         ) for r in rows_w
     ]
 
-    # ─── Incassato (venduto realizzato) + top clienti per venduto ─────
-    # = Σ sold_price dei preventivi completi + Σ venduto di TUTTE le vendite
-    # dirette. È l'incassato reale, distinto dal preventivato della tab Preventivi.
-    dsw_all, dsp_all = _ds_window_where(date_from, date_to)
-    inc_q = db.execute(text(
-        f"SELECT COALESCE(SUM(q.sold_price), 0) FROM quotes q WHERE {where} AND q.sold_price IS NOT NULL"
-    ), params).scalar()
-    inc_ds = db.execute(text(
-        f"SELECT COALESCE(SUM(ds.unit_price * ds.quantity), 0) FROM direct_sales ds WHERE {dsw_all}"
-    ), dsp_all).scalar()
-    incassato = round(float(inc_q or 0) + float(inc_ds or 0), 2)
-
-    # Incassato mensile spaccato per fonte (preventivi vs vendite dirette) →
-    # barre impilate nel frontend. Le vendite dirette sono TUTTE (window), come
-    # il KPI incassato — non solo quelle con preventivo al volo.
-    rows_inc_q = db.execute(text(
-        f"SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(q.sold_price), 0) AS v "
-        f"FROM quotes q WHERE {where} AND q.sold_price IS NOT NULL GROUP BY m"
-    ), params).all()
-    rows_inc_ds = db.execute(text(
-        f"SELECT strftime('%Y-%m', ds.sale_date) AS m, COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS v "
-        f"FROM direct_sales ds WHERE {dsw_all} GROUP BY m"
-    ), dsp_all).all()
+    # ─── Incassato (venduto realizzato) + incassato mensile per fonte ─
+    # = Σ sold_price dei preventivi completi + Σ venduto di TUTTE le vendite dirette.
+    incassato_q = incassato_d = 0.0
     inc_month: dict = {}
-    for r in rows_inc_q:
-        inc_month.setdefault(r.m, [0.0, 0.0])[0] += float(r.v or 0)
-    for r in rows_inc_ds:
-        inc_month.setdefault(r.m, [0.0, 0.0])[1] += float(r.v or 0)
+    if inc_q:
+        incassato_q = float(db.execute(text(
+            f"SELECT COALESCE(SUM(q.sold_price), 0) FROM quotes q WHERE {where} AND q.sold_price IS NOT NULL"
+        ), params).scalar() or 0)
+        for r in db.execute(text(
+            f"SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(q.sold_price), 0) AS v "
+            f"FROM quotes q WHERE {where} AND q.sold_price IS NOT NULL GROUP BY m"
+        ), params).all():
+            inc_month.setdefault(r.m, [0.0, 0.0])[0] += float(r.v or 0)
+    if inc_d:
+        incassato_d = float(db.execute(text(
+            f"SELECT COALESCE(SUM(ds.unit_price * ds.quantity), 0) FROM direct_sales ds WHERE {dsw_all}"
+        ), dsp_all).scalar() or 0)
+        for r in db.execute(text(
+            f"SELECT strftime('%Y-%m', ds.sale_date) AS m, COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS v "
+            f"FROM direct_sales ds WHERE {dsw_all} GROUP BY m"
+        ), dsp_all).all():
+            inc_month.setdefault(r.m, [0.0, 0.0])[1] += float(r.v or 0)
+    incassato = round(incassato_q + incassato_d, 2)
     incassato_monthly = [
         IncassatoMonthlyPoint(month=m, preventivi=round(v[0], 2), vendite_dirette=round(v[1], 2))
         for m, v in sorted(inc_month.items())
     ]
 
-    rows_qsold = db.execute(text(
-        f"""
-        SELECT q.customer_id, q.customer_name, COALESCE(SUM(q.sold_price), 0) AS total
-        FROM quotes q
-        WHERE {where} AND q.sold_price IS NOT NULL
-          AND q.customer_name IS NOT NULL AND q.customer_name != ''
-        GROUP BY q.customer_id, q.customer_name
-        """
-    ), params).all()
-    rows_dsold = db.execute(text(
-        f"""
-        SELECT ds.customer_id, ds.customer_name, COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS total
-        FROM direct_sales ds
-        WHERE {dsw_all} AND ds.customer_name IS NOT NULL AND ds.customer_name != ''
-        GROUP BY ds.customer_id, ds.customer_name
-        """
-    ), dsp_all).all()
+    # ─── Top clienti per venduto realizzato ───────────────────────────
     sold_agg: dict[tuple, float] = {}
-    for r in list(rows_qsold) + list(rows_dsold):
-        key = (r.customer_id, r.customer_name)
-        sold_agg[key] = sold_agg.get(key, 0.0) + float(r.total or 0)
+    if inc_q:
+        for r in db.execute(text(
+            f"""
+            SELECT q.customer_id, q.customer_name, COALESCE(SUM(q.sold_price), 0) AS total
+            FROM quotes q
+            WHERE {where} AND q.sold_price IS NOT NULL
+              AND q.customer_name IS NOT NULL AND q.customer_name != ''
+            GROUP BY q.customer_id, q.customer_name
+            """
+        ), params).all():
+            sold_agg[(r.customer_id, r.customer_name)] = sold_agg.get((r.customer_id, r.customer_name), 0.0) + float(r.total or 0)
+    if inc_d:
+        for r in db.execute(text(
+            f"""
+            SELECT ds.customer_id, ds.customer_name, COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS total
+            FROM direct_sales ds
+            WHERE {dsw_all} AND ds.customer_name IS NOT NULL AND ds.customer_name != ''
+            GROUP BY ds.customer_id, ds.customer_name
+            """
+        ), dsp_all).all():
+            sold_agg[(r.customer_id, r.customer_name)] = sold_agg.get((r.customer_id, r.customer_name), 0.0) + float(r.total or 0)
     top_customers_sold = [
         StatsCustomerRow(customer_id=cid, customer_name=name, total=round(v, 2))
         for (cid, name), v in sorted(sold_agg.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -844,7 +877,7 @@ def get_margin_stats(
     if compare in ('prev', 'yoy'):
         cmp_from, cmp_to = _comparison_range(compare, date_from, date_to)
         if cmp_from is not None:
-            c_g, c_tp, c_tc, _c_counts, c_profit = _margin_core(db, cmp_from, cmp_to)
+            c_g, c_tp, c_tc, _c_counts, c_profit = _margin_core(db, cmp_from, cmp_to, source)
             comparison = MarginComparison(
                 guadagno_reale=c_g, taratura_prezzo=c_tp, taratura_costo=c_tc,
                 profit_by_month=c_profit,
@@ -866,90 +899,6 @@ def get_margin_stats(
         distribution=distribution,
         worst=worst,
         comparison=comparison,
-    )
-
-
-@router.get("/dashboard/statistics/direct-sales", response_model=DirectSalesStatsOut)
-def get_direct_sales_stats(
-    period: str = 'year',
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _=_can_stats,
-):
-    """Tab Vendite dirette: statistiche delle SOLE vendite extra-preventivo.
-    Vista isolata (nel tab Marginalità le stesse vendite sono invece sommate ai
-    preventivi). Ricavo/costo/guadagno realizzati, andamento mensile, top
-    clienti e ripartizione per categoria."""
-    date_from, date_to = _period_range(period)
-    where, params = _ds_window_where(date_from, date_to)
-
-    agg = db.execute(text(
-        f"""
-        SELECT COUNT(*) AS n,
-          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto,
-          COALESCE(SUM(ds.unit_cost * ds.quantity), 0) AS costo,
-          COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS guadagno,
-          SUM(CASE WHEN ds.quoted_value IS NOT NULL AND ds.quoted_value > 0 THEN 1 ELSE 0 END) AS with_quote
-        FROM direct_sales ds WHERE {where}
-        """
-    ), params).first()
-    count = int(agg.n or 0) if agg else 0
-    venduto = float(agg.venduto or 0) if agg else 0.0
-    costo = float(agg.costo or 0) if agg else 0.0
-    guadagno = float(agg.guadagno or 0) if agg else 0.0
-    with_quote = int(agg.with_quote or 0) if agg else 0
-    margine = round(guadagno / costo * 100, 1) if costo > 0 else None
-
-    rows_m = db.execute(text(
-        f"""
-        SELECT strftime('%Y-%m', ds.sale_date) AS m,
-          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto,
-          COALESCE(SUM(ds.unit_cost * ds.quantity), 0) AS costo
-        FROM direct_sales ds WHERE {where}
-        GROUP BY m ORDER BY m
-        """
-    ), params).all()
-    monthly = [
-        DirectSalesMonthlyPoint(
-            month=r.m, venduto=round(float(r.venduto or 0), 2),
-            costo=round(float(r.costo or 0), 2),
-            guadagno=round(float(r.venduto or 0) - float(r.costo or 0), 2),
-        ) for r in rows_m
-    ]
-
-    rows_c = db.execute(text(
-        f"""
-        SELECT ds.customer_id, ds.customer_name,
-          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS total
-        FROM direct_sales ds
-        WHERE {where} AND ds.customer_name IS NOT NULL AND ds.customer_name != ''
-        GROUP BY ds.customer_id, ds.customer_name
-        ORDER BY total DESC LIMIT 10
-        """
-    ), params).all()
-    top_customers = [
-        StatsCustomerRow(customer_id=r.customer_id, customer_name=r.customer_name, total=round(float(r.total or 0), 2))
-        for r in rows_c
-    ]
-
-    rows_cat = db.execute(text(
-        f"""
-        SELECT COALESCE(NULLIF(ds.category_code, ''), '—') AS cat,
-          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto
-        FROM direct_sales ds WHERE {where}
-        GROUP BY cat ORDER BY venduto DESC
-        """
-    ), params).all()
-    by_category = [
-        DirectSalesCategoryRow(category_code=r.cat or '—', venduto=round(float(r.venduto or 0), 2))
-        for r in rows_cat
-    ]
-
-    return DirectSalesStatsOut(
-        period=period,
-        venduto=round(venduto, 2), costo=round(costo, 2), guadagno=round(guadagno, 2),
-        margine_percent=margine, count=count, with_quote_count=with_quote,
-        monthly=monthly, top_customers=top_customers, by_category=by_category,
     )
 
 

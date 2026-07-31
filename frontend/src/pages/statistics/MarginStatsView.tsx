@@ -9,6 +9,7 @@ import SignedBarsCard from '@/components/charts/SignedBarsCard'
 import TrendAreaCard from '@/components/charts/TrendAreaCard'
 import RankBarsCard from '@/components/charts/RankBarsCard'
 import ChartEmpty from '@/components/charts/ChartEmpty'
+import { FilterSelect } from '@/pages/statistics/StatFilterSelect'
 import type { StatKpi } from '@/pages/statistics/StatisticsView'
 import type { MarginMonthlyPoint, MarginBandRow, MarginWorstRow } from '@/types'
 
@@ -18,8 +19,17 @@ interface Coverage {
   withCost: number
 }
 
+const FONTE_OPTIONS = [
+  { value: 'all', label: 'Fonte · tutte' },
+  { value: 'quotes', label: 'Solo preventivi' },
+  { value: 'direct', label: 'Solo vendite dirette' },
+]
+
 interface Props {
   kpis: StatKpi[]
+  /** filtro Fonte: 'all' | 'quotes' | 'direct' */
+  source: string
+  onSourceChange: (v: string) => void
   coverage: Coverage
   /** { month, preventivato, venduto, costo } (month già etichettato) */
   monthly: MarginMonthlyPoint[]
@@ -42,7 +52,7 @@ const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const eurSigned = (v: number): string =>
   (v < 0 ? '−€ ' : '€ ') + Math.abs(Math.round(v || 0)).toLocaleString('it-IT')
 
-export function MarginStatsView({ kpis, coverage, monthly, profit, incassato, distribution, worst, topCustomersSold, cmpName }: Props) {
+export function MarginStatsView({ kpis, source, onSourceChange, coverage, monthly, profit, incassato, distribution, worst, topCustomersSold, cmpName }: Props) {
   const c = useChartTheme()
   // Degradazione graziosa: se il costo reale è raramente compilato, mostriamo
   // la sola parte prezzo e avvisiamo. Soglia: nessun costo, o < 60% di copertura.
@@ -51,6 +61,11 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, incassato, di
 
   return (
     <div>
+      {/* Filtro Fonte */}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <FilterSelect value={source} options={FONTE_OPTIONS} onChange={onSourceChange} width={210} />
+      </div>
+
       {/* Banner informativo (definizioni) */}
       <div className="mb-4 flex items-start gap-2 rounded-[11px] border border-stats/[0.22] bg-stats/[0.08] px-3.5 py-[11px] text-[12.5px] text-foreground">
         <Info className="mt-[1px] h-4 w-4 flex-none text-stats" />

@@ -196,6 +196,86 @@ Nessun bug che rompe l'uso. Voci ancora aperte, per priorità:
 
 ---
 
+## 📊 STATISTICHE — chiarezza + ridisegno (2026-07-31)
+
+> ✅ **RIDISEGNO COMPLETO ESEGUITO 2026-07-31.** Nuova struttura a 4 tab:
+> **Panoramica** (imbuto commerciale + realizzato, KPI di sintesi) · **Commerciale**
+> (ex Preventivi, imbuto offerto/vinto/perso, solo-preventivi by design) ·
+> **Redditività** (ex Marginalità, + filtro **Fonte** Tutte/Preventivi/Vendite
+> dirette via `?source=`) · **Acquisti** (Materiali + Utensili sotto selettore
+> interno). Tab "Vendite dirette" rimosso (assorbito da Redditività+Fonte).
+> Toggle "Confronta" nascosto su Panoramica/Acquisti (ST-2). ST-1 risolto.
+> **Resta aperto ST-2c** (una sola fonte SQL per i numeri-soldi, refactor interno
+> invisibile — vedi sotto). Fatto in: `api/dashboard.py` (`get_margin_stats` +
+> `_margin_core` con `source`), `pages/statistics/` (StatisticsView, PanoramicaView,
+> AcquistiView, MarginStatsView+Fonte, StatisticsPage).
+
+> Contesto: le statistiche sono **corrette ma frammentate**. Oggi sono
+> organizzate *per fonte del dato* (Preventivi / Marginalità / Vendite dirette /
+> Materiali / Utensili). Il nemico della chiarezza non sono i grafici, ma il
+> fatto che la stessa "cifra soldi" ha 3 significati (**offerto** / **venduto·
+> incassato** / **guadagno**) sparpagliati tra i tab, e che *preventivi +
+> vendite dirette sono due rubinetti dello stesso incasso* non è mai esplicito.
+> Ordine consigliato: prima i bug/incoerenze (basso rischio), poi la Panoramica,
+> infine la conversione "fonte come filtro". Fonti autoritative:
+> `api/dashboard.py` (endpoint `/dashboard/statistics/*`) e i tab in
+> `pages/statistics/`.
+
+### ST-1 — Vendite dirette SENZA preventivo invisibili in Marginalità ✅ FATTO 2026-07-31 (bug)
+
+Una vendita diretta con `quoted_value = NULL` (nessun preventivo al volo) ma con
+costo e prezzo reali **non compare** nel grafico Marginalità "Preventivato →
+Venduto → Costo reale": quel grafico aggancia le vendite via `_ds_priced_where`
+(solo-con-preventivo), mentre i KPI Incassato/Guadagno usano `_ds_window_where`
+(tutte). Risultato: il venduto del grafico **non riconcilia** con l'Incassato, e
+una vendita reale (venduto+costo) sparisce dalla vista principale. Caso reale in
+DB: `134-26G_030` (M.A.G. Meccanica, venduto €880, costo €472, guadagno €408,
+niente preventivo). **Fix**: nel grafico mensile di `get_margin_stats` usare
+`_ds_window_where` per venduto+costo (preventivato resta 0 per le vendite secche,
+corretto). Taratura prezzo / distribuzione scostamento / peggiori scostamenti
+restano su `_ds_priced_where` (giusto: senza preventivo non c'è scostamento).
+Il nuovo tab "Vendite dirette" già la mostra (usa window). Basso rischio, alto
+ritorno. Verificare che Incassato = somma barre venduto del grafico.
+
+### ST-2 — Incoerenze trasversali (basso rischio, alto ritorno)
+
+- **Vocabolario unico** ✅ **PARZIALE 2026-07-31**: rinominati Preventivi→Commerciale,
+  Marginalità→Redditività; "€ preventivato"→"€ offerto"; nuove viste usano i token
+  colore centralizzati (`chartTheme`). Un pass completo di uniformità colore su
+  TUTTE le viste resta possibile ma non prioritario.
+- **Toggle "Confronta" inerte** ✅ **FATTO 2026-07-31**: nascosto dove non si applica
+  (Panoramica, Acquisti) via `COMPARE_TABS` in `StatisticsView`.
+- **ST-2c — Una sola fonte per i numeri-soldi** *(APERTO, refactor interno)*: oggi ogni tab ricalcola offerto/venduto/
+  incassato con la sua query SQL (`_margin_where`, `_ds_window_where`,
+  `_ds_priced_where`, `_quotes_where`…). È la stessa duplicazione che ha già
+  causato l'incoerenza vinto/perso vs donut. Centralizzare il calcolo delle 4–5
+  cifre-chiave in un punto solo e farci pescare tutti i tab → meno drift, numeri
+  che tornano sempre.
+
+### ST-3 — Tab "Panoramica" a imbuto (il "vedere tutto in una schermata") ✅ FATTO 2026-07-31
+
+Nuovo primo tab che risponde a "come sta andando" senza cliccare altro:
+- Riga KPI: **€ offerto · tasso conversione · € incassato · guadagno reale ·
+  margine reale %**.
+- **Waterfall/imbuto**: Offerto → Vinto → Incassato → −Costo → Guadagno (si
+  *vede* dove si perde per strada).
+- Trend mensile **incassato vs costo** (la riga di fondo).
+- Top clienti per incassato + semaforo taratura ("sto preventivando accurato?").
+Gli altri tab diventano i capitoli della stessa storia: **Commerciale** (=oggi
+Preventivi, l'imbuto offerto/vinto/perso), **Redditività** (=Marginalità),
+**Acquisti** (=Materiali+Utensili).
+
+### ST-4 — "Fonte" come filtro invece che come tab ✅ FATTO 2026-07-31
+
+Modello più pulito a lungo termine: sostituire il tab dedicato "Vendite dirette"
+con un segmento **Fonte: Preventivi · Vendite dirette · Tutte** in cima a
+Commerciale e Redditività (come già c'è il selettore Periodo). Stessa vista che
+risponde a "solo preventivi / solo vendite / tutto" senza duplicare grafici. Il
+tab dedicato attuale non è sprecato (buona vista di dettaglio); questa è
+l'evoluzione DRY. Da concordare prima di toccare (§2.D refactor).
+
+---
+
 ## 🗺️ PIANO DI ESECUZIONE CORRENTE (2026-07-02)
 
 Ordine di esecuzione approvato dall'utente il 2026-07-02, che accorpa una

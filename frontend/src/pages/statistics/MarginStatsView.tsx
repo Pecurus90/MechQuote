@@ -139,7 +139,7 @@ export function MarginStatsView({ kpis, source, onSourceChange, coverage, monthl
           valueKey="value"
           height={330}
           barSize={12}
-          valueFmt={eurK}
+          valueFmt={eur}
         />
         {cmpName ? (
           <TrendAreaCard

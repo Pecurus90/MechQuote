@@ -152,7 +152,7 @@ export function PanoramicaView({ preventivi, dirette, totale, trend, topCustomer
           valueKey="value"
           height={300}
           barSize={12}
-          valueFmt={eurK}
+          valueFmt={eur}
         />
       </div>
     </div>

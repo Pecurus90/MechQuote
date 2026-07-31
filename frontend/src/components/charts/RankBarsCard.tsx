@@ -58,7 +58,7 @@ export default function RankBarsCard({
           <ChartEmpty height={height} />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ top: 2, right: 52, left: 6, bottom: 2 }}>
+            <BarChart data={data} layout="vertical" margin={{ top: 2, right: 72, left: 6, bottom: 2 }}>
               <XAxis type="number" hide />
               <YAxis
                 type="category"

@@ -147,7 +147,7 @@ export function QuotesStatsView({
           valueKey="value"
           height={330}
           barSize={12}
-          valueFmt={eurK}
+          valueFmt={eur}
         />
         <DonutCard
           title="Preventivi per categoria"
@@ -190,7 +190,7 @@ export function QuotesStatsView({
             valueKey="value"
             height={330}
             barSize={12}
-            valueFmt={eurK}
+            valueFmt={eur}
           />
           <TrendAreaCard
             title="Andamento persi (€)"

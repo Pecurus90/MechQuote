@@ -25,7 +25,6 @@ interface Props {
 
 const eur = (v: number | null): string =>
   v == null ? '—' : '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
-const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const pct = (v: number | null): string => (v == null ? '—' : `${v.toFixed(1).replace('.', ',')}%`)
 
 interface Row { label: string; value: string; strong?: boolean; tone?: string }
@@ -141,7 +140,8 @@ export function PanoramicaView({ preventivi, dirette, totale, trend, topCustomer
             { key: 'incassato', name: 'Incassato', color: c.succ },
             { key: 'costo', name: 'Costo', color: c.warn },
           ]}
-          yFmt={eurK}
+          yFmt={eur}
+          yWidth={72}
           tipFmt={(v, n) => [eur(v), n]}
         />
         <RankBarsCard

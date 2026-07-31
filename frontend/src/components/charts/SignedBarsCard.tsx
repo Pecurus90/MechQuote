@@ -23,6 +23,8 @@ interface Props {
   valueKey: string
   height?: number
   yFmt?: (v: number) => string
+  /** larghezza asse Y (default 44); alzare per cifre intere lunghe */
+  yWidth?: number
   tipFmt?: (value: number, name: string) => [string, string]
   valueName?: string
 }
@@ -35,6 +37,7 @@ export default function SignedBarsCard({
   valueKey,
   height = 256,
   yFmt,
+  yWidth = 44,
   tipFmt,
   valueName = 'Guadagno',
 }: Props) {
@@ -54,7 +57,7 @@ export default function SignedBarsCard({
             <BarChart data={data} margin={{ top: 8, right: 12, left: -4, bottom: 0 }}>
               <CartesianGrid stroke={c.grid} vertical={false} />
               <XAxis dataKey={xKey} tick={axisTick(c)} axisLine={{ stroke: c.grid }} tickLine={false} />
-              <YAxis tick={axisTick(c)} axisLine={false} tickLine={false} width={44} tickFormatter={yFmt} />
+              <YAxis tick={axisTick(c)} axisLine={false} tickLine={false} width={yWidth} tickFormatter={yFmt} />
               <Tooltip cursor={{ fill: c.cursor }} {...tooltipStyle(c)} formatter={tipFmt} />
               <ReferenceLine y={0} stroke={c.axis} />
               <Bar dataKey={valueKey} name={valueName} radius={[3, 3, 0, 0]} barSize={22}>

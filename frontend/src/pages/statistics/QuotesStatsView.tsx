@@ -46,7 +46,6 @@ interface Props {
 
 const eur = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const hours = (v: number): string => `${v} h`
 
 export function QuotesStatsView({
@@ -118,7 +117,8 @@ export function QuotesStatsView({
           series={[
             { key: 'standard', name: 'Preventivato', color: col.standard },
           ]}
-          yFmt={eurK}
+          yFmt={eur}
+          yWidth={72}
           tipFmt={(v, n) => [eur(v), n]}
           cmpKey={cmpName ? 'cmp' : undefined}
           cmpName={cmpName}
@@ -198,7 +198,8 @@ export function QuotesStatsView({
             data={lostMonthly}
             xKey={xKey}
             series={[{ key: 'value', name: 'Perso', color: 'hsl(349 75% 52%)' }]}
-            yFmt={eurK}
+            yFmt={eur}
+            yWidth={72}
             tipFmt={(v, n) => [eur(v), n]}
           />
         </div>

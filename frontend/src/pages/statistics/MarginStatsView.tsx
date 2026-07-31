@@ -48,7 +48,6 @@ interface Props {
 
 const eur = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
-const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const eurSigned = (v: number): string =>
   (v < 0 ? '−€ ' : '€ ') + Math.abs(Math.round(v || 0)).toLocaleString('it-IT')
 
@@ -115,7 +114,8 @@ export function MarginStatsView({ kpis, source, onSourceChange, coverage, monthl
             { key: 'venduto', name: 'Venduto', color: c.succ },
             { key: 'costo', name: 'Costo reale', color: c.warn },
           ]}
-          yFmt={eurK}
+          yFmt={eur}
+          yWidth={72}
           tipFmt={(v, n) => [eur(v), n]}
         />
         <GroupedBarsCard
@@ -128,7 +128,8 @@ export function MarginStatsView({ kpis, source, onSourceChange, coverage, monthl
             { key: 'preventivi', name: 'Preventivi', color: c.blu },
             { key: 'vendite_dirette', name: 'Vendite dirette', color: c.warn },
           ]}
-          yFmt={eurK}
+          yFmt={eur}
+          yWidth={72}
           tipFmt={(v, n) => [eur(v), n]}
         />
         <RankBarsCard
@@ -148,7 +149,8 @@ export function MarginStatsView({ kpis, source, onSourceChange, coverage, monthl
             data={profit}
             xKey="month"
             series={[{ key: 'profit', name: 'Guadagno', color: c.succ }]}
-            yFmt={eurK}
+            yFmt={eur}
+            yWidth={72}
             tipFmt={(v, n) => [eurSigned(v), n]}
             cmpKey="cmp"
             cmpName={cmpName}
@@ -160,7 +162,8 @@ export function MarginStatsView({ kpis, source, onSourceChange, coverage, monthl
             data={profit}
             xKey="month"
             valueKey="profit"
-            yFmt={eurK}
+            yFmt={eur}
+            yWidth={72}
             tipFmt={(v, n) => [eurSigned(v), n]}
             valueName="Guadagno"
           />

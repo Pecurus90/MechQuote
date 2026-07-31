@@ -28,6 +28,8 @@ interface Props {
   height?: number
   /** Formats the Y axis ticks (e.g. `€ 12k`, `34%`). */
   yFmt?: (v: number) => string
+  /** larghezza asse Y (default 44); alzare per cifre intere lunghe */
+  yWidth?: number
   /** Formats a tooltip value/name pair. */
   tipFmt?: (value: number, name: string) => [string, string]
   /**
@@ -50,6 +52,7 @@ export default function TrendAreaCard({
   series,
   height = 256,
   yFmt,
+  yWidth = 44,
   tipFmt,
   cmpKey,
   cmpName = 'Confronto',
@@ -85,7 +88,7 @@ export default function TrendAreaCard({
                 tick={axisTick(c)}
                 axisLine={false}
                 tickLine={false}
-                width={44}
+                width={yWidth}
                 tickFormatter={yFmt}
               />
               <Tooltip cursor={{ stroke: c.grid }} {...tooltipStyle(c)} formatter={tipFmt} />

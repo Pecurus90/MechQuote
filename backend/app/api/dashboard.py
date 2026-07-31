@@ -804,7 +804,7 @@ def get_margin_stats(
         inner = " UNION ALL ".join(worst_selects)
         rows_w = db.execute(text(
             f"""SELECT quote_number, customer_name, final_total, sold_price, actual_cost, delta_pct
-            FROM ({inner}) ORDER BY delta_pct ASC LIMIT 10"""
+            FROM ({inner}) WHERE delta_pct < 0 ORDER BY delta_pct ASC LIMIT 10"""
         ), worst_params).all()
     worst = [
         MarginWorstRow(

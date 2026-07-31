@@ -80,6 +80,8 @@ export default function StatisticsPage() {
 
   const [qData, setQData] = useState<Statistics | null>(null)
   const [gData, setGData] = useState<MarginStats | null>(null)
+  // Panoramica: quotes + margin nei 3 tagli (tutto/preventivi/dirette).
+  const [ov, setOv] = useState<{ q: Statistics; all: MarginStats; quotes: MarginStats; direct: MarginStats } | null>(null)
   const [mData, setMData] = useState<MaterialsStats | null>(null)
   const [tData, setTData] = useState<ToolsStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -96,12 +98,17 @@ export default function StatisticsPage() {
     setLoading(true)
     const done = () => setLoading(false)
     if (tab === 'overview') {
-      // Panoramica: compone i due endpoint (commerciale + realizzato), sempre
-      // periodo pieno, niente confronto né filtro fonte.
+      // Panoramica: quotes (funnel) + margin nei 3 tagli, per esporre in chiaro
+      // il riepilogo di preventivi, vendite dirette e totale. Periodo pieno,
+      // niente confronto.
       Promise.all([
-        api.get(`/dashboard/statistics?period=${p}`).then(r => setQData(r.data)),
-        api.get(`/dashboard/statistics/margin?period=${p}`).then(r => setGData(r.data)),
-      ]).catch(() => toast.error('Errore caricamento panoramica')).finally(done)
+        api.get(`/dashboard/statistics?period=${p}`),
+        api.get(`/dashboard/statistics/margin?period=${p}`),
+        api.get(`/dashboard/statistics/margin?period=${p}&source=quotes`),
+        api.get(`/dashboard/statistics/margin?period=${p}&source=direct`),
+      ]).then(([q, all, quotes, direct]) =>
+        setOv({ q: q.data, all: all.data, quotes: quotes.data, direct: direct.data }))
+        .catch(() => toast.error('Errore caricamento panoramica')).finally(done)
     } else if (tab === 'commerciale') {
       const params = new URLSearchParams({ period: p })
       if (customer !== 'all') params.set('customer_id', customer)
@@ -144,21 +151,28 @@ export default function StatisticsPage() {
         onCompareChange={setCompare}
       >
         {tab === 'overview' && (
-          (loading || !qData || !gData) ? <Loading /> : (
+          (loading || !ov) ? <Loading /> : (
             <PanoramicaView
-              kpis={buildOverviewKpis(qData, gData)}
-              commerciale={{
-                offerto: qData.trend_monthly.reduce((s, p) => s + p.standard, 0),
-                vinto: (qData.outcome ?? EMPTY_OUTCOME).won_value,
-                perso: (qData.outcome ?? EMPTY_OUTCOME).lost_value,
+              preventivi={{
+                offerto: ov.q.trend_monthly.reduce((s, p) => s + p.standard, 0),
+                vinto: (ov.q.outcome ?? EMPTY_OUTCOME).won_value,
+                incassato: ov.quotes.incassato,
+                guadagno: ov.quotes.guadagno_reale,
+                costo: ov.quotes.monthly.reduce((s, m) => s + m.costo, 0),
               }}
-              realizzato={{
-                incassato: gData.incassato,
-                costo: gData.monthly.reduce((s, m) => s + m.costo, 0),
-                guadagno: gData.guadagno_reale ?? 0,
+              dirette={{
+                venduto: ov.direct.incassato,
+                costo: ov.direct.monthly.reduce((s, m) => s + m.costo, 0),
+                guadagno: ov.direct.guadagno_reale,
               }}
-              trend={gData.monthly.map(m => ({ month: monthLabel(m.month), incassato: m.venduto, costo: m.costo }))}
-              topCustomers={gData.top_customers_sold.map(c => ({ name: c.customer_name, value: c.total }))}
+              totale={{
+                incassato: ov.all.incassato,
+                costo: ov.all.monthly.reduce((s, m) => s + m.costo, 0),
+                guadagno: ov.all.guadagno_reale,
+                margine: ov.all.incassato > 0 ? ((ov.all.guadagno_reale ?? 0) / ov.all.incassato) * 100 : null,
+              }}
+              trend={ov.all.monthly.map(m => ({ month: monthLabel(m.month), incassato: m.venduto, costo: m.costo }))}
+              topCustomers={ov.all.top_customers_sold.map(c => ({ name: c.customer_name, value: c.total }))}
             />
           )
         )}
@@ -272,22 +286,6 @@ export default function StatisticsPage() {
       </StatisticsView>
     </div>
   )
-}
-
-// Panoramica: 5 KPI che riassumono commerciale (offerto/conversione) e
-// realizzato (incassato/guadagno/margine reale).
-function buildOverviewKpis(q: Statistics, g: MarginStats): StatKpi[] {
-  const offerto = q.trend_monthly.reduce((s, p) => s + p.standard, 0)
-  const o = q.outcome ?? EMPTY_OUTCOME
-  const guadagno = g.guadagno_reale ?? 0
-  const margineReale = g.incassato > 0 ? (guadagno / g.incassato) * 100 : null
-  return [
-    { key: 'offerto', label: '€ offerto', value: eur(offerto), hint: 'preventivi offerti nel periodo', icon: Euro, tone: 'info' },
-    { key: 'conv', label: 'Tasso conversione', value: pct(o.conversion_rate), hint: 'vinti ÷ decisi', icon: Target, tone: 'confirmed' },
-    { key: 'incassato', label: 'Incassato', value: eur(g.incassato), hint: 'venduto realizzato · tutto', icon: Banknote, tone: 'success', valueToned: true },
-    { key: 'guadagno', label: 'Guadagno reale', value: g.guadagno_reale == null ? '—' : eur(guadagno), hint: 'incassato − costo reale', icon: Wallet, tone: 'success', valueToned: true },
-    { key: 'margine', label: 'Margine reale', value: margineReale == null ? '—' : pct(margineReale), hint: 'guadagno ÷ incassato', icon: Percent, tone: 'info' },
-  ]
 }
 
 function buildQuoteKpis(data: Statistics, vs: string): StatKpi[] {

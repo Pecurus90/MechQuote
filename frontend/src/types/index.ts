@@ -896,6 +896,12 @@ export interface MarginProfitPoint {
   profit: number
 }
 
+export interface IncassatoMonthlyPoint {
+  month: string
+  preventivi: number
+  vendite_dirette: number
+}
+
 export interface MarginBandRow {
   band: string
   count: number
@@ -928,10 +934,37 @@ export interface MarginStats {
   with_cost_count: number
   monthly: MarginMonthlyPoint[]
   profit_monthly: MarginProfitPoint[]
+  incassato_monthly: IncassatoMonthlyPoint[]
   top_customers_sold: StatsCustomerRow[]
   distribution: MarginBandRow[]
   worst: MarginWorstRow[]
   comparison?: MarginComparison | null
+}
+
+// Tab "Vendite dirette" — statistiche delle sole vendite extra-preventivo
+export interface DirectSalesMonthlyPoint {
+  month: string
+  venduto: number
+  costo: number
+  guadagno: number
+}
+
+export interface DirectSalesCategoryRow {
+  category_code: string
+  venduto: number
+}
+
+export interface DirectSalesStats {
+  period: string
+  venduto: number
+  costo: number
+  guadagno: number
+  margine_percent: number | null
+  count: number
+  with_quote_count: number
+  monthly: DirectSalesMonthlyPoint[]
+  top_customers: StatsCustomerRow[]
+  by_category: DirectSalesCategoryRow[]
 }
 
 

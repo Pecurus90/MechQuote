@@ -6,15 +6,16 @@
 import { useEffect, useState } from 'react'
 import {
   FileText, Target, Euro, Percent, Scale, Truck, Package, Boxes, Drill, AlertTriangle,
-  Wallet, Tag, Crosshair, Database, Banknote, Trophy, XCircle,
+  Wallet, Tag, Crosshair, Database, Banknote, Trophy, XCircle, Receipt,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
-import type { Statistics, MaterialsStats, ToolsStats, MarginStats } from '@/types'
+import type { Statistics, MaterialsStats, ToolsStats, MarginStats, DirectSalesStats } from '@/types'
 import { StatisticsView } from '@/pages/statistics/StatisticsView'
 import type { StatTab, StatPeriod, StatCompare, StatKpi } from '@/pages/statistics/StatisticsView'
 import { QuotesStatsView } from '@/pages/statistics/QuotesStatsView'
 import { MarginStatsView } from '@/pages/statistics/MarginStatsView'
+import { DirectSalesStatsView } from '@/pages/statistics/DirectSalesStatsView'
 import { MaterialsStatsView } from '@/pages/statistics/MaterialsStatsView'
 import { ToolsStatsView } from '@/pages/statistics/ToolsStatsView'
 import { type Period, Loading } from '@/pages/statistics/statsShared'
@@ -72,6 +73,7 @@ export default function StatisticsPage() {
 
   const [qData, setQData] = useState<Statistics | null>(null)
   const [gData, setGData] = useState<MarginStats | null>(null)
+  const [dData, setDData] = useState<DirectSalesStats | null>(null)
   const [mData, setMData] = useState<MaterialsStats | null>(null)
   const [tData, setTData] = useState<ToolsStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -98,6 +100,9 @@ export default function StatisticsPage() {
       if (compare !== 'none') params.set('compare', compare)
       api.get(`/dashboard/statistics/margin?${params}`).then(r => setGData(r.data))
         .catch(() => toast.error('Errore caricamento marginalità')).finally(done)
+    } else if (tab === 'direct') {
+      api.get(`/dashboard/statistics/direct-sales?period=${p}`).then(r => setDData(r.data))
+        .catch(() => toast.error('Errore caricamento vendite dirette')).finally(done)
     } else if (tab === 'materials') {
       const params = new URLSearchParams({ period: p })
       if (matSupplier !== 'all') params.set('supplier_id', matSupplier)
@@ -171,10 +176,25 @@ export default function StatisticsPage() {
                 month: monthLabel(p.month), profit: p.profit,
                 ...(gData.comparison ? { cmp: gData.comparison.profit_by_month[i]?.profit ?? 0 } : {}),
               }))}
+              incassato={gData.incassato_monthly.map(p => ({
+                month: monthLabel(p.month), preventivi: p.preventivi, vendite_dirette: p.vendite_dirette,
+              }))}
               distribution={gData.distribution}
               worst={gData.worst}
               topCustomersSold={gData.top_customers_sold.map(c => ({ name: c.customer_name, value: c.total }))}
               cmpName={gData.comparison ? cmpSeriesName : undefined}
+            />
+          )
+        )}
+
+        {tab === 'direct' && (
+          (loading || !dData) ? <Loading /> : (
+            <DirectSalesStatsView
+              kpis={buildDirectKpis(dData)}
+              monthly={dData.monthly.map(p => ({ month: monthLabel(p.month), venduto: p.venduto, costo: p.costo }))}
+              guadagno={dData.monthly.map(p => ({ month: monthLabel(p.month), guadagno: p.guadagno }))}
+              topCustomers={dData.top_customers.map(c => ({ name: c.customer_name ?? '—', value: c.total }))}
+              byCategory={dData.by_category.map(c => ({ name: c.category_code, value: c.venduto }))}
             />
           )
         )}
@@ -259,6 +279,16 @@ function buildMarginKpis(d: MarginStats, vs: string): StatKpi[] {
     { key: 'price', label: 'Scostamento prezzo', value: ratio(d.taratura_prezzo), hint: 'venduto ÷ preventivato', icon: Tag, tone: 'warning', delta: buildDelta(d.taratura_prezzo, c?.taratura_prezzo, 'ratio_point', 'higher', vs) },
     { key: 'cost', label: 'Precisione costo', value: ratio(d.taratura_costo), hint: 'costo reale ÷ stimato', icon: Crosshair, tone: 'danger', delta: buildDelta(d.taratura_costo, c?.taratura_costo, 'ratio_point', 'closer_to_1', vs) },
     { key: 'coverage', label: 'Copertura dato', value: `${d.with_sold_count}/${d.completed_count}`, hint: `${d.with_sold_count} col venduto · ${d.with_cost_count} col costo reale`, icon: Database, tone: 'info' },
+  ]
+}
+
+function buildDirectKpis(d: DirectSalesStats): StatKpi[] {
+  return [
+    { key: 'count', label: 'Vendite', value: d.count, hint: 'registrate nel periodo', icon: Receipt, tone: 'primary' },
+    { key: 'sold', label: '€ venduto', value: eur(d.venduto), hint: 'ricavo realizzato', icon: Banknote, tone: 'success', valueToned: true },
+    { key: 'cost', label: '€ costo', value: eur(d.costo), hint: 'costo realizzato', icon: Euro, tone: 'warning' },
+    { key: 'profit', label: 'Guadagno', value: eur(d.guadagno), hint: 'venduto − costo', icon: Wallet, tone: 'success', valueToned: true },
+    { key: 'margin', label: 'Margine medio', value: d.margine_percent == null ? '—' : `${d.margine_percent.toFixed(1).replace('.', ',')}%`, hint: `${d.with_quote_count}/${d.count} con preventivo`, icon: Percent, tone: 'info' },
   ]
 }
 

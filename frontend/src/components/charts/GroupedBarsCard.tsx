@@ -30,6 +30,8 @@ interface Props {
   tipFmt?: (value: number, name: string) => [string, string]
   /** larghezza asse Y (default 44); passare valori piccoli per istogrammi count */
   yWidth?: number
+  /** barre impilate (stesso stackId) invece che affiancate */
+  stacked?: boolean
 }
 
 export default function GroupedBarsCard({
@@ -42,6 +44,7 @@ export default function GroupedBarsCard({
   yFmt,
   tipFmt,
   yWidth = 44,
+  stacked = false,
 }: Props) {
   const c = useChartTheme()
   const showLegend = series.length > 1
@@ -77,8 +80,16 @@ export default function GroupedBarsCard({
               {showLegend ? (
                 <Legend verticalAlign="top" wrapperStyle={{ fontSize: 12, color: c.text, paddingBottom: 8 }} />
               ) : null}
-              {series.map((s) => (
-                <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[4, 4, 0, 0]} barSize={11} />
+              {series.map((s, i) => (
+                <Bar
+                  key={s.key}
+                  dataKey={s.key}
+                  name={s.name}
+                  fill={s.color}
+                  stackId={stacked ? 'a' : undefined}
+                  radius={stacked ? (i === series.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0]}
+                  barSize={stacked ? 22 : 11}
+                />
               ))}
             </BarChart>
           </ResponsiveContainer>

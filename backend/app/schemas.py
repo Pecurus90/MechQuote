@@ -1000,6 +1000,14 @@ class MarginProfitPoint(BaseModel):
     profit: float                                   # Σ (sold_price − actual_cost)
 
 
+class IncassatoMonthlyPoint(BaseModel):
+    """Incassato (venduto realizzato) per mese, spaccato per fonte → barre
+    impilate nel tab Marginalità (preventivi vs vendite dirette)."""
+    month: str
+    preventivi: float                               # Σ sold_price preventivi completi
+    vendite_dirette: float                          # Σ venduto di TUTTE le vendite dirette
+
+
 class MarginBandRow(BaseModel):
     """Fascia dell'istogramma di distribuzione dello scostamento prezzo."""
     band: str                                       # es. '0,90–0,95'
@@ -1038,10 +1046,40 @@ class MarginStatsOut(BaseModel):
     with_cost_count: int = 0                         # con costo reale compilato
     monthly: List[MarginMonthlyPoint] = []
     profit_monthly: List[MarginProfitPoint] = []
+    incassato_monthly: List[IncassatoMonthlyPoint] = []  # venduto/mese per fonte (stacked)
     top_customers_sold: List[StatsCustomerRow] = []  # top clienti per venduto realizzato
     distribution: List[MarginBandRow] = []
     worst: List[MarginWorstRow] = []
     comparison: Optional[MarginComparison] = None  # popolato se compare attivo
+
+
+# ─── Statistics: tab Vendite dirette ──────────────────────────────────────
+# Solo vendite dirette (extra-preventivo). Vista isolata; nel tab Marginalità
+# le stesse vendite sono invece SOMMATE ai preventivi (business realizzato).
+
+class DirectSalesMonthlyPoint(BaseModel):
+    month: str                                      # YYYY-MM
+    venduto: float                                  # Σ unit_price × qty
+    costo: float                                    # Σ unit_cost × qty
+    guadagno: float                                 # venduto − costo
+
+
+class DirectSalesCategoryRow(BaseModel):
+    category_code: str                              # lettera categoria ('—' se assente)
+    venduto: float
+
+
+class DirectSalesStatsOut(BaseModel):
+    period: str
+    venduto: float = 0.0                            # Σ venduto nel periodo
+    costo: float = 0.0                              # Σ costo nel periodo
+    guadagno: float = 0.0                           # venduto − costo
+    margine_percent: Optional[float] = None         # markup: guadagno ÷ costo ×100
+    count: int = 0                                  # n. vendite nel periodo
+    with_quote_count: int = 0                       # con preventivo al volo (quoted_value)
+    monthly: List[DirectSalesMonthlyPoint] = []
+    top_customers: List[StatsCustomerRow] = []      # top 10 clienti per venduto
+    by_category: List[DirectSalesCategoryRow] = []  # venduto per categoria
 
 
 class DashboardQuoteRow(BaseModel):

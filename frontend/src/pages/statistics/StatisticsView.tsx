@@ -1,11 +1,11 @@
 // src/pages/statistics/StatisticsView.tsx
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { LineChart, FileText, TrendingUp, Package, Drill, ChevronDown } from 'lucide-react'
+import { LineChart, FileText, TrendingUp, Package, Drill, HandCoins, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { KpiTone, KpiDelta } from '@/components/dashboard/KpiCard'
 
-export type StatTab = 'quotes' | 'margin' | 'materials' | 'tools'
+export type StatTab = 'quotes' | 'margin' | 'direct' | 'materials' | 'tools'
 export type StatPeriod = 'current_year' | 'last_12m' | 'last_year' | 'all'
 export type StatCompare = 'none' | 'prev' | 'yoy'
 
@@ -26,6 +26,7 @@ export interface StatKpi {
 const TABS: { key: StatTab; label: string; icon: LucideIcon }[] = [
   { key: 'quotes', label: 'Preventivi', icon: FileText },
   { key: 'margin', label: 'Marginalità', icon: TrendingUp },
+  { key: 'direct', label: 'Vendite dirette', icon: HandCoins },
   { key: 'materials', label: 'Materiali', icon: Package },
   { key: 'tools', label: 'Utensili', icon: Drill },
 ]

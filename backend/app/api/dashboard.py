@@ -27,7 +27,8 @@ from app.schemas import (
     StatsLeadTimePoint, StatsToolRow, StatsToolTypeRow,
     StatsMaterialSupplierRow, StatsMaterialRow, StatsToolBrandRow, StatsOutcome,
     MarginStatsOut, MarginMonthlyPoint, MarginProfitPoint, MarginBandRow, MarginWorstRow,
-    StatsCmpPoint, StatsQuotesComparison, MarginComparison,
+    StatsCmpPoint, StatsQuotesComparison, MarginComparison, IncassatoMonthlyPoint,
+    DirectSalesStatsOut, DirectSalesMonthlyPoint, DirectSalesCategoryRow,
 )
 from app.api.notifications import serialize_notification
 from app.services.costing.primitives import quote_total
@@ -792,6 +793,27 @@ def get_margin_stats(
     ), dsp_all).scalar()
     incassato = round(float(inc_q or 0) + float(inc_ds or 0), 2)
 
+    # Incassato mensile spaccato per fonte (preventivi vs vendite dirette) →
+    # barre impilate nel frontend. Le vendite dirette sono TUTTE (window), come
+    # il KPI incassato — non solo quelle con preventivo al volo.
+    rows_inc_q = db.execute(text(
+        f"SELECT strftime('%Y-%m', q.quote_date) AS m, COALESCE(SUM(q.sold_price), 0) AS v "
+        f"FROM quotes q WHERE {where} AND q.sold_price IS NOT NULL GROUP BY m"
+    ), params).all()
+    rows_inc_ds = db.execute(text(
+        f"SELECT strftime('%Y-%m', ds.sale_date) AS m, COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS v "
+        f"FROM direct_sales ds WHERE {dsw_all} GROUP BY m"
+    ), dsp_all).all()
+    inc_month: dict = {}
+    for r in rows_inc_q:
+        inc_month.setdefault(r.m, [0.0, 0.0])[0] += float(r.v or 0)
+    for r in rows_inc_ds:
+        inc_month.setdefault(r.m, [0.0, 0.0])[1] += float(r.v or 0)
+    incassato_monthly = [
+        IncassatoMonthlyPoint(month=m, preventivi=round(v[0], 2), vendite_dirette=round(v[1], 2))
+        for m, v in sorted(inc_month.items())
+    ]
+
     rows_qsold = db.execute(text(
         f"""
         SELECT q.customer_id, q.customer_name, COALESCE(SUM(q.sold_price), 0) AS total
@@ -839,10 +861,95 @@ def get_margin_stats(
         with_cost_count=with_cost,
         monthly=monthly,
         profit_monthly=profit_monthly,
+        incassato_monthly=incassato_monthly,
         top_customers_sold=top_customers_sold,
         distribution=distribution,
         worst=worst,
         comparison=comparison,
+    )
+
+
+@router.get("/dashboard/statistics/direct-sales", response_model=DirectSalesStatsOut)
+def get_direct_sales_stats(
+    period: str = 'year',
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _=_can_stats,
+):
+    """Tab Vendite dirette: statistiche delle SOLE vendite extra-preventivo.
+    Vista isolata (nel tab Marginalità le stesse vendite sono invece sommate ai
+    preventivi). Ricavo/costo/guadagno realizzati, andamento mensile, top
+    clienti e ripartizione per categoria."""
+    date_from, date_to = _period_range(period)
+    where, params = _ds_window_where(date_from, date_to)
+
+    agg = db.execute(text(
+        f"""
+        SELECT COUNT(*) AS n,
+          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto,
+          COALESCE(SUM(ds.unit_cost * ds.quantity), 0) AS costo,
+          COALESCE(SUM((ds.unit_price - ds.unit_cost) * ds.quantity), 0) AS guadagno,
+          SUM(CASE WHEN ds.quoted_value IS NOT NULL AND ds.quoted_value > 0 THEN 1 ELSE 0 END) AS with_quote
+        FROM direct_sales ds WHERE {where}
+        """
+    ), params).first()
+    count = int(agg.n or 0) if agg else 0
+    venduto = float(agg.venduto or 0) if agg else 0.0
+    costo = float(agg.costo or 0) if agg else 0.0
+    guadagno = float(agg.guadagno or 0) if agg else 0.0
+    with_quote = int(agg.with_quote or 0) if agg else 0
+    margine = round(guadagno / costo * 100, 1) if costo > 0 else None
+
+    rows_m = db.execute(text(
+        f"""
+        SELECT strftime('%Y-%m', ds.sale_date) AS m,
+          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto,
+          COALESCE(SUM(ds.unit_cost * ds.quantity), 0) AS costo
+        FROM direct_sales ds WHERE {where}
+        GROUP BY m ORDER BY m
+        """
+    ), params).all()
+    monthly = [
+        DirectSalesMonthlyPoint(
+            month=r.m, venduto=round(float(r.venduto or 0), 2),
+            costo=round(float(r.costo or 0), 2),
+            guadagno=round(float(r.venduto or 0) - float(r.costo or 0), 2),
+        ) for r in rows_m
+    ]
+
+    rows_c = db.execute(text(
+        f"""
+        SELECT ds.customer_id, ds.customer_name,
+          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS total
+        FROM direct_sales ds
+        WHERE {where} AND ds.customer_name IS NOT NULL AND ds.customer_name != ''
+        GROUP BY ds.customer_id, ds.customer_name
+        ORDER BY total DESC LIMIT 10
+        """
+    ), params).all()
+    top_customers = [
+        StatsCustomerRow(customer_id=r.customer_id, customer_name=r.customer_name, total=round(float(r.total or 0), 2))
+        for r in rows_c
+    ]
+
+    rows_cat = db.execute(text(
+        f"""
+        SELECT COALESCE(NULLIF(ds.category_code, ''), '—') AS cat,
+          COALESCE(SUM(ds.unit_price * ds.quantity), 0) AS venduto
+        FROM direct_sales ds WHERE {where}
+        GROUP BY cat ORDER BY venduto DESC
+        """
+    ), params).all()
+    by_category = [
+        DirectSalesCategoryRow(category_code=r.cat or '—', venduto=round(float(r.venduto or 0), 2))
+        for r in rows_cat
+    ]
+
+    return DirectSalesStatsOut(
+        period=period,
+        venduto=round(venduto, 2), costo=round(costo, 2), guadagno=round(guadagno, 2),
+        margine_percent=margine, count=count, with_quote_count=with_quote,
+        monthly=monthly, top_customers=top_customers, by_category=by_category,
     )
 
 

@@ -25,6 +25,8 @@ interface Props {
   monthly: MarginMonthlyPoint[]
   /** { month, profit, cmp? } */
   profit: Array<Record<string, string | number>>
+  /** { month, preventivi, vendite_dirette } — incassato/mese per fonte (stacked) */
+  incassato: Array<Record<string, string | number>>
   /** { band, count } — istogramma scostamento prezzo */
   distribution: MarginBandRow[]
   worst: MarginWorstRow[]
@@ -40,7 +42,7 @@ const eurK = (v: number): string => '€ ' + Math.round((v || 0) / 1000) + 'k'
 const eurSigned = (v: number): string =>
   (v < 0 ? '−€ ' : '€ ') + Math.abs(Math.round(v || 0)).toLocaleString('it-IT')
 
-export function MarginStatsView({ kpis, coverage, monthly, profit, distribution, worst, topCustomersSold, cmpName }: Props) {
+export function MarginStatsView({ kpis, coverage, monthly, profit, incassato, distribution, worst, topCustomersSold, cmpName }: Props) {
   const c = useChartTheme()
   // Degradazione graziosa: se il costo reale è raramente compilato, mostriamo
   // la sola parte prezzo e avvisiamo. Soglia: nessun costo, o < 60% di copertura.
@@ -97,6 +99,19 @@ export function MarginStatsView({ kpis, coverage, monthly, profit, distribution,
             { key: 'preventivato', name: 'Preventivato', color: c.mutedBar },
             { key: 'venduto', name: 'Venduto', color: c.succ },
             { key: 'costo', name: 'Costo reale', color: c.warn },
+          ]}
+          yFmt={eurK}
+          tipFmt={(v, n) => [eur(v), n]}
+        />
+        <GroupedBarsCard
+          title="Incassato per mese — preventivi vs vendite dirette"
+          subtitle="Venduto realizzato per fonte · barre impilate"
+          data={incassato}
+          xKey="month"
+          stacked
+          series={[
+            { key: 'preventivi', name: 'Preventivi', color: c.blu },
+            { key: 'vendite_dirette', name: 'Vendite dirette', color: c.warn },
           ]}
           yFmt={eurK}
           tipFmt={(v, n) => [eur(v), n]}

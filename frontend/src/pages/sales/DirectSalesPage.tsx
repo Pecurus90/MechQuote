@@ -7,9 +7,9 @@ import PrimaryCtaButton from '@/components/settings/PrimaryCtaButton'
 import ConfirmDialog from '@/components/ui/confirm-dialog'
 import DirectSaleFormModal from './DirectSaleFormModal'
 import type { DirectSale, Customer, Category } from '@/types'
+import { dateShort } from '@/lib/utils'
 
 const eur = (v: number) => '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const dateShort = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })
 // Campo non compilato: in rosso, per farlo risaltare.
 const missingCell = <span className="font-mono text-danger">—</span>
 

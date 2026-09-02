@@ -1,6 +1,6 @@
 // src/components/quotes/CommessaSummaryTable.tsx
 import { Layers, AlertTriangle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, eur2 } from '@/lib/utils'
 
 export interface CommessaRow {
   id: number
@@ -27,10 +27,6 @@ interface Props {
 }
 
 const GRID = 'grid grid-cols-[110px_minmax(0,1fr)_64px_116px_120px_120px] gap-3'
-
-const eur2 = (v: number): string =>
-  '€ ' +
-  Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export function CommessaSummaryTable(props: Props) {
   const {

@@ -2,7 +2,7 @@
 // Righe articolo-materiale (dettaglio riga preventivo espansa). Presentazionale:
 // il container mappa il tipo reale ArticleMaterialRow di @/types + lo stato
 // per-parte reale (6 valori, via PART_STATE_LABELS/COLORS) su questa shape.
-import { cn } from '@/lib/utils'
+import { cn, eur2 } from '@/lib/utils'
 
 export interface ArticleMaterialRow {
   partId: number
@@ -28,9 +28,6 @@ interface Props {
   rows: ArticleMaterialRow[]
   emptyText?: string
 }
-
-const eur2 = (v: number): string =>
-  '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Layout: info descrittive a sinistra + i 3 costi al pezzo raggruppati e
 // allineati a destra ("Costi/pz"). Colonne a larghezza controllata così il

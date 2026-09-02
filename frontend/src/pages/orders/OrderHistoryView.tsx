@@ -1,7 +1,7 @@
 // src/pages/orders/OrderHistoryView.tsx
 import { useEffect, useState } from 'react'
 import { History, Search, Package, Drill, Bolt, FileDown, Trash2, FileSpreadsheet, ClipboardList, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, dateShort } from '@/lib/utils'
 
 export type HistoryTab = 'materials' | 'tools' | 'normalized'
 
@@ -79,10 +79,6 @@ const TABS: { key: HistoryTab; label: string; icon: typeof Package }[] = [
   { key: 'tools', label: 'Ordini utensili', icon: Drill },
 ]
 
-const dateShort = (iso: string | null): string =>
-  iso
-    ? new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    : '—'
 
 const numIt = (n: number | null | undefined, dec = 0): string =>
   n == null ? '—' : n.toLocaleString('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec })

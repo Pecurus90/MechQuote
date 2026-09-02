@@ -1,6 +1,6 @@
 // src/components/quotes/QuotesDataTable.tsx
 import { FileText, MoreHorizontal } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, eur2, dateShort } from '@/lib/utils'
 import type { QuoteListItem } from '@/types'
 import { StatusBadge, type QuoteStatus } from '@/components/dashboard/StatusBadges'
 import { TypeBadge, type QuoteType } from '@/components/quotes/TypeBadge'
@@ -13,20 +13,6 @@ interface Props {
 }
 
 const GRID = 'grid grid-cols-[150px_1.4fr_120px_130px_100px_120px_70px] items-center gap-3'
-
-// Tabella piena = importi con 2 decimali (it-IT).
-const eur2 = (v: number) =>
-  '€ ' +
-  Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-const dateShort = (iso: string | null): string =>
-  iso
-    ? new Date(iso).toLocaleDateString('it-IT', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-      })
-    : '—'
 
 function toQuoteType(t?: string | null): QuoteType {
   return t === 'commessa' ? 'commessa' : 'single'

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown, ClipboardList, Pencil, Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, dateShort } from '@/lib/utils'
 import { KpiCard, type KpiTone } from '@/components/dashboard/KpiCard'
 import { MaterialStatusBadge, type MaterialStatus } from '@/components/dashboard/StatusBadges'
 import { TypeBadge, type QuoteType } from '@/components/quotes/TypeBadge'
@@ -98,11 +98,6 @@ const eur0 = (v: number): string =>
 // Costo materiale: "—" quando 0/non calcolabile (manca materiale/densità/prezzo),
 // come il peso — evita un falso "€ 0" che sembrerebbe un dato reale.
 const eurCost = (v: number): string => (v ? eur0(v) : '—')
-
-const dateShort = (iso: string | null): string =>
-  iso
-    ? new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    : '—'
 
 export function MaterialOrdersView({
   subtitle = 'Preventivi confermati e richieste materiale da mettere in ordine · grezzi aggregati per fornitore',

@@ -1,6 +1,6 @@
 // src/components/quotes/PartCostSummary.tsx
 import { AlertTriangle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, eur2 } from '@/lib/utils'
 import { DecimalField } from '@/components/ui/decimal-field'
 import { Label } from '@/components/ui/label'
 
@@ -30,10 +30,6 @@ interface Props {
   /** Commit al blur (parse + salvataggio nel container). */
   onCommit: (field: 'marginPercent' | 'minimumPrice', raw: string) => void
 }
-
-const eur2 = (v: number): string =>
-  '€ ' +
-  Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function SubRow({ label, value }: { label: string; value: number }) {
   return (

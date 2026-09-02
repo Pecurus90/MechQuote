@@ -1405,6 +1405,7 @@ class MaterialAliasOut(BaseModel):
     id: int
     csv_name: str
     material_id: int
+    material_name: str = ''   # nome del materiale risolto (per il pannello alias)
 
 
 # ─── Richieste materiale manuali (gemello del preventivo per il materiale) ──

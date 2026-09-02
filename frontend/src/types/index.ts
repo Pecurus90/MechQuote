@@ -97,12 +97,12 @@ export interface Material {
   supplier_id?: number | null
   material_supplier?: MaterialSupplier | null
   has_datasheet?: boolean   // true se Material ha una scheda PDF allegata
-  aliases?: MaterialAlias[] // nomi alternativi (distinta/ERP) → questo materiale
+  aliases?: MaterialAliasBrief[] // nomi alternativi (distinta/ERP) → questo materiale
 }
 
-// Alias materiale: nome alternativo che risolve al materiale canonico nel
-// flusso "ordini da file". csv_name normalizzato (trim+lower), unico.
-export interface MaterialAlias {
+// Alias materiale embeddato in Material (solo id + nome distinta). Gemello di
+// MaterialAliasBrief (backend). csv_name normalizzato (trim+lower), unico.
+export interface MaterialAliasBrief {
   id: number
   csv_name: string
 }
@@ -128,6 +128,8 @@ export interface FileOrderRow {
   needs_material: boolean
 }
 
+// Alias completo restituito da GET /orders/materials/aliases (con materiale
+// risolto). Gemello di MaterialAliasOut (backend).
 export interface MaterialAlias {
   id: number
   csv_name: string

@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { MATERIAL_FAMILIES } from '@/lib/materialFamilies'
 import { useEscapeKey } from '@/lib/useEscapeKey'
 import { parseDecimal } from '@/lib/decimalInput'
-import type { Material, MaterialAlias, MaterialSupplier } from '@/types'
+import type { Material, MaterialAliasBrief, MaterialSupplier } from '@/types'
 
 interface MatForm {
   name: string; family: string; density: string; cost: string
@@ -44,7 +44,7 @@ export default function MaterialFormModal({ material, suppliers, defaultName, on
   const [saving, setSaving] = useState(false)
   // Alias: gestiti come sotto-risorsa (persistono subito, indipendenti dal
   // Salva principale — come la scheda PDF). Solo per un materiale esistente.
-  const [aliases, setAliases] = useState<MaterialAlias[]>(material?.aliases ?? [])
+  const [aliases, setAliases] = useState<MaterialAliasBrief[]>(material?.aliases ?? [])
   const [newAlias, setNewAlias] = useState('')
   const [aliasBusy, setAliasBusy] = useState(false)
   useEscapeKey(onClose, true)

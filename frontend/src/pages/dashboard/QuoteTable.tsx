@@ -1,6 +1,6 @@
 // src/pages/dashboard/QuoteTable.tsx
 import type { LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, eur0 } from '@/lib/utils'
 import type { DashboardQuoteRow } from '@/types'
 import { StatusBadge, type QuoteStatus } from '@/components/dashboard/StatusBadges'
 
@@ -17,9 +17,6 @@ interface Props {
 
 const GRID = 'grid grid-cols-[132px_minmax(0,1fr)_116px_108px_96px] items-center gap-2.5'
 
-const eur0 = (v: number) =>
-  '€ ' +
-  Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 function typeLabel(t?: string | null): string {
   return t === 'commessa' ? 'Commessa' : 'Singolo'

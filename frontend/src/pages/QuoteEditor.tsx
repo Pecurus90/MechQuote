@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Send, CheckCheck, Undo2, RotateCcw, Save, Hourglass, XCircle, Lock, History } from 'lucide-react'
 import { calcPartTotals, calcQuoteTotal } from '@/lib/quoteCalc'
 import { parseDecimal, parseDecimalOrNull } from '@/lib/decimalInput'
+import { eur0 } from '@/lib/utils'
 import type { Material, Category, Customer, Part, Quote, Machine, Treatment, Supplier, CompanySettings } from '@/types'
 import api, { getApiErrorDetail } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -22,7 +23,6 @@ import { QuoteBottomBar } from '@/components/quotes/QuoteBottomBar'
 import type { QuoteType } from '@/components/quotes/TypeBadge'
 import type { QuoteStatus } from '@/components/dashboard/StatusBadges'
 
-const eur0 = (v: number) => '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 
 export default function QuoteEditor() {
   const { id } = useParams<{ id?: string }>()

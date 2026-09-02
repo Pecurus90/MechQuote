@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Package, Factory, FileDown, Warehouse, Check, Minus, ChevronDown, ClipboardList, Pencil, Trash2 } from 'lucide-react'
-import { cn, dateShort } from '@/lib/utils'
+import { cn, dateShort, eur0 } from '@/lib/utils'
 import { KpiCard, type KpiTone } from '@/components/dashboard/KpiCard'
 import { MaterialStatusBadge, type MaterialStatus } from '@/components/dashboard/StatusBadges'
 import { TypeBadge, type QuoteType } from '@/components/quotes/TypeBadge'
@@ -93,8 +93,6 @@ const REQ_GRID =
 const AGG_GRID =
   'grid grid-cols-[minmax(0,1.3fr)_104px_140px_60px_92px_104px_minmax(0,0.9fr)] items-center gap-3'
 
-const eur0 = (v: number): string =>
-  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 // Costo materiale: "—" quando 0/non calcolabile (manca materiale/densità/prezzo),
 // come il peso — evita un falso "€ 0" che sembrerebbe un dato reale.
 const eurCost = (v: number): string => (v ? eur0(v) : '—')

@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Prezzo in euro senza decimali (it-IT). Es. 1234.5 → "€ 1.235". */
+export const eur0 = (v: number): string =>
+  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
+
 /** Prezzo in euro con 2 decimali fissi (it-IT). Es. 5 → "€ 5,00". */
 export const eur2 = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

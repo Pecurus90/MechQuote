@@ -17,7 +17,7 @@ import {
   SearchX,
 } from 'lucide-react'
 import { useState, useRef, type ReactNode } from 'react'
-import { cn, dateShort } from '@/lib/utils'
+import { cn, dateShort, eur0 } from '@/lib/utils'
 import { parseDecimalOrNull } from '@/lib/decimalInput'
 import type { QuoteListItem } from '@/types'
 import { StatusBadge, MaterialStatusBadge } from '@/components/dashboard/StatusBadges'
@@ -102,9 +102,6 @@ const TYPE_FILTERS: { key: QuoteTypeFilter; label: string }[] = [
   { key: 'single', label: 'Singolo' },
   { key: 'commessa', label: 'Commessa' },
 ]
-
-const eur0 = (v: number): string =>
-  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 
 function toQuoteType(t?: string | null): QuoteType {
   return t === 'commessa' ? 'commessa' : 'single'

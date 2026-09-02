@@ -1,5 +1,6 @@
 // src/components/quotes/QuoteBottomBar.tsx
 import { DecimalField } from '@/components/ui/decimal-field'
+import { eur0 } from '@/lib/utils'
 
 interface Props {
   nParts: number
@@ -21,8 +22,6 @@ interface Props {
   onCommit: (field: 'transport' | 'packaging' | 'marginPercent' | 'discountPercent', raw: string) => void
 }
 
-const eur0 = (v: number): string =>
-  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 
 const eurField =
   'h-[34px] w-[88px] rounded-[8px] border-input bg-background pl-6 pr-2.5 font-mono text-[13px]'

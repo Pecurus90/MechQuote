@@ -92,3 +92,26 @@ dec, poi unifica `dateShort`/`eur2`) · **3) Tipi condivisi** (dedup `MaterialAl
 ### Due decisioni di prodotto da prendere prima di agire
 - **(a)** Prezzo unitario: **2 o 4 decimali** quando significativi? (`fmtUnitPrice`)
 - **(b)** `top_suppliers`: **residuo da rimuovere** o **feature da completare** (grafico top fornitori nelle Statistiche)?
+
+---
+
+## Chiusura interventi (2026-09-02)
+
+Decisioni prese: (a) prezzo unitario **sempre 2 decimali** → `fmtUnitPrice`
+rimosso; (b) `top_suppliers` = **residuo** → rimosso.
+
+Fatto e verificato (tsc + avvio backend + 183 unit):
+- **Codice morto rimosso**: `GET /officina/categories`, `fmtUnitPrice`, `top_suppliers`.
+- **Formattatori unificati** in `lib/utils`: `dateShort` (5→1), `eur2` (4→1), `eur0` (6→1).
+- **`MaterialAlias` deduplicato** + fix bug: `MaterialAliasOut` ora restituisce
+  `material_name` (prima scartato → pannello alias con nome vuoto).
+
+Incerti chiusi:
+- **`eur0`** (incl. il "non verificato" `QuoteTable.tsx`): 6 copie equivalenti → unificate.
+- **`kg`**: **NON unificato** — le 2 copie sono varianti UX distinte e volute
+  (`StatisticsPage` 0 decimali con "0 kg"; `OrdersMaterialsPage` 1 decimale con
+  "—" sullo zero). Le altre occorrenze di `kg` sono variabili di calcolo peso,
+  non formattatori. Falso positivo confermato.
+
+Restano solo `eur2` senza simbolo di `PhaseListView` (variante locale voluta) e
+`eur`/`eurSigned`/`pct`/`num` (semantiche distinte, già refutati).

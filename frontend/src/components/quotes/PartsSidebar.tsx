@@ -1,6 +1,6 @@
 // src/components/quotes/PartsSidebar.tsx
 import { Settings2, Plus, AlertTriangle, CopyPlus, Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, eur0 } from '@/lib/utils'
 
 export interface PartSidebarItem {
   id: number
@@ -22,8 +22,6 @@ interface Props {
   onDelete?: (id: number) => void
 }
 
-const eur0 = (v: number): string =>
-  '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
 
 export function PartsSidebar(props: Props) {
   const { parts, selected, canAddParts, locked, onSelect, onAdd, onClone, onDelete } = props

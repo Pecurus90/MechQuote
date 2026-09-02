@@ -23,7 +23,6 @@ interface MaterialsStats {
 }
 
 const toQuoteType = (t?: string | null): QuoteType => (t === 'commessa' ? 'commessa' : 'single')
-const quoteTotal = (q: QuoteListItem): number => q.parts?.reduce((s, p) => s + (p.total_price || 0), 0) ?? 0
 // Peso 0 = non calcolabile (manca densità materiale o dimensioni grezzo): "—"
 // invece di "0 kg", che sembrerebbe un dato reale.
 const kg = (v: number): string =>
@@ -150,7 +149,7 @@ export default function OrdersMaterialsPage() {
     customer_name: q.customer_name ?? null,
     quote_type: toQuoteType(q.quote_type),
     quote_date: q.quote_date,
-    total_price: quoteTotal(q),
+    materialCost: q.material_order_cost ?? 0,
     materialStatus: (q.material_status as MaterialStatus) ?? 'non_ordinato',
   }))
 
@@ -160,6 +159,7 @@ export default function OrdersMaterialsPage() {
     title: r.title,
     created_at: r.created_at,
     openCount: r.open_count,
+    materialCost: r.open_cost,
     supplierNames: r.supplier_names,
   }))
 
@@ -179,10 +179,15 @@ export default function OrdersMaterialsPage() {
             shape, dimensions,
             quantity: i.total_qty,
             estimatedWeight: kg(i.total_weight_kg),
+            cost: i.cost,
             quoteRefs: i.quote_refs,
             fromStock: i.from_stock,
           }
         }),
+        materialCost: g.material_cost,
+        shippingCost: g.shipping_cost,
+        cuttingCost: g.cutting_cost,
+        totalCost: g.total_cost,
       }
     }), [aggregate])
 

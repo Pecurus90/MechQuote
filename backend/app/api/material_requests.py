@@ -23,6 +23,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.orders import material_item_weight_cost
 from app.api.orders_from_file import _row_missing_dims
 from app.core.database import get_db, utc_now
 from app.core.security import get_current_user, require_any_permission
@@ -59,9 +60,16 @@ def _item_out(it: MaterialRequestItem) -> MaterialRequestItemOut:
     )
 
 
-def _request_out(req: MaterialRequest, include_items: bool = True) -> MaterialRequestOut:
+def _request_out(req: MaterialRequest, include_items: bool = True,
+                 mat_map: Optional[dict] = None) -> MaterialRequestOut:
     open_items = [it for it in req.items if it.material_order_id is None]
     supplier_names = sorted({it.supplier_name for it in open_items if it.supplier_name})
+    # Costo SOLO MATERIALE delle righe aperte (grezzo, no spedizione): stessa
+    # funzione unica material_item_weight_cost usata da ordini/statistiche.
+    open_cost = round(sum(
+        material_item_weight_cost(it, (mat_map or {}).get(it.material_id))[1]
+        for it in open_items
+    ), 2)
     cb = req.created_by
     return MaterialRequestOut(
         id=req.id,
@@ -73,8 +81,21 @@ def _request_out(req: MaterialRequest, include_items: bool = True) -> MaterialRe
         items=[_item_out(it) for it in req.items] if include_items else [],
         item_count=len(req.items),
         open_count=len(open_items),
+        open_cost=open_cost,
         supplier_names=supplier_names,
     )
+
+
+def _materials_for(reqs: List[MaterialRequest], db: Session) -> dict:
+    """Mappa id→Material per le righe aperte delle richieste date (una query,
+    no N+1). Serve al calcolo del costo materiale in `_request_out`."""
+    mat_ids = {
+        it.material_id for r in reqs for it in r.items
+        if it.material_order_id is None and it.material_id
+    }
+    if not mat_ids:
+        return {}
+    return {m.id: m for m in db.query(Material).filter(Material.id.in_(mat_ids)).all()}
 
 
 # ─── Validazione righe ──────────────────────────────────────────────────────
@@ -156,8 +177,10 @@ def list_requests(
     if status:
         query = query.filter(MaterialRequest.status == status)
     reqs = query.order_by(MaterialRequest.created_at.desc()).limit(200).all()
-    # Lista sintetica: niente righe (le carica il detail), ma supplier_names/conteggi sì.
-    return [_request_out(r, include_items=False) for r in reqs]
+    # Lista sintetica: niente righe (le carica il detail), ma supplier_names/
+    # conteggi/costo sì. Materiali in un'unica query (no N+1).
+    mat_map = _materials_for(reqs, db)
+    return [_request_out(r, include_items=False, mat_map=mat_map) for r in reqs]
 
 
 @router.get("/{req_id}", response_model=MaterialRequestOut)
@@ -167,7 +190,7 @@ def get_request(req_id: int, db: Session = Depends(get_db), _=_can_orders):
     ).filter(MaterialRequest.id == req_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Richiesta non trovata")
-    return _request_out(req)
+    return _request_out(req, mat_map=_materials_for([req], db))
 
 
 @router.post("", response_model=MaterialRequestOut)
@@ -191,7 +214,7 @@ def create_request(
     db.refresh(req)
     logger.info("Richiesta materiale creata: id=%s by=%s n_righe=%d",
                 req.id, current_user.username, len(req.items))
-    return _request_out(req)
+    return _request_out(req, mat_map=_materials_for([req], db))
 
 
 @router.put("/{req_id}", response_model=MaterialRequestOut)
@@ -223,7 +246,7 @@ def update_request(
 
     db.commit()
     db.refresh(req)
-    return _request_out(req)
+    return _request_out(req, mat_map=_materials_for([req], db))
 
 
 @router.post("/{req_id}/send", response_model=MaterialRequestOut)
@@ -265,7 +288,7 @@ def send_request(
     db.commit()
     db.refresh(req)
     logger.info("Richiesta materiale inviata: id=%s by=%s", req.id, current_user.username)
-    return _request_out(req)
+    return _request_out(req, mat_map=_materials_for([req], db))
 
 
 @router.delete("/{req_id}")

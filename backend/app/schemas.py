@@ -535,6 +535,11 @@ class ArchiveQuoteOut(QuoteOut):
     # True se almeno una parte del preventivo ha un allegato (DXF/PDF/STEP…).
     # Indicatore passivo in lista; calcolato in list_archive (batch, no N+1).
     has_files: bool = False
+    # Costo SOLO MATERIALE da ordinare del preventivo (Σ material_cost × qty sulle
+    # parti da ordinare, escluse magazzino/conto-lavoro). Per la pagina Ordini
+    # materiali: lì serve il costo grezzo, non il prezzo di vendita. None se non
+    # calcolato (es. archivio).
+    material_order_cost: Optional[float] = None
 
 
 class ArticleMaterialRow(BaseModel):
@@ -1321,6 +1326,12 @@ class MaterialOrderOut(BaseModel):
     quote_numbers: List[str] = []
     source: str = "quotes"            # 'quotes' | 'request' | 'mixed' | 'file'
     item_count: int = 0               # righe snapshot dell'ordine
+    # Costi SOLO MATERIALE dell'ordine (pagina Ordini materiali): grezzo per riga,
+    # spedizione una volta sola per fornitore, taglio per pezzo. Mai lavorazioni.
+    material_cost: float = 0.0        # Σ costo grezzo delle righe
+    shipping_cost: float = 0.0        # spedizione fornitore (una volta)
+    cutting_cost: float = 0.0         # taglio grezzo × pezzi
+    total_cost: float = 0.0           # material_cost + shipping_cost + cutting_cost
 
     class Config:
         from_attributes = True
@@ -1334,6 +1345,7 @@ class MaterialItemAggregated(BaseModel):
     dim_str: str                          # "Prismatico 80×120×30 mm" o "Tondo Ø80×100 mm" o "—"
     total_qty: int                        # somma quantità delle parti
     total_weight_kg: float                # somma peso grezzo stimato
+    cost: float = 0.0                     # costo SOLO materiale grezzo di questa riga (no spedizione)
     quote_refs: List[str] = []            # es. ["240-26A_003 ×4", "240-26B_010 ×1"]
     from_stock: bool = False              # True se parti marcate "a magazzino" (badge UI/PDF)
     # TD-3: dimensioni strutturate (oltre a dim_str) per il consolidamento barra
@@ -1347,6 +1359,12 @@ class MaterialAggregateBySupplier(BaseModel):
     supplier_id: Optional[int] = None     # None = materiale senza fornitore configurato
     supplier_name: str                    # "Senza fornitore" se supplier_id None
     items: List[MaterialItemAggregated] = []
+    # Totali SOLO MATERIALE dell'ordine per questo fornitore (righe da ordinare,
+    # escluso magazzino). Spedizione conteggiata una volta sola.
+    material_cost: float = 0.0            # Σ costo grezzo delle righe da ordinare
+    shipping_cost: float = 0.0           # spedizione fornitore (una volta)
+    cutting_cost: float = 0.0            # taglio grezzo × pezzi da ordinare
+    total_cost: float = 0.0             # material_cost + shipping_cost + cutting_cost
 
 
 class MaterialAggregateOut(BaseModel):
@@ -1435,6 +1453,7 @@ class MaterialRequestOut(BaseModel):
     items: List[MaterialRequestItemOut] = []
     item_count: int = 0                    # righe totali
     open_count: int = 0                    # righe ancora da ordinare (non evase)
+    open_cost: float = 0.0                 # costo SOLO materiale delle righe aperte (no spedizione)
     supplier_names: List[str] = []         # fornitori distinti delle righe aperte
 
     class Config:

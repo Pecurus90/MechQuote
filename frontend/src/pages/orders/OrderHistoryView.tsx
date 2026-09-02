@@ -16,6 +16,7 @@ export interface MaterialOrder {
   source: 'quotes' | 'request' | 'mixed' | 'file'
   quoteRefs?: string[] // presenti se l'ordine include preventivi (quotes/mixed)
   rowCount?: number // righe snapshot (request/mixed/file)
+  totalCost?: number // totale SOLO materiale (grezzo + spedizione + taglio)
 }
 
 export interface ToolOrder {
@@ -366,6 +367,14 @@ export function OrderHistoryView({
                 <div className="text-[13px] text-muted-foreground">{o.createdBy}</div>
                 <div className="flex min-w-0 items-center gap-2">
                   {tab === 'materials' && <MaterialContent o={o as MaterialOrder} />}
+                  {tab === 'materials' && (o as MaterialOrder).totalCost != null && (
+                    <span
+                      title="Totale solo materiale: grezzo + spedizione + taglio"
+                      className="ml-auto flex-none font-mono text-[13.5px] font-semibold text-foreground"
+                    >
+                      {eurIt((o as MaterialOrder).totalCost)}
+                    </span>
+                  )}
                   {tab === 'tools' && (
                     <span className="text-[12.5px] text-muted-foreground">
                       {(o as ToolOrder).toolCount} utensili · {(o as ToolOrder).pieceCount} pezzi

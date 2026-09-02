@@ -26,7 +26,7 @@ export interface SelectableQuote {
   customer_name: string | null
   quote_type: QuoteType
   quote_date: string | null
-  total_price: number
+  materialCost: number    // costo SOLO materiale da ordinare (non il prezzo di vendita)
   materialStatus: MaterialStatus
 }
 
@@ -38,6 +38,7 @@ export interface SelectableRequest {
   title: string | null
   created_at: string | null
   openCount: number       // righe ancora da ordinare
+  materialCost: number    // costo SOLO materiale delle righe aperte
   supplierNames: string[]
 }
 
@@ -49,6 +50,7 @@ export interface AggregateItem {
   dimensions: string // stringa già formattata (grezzo)
   quantity: number
   estimatedWeight: string // es. "12,1 kg" (già formattata)
+  cost: number // costo SOLO materiale grezzo della riga
   quoteRefs: string[]
   fromStock?: boolean
 }
@@ -59,6 +61,11 @@ export interface SupplierAggregate {
   supplierName: string
   quoteCount: number
   items: AggregateItem[]
+  // Totali SOLO materiale dell'ordine (spedizione una volta + taglio × pezzi).
+  materialCost: number
+  shippingCost: number
+  cuttingCost: number
+  totalCost: number
 }
 
 interface Props {
@@ -80,14 +87,17 @@ interface Props {
 }
 
 const SEL_GRID =
-  'grid grid-cols-[38px_minmax(0,1.4fr)_minmax(0,1.3fr)_96px_110px_150px] items-center gap-3'
+  'grid grid-cols-[38px_minmax(0,1.4fr)_minmax(0,1.3fr)_96px_130px_150px] items-center gap-3'
 const REQ_GRID =
-  'grid grid-cols-[38px_minmax(0,1fr)_minmax(0,1.5fr)_96px_120px_76px] items-center gap-3'
+  'grid grid-cols-[38px_minmax(0,1fr)_minmax(0,1.4fr)_96px_60px_120px_76px] items-center gap-3'
 const AGG_GRID =
-  'grid grid-cols-[minmax(0,1.4fr)_120px_150px_74px_100px_minmax(0,1fr)] items-center gap-3'
+  'grid grid-cols-[minmax(0,1.3fr)_104px_140px_60px_92px_104px_minmax(0,0.9fr)] items-center gap-3'
 
 const eur0 = (v: number): string =>
   '€ ' + Number(v || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
+// Costo materiale: "—" quando 0/non calcolabile (manca materiale/densità/prezzo),
+// come il peso — evita un falso "€ 0" che sembrerebbe un dato reale.
+const eurCost = (v: number): string => (v ? eur0(v) : '—')
 
 const dateShort = (iso: string | null): string =>
   iso
@@ -172,7 +182,7 @@ export function MaterialOrdersView({
           <div>Numero</div>
           <div>Cliente</div>
           <div>Data</div>
-          <div className="text-right">Totale</div>
+          <div className="text-right">Costo materiale</div>
           <div>Stato materiale</div>
         </div>
         {/* rows */}
@@ -212,7 +222,7 @@ export function MaterialOrdersView({
               </div>
               <div className="min-w-0 truncate font-medium text-foreground">{q.customer_name ?? '—'}</div>
               <div className="font-mono text-[13px] text-muted-foreground">{dateShort(q.quote_date)}</div>
-              <div className="text-right font-mono font-semibold text-foreground">{eur0(q.total_price)}</div>
+              <div className="text-right font-mono font-semibold text-foreground">{eurCost(q.materialCost)}</div>
               <div>
                 <MaterialStatusBadge status={q.materialStatus} />
               </div>
@@ -256,6 +266,7 @@ export function MaterialOrdersView({
           <div>Titolo / fornitori</div>
           <div>Data</div>
           <div className="text-right">Righe</div>
+          <div className="text-right">Costo materiale</div>
           <div />
         </div>
         {selectableRequests.length === 0 && (
@@ -299,6 +310,7 @@ export function MaterialOrdersView({
               </div>
               <div className="font-mono text-[13px] text-muted-foreground">{dateShort(r.created_at)}</div>
               <div className="text-right font-mono text-foreground">{r.openCount}</div>
+              <div className="text-right font-mono font-semibold text-foreground">{eurCost(r.materialCost)}</div>
               <div className="flex items-center justify-center gap-1">
                 <button
                   type="button"
@@ -366,6 +378,16 @@ export function MaterialOrdersView({
                   </span>
                 </span>
               </button>
+              {/* Totale SOLO materiale dell'ordine che verrà creato per questo
+                  fornitore: grezzo + spedizione (una volta) + taglio × pezzi. */}
+              <div className="ml-3 flex-none text-right">
+                <div className="font-mono text-[15px] font-bold text-foreground">{eurCost(g.totalCost)}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  mat. {eurCost(g.materialCost)}
+                  {g.shippingCost > 0 && <> · sped. {eur0(g.shippingCost)}</>}
+                  {g.cuttingCost > 0 && <> · taglio {eur0(g.cuttingCost)}</>}
+                </div>
+              </div>
               {g.items.some((it) => !it.fromStock) ? (
                 <button
                   type="button"
@@ -399,6 +421,7 @@ export function MaterialOrdersView({
                   <div>Dimensioni</div>
                   <div className="text-right">Q.tà</div>
                   <div className="text-right">Peso stim.</div>
+                  <div className="text-right">Costo</div>
                   <div>Riferimenti</div>
                 </div>
                 {g.items.map((it, i) => {
@@ -424,6 +447,7 @@ export function MaterialOrdersView({
                       <div className="font-mono text-muted-foreground">{it.dimensions}</div>
                       <div className="text-right font-mono">{it.quantity}</div>
                       <div className="text-right font-mono">{it.estimatedWeight}</div>
+                      <div className="text-right font-mono">{eurCost(it.cost)}</div>
                       <div className="font-mono text-[11px] text-muted-foreground">{it.quoteRefs.join(' ')}</div>
                     </div>
                   )

@@ -98,6 +98,7 @@ export default function OrdersHistoryPage() {
     source: (['request', 'mixed', 'file'].includes(o.source ?? '') ? o.source : 'quotes') as 'quotes' | 'request' | 'mixed' | 'file',
     quoteRefs: o.quote_numbers,
     rowCount: o.item_count,
+    totalCost: o.total_cost,
   }))
   const toolRows: VToolOrder[] = toolOrders.map(o => ({
     id: o.id,

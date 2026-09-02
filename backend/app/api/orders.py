@@ -166,6 +166,40 @@ def material_item_weight_cost(it, mat: Optional[Material]) -> Tuple[float, float
     return kg, cost
 
 
+def _quote_material_cost(quote) -> float:
+    """Costo SOLO MATERIALE da ordinare di un preventivo (€): Σ material_cost ×
+    qty sulle parti da ordinare (escluse magazzino/conto-lavoro, via
+    `part_needs_ordering`). `Part.material_cost` è PER PEZZO → moltiplico per la
+    quantità. È il costo grezzo che serve nella pagina Ordini materiali, NON il
+    prezzo di vendita del preventivo."""
+    total = 0.0
+    for p in quote.parts:
+        if not part_needs_ordering(p):
+            continue
+        total += (p.material_cost or 0.0) * (p.quantity or 1)
+    return round(total, 2)
+
+
+def _apply_supplier_order_totals(
+    group: MaterialAggregateBySupplier, sup: Optional[MaterialSupplier],
+) -> None:
+    """Popola i totali SOLO-MATERIALE del gruppo fornitore: costo grezzo delle
+    righe DA ORDINARE (escluse le righe da magazzino), + spedizione UNA VOLTA
+    per fornitore + taglio × pezzi. Senza fornitore reale → niente spedizione/
+    taglio (righe orfane 'Senza fornitore')."""
+    to_order = [it for it in group.items if not it.from_stock]
+    material = round(sum(it.cost for it in to_order), 2)
+    qty = sum(it.total_qty for it in to_order)
+    shipping = cutting = 0.0
+    if sup and to_order:
+        shipping = round(sup.shipping_cost or 0.0, 2)
+        cutting = round((sup.cutting_cost_per_part or 0.0) * qty, 2)
+    group.material_cost = material
+    group.shipping_cost = shipping
+    group.cutting_cost = cutting
+    group.total_cost = round(material + shipping + cutting, 2)
+
+
 def aggregate_materials(quote_ids: List[int], db: Session,
                         request_ids: Optional[List[int]] = None) -> MaterialAggregateOut:
     """Aggrega i materiali grezzi da preventivi + richieste materiale manuali.
@@ -194,6 +228,7 @@ def aggregate_materials(quote_ids: List[int], db: Session,
         'dim_str': '',
         'total_qty': 0,
         'total_weight_kg': 0.0,
+        'total_cost': 0.0,
         'supplier_id': None,
         'supplier_name': '',
         'from_stock': False,
@@ -228,6 +263,8 @@ def aggregate_materials(quote_ids: List[int], db: Session,
         slot['from_stock'] = bool(p.material_from_stock)
         slot['total_qty'] += (p.quantity or 1)
         slot['total_weight_kg'] += _estimate_weight_kg(p)
+        # Costo grezzo per pezzo (già persistito dal cost engine) × qty.
+        slot['total_cost'] += (p.material_cost or 0.0) * (p.quantity or 1)
         if p.quote:
             slot['quote_refs'][p.quote.quote_number] += (p.quantity or 1)
 
@@ -249,6 +286,7 @@ def aggregate_materials(quote_ids: List[int], db: Session,
             dim_str=slot['dim_str'],
             total_qty=slot['total_qty'],
             total_weight_kg=round(slot['total_weight_kg'], 3),
+            cost=round(slot['total_cost'], 2),
             quote_refs=refs,
             from_stock=slot['from_stock'],
             shape=slot.get('shape', 'prismatico'),
@@ -288,10 +326,13 @@ def aggregate_materials(quote_ids: List[int], db: Session,
                 'length_mm': it.length_mm,
                 'total_qty': 0,
                 'total_weight_kg': 0.0,
+                'total_cost': 0.0,
                 'refs': defaultdict(int),
             })
             slot['total_qty'] += (it.quantity or 1)
-            slot['total_weight_kg'] += _request_item_weight_kg(it, mat_map.get(it.material_id))
+            _kg, _cost = material_item_weight_cost(it, mat_map.get(it.material_id))
+            slot['total_weight_kg'] += _kg
+            slot['total_cost'] += _cost
             slot['refs'][ref] += (it.quantity or 1)
         for slot in raggr.values():
             sup_id = slot['supplier_id']
@@ -307,6 +348,7 @@ def aggregate_materials(quote_ids: List[int], db: Session,
                 dim_str=slot['dim_str'],
                 total_qty=slot['total_qty'],
                 total_weight_kg=round(slot['total_weight_kg'], 3),
+                cost=round(slot['total_cost'], 2),
                 quote_refs=refs,
                 from_stock=False,
                 shape=slot.get('shape', 'prismatico'),
@@ -318,6 +360,15 @@ def aggregate_materials(quote_ids: List[int], db: Session,
     for g in by_supplier.values():
         g.items.sort(key=lambda i: (i.material_name, i.dim_str))
     groups = sorted(by_supplier.values(), key=lambda g: (g.supplier_id is None, g.supplier_name))
+
+    # Totali SOLO-MATERIALE per fornitore (spedizione una volta + taglio × pezzi).
+    sup_ids = [g.supplier_id for g in groups if g.supplier_id is not None]
+    sup_map = (
+        {s.id: s for s in db.query(MaterialSupplier).filter(MaterialSupplier.id.in_(sup_ids)).all()}
+        if sup_ids else {}
+    )
+    for g in groups:
+        _apply_supplier_order_totals(g, sup_map.get(g.supplier_id) if g.supplier_id is not None else None)
 
     return MaterialAggregateOut(groups=groups)
 
@@ -645,6 +696,9 @@ def list_selectable_quotes(
     for r in results:
         ordered = ordered_map.get(r.id, set()) if r.status in wf.ORDERABLE_STATUSES else set()
         r.material_status = quote_material_status(r.parts, ordered)
+        # Pagina Ordini materiali = solo materiale: costo grezzo da ordinare,
+        # non il prezzo di vendita del preventivo.
+        r.material_order_cost = _quote_material_cost(r)
     return results
 
 
@@ -816,6 +870,7 @@ def list_orders(
     query = db.query(MaterialOrder).options(
         joinedload(MaterialOrder.created_by),
         joinedload(MaterialOrder.quotes),
+        joinedload(MaterialOrder.items),
     )
 
     if q and q.strip():
@@ -1068,10 +1123,27 @@ def delete_order(
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 def _order_to_out(order: MaterialOrder, db: Session) -> MaterialOrderOut:
-    """Serializza MaterialOrder con conteggio + lista quote numbers."""
+    """Serializza MaterialOrder con conteggio + lista quote numbers + totali
+    SOLO-MATERIALE (grezzo delle righe snapshot + spedizione una volta + taglio ×
+    pezzi). Coerente con material_item_weight_cost usato riga per riga nel
+    dettaglio."""
     # quotes già caricato via relationship m2m
     quote_numbers = sorted([q.quote_number for q in order.quotes])
     cb = order.created_by
+    # Costo grezzo dalle righe snapshot (stesso helper del dettaglio /items).
+    mat_ids = {it.material_id for it in order.items if it.material_id}
+    mats = ({m.id: m for m in db.query(Material).filter(Material.id.in_(mat_ids)).all()}
+            if mat_ids else {})
+    material = round(sum(
+        material_item_weight_cost(it, mats.get(it.material_id))[1] for it in order.items
+    ), 2)
+    qty = sum((it.quantity or 1) for it in order.items)
+    shipping = cutting = 0.0
+    if order.material_supplier_id:
+        sup = db.get(MaterialSupplier, order.material_supplier_id)
+        if sup:
+            shipping = round(sup.shipping_cost or 0.0, 2)
+            cutting = round((sup.cutting_cost_per_part or 0.0) * qty, 2)
     return MaterialOrderOut(
         id=order.id,
         created_at=order.created_at,
@@ -1081,4 +1153,8 @@ def _order_to_out(order: MaterialOrder, db: Session) -> MaterialOrderOut:
         quote_numbers=quote_numbers,
         source=order.source or 'quotes',
         item_count=len(order.items),
+        material_cost=material,
+        shipping_cost=shipping,
+        cutting_cost=cutting,
+        total_cost=round(material + shipping + cutting, 2),
     )

@@ -259,6 +259,11 @@ export interface MaterialOrder {
   quote_numbers: string[]
   source?: string          // 'quotes' | 'file'
   item_count?: number      // righe (ordini da file)
+  // Totali SOLO materiale (grezzo + spedizione una volta + taglio × pezzi).
+  material_cost?: number
+  shipping_cost?: number
+  cutting_cost?: number
+  total_cost?: number
 }
 
 // Richiesta materiale manuale (gemello del preventivo per il materiale).
@@ -292,6 +297,7 @@ export interface MaterialRequest {
   items: MaterialRequestItem[]
   item_count: number
   open_count: number             // righe ancora da ordinare (non evase)
+  open_cost: number              // costo SOLO materiale delle righe aperte (no spedizione)
   supplier_names: string[]       // fornitori distinti delle righe aperte
 }
 
@@ -302,6 +308,7 @@ export interface MaterialItemAggregated {
   dim_str: string
   total_qty: number
   total_weight_kg: number
+  cost: number                   // costo SOLO materiale grezzo di questa riga (no spedizione)
   quote_refs: string[]
   from_stock?: boolean
   // TD-3: dimensioni strutturate per il consolidamento in barra dei tondi.
@@ -327,6 +334,11 @@ export interface MaterialAggregateBySupplier {
   supplier_id: number | null
   supplier_name: string
   items: MaterialItemAggregated[]
+  // Totali SOLO materiale dell'ordine per fornitore (spedizione una volta + taglio).
+  material_cost: number
+  shipping_cost: number
+  cutting_cost: number
+  total_cost: number
 }
 
 export interface MaterialAggregateResult {
@@ -489,6 +501,8 @@ export interface QuoteListItem {
   // Spec 18: stato materiale derivato (solo lista archivio).
   material_status?: string | null
   has_files?: boolean            // ha almeno un allegato (DXF/PDF/STEP…) → icona occhio in lista
+  // Costo SOLO materiale da ordinare del preventivo (pagina Ordini materiali).
+  material_order_cost?: number | null
   parts: { total_price?: number }[]
   // Consuntivo commessa (spec G): prezzo venduto al cliente + costo reale.
   // Compilabili solo su status='completo'. Mostrati/editabili in Archivio.

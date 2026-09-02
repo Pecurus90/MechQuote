@@ -829,11 +829,6 @@ export interface StatsCountPoint {
   count: number
 }
 
-export interface StatsSupplierRow {
-  supplier_name: string
-  count: number
-}
-
 export interface StatsLeadTimePoint {
   month: string
   avg_days: number
@@ -861,7 +856,6 @@ export interface MaterialsStats {
   total_shipping: number
   orders_count: number
   trend_monthly: StatsCountPoint[]
-  top_suppliers: StatsSupplierRow[]
   lead_time_avg_days: number
   lead_time_monthly: StatsLeadTimePoint[]
   by_supplier: StatsMaterialSupplierRow[]
@@ -891,7 +885,6 @@ export interface ToolsStats {
   distinct_tools: number
   low_stock_total: number
   trend_monthly: StatsCountPoint[]
-  top_suppliers: StatsSupplierRow[]
   top_tools: StatsToolRow[]
   by_type: StatsToolTypeRow[]
   low_stock_by_brand: StatsToolBrandRow[]

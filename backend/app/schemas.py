@@ -915,11 +915,6 @@ class StatsCountPoint(BaseModel):
     count: int
 
 
-class StatsSupplierRow(BaseModel):
-    supplier_name: str
-    count: int
-
-
 class StatsLeadTimePoint(BaseModel):
     month: str
     avg_days: float
@@ -949,7 +944,6 @@ class MaterialsStatsOut(BaseModel):
     total_shipping: float = 0.0                     # € spedizioni (una per ordine/fornitore)
     orders_count: int = 0
     trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
-    top_suppliers: List[StatsSupplierRow]           # top 10 fornitori materiale
     lead_time_avg_days: float                       # media periodo
     lead_time_monthly: List[StatsLeadTimePoint]     # trend per mese
     by_supplier: List[StatsMaterialSupplierRow] = []
@@ -982,7 +976,6 @@ class ToolsStatsOut(BaseModel):
     distinct_tools: int = 0                         # utensili distinti ordinati
     low_stock_total: int = 0                        # utensili sotto scorta (attuale)
     trend_monthly: List[StatsCountPoint]            # n. ordini emessi per mese
-    top_suppliers: List[StatsSupplierRow]           # top 10 fornitori utensili
     top_tools: List[StatsToolRow]                   # top 10 utensili più ordinati
     by_type: List[StatsToolTypeRow] = []            # quantità per tipo utensile
     low_stock_by_brand: List[StatsToolBrandRow] = []  # sotto scorta per marca

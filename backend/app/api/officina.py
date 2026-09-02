@@ -98,20 +98,6 @@ def list_documents(
     return query.order_by(OfficinaDocument.uploaded_at.desc()).limit(500).all()
 
 
-@router.get("/categories", response_model=List[str])
-def list_categories(db: Session = Depends(get_db), _=_can_read):
-    """Categorie distinte usate dai documenti, per popolare il dropdown.
-
-    Categoria libera (l'utente può digitarne una nuova): questo endpoint
-    restituisce solo le categorie già usate per autocompletamento.
-    """
-    rows = db.query(OfficinaDocument.category).filter(
-        OfficinaDocument.category.isnot(None),
-        OfficinaDocument.category != '',
-    ).distinct().all()
-    return sorted({r[0] for r in rows if r[0]})
-
-
 @router.post("/documents", response_model=OfficinaDocumentOut)
 def upload_document(
     title: str = Form(..., min_length=1, max_length=200),
